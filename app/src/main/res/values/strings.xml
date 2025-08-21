@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Smart Expense Manager</string>
+    
+    <!-- Navigation -->
+    <string name="nav_dashboard">Dashboard</string>
+    <string name="nav_insights">AI Insights</string>
+    <string name="nav_messages">Messages</string>
+    <string name="nav_categories">Categories</string>
+    <string name="nav_profile">Profile</string>
+    
+    <!-- Dashboard -->
+    <string name="total_balance">Total Balance</string>
+    <string name="this_month">This Month</string>
+    <string name="total_spent">Total Spent</string>
+    <string name="transactions">Transactions</string>
+    <string name="top_categories">Top Categories</string>
+    <string name="top_merchants">Top Merchants</string>
+    <string name="weekly_trend">Weekly Trend</string>
+    <string name="monthly_comparison">Monthly Comparison</string>
+    <string name="view_insights">View AI Insights</string>
+    
+    <!-- AI Insights -->
+    <string name="spending_forecast">Spending Forecast</string>
+    <string name="pattern_alerts">Pattern Alerts</string>
+    <string name="budget_optimization">Budget Optimization</string>
+    <string name="savings_opportunities">Savings Opportunities</string>
+    
+    <!-- Messages -->
+    <string name="recent_transactions">Recent Transactions</string>
+    <string name="auto_categorized">Auto-categorized</string>
+    <string name="confidence">Confidence</string>
+    
+    <!-- Categories -->
+    <string name="food_dining">Food &amp; Dining</string>
+    <string name="transportation">Transportation</string>
+    <string name="healthcare">Healthcare</string>
+    <string name="groceries">Groceries</string>
+    <string name="entertainment">Entertainment</string>
+    <string name="shopping">Shopping</string>
+    <string name="utilities">Utilities</string>
+    <string name="other">Other</string>
+    
+    <!-- Permissions -->
+    <string name="permission_sms_title">SMS Permissions Required</string>
+    <string name="permission_sms_message">Smart Expense Manager needs SMS permissions to automatically read and categorize your bank transaction messages. This helps you track expenses without manual entry.\n\nYour SMS data stays private and is only processed locally on your device.</string>
+    <string name="permission_granted_title">Permissions Granted! 🎉</string>
+    <string name="permission_granted_message">Great! Smart Expense Manager can now automatically track your bank transactions from SMS messages. You\'ll see them appear in the Messages tab.</string>
+    <string name="permission_denied_title">Limited Functionality</string>
+    <string name="permission_denied_message">Without SMS permissions, you\'ll need to manually add expenses using the Quick Add button. You can grant permissions later in Settings > Apps > Smart Expense Manager > Permissions.</string>
+    
+    <!-- Common -->
+    <string name="currency_symbol">₹</string>
+    <string name="loading">Loading...</string>
+    <string name="no_data">No data available</string>
+    <string name="grant_permissions">Grant Permissions</string>
+    <string name="not_now">Not Now</string>
+    <string name="get_started">Get Started</string>
+    <string name="i_understand">I Understand</string>
+    <string name="try_again">Try Again</string>
+</resources>

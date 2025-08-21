@@ -1,0 +1,3 @@
+com.expensemanager.app.test
+style WhiteBackgroundDialogTheme
+style WhiteBackgroundTheme

@@ -1,0 +1,86 @@
+[
+    {
+        "merged": "com.expensemanager.app-mergeReleaseResources-48:/layout/fragment_categories.xml",
+        "source": "com.expensemanager.app-main-50:/layout/fragment_categories.xml"
+    },
+    {
+        "merged": "com.expensemanager.app-mergeReleaseResources-48:/layout/item_merchant_group.xml",
+        "source": "com.expensemanager.app-main-50:/layout/item_merchant_group.xml"
+    },
+    {
+        "merged": "com.expensemanager.app-mergeReleaseResources-48:/layout/item_category_budget.xml",
+        "source": "com.expensemanager.app-main-50:/layout/item_category_budget.xml"
+    },
+    {
+        "merged": "com.expensemanager.app-mergeReleaseResources-48:/layout/fragment_settings.xml",
+        "source": "com.expensemanager.app-main-50:/layout/fragment_settings.xml"
+    },
+    {
+        "merged": "com.expensemanager.app-mergeReleaseResources-48:/layout/fragment_profile.xml",
+        "source": "com.expensemanager.app-main-50:/layout/fragment_profile.xml"
+    },
+    {
+        "merged": "com.expensemanager.app-mergeReleaseResources-48:/layout/fragment_notifications.xml",
+        "source": "com.expensemanager.app-main-50:/layout/fragment_notifications.xml"
+    },
+    {
+        "merged": "com.expensemanager.app-mergeReleaseResources-48:/layout/fragment_dashboard.xml",
+        "source": "com.expensemanager.app-main-50:/layout/fragment_dashboard.xml"
+    },
+    {
+        "merged": "com.expensemanager.app-mergeReleaseResources-48:/layout/item_top_merchant.xml",
+        "source": "com.expensemanager.app-main-50:/layout/item_top_merchant.xml"
+    },
+    {
+        "merged": "com.expensemanager.app-mergeReleaseResources-48:/layout/dialog_edit_budget.xml",
+        "source": "com.expensemanager.app-main-50:/layout/dialog_edit_budget.xml"
+    },
+    {
+        "merged": "com.expensemanager.app-mergeReleaseResources-48:/layout/fragment_transaction_details.xml",
+        "source": "com.expensemanager.app-main-50:/layout/fragment_transaction_details.xml"
+    },
+    {
+        "merged": "com.expensemanager.app-mergeReleaseResources-48:/layout/item_message.xml",
+        "source": "com.expensemanager.app-main-50:/layout/item_message.xml"
+    },
+    {
+        "merged": "com.expensemanager.app-mergeReleaseResources-48:/layout/fragment_insights.xml",
+        "source": "com.expensemanager.app-main-50:/layout/fragment_insights.xml"
+    },
+    {
+        "merged": "com.expensemanager.app-mergeReleaseResources-48:/layout/item_category.xml",
+        "source": "com.expensemanager.app-main-50:/layout/item_category.xml"
+    },
+    {
+        "merged": "com.expensemanager.app-mergeReleaseResources-48:/layout/dialog_edit_merchant_group.xml",
+        "source": "com.expensemanager.app-main-50:/layout/dialog_edit_merchant_group.xml"
+    },
+    {
+        "merged": "com.expensemanager.app-mergeReleaseResources-48:/layout/fragment_category_transactions.xml",
+        "source": "com.expensemanager.app-main-50:/layout/fragment_category_transactions.xml"
+    },
+    {
+        "merged": "com.expensemanager.app-mergeReleaseResources-48:/layout/activity_main.xml",
+        "source": "com.expensemanager.app-main-50:/layout/activity_main.xml"
+    },
+    {
+        "merged": "com.expensemanager.app-mergeReleaseResources-48:/layout/fragment_messages.xml",
+        "source": "com.expensemanager.app-main-50:/layout/fragment_messages.xml"
+    },
+    {
+        "merged": "com.expensemanager.app-mergeReleaseResources-48:/layout/dialog_add_category.xml",
+        "source": "com.expensemanager.app-main-50:/layout/dialog_add_category.xml"
+    },
+    {
+        "merged": "com.expensemanager.app-mergeReleaseResources-48:/layout/fragment_export_data.xml",
+        "source": "com.expensemanager.app-main-50:/layout/fragment_export_data.xml"
+    },
+    {
+        "merged": "com.expensemanager.app-mergeReleaseResources-48:/layout/dialog_quick_add_expense.xml",
+        "source": "com.expensemanager.app-main-50:/layout/dialog_quick_add_expense.xml"
+    },
+    {
+        "merged": "com.expensemanager.app-mergeReleaseResources-48:/layout/fragment_budget_goals.xml",
+        "source": "com.expensemanager.app-main-50:/layout/fragment_budget_goals.xml"
+    }
+]

@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    style="@style/CardStyle"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginVertical="4dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- Header Row -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="8dp">
+
+            <!-- Amount -->
+            <TextView
+                android:id="@+id/tv_amount"
+                style="@style/AmountTextStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="₹1,250"
+                android:textColor="@color/error" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1" />
+
+            <!-- Date & Time -->
+            <TextView
+                android:id="@+id/tv_date_time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Today, 2:30 PM"
+                android:textSize="12sp"
+                android:textColor="@color/text_secondary" />
+
+        </LinearLayout>
+
+        <!-- Merchant & Bank Row -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:id="@+id/tv_merchant"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Swiggy"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_primary" />
+
+            <TextView
+                android:id="@+id/tv_bank"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="HDFC Bank"
+                android:textSize="12sp"
+                android:textColor="@color/text_secondary"
+                android:background="@drawable/bank_tag_background"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="2dp" />
+
+        </LinearLayout>
+
+        <!-- Category & Confidence Row -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <!-- Category Chip -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:background="@drawable/category_chip_background"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="4dp"
+                android:gravity="center_vertical">
+
+                <View
+                    android:id="@+id/view_category_color"
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:background="@color/category_food"
+                    android:layout_marginEnd="6dp" />
+
+                <TextView
+                    android:id="@+id/tv_category"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Food &amp; Dining"
+                    android:textSize="12sp"
+                    android:textColor="@color/text_primary" />
+
+            </LinearLayout>
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1" />
+
+            <!-- Confidence Score -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/confidence"
+                    android:textSize="10sp"
+                    android:textColor="@color/text_secondary"
+                    android:layout_marginEnd="4dp" />
+
+                <TextView
+                    android:id="@+id/tv_confidence"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="98%"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/success" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- Raw SMS Preview (collapsible) -->
+        <LinearLayout
+            android:id="@+id/layout_sms_preview"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="8dp"
+            android:visibility="gone">
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/text_hint"
+                android:layout_marginVertical="8dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Original SMS:"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_secondary"
+                android:layout_marginBottom="4dp" />
+
+            <TextView
+                android:id="@+id/tv_raw_sms"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="INR 1,250.00 debited from A/c **1234 on 19-Aug-25 at Swiggy. Avl Bal: INR 45,280.00"
+                android:textSize="11sp"
+                android:textColor="@color/text_secondary"
+                android:background="@color/background"
+                android:padding="8dp"
+                android:fontFamily="monospace" />
+
+        </LinearLayout>
+
+        <!-- Expand/Collapse Button -->
+        <TextView
+            android:id="@+id/tv_expand_collapse"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end"
+            android:layout_marginTop="4dp"
+            android:text="View SMS ↓"
+            android:textSize="10sp"
+            android:textColor="@color/primary"
+            android:textStyle="bold"
+            android:padding="4dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?android:attr/selectableItemBackground" />
+
+    </LinearLayout>
+
+</com.google.android.material.card.MaterialCardView>
