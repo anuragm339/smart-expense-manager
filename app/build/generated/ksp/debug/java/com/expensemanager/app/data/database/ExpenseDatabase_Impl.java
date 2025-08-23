@@ -50,12 +50,12 @@ public final class ExpenseDatabase_Impl extends ExpenseDatabase {
 
   @Override
   protected SupportSQLiteOpenHelper createOpenHelper(DatabaseConfiguration configuration) {
-    final SupportSQLiteOpenHelper.Callback _openCallback = new RoomOpenHelper(configuration, new RoomOpenHelper.Delegate(1) {
+    final SupportSQLiteOpenHelper.Callback _openCallback = new RoomOpenHelper(configuration, new RoomOpenHelper.Delegate(2) {
       @Override
       public void createAllTables(SupportSQLiteDatabase _db) {
         _db.execSQL("CREATE TABLE IF NOT EXISTS `transactions` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `sms_id` TEXT NOT NULL, `amount` REAL NOT NULL, `raw_merchant` TEXT NOT NULL, `normalized_merchant` TEXT NOT NULL, `bank_name` TEXT NOT NULL, `transaction_date` INTEGER NOT NULL, `raw_sms_body` TEXT NOT NULL, `confidence_score` REAL NOT NULL, `is_debit` INTEGER NOT NULL, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL)");
         _db.execSQL("CREATE TABLE IF NOT EXISTS `categories` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `emoji` TEXT NOT NULL, `color` TEXT NOT NULL, `is_system` INTEGER NOT NULL, `display_order` INTEGER NOT NULL, `created_at` INTEGER NOT NULL)");
-        _db.execSQL("CREATE TABLE IF NOT EXISTS `merchants` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `normalized_name` TEXT NOT NULL, `display_name` TEXT NOT NULL, `category_id` INTEGER NOT NULL, `is_user_defined` INTEGER NOT NULL, `created_at` INTEGER NOT NULL, FOREIGN KEY(`category_id`) REFERENCES `categories`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )");
+        _db.execSQL("CREATE TABLE IF NOT EXISTS `merchants` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `normalized_name` TEXT NOT NULL, `display_name` TEXT NOT NULL, `category_id` INTEGER NOT NULL, `is_user_defined` INTEGER NOT NULL, `is_excluded_from_expense_tracking` INTEGER NOT NULL, `created_at` INTEGER NOT NULL, FOREIGN KEY(`category_id`) REFERENCES `categories`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )");
         _db.execSQL("CREATE INDEX IF NOT EXISTS `index_merchants_category_id` ON `merchants` (`category_id`)");
         _db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_merchants_normalized_name` ON `merchants` (`normalized_name`)");
         _db.execSQL("CREATE TABLE IF NOT EXISTS `merchant_aliases` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `merchant_id` INTEGER NOT NULL, `alias_pattern` TEXT NOT NULL, `confidence` INTEGER NOT NULL, FOREIGN KEY(`merchant_id`) REFERENCES `merchants`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )");
@@ -69,7 +69,7 @@ public final class ExpenseDatabase_Impl extends ExpenseDatabase {
         _db.execSQL("CREATE INDEX IF NOT EXISTS `index_category_spending_cache_category_id` ON `category_spending_cache` (`category_id`)");
         _db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_category_spending_cache_category_id_period_start_period_end` ON `category_spending_cache` (`category_id`, `period_start`, `period_end`)");
         _db.execSQL("CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)");
-        _db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '5dd2a7dd72a1b1fa84d3f0b01218d2ee')");
+        _db.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'bd0dd6203bb46a851ebcf335b2b4c52c')");
       }
 
       @Override
@@ -159,12 +159,13 @@ public final class ExpenseDatabase_Impl extends ExpenseDatabase {
                   + " Expected:\n" + _infoCategories + "\n"
                   + " Found:\n" + _existingCategories);
         }
-        final HashMap<String, TableInfo.Column> _columnsMerchants = new HashMap<String, TableInfo.Column>(6);
+        final HashMap<String, TableInfo.Column> _columnsMerchants = new HashMap<String, TableInfo.Column>(7);
         _columnsMerchants.put("id", new TableInfo.Column("id", "INTEGER", true, 1, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsMerchants.put("normalized_name", new TableInfo.Column("normalized_name", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsMerchants.put("display_name", new TableInfo.Column("display_name", "TEXT", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsMerchants.put("category_id", new TableInfo.Column("category_id", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsMerchants.put("is_user_defined", new TableInfo.Column("is_user_defined", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
+        _columnsMerchants.put("is_excluded_from_expense_tracking", new TableInfo.Column("is_excluded_from_expense_tracking", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         _columnsMerchants.put("created_at", new TableInfo.Column("created_at", "INTEGER", true, 0, null, TableInfo.CREATED_FROM_ENTITY));
         final HashSet<TableInfo.ForeignKey> _foreignKeysMerchants = new HashSet<TableInfo.ForeignKey>(1);
         _foreignKeysMerchants.add(new TableInfo.ForeignKey("categories", "CASCADE", "NO ACTION",Arrays.asList("category_id"), Arrays.asList("id")));
@@ -255,7 +256,7 @@ public final class ExpenseDatabase_Impl extends ExpenseDatabase {
         }
         return new RoomOpenHelper.ValidationResult(true, null);
       }
-    }, "5dd2a7dd72a1b1fa84d3f0b01218d2ee", "36307b0803c7e3d3760e0f553a20d7fb");
+    }, "bd0dd6203bb46a851ebcf335b2b4c52c", "8f0e69440995210ef231c0ae8aebae62");
     final SupportSQLiteOpenHelper.Configuration _sqliteConfig = SupportSQLiteOpenHelper.Configuration.builder(configuration.context)
         .name(configuration.name)
         .callback(_openCallback)

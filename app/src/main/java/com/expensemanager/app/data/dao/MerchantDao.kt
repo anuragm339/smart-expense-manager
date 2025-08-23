@@ -70,6 +70,16 @@ interface MerchantDao {
     
     @Query("DELETE FROM merchant_aliases WHERE id = :aliasId")
     suspend fun deleteAliasById(aliasId: Long)
+    
+    // Exclusion methods
+    @Query("SELECT * FROM merchants WHERE is_excluded_from_expense_tracking = 1")
+    suspend fun getExcludedMerchants(): List<MerchantEntity>
+    
+    @Query("UPDATE merchants SET is_excluded_from_expense_tracking = :isExcluded WHERE normalized_name = :normalizedName")
+    suspend fun updateMerchantExclusion(normalizedName: String, isExcluded: Boolean)
+    
+    @Query("UPDATE merchants SET is_excluded_from_expense_tracking = :isExcluded WHERE id = :merchantId")
+    suspend fun updateMerchantExclusionById(merchantId: Long, isExcluded: Boolean)
 }
 
 // Data classes for query results
@@ -79,6 +89,7 @@ data class MerchantWithCategory(
     val display_name: String,
     val category_id: Long,
     val is_user_defined: Boolean,
+    val is_excluded_from_expense_tracking: Boolean,
     val created_at: java.util.Date,
     val category_name: String,
     val category_color: String

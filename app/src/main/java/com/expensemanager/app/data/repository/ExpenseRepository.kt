@@ -181,6 +181,14 @@ class ExpenseRepository(private val context: Context) {
         merchantDao.updateMerchant(merchant)
     }
     
+    suspend fun updateMerchantExclusion(normalizedMerchantName: String, isExcluded: Boolean) {
+        merchantDao.updateMerchantExclusion(normalizedMerchantName, isExcluded)
+    }
+    
+    suspend fun getExcludedMerchants(): List<MerchantEntity> {
+        return merchantDao.getExcludedMerchants()
+    }
+    
     suspend fun findOrCreateMerchant(
         normalizedName: String,
         displayName: String,
@@ -422,34 +430,27 @@ class ExpenseRepository(private val context: Context) {
     // EXCLUSION FILTERING
     // =======================
     
-    private fun filterTransactionsByExclusions(transactions: List<TransactionEntity>): List<TransactionEntity> {
-        val prefs = context.getSharedPreferences("expense_calculations", android.content.Context.MODE_PRIVATE)
-        val inclusionStatesJson = prefs.getString("group_inclusion_states", null)
-        
-        if (inclusionStatesJson != null) {
-            try {
-                val inclusionStates = org.json.JSONObject(inclusionStatesJson)
-                return transactions.filter { transaction ->
-                    val displayMerchant = transaction.normalizedMerchant.replaceFirstChar { 
-                        if (it.isLowerCase()) it.titlecase() else it.toString() 
-                    }
-                    
-                    val isIncluded = if (inclusionStates.has(displayMerchant)) {
-                        inclusionStates.getBoolean(displayMerchant)
-                    } else {
-                        true // Default to included if not found
-                    }
-                    
-                    
-                    isIncluded
-                }
-            } catch (e: Exception) {
-                Log.w(TAG, "Error loading inclusion states", e)
+    private suspend fun filterTransactionsByExclusions(transactions: List<TransactionEntity>): List<TransactionEntity> {
+        return try {
+            // Get all excluded merchants from database
+            val excludedMerchants = merchantDao.getExcludedMerchants()
+            val excludedNormalizedNames = excludedMerchants.map { it.normalizedName }.toSet()
+            
+            Log.d(TAG, "🔍 Filtering ${transactions.size} transactions with ${excludedNormalizedNames.size} excluded merchants")
+            
+            // Filter out transactions from excluded merchants
+            val filteredTransactions = transactions.filter { transaction ->
+                val isExcluded = excludedNormalizedNames.contains(transaction.normalizedMerchant)
+                !isExcluded // Include transaction only if merchant is NOT excluded
             }
+            
+            Log.d(TAG, "✅ Filtered result: ${filteredTransactions.size}/${transactions.size} transactions included")
+            
+            filteredTransactions
+        } catch (e: Exception) {
+            Log.e(TAG, "Error filtering transactions by exclusions", e)
+            transactions // Return all transactions on error
         }
-        
-        // Return all transactions if no inclusion states found
-        return transactions
     }
     
     
@@ -463,69 +464,41 @@ class ExpenseRepository(private val context: Context) {
     }
 
     /**
-     * Debug helper to get current inclusion states
+     * Debug helper to get current exclusion states from database
      */
-    fun getInclusionStatesDebugInfo(): String {
-        val prefs = context.getSharedPreferences("expense_calculations", android.content.Context.MODE_PRIVATE)
-        val inclusionStatesJson = prefs.getString("group_inclusion_states", null)
-        
-        if (inclusionStatesJson != null) {
-            try {
-                val inclusionStates = org.json.JSONObject(inclusionStatesJson)
-                val keys = mutableListOf<String>()
-                inclusionStates.keys().forEach { key -> 
-                    val value = inclusionStates.getBoolean(key)
-                    keys.add("'$key': $value")
-                }
-                return "Inclusion states (${keys.size}): [${keys.joinToString(", ")}]"
-            } catch (e: Exception) {
-                return "Error parsing inclusion states: ${e.message}"
+    suspend fun getExclusionStatesDebugInfo(): String {
+        return try {
+            val excludedMerchants = getExcludedMerchants()
+            if (excludedMerchants.isNotEmpty()) {
+                val excludedNames = excludedMerchants.map { "'${it.displayName}': excluded" }
+                "Excluded merchants (${excludedNames.size}): [${excludedNames.joinToString(", ")}]"
+            } else {
+                "No merchants are excluded from expense tracking"
             }
-        } else {
-            return "No inclusion states found in SharedPreferences"
+        } catch (e: Exception) {
+            "Error loading exclusion states: ${e.message}"
         }
     }
 
-    private fun filterMerchantsByExclusions(merchants: List<com.expensemanager.app.data.dao.MerchantSpending>): List<com.expensemanager.app.data.dao.MerchantSpending> {
-        val prefs = context.getSharedPreferences("expense_calculations", android.content.Context.MODE_PRIVATE)
-        val inclusionStatesJson = prefs.getString("group_inclusion_states", null)
-        
-        Log.d(TAG, "🔍 filterMerchantsByExclusions: Checking ${merchants.size} merchants")
-        Log.d(TAG, "🔍 Inclusion states JSON: $inclusionStatesJson")
-        
-        if (inclusionStatesJson != null) {
-            try {
-                val inclusionStates = org.json.JSONObject(inclusionStatesJson)
-                val filteredMerchants = merchants.filter { merchant ->
-                    val displayMerchant = normalizeDisplayMerchantName(merchant.normalized_merchant)
-                    
-                    val isIncluded = if (inclusionStates.has(displayMerchant)) {
-                        inclusionStates.getBoolean(displayMerchant)
-                    } else {
-                        true // Default to included if not found
-                    }
-                    
-                    Log.d(TAG, "🔍 Merchant: '${merchant.normalized_merchant}' -> Display: '$displayMerchant' -> Included: $isIncluded")
-                    if (inclusionStates.has(displayMerchant)) {
-                        Log.d(TAG, "🔍   Found in preferences with state: ${inclusionStates.getBoolean(displayMerchant)}")
-                    } else {
-                        Log.d(TAG, "🔍   NOT found in preferences, defaulting to included")
-                    }
-                    
-                    isIncluded
-                }
-                
-                Log.d(TAG, "🔍 Filtered merchants: ${filteredMerchants.size}/${merchants.size}")
-                return filteredMerchants
-            } catch (e: Exception) {
-                Log.w(TAG, "Error filtering merchants", e)
+    private suspend fun filterMerchantsByExclusions(merchants: List<com.expensemanager.app.data.dao.MerchantSpending>): List<com.expensemanager.app.data.dao.MerchantSpending> {
+        return try {
+            val excludedMerchants = getExcludedMerchants()
+            val excludedNormalizedNames = excludedMerchants.map { it.normalizedName }.toSet()
+            
+            Log.d(TAG, "🔍 filterMerchantsByExclusions: Checking ${merchants.size} merchants")
+            Log.d(TAG, "🔍 Excluded merchants: ${excludedNormalizedNames.size}")
+            
+            val filteredMerchants = merchants.filter { merchant ->
+                val isExcluded = excludedNormalizedNames.contains(merchant.normalized_merchant)
+                !isExcluded // Include only if not excluded
             }
-        } else {
-            Log.d(TAG, "🔍 No inclusion states found in preferences, returning all merchants")
+            
+            Log.d(TAG, "🔍 Filtered merchants: ${filteredMerchants.size}/${merchants.size}")
+            filteredMerchants
+        } catch (e: Exception) {
+            Log.e(TAG, "Error filtering merchants by exclusions", e)
+            merchants // Return all merchants on error
         }
-        
-        // Return all merchants if no inclusion states found
-        return merchants
     }
     
     // =======================

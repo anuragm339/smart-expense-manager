@@ -35,6 +35,9 @@ data class MerchantEntity(
     @ColumnInfo(name = "is_user_defined")
     val isUserDefined: Boolean = false,
     
+    @ColumnInfo(name = "is_excluded_from_expense_tracking")
+    val isExcludedFromExpenseTracking: Boolean = false,
+    
     @ColumnInfo(name = "created_at")
     val createdAt: Date
 )

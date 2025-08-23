@@ -53,12 +53,16 @@ public final class MerchantDao_Impl implements MerchantDao {
 
   private final SharedSQLiteStatement __preparedStmtOfDeleteAliasById;
 
+  private final SharedSQLiteStatement __preparedStmtOfUpdateMerchantExclusion;
+
+  private final SharedSQLiteStatement __preparedStmtOfUpdateMerchantExclusionById;
+
   public MerchantDao_Impl(RoomDatabase __db) {
     this.__db = __db;
     this.__insertionAdapterOfMerchantEntity = new EntityInsertionAdapter<MerchantEntity>(__db) {
       @Override
       public String createQuery() {
-        return "INSERT OR IGNORE INTO `merchants` (`id`,`normalized_name`,`display_name`,`category_id`,`is_user_defined`,`created_at`) VALUES (nullif(?, 0),?,?,?,?,?)";
+        return "INSERT OR IGNORE INTO `merchants` (`id`,`normalized_name`,`display_name`,`category_id`,`is_user_defined`,`is_excluded_from_expense_tracking`,`created_at`) VALUES (nullif(?, 0),?,?,?,?,?,?)";
       }
 
       @Override
@@ -77,11 +81,13 @@ public final class MerchantDao_Impl implements MerchantDao {
         stmt.bindLong(4, value.getCategoryId());
         final int _tmp = value.isUserDefined() ? 1 : 0;
         stmt.bindLong(5, _tmp);
-        final Long _tmp_1 = __dateConverter.dateToTimestamp(value.getCreatedAt());
-        if (_tmp_1 == null) {
-          stmt.bindNull(6);
+        final int _tmp_1 = value.isExcludedFromExpenseTracking() ? 1 : 0;
+        stmt.bindLong(6, _tmp_1);
+        final Long _tmp_2 = __dateConverter.dateToTimestamp(value.getCreatedAt());
+        if (_tmp_2 == null) {
+          stmt.bindNull(7);
         } else {
-          stmt.bindLong(6, _tmp_1);
+          stmt.bindLong(7, _tmp_2);
         }
       }
     };
@@ -128,7 +134,7 @@ public final class MerchantDao_Impl implements MerchantDao {
     this.__updateAdapterOfMerchantEntity = new EntityDeletionOrUpdateAdapter<MerchantEntity>(__db) {
       @Override
       public String createQuery() {
-        return "UPDATE OR ABORT `merchants` SET `id` = ?,`normalized_name` = ?,`display_name` = ?,`category_id` = ?,`is_user_defined` = ?,`created_at` = ? WHERE `id` = ?";
+        return "UPDATE OR ABORT `merchants` SET `id` = ?,`normalized_name` = ?,`display_name` = ?,`category_id` = ?,`is_user_defined` = ?,`is_excluded_from_expense_tracking` = ?,`created_at` = ? WHERE `id` = ?";
       }
 
       @Override
@@ -147,13 +153,15 @@ public final class MerchantDao_Impl implements MerchantDao {
         stmt.bindLong(4, value.getCategoryId());
         final int _tmp = value.isUserDefined() ? 1 : 0;
         stmt.bindLong(5, _tmp);
-        final Long _tmp_1 = __dateConverter.dateToTimestamp(value.getCreatedAt());
-        if (_tmp_1 == null) {
-          stmt.bindNull(6);
+        final int _tmp_1 = value.isExcludedFromExpenseTracking() ? 1 : 0;
+        stmt.bindLong(6, _tmp_1);
+        final Long _tmp_2 = __dateConverter.dateToTimestamp(value.getCreatedAt());
+        if (_tmp_2 == null) {
+          stmt.bindNull(7);
         } else {
-          stmt.bindLong(6, _tmp_1);
+          stmt.bindLong(7, _tmp_2);
         }
-        stmt.bindLong(7, value.getId());
+        stmt.bindLong(8, value.getId());
       }
     };
     this.__preparedStmtOfDeleteMerchantById = new SharedSQLiteStatement(__db) {
@@ -167,6 +175,20 @@ public final class MerchantDao_Impl implements MerchantDao {
       @Override
       public String createQuery() {
         final String _query = "DELETE FROM merchant_aliases WHERE id = ?";
+        return _query;
+      }
+    };
+    this.__preparedStmtOfUpdateMerchantExclusion = new SharedSQLiteStatement(__db) {
+      @Override
+      public String createQuery() {
+        final String _query = "UPDATE merchants SET is_excluded_from_expense_tracking = ? WHERE normalized_name = ?";
+        return _query;
+      }
+    };
+    this.__preparedStmtOfUpdateMerchantExclusionById = new SharedSQLiteStatement(__db) {
+      @Override
+      public String createQuery() {
+        final String _query = "UPDATE merchants SET is_excluded_from_expense_tracking = ? WHERE id = ?";
         return _query;
       }
     };
@@ -342,6 +364,60 @@ public final class MerchantDao_Impl implements MerchantDao {
   }
 
   @Override
+  public Object updateMerchantExclusion(final String normalizedName, final boolean isExcluded,
+      final Continuation<? super Unit> continuation) {
+    return CoroutinesRoom.execute(__db, true, new Callable<Unit>() {
+      @Override
+      public Unit call() throws Exception {
+        final SupportSQLiteStatement _stmt = __preparedStmtOfUpdateMerchantExclusion.acquire();
+        int _argIndex = 1;
+        final int _tmp = isExcluded ? 1 : 0;
+        _stmt.bindLong(_argIndex, _tmp);
+        _argIndex = 2;
+        if (normalizedName == null) {
+          _stmt.bindNull(_argIndex);
+        } else {
+          _stmt.bindString(_argIndex, normalizedName);
+        }
+        __db.beginTransaction();
+        try {
+          _stmt.executeUpdateDelete();
+          __db.setTransactionSuccessful();
+          return Unit.INSTANCE;
+        } finally {
+          __db.endTransaction();
+          __preparedStmtOfUpdateMerchantExclusion.release(_stmt);
+        }
+      }
+    }, continuation);
+  }
+
+  @Override
+  public Object updateMerchantExclusionById(final long merchantId, final boolean isExcluded,
+      final Continuation<? super Unit> continuation) {
+    return CoroutinesRoom.execute(__db, true, new Callable<Unit>() {
+      @Override
+      public Unit call() throws Exception {
+        final SupportSQLiteStatement _stmt = __preparedStmtOfUpdateMerchantExclusionById.acquire();
+        int _argIndex = 1;
+        final int _tmp = isExcluded ? 1 : 0;
+        _stmt.bindLong(_argIndex, _tmp);
+        _argIndex = 2;
+        _stmt.bindLong(_argIndex, merchantId);
+        __db.beginTransaction();
+        try {
+          _stmt.executeUpdateDelete();
+          __db.setTransactionSuccessful();
+          return Unit.INSTANCE;
+        } finally {
+          __db.endTransaction();
+          __preparedStmtOfUpdateMerchantExclusionById.release(_stmt);
+        }
+      }
+    }, continuation);
+  }
+
+  @Override
   public Flow<List<MerchantEntity>> getAllMerchants() {
     final String _sql = "SELECT * FROM merchants ORDER BY display_name ASC";
     final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 0);
@@ -355,6 +431,7 @@ public final class MerchantDao_Impl implements MerchantDao {
           final int _cursorIndexOfDisplayName = CursorUtil.getColumnIndexOrThrow(_cursor, "display_name");
           final int _cursorIndexOfCategoryId = CursorUtil.getColumnIndexOrThrow(_cursor, "category_id");
           final int _cursorIndexOfIsUserDefined = CursorUtil.getColumnIndexOrThrow(_cursor, "is_user_defined");
+          final int _cursorIndexOfIsExcludedFromExpenseTracking = CursorUtil.getColumnIndexOrThrow(_cursor, "is_excluded_from_expense_tracking");
           final int _cursorIndexOfCreatedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "created_at");
           final List<MerchantEntity> _result = new ArrayList<MerchantEntity>(_cursor.getCount());
           while(_cursor.moveToNext()) {
@@ -379,20 +456,24 @@ public final class MerchantDao_Impl implements MerchantDao {
             final int _tmp;
             _tmp = _cursor.getInt(_cursorIndexOfIsUserDefined);
             _tmpIsUserDefined = _tmp != 0;
+            final boolean _tmpIsExcludedFromExpenseTracking;
+            final int _tmp_1;
+            _tmp_1 = _cursor.getInt(_cursorIndexOfIsExcludedFromExpenseTracking);
+            _tmpIsExcludedFromExpenseTracking = _tmp_1 != 0;
             final Date _tmpCreatedAt;
-            final Long _tmp_1;
+            final Long _tmp_2;
             if (_cursor.isNull(_cursorIndexOfCreatedAt)) {
-              _tmp_1 = null;
+              _tmp_2 = null;
             } else {
-              _tmp_1 = _cursor.getLong(_cursorIndexOfCreatedAt);
+              _tmp_2 = _cursor.getLong(_cursorIndexOfCreatedAt);
             }
-            final Date _tmp_2 = __dateConverter.fromTimestamp(_tmp_1);
-            if(_tmp_2 == null) {
+            final Date _tmp_3 = __dateConverter.fromTimestamp(_tmp_2);
+            if(_tmp_3 == null) {
               throw new IllegalStateException("Expected non-null java.util.Date, but it was null.");
             } else {
-              _tmpCreatedAt = _tmp_2;
+              _tmpCreatedAt = _tmp_3;
             }
-            _item = new MerchantEntity(_tmpId,_tmpNormalizedName,_tmpDisplayName,_tmpCategoryId,_tmpIsUserDefined,_tmpCreatedAt);
+            _item = new MerchantEntity(_tmpId,_tmpNormalizedName,_tmpDisplayName,_tmpCategoryId,_tmpIsUserDefined,_tmpIsExcludedFromExpenseTracking,_tmpCreatedAt);
             _result.add(_item);
           }
           return _result;
@@ -423,6 +504,7 @@ public final class MerchantDao_Impl implements MerchantDao {
           final int _cursorIndexOfDisplayName = CursorUtil.getColumnIndexOrThrow(_cursor, "display_name");
           final int _cursorIndexOfCategoryId = CursorUtil.getColumnIndexOrThrow(_cursor, "category_id");
           final int _cursorIndexOfIsUserDefined = CursorUtil.getColumnIndexOrThrow(_cursor, "is_user_defined");
+          final int _cursorIndexOfIsExcludedFromExpenseTracking = CursorUtil.getColumnIndexOrThrow(_cursor, "is_excluded_from_expense_tracking");
           final int _cursorIndexOfCreatedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "created_at");
           final List<MerchantEntity> _result = new ArrayList<MerchantEntity>(_cursor.getCount());
           while(_cursor.moveToNext()) {
@@ -447,20 +529,24 @@ public final class MerchantDao_Impl implements MerchantDao {
             final int _tmp;
             _tmp = _cursor.getInt(_cursorIndexOfIsUserDefined);
             _tmpIsUserDefined = _tmp != 0;
+            final boolean _tmpIsExcludedFromExpenseTracking;
+            final int _tmp_1;
+            _tmp_1 = _cursor.getInt(_cursorIndexOfIsExcludedFromExpenseTracking);
+            _tmpIsExcludedFromExpenseTracking = _tmp_1 != 0;
             final Date _tmpCreatedAt;
-            final Long _tmp_1;
+            final Long _tmp_2;
             if (_cursor.isNull(_cursorIndexOfCreatedAt)) {
-              _tmp_1 = null;
+              _tmp_2 = null;
             } else {
-              _tmp_1 = _cursor.getLong(_cursorIndexOfCreatedAt);
+              _tmp_2 = _cursor.getLong(_cursorIndexOfCreatedAt);
             }
-            final Date _tmp_2 = __dateConverter.fromTimestamp(_tmp_1);
-            if(_tmp_2 == null) {
+            final Date _tmp_3 = __dateConverter.fromTimestamp(_tmp_2);
+            if(_tmp_3 == null) {
               throw new IllegalStateException("Expected non-null java.util.Date, but it was null.");
             } else {
-              _tmpCreatedAt = _tmp_2;
+              _tmpCreatedAt = _tmp_3;
             }
-            _item = new MerchantEntity(_tmpId,_tmpNormalizedName,_tmpDisplayName,_tmpCategoryId,_tmpIsUserDefined,_tmpCreatedAt);
+            _item = new MerchantEntity(_tmpId,_tmpNormalizedName,_tmpDisplayName,_tmpCategoryId,_tmpIsUserDefined,_tmpIsExcludedFromExpenseTracking,_tmpCreatedAt);
             _result.add(_item);
           }
           return _result;
@@ -490,6 +576,7 @@ public final class MerchantDao_Impl implements MerchantDao {
           final int _cursorIndexOfDisplayName = CursorUtil.getColumnIndexOrThrow(_cursor, "display_name");
           final int _cursorIndexOfCategoryId = CursorUtil.getColumnIndexOrThrow(_cursor, "category_id");
           final int _cursorIndexOfIsUserDefined = CursorUtil.getColumnIndexOrThrow(_cursor, "is_user_defined");
+          final int _cursorIndexOfIsExcludedFromExpenseTracking = CursorUtil.getColumnIndexOrThrow(_cursor, "is_excluded_from_expense_tracking");
           final int _cursorIndexOfCreatedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "created_at");
           final MerchantEntity _result;
           if(_cursor.moveToFirst()) {
@@ -513,20 +600,24 @@ public final class MerchantDao_Impl implements MerchantDao {
             final int _tmp;
             _tmp = _cursor.getInt(_cursorIndexOfIsUserDefined);
             _tmpIsUserDefined = _tmp != 0;
+            final boolean _tmpIsExcludedFromExpenseTracking;
+            final int _tmp_1;
+            _tmp_1 = _cursor.getInt(_cursorIndexOfIsExcludedFromExpenseTracking);
+            _tmpIsExcludedFromExpenseTracking = _tmp_1 != 0;
             final Date _tmpCreatedAt;
-            final Long _tmp_1;
+            final Long _tmp_2;
             if (_cursor.isNull(_cursorIndexOfCreatedAt)) {
-              _tmp_1 = null;
+              _tmp_2 = null;
             } else {
-              _tmp_1 = _cursor.getLong(_cursorIndexOfCreatedAt);
+              _tmp_2 = _cursor.getLong(_cursorIndexOfCreatedAt);
             }
-            final Date _tmp_2 = __dateConverter.fromTimestamp(_tmp_1);
-            if(_tmp_2 == null) {
+            final Date _tmp_3 = __dateConverter.fromTimestamp(_tmp_2);
+            if(_tmp_3 == null) {
               throw new IllegalStateException("Expected non-null java.util.Date, but it was null.");
             } else {
-              _tmpCreatedAt = _tmp_2;
+              _tmpCreatedAt = _tmp_3;
             }
-            _result = new MerchantEntity(_tmpId,_tmpNormalizedName,_tmpDisplayName,_tmpCategoryId,_tmpIsUserDefined,_tmpCreatedAt);
+            _result = new MerchantEntity(_tmpId,_tmpNormalizedName,_tmpDisplayName,_tmpCategoryId,_tmpIsUserDefined,_tmpIsExcludedFromExpenseTracking,_tmpCreatedAt);
           } else {
             _result = null;
           }
@@ -561,6 +652,7 @@ public final class MerchantDao_Impl implements MerchantDao {
           final int _cursorIndexOfDisplayName = CursorUtil.getColumnIndexOrThrow(_cursor, "display_name");
           final int _cursorIndexOfCategoryId = CursorUtil.getColumnIndexOrThrow(_cursor, "category_id");
           final int _cursorIndexOfIsUserDefined = CursorUtil.getColumnIndexOrThrow(_cursor, "is_user_defined");
+          final int _cursorIndexOfIsExcludedFromExpenseTracking = CursorUtil.getColumnIndexOrThrow(_cursor, "is_excluded_from_expense_tracking");
           final int _cursorIndexOfCreatedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "created_at");
           final MerchantEntity _result;
           if(_cursor.moveToFirst()) {
@@ -584,20 +676,24 @@ public final class MerchantDao_Impl implements MerchantDao {
             final int _tmp;
             _tmp = _cursor.getInt(_cursorIndexOfIsUserDefined);
             _tmpIsUserDefined = _tmp != 0;
+            final boolean _tmpIsExcludedFromExpenseTracking;
+            final int _tmp_1;
+            _tmp_1 = _cursor.getInt(_cursorIndexOfIsExcludedFromExpenseTracking);
+            _tmpIsExcludedFromExpenseTracking = _tmp_1 != 0;
             final Date _tmpCreatedAt;
-            final Long _tmp_1;
+            final Long _tmp_2;
             if (_cursor.isNull(_cursorIndexOfCreatedAt)) {
-              _tmp_1 = null;
+              _tmp_2 = null;
             } else {
-              _tmp_1 = _cursor.getLong(_cursorIndexOfCreatedAt);
+              _tmp_2 = _cursor.getLong(_cursorIndexOfCreatedAt);
             }
-            final Date _tmp_2 = __dateConverter.fromTimestamp(_tmp_1);
-            if(_tmp_2 == null) {
+            final Date _tmp_3 = __dateConverter.fromTimestamp(_tmp_2);
+            if(_tmp_3 == null) {
               throw new IllegalStateException("Expected non-null java.util.Date, but it was null.");
             } else {
-              _tmpCreatedAt = _tmp_2;
+              _tmpCreatedAt = _tmp_3;
             }
-            _result = new MerchantEntity(_tmpId,_tmpNormalizedName,_tmpDisplayName,_tmpCategoryId,_tmpIsUserDefined,_tmpCreatedAt);
+            _result = new MerchantEntity(_tmpId,_tmpNormalizedName,_tmpDisplayName,_tmpCategoryId,_tmpIsUserDefined,_tmpIsExcludedFromExpenseTracking,_tmpCreatedAt);
           } else {
             _result = null;
           }
@@ -628,6 +724,7 @@ public final class MerchantDao_Impl implements MerchantDao {
           final int _cursorIndexOfDisplayName = CursorUtil.getColumnIndexOrThrow(_cursor, "display_name");
           final int _cursorIndexOfCategoryId = CursorUtil.getColumnIndexOrThrow(_cursor, "category_id");
           final int _cursorIndexOfIsUserDefined = CursorUtil.getColumnIndexOrThrow(_cursor, "is_user_defined");
+          final int _cursorIndexOfIsExcludedFromExpenseTracking = CursorUtil.getColumnIndexOrThrow(_cursor, "is_excluded_from_expense_tracking");
           final int _cursorIndexOfCreatedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "created_at");
           final List<MerchantEntity> _result = new ArrayList<MerchantEntity>(_cursor.getCount());
           while(_cursor.moveToNext()) {
@@ -652,20 +749,24 @@ public final class MerchantDao_Impl implements MerchantDao {
             final int _tmp;
             _tmp = _cursor.getInt(_cursorIndexOfIsUserDefined);
             _tmpIsUserDefined = _tmp != 0;
+            final boolean _tmpIsExcludedFromExpenseTracking;
+            final int _tmp_1;
+            _tmp_1 = _cursor.getInt(_cursorIndexOfIsExcludedFromExpenseTracking);
+            _tmpIsExcludedFromExpenseTracking = _tmp_1 != 0;
             final Date _tmpCreatedAt;
-            final Long _tmp_1;
+            final Long _tmp_2;
             if (_cursor.isNull(_cursorIndexOfCreatedAt)) {
-              _tmp_1 = null;
+              _tmp_2 = null;
             } else {
-              _tmp_1 = _cursor.getLong(_cursorIndexOfCreatedAt);
+              _tmp_2 = _cursor.getLong(_cursorIndexOfCreatedAt);
             }
-            final Date _tmp_2 = __dateConverter.fromTimestamp(_tmp_1);
-            if(_tmp_2 == null) {
+            final Date _tmp_3 = __dateConverter.fromTimestamp(_tmp_2);
+            if(_tmp_3 == null) {
               throw new IllegalStateException("Expected non-null java.util.Date, but it was null.");
             } else {
-              _tmpCreatedAt = _tmp_2;
+              _tmpCreatedAt = _tmp_3;
             }
-            _item = new MerchantEntity(_tmpId,_tmpNormalizedName,_tmpDisplayName,_tmpCategoryId,_tmpIsUserDefined,_tmpCreatedAt);
+            _item = new MerchantEntity(_tmpId,_tmpNormalizedName,_tmpDisplayName,_tmpCategoryId,_tmpIsUserDefined,_tmpIsExcludedFromExpenseTracking,_tmpCreatedAt);
             _result.add(_item);
           }
           return _result;
@@ -704,6 +805,7 @@ public final class MerchantDao_Impl implements MerchantDao {
           final int _cursorIndexOfDisplayName = CursorUtil.getColumnIndexOrThrow(_cursor, "display_name");
           final int _cursorIndexOfCategoryId = CursorUtil.getColumnIndexOrThrow(_cursor, "category_id");
           final int _cursorIndexOfIsUserDefined = CursorUtil.getColumnIndexOrThrow(_cursor, "is_user_defined");
+          final int _cursorIndexOfIsExcludedFromExpenseTracking = CursorUtil.getColumnIndexOrThrow(_cursor, "is_excluded_from_expense_tracking");
           final int _cursorIndexOfCreatedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "created_at");
           final int _cursorIndexOfCategoryName = CursorUtil.getColumnIndexOrThrow(_cursor, "category_name");
           final int _cursorIndexOfCategoryColor = CursorUtil.getColumnIndexOrThrow(_cursor, "category_color");
@@ -729,18 +831,22 @@ public final class MerchantDao_Impl implements MerchantDao {
             final int _tmp;
             _tmp = _cursor.getInt(_cursorIndexOfIsUserDefined);
             _tmpIs_user_defined = _tmp != 0;
+            final boolean _tmpIs_excluded_from_expense_tracking;
+            final int _tmp_1;
+            _tmp_1 = _cursor.getInt(_cursorIndexOfIsExcludedFromExpenseTracking);
+            _tmpIs_excluded_from_expense_tracking = _tmp_1 != 0;
             final Date _tmpCreated_at;
-            final Long _tmp_1;
+            final Long _tmp_2;
             if (_cursor.isNull(_cursorIndexOfCreatedAt)) {
-              _tmp_1 = null;
+              _tmp_2 = null;
             } else {
-              _tmp_1 = _cursor.getLong(_cursorIndexOfCreatedAt);
+              _tmp_2 = _cursor.getLong(_cursorIndexOfCreatedAt);
             }
-            final Date _tmp_2 = __dateConverter.fromTimestamp(_tmp_1);
-            if(_tmp_2 == null) {
+            final Date _tmp_3 = __dateConverter.fromTimestamp(_tmp_2);
+            if(_tmp_3 == null) {
               throw new IllegalStateException("Expected non-null java.util.Date, but it was null.");
             } else {
-              _tmpCreated_at = _tmp_2;
+              _tmpCreated_at = _tmp_3;
             }
             final String _tmpCategory_name;
             if (_cursor.isNull(_cursorIndexOfCategoryName)) {
@@ -754,7 +860,7 @@ public final class MerchantDao_Impl implements MerchantDao {
             } else {
               _tmpCategory_color = _cursor.getString(_cursorIndexOfCategoryColor);
             }
-            _result = new MerchantWithCategory(_tmpId,_tmpNormalized_name,_tmpDisplay_name,_tmpCategory_id,_tmpIs_user_defined,_tmpCreated_at,_tmpCategory_name,_tmpCategory_color);
+            _result = new MerchantWithCategory(_tmpId,_tmpNormalized_name,_tmpDisplay_name,_tmpCategory_id,_tmpIs_user_defined,_tmpIs_excluded_from_expense_tracking,_tmpCreated_at,_tmpCategory_name,_tmpCategory_color);
           } else {
             _result = null;
           }
@@ -864,6 +970,76 @@ public final class MerchantDao_Impl implements MerchantDao {
             final long _tmpCategory_id;
             _tmpCategory_id = _cursor.getLong(_cursorIndexOfCategoryId);
             _item = new MerchantAliasWithMerchant(_tmpId,_tmpMerchant_id,_tmpAlias_pattern,_tmpConfidence,_tmpDisplay_name,_tmpCategory_id);
+            _result.add(_item);
+          }
+          return _result;
+        } finally {
+          _cursor.close();
+          _statement.release();
+        }
+      }
+    }, continuation);
+  }
+
+  @Override
+  public Object getExcludedMerchants(
+      final Continuation<? super List<MerchantEntity>> continuation) {
+    final String _sql = "SELECT * FROM merchants WHERE is_excluded_from_expense_tracking = 1";
+    final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 0);
+    final CancellationSignal _cancellationSignal = DBUtil.createCancellationSignal();
+    return CoroutinesRoom.execute(__db, false, _cancellationSignal, new Callable<List<MerchantEntity>>() {
+      @Override
+      public List<MerchantEntity> call() throws Exception {
+        final Cursor _cursor = DBUtil.query(__db, _statement, false, null);
+        try {
+          final int _cursorIndexOfId = CursorUtil.getColumnIndexOrThrow(_cursor, "id");
+          final int _cursorIndexOfNormalizedName = CursorUtil.getColumnIndexOrThrow(_cursor, "normalized_name");
+          final int _cursorIndexOfDisplayName = CursorUtil.getColumnIndexOrThrow(_cursor, "display_name");
+          final int _cursorIndexOfCategoryId = CursorUtil.getColumnIndexOrThrow(_cursor, "category_id");
+          final int _cursorIndexOfIsUserDefined = CursorUtil.getColumnIndexOrThrow(_cursor, "is_user_defined");
+          final int _cursorIndexOfIsExcludedFromExpenseTracking = CursorUtil.getColumnIndexOrThrow(_cursor, "is_excluded_from_expense_tracking");
+          final int _cursorIndexOfCreatedAt = CursorUtil.getColumnIndexOrThrow(_cursor, "created_at");
+          final List<MerchantEntity> _result = new ArrayList<MerchantEntity>(_cursor.getCount());
+          while(_cursor.moveToNext()) {
+            final MerchantEntity _item;
+            final long _tmpId;
+            _tmpId = _cursor.getLong(_cursorIndexOfId);
+            final String _tmpNormalizedName;
+            if (_cursor.isNull(_cursorIndexOfNormalizedName)) {
+              _tmpNormalizedName = null;
+            } else {
+              _tmpNormalizedName = _cursor.getString(_cursorIndexOfNormalizedName);
+            }
+            final String _tmpDisplayName;
+            if (_cursor.isNull(_cursorIndexOfDisplayName)) {
+              _tmpDisplayName = null;
+            } else {
+              _tmpDisplayName = _cursor.getString(_cursorIndexOfDisplayName);
+            }
+            final long _tmpCategoryId;
+            _tmpCategoryId = _cursor.getLong(_cursorIndexOfCategoryId);
+            final boolean _tmpIsUserDefined;
+            final int _tmp;
+            _tmp = _cursor.getInt(_cursorIndexOfIsUserDefined);
+            _tmpIsUserDefined = _tmp != 0;
+            final boolean _tmpIsExcludedFromExpenseTracking;
+            final int _tmp_1;
+            _tmp_1 = _cursor.getInt(_cursorIndexOfIsExcludedFromExpenseTracking);
+            _tmpIsExcludedFromExpenseTracking = _tmp_1 != 0;
+            final Date _tmpCreatedAt;
+            final Long _tmp_2;
+            if (_cursor.isNull(_cursorIndexOfCreatedAt)) {
+              _tmp_2 = null;
+            } else {
+              _tmp_2 = _cursor.getLong(_cursorIndexOfCreatedAt);
+            }
+            final Date _tmp_3 = __dateConverter.fromTimestamp(_tmp_2);
+            if(_tmp_3 == null) {
+              throw new IllegalStateException("Expected non-null java.util.Date, but it was null.");
+            } else {
+              _tmpCreatedAt = _tmp_3;
+            }
+            _item = new MerchantEntity(_tmpId,_tmpNormalizedName,_tmpDisplayName,_tmpCategoryId,_tmpIsUserDefined,_tmpIsExcludedFromExpenseTracking,_tmpCreatedAt);
             _result.add(_item);
           }
           return _result;
