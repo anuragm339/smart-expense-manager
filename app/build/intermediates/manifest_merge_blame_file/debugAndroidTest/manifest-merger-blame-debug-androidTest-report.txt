@@ -3,24 +3,24 @@
 3    package="com.expensemanager.app.test" >
 4
 5    <uses-sdk
-5-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/build/intermediates/tmp/manifest/androidTest/debug/tempFile1ProcessTestManifest1017340599854650604.xml:5:5-74
+5-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/build/intermediates/tmp/manifest/androidTest/debug/tempFile1ProcessTestManifest12045106635548643021.xml:5:5-74
 6        android:minSdkVersion="21"
-6-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/build/intermediates/tmp/manifest/androidTest/debug/tempFile1ProcessTestManifest1017340599854650604.xml:5:15-41
+6-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/build/intermediates/tmp/manifest/androidTest/debug/tempFile1ProcessTestManifest12045106635548643021.xml:5:15-41
 7        android:targetSdkVersion="34" />
-7-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/build/intermediates/tmp/manifest/androidTest/debug/tempFile1ProcessTestManifest1017340599854650604.xml:5:42-71
+7-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/build/intermediates/tmp/manifest/androidTest/debug/tempFile1ProcessTestManifest12045106635548643021.xml:5:42-71
 8
 9    <instrumentation
-9-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/build/intermediates/tmp/manifest/androidTest/debug/tempFile1ProcessTestManifest1017340599854650604.xml:11:5-15:72
+9-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/build/intermediates/tmp/manifest/androidTest/debug/tempFile1ProcessTestManifest12045106635548643021.xml:11:5-15:72
 10        android:name="androidx.test.runner.AndroidJUnitRunner"
-10-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/build/intermediates/tmp/manifest/androidTest/debug/tempFile1ProcessTestManifest1017340599854650604.xml:11:22-76
+10-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/build/intermediates/tmp/manifest/androidTest/debug/tempFile1ProcessTestManifest12045106635548643021.xml:11:22-76
 11        android:functionalTest="false"
-11-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/build/intermediates/tmp/manifest/androidTest/debug/tempFile1ProcessTestManifest1017340599854650604.xml:14:22-52
+11-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/build/intermediates/tmp/manifest/androidTest/debug/tempFile1ProcessTestManifest12045106635548643021.xml:14:22-52
 12        android:handleProfiling="false"
-12-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/build/intermediates/tmp/manifest/androidTest/debug/tempFile1ProcessTestManifest1017340599854650604.xml:13:22-53
+12-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/build/intermediates/tmp/manifest/androidTest/debug/tempFile1ProcessTestManifest12045106635548643021.xml:13:22-53
 13        android:label="Tests for com.expensemanager.app"
-13-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/build/intermediates/tmp/manifest/androidTest/debug/tempFile1ProcessTestManifest1017340599854650604.xml:15:22-70
+13-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/build/intermediates/tmp/manifest/androidTest/debug/tempFile1ProcessTestManifest12045106635548643021.xml:15:22-70
 14        android:targetPackage="com.expensemanager.app" />
-14-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/build/intermediates/tmp/manifest/androidTest/debug/tempFile1ProcessTestManifest1017340599854650604.xml:12:22-68
+14-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/build/intermediates/tmp/manifest/androidTest/debug/tempFile1ProcessTestManifest12045106635548643021.xml:12:22-68
 15
 16    <uses-permission android:name="android.permission.REORDER_TASKS" />
 16-->[androidx.test:core:1.5.0] /Users/anuragmishra/.gradle/caches/transforms-4/b82cddc0bd40ad11806eef3aa59b997c/transformed/core-1.5.0/AndroidManifest.xml:24:5-72
@@ -40,12 +40,12 @@
 22    </queries>
 23
 24    <application
-24-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/build/intermediates/tmp/manifest/androidTest/debug/tempFile1ProcessTestManifest1017340599854650604.xml:7:5-9:19
+24-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/build/intermediates/tmp/manifest/androidTest/debug/tempFile1ProcessTestManifest12045106635548643021.xml:7:5-9:19
 25        android:debuggable="true"
 26        android:extractNativeLibs="true" >
 27        <uses-library android:name="android.test.runner" />
-27-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/build/intermediates/tmp/manifest/androidTest/debug/tempFile1ProcessTestManifest1017340599854650604.xml:8:9-60
-27-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/build/intermediates/tmp/manifest/androidTest/debug/tempFile1ProcessTestManifest1017340599854650604.xml:8:23-57
+27-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/build/intermediates/tmp/manifest/androidTest/debug/tempFile1ProcessTestManifest12045106635548643021.xml:8:9-60
+27-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/build/intermediates/tmp/manifest/androidTest/debug/tempFile1ProcessTestManifest12045106635548643021.xml:8:23-57
 28
 29        <activity
 29-->[androidx.test:core:1.5.0] /Users/anuragmishra/.gradle/caches/transforms-4/b82cddc0bd40ad11806eef3aa59b997c/transformed/core-1.5.0/AndroidManifest.xml:27:9-34:20

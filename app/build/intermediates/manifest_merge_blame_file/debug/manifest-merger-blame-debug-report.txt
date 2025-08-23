@@ -33,85 +33,86 @@
 20-->[androidx.core:core:1.12.0] /Users/anuragmishra/.gradle/caches/transforms-4/f368374aac6e219dea888ba954f9a563/transformed/core-1.12.0/AndroidManifest.xml:26:22-94
 21
 22    <application
-22-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:10:5-54:19
-23        android:allowBackup="true"
-23-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:11:9-35
-24        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
-24-->[androidx.core:core:1.12.0] /Users/anuragmishra/.gradle/caches/transforms-4/f368374aac6e219dea888ba954f9a563/transformed/core-1.12.0/AndroidManifest.xml:28:18-86
-25        android:dataExtractionRules="@xml/data_extraction_rules"
-25-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:12:9-65
-26        android:debuggable="true"
-27        android:extractNativeLibs="true"
-28        android:fullBackupContent="@xml/backup_rules"
-28-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:13:9-54
-29        android:icon="@drawable/ic_launcher_legacy"
-29-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:14:9-52
-30        android:label="@string/app_name"
-30-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:15:9-41
-31        android:testOnly="true"
+22-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:10:5-55:19
+23        android:name="com.expensemanager.app.ExpenseManagerApplication"
+23-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:11:9-50
+24        android:allowBackup="true"
+24-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:12:9-35
+25        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+25-->[androidx.core:core:1.12.0] /Users/anuragmishra/.gradle/caches/transforms-4/f368374aac6e219dea888ba954f9a563/transformed/core-1.12.0/AndroidManifest.xml:28:18-86
+26        android:dataExtractionRules="@xml/data_extraction_rules"
+26-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:13:9-65
+27        android:debuggable="true"
+28        android:extractNativeLibs="true"
+29        android:fullBackupContent="@xml/backup_rules"
+29-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:14:9-54
+30        android:icon="@drawable/ic_launcher_legacy"
+30-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:15:9-52
+31        android:label="@string/app_name"
+31-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:16:9-41
 32        android:theme="@style/Theme.ExpenseManager" >
-32-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:16:9-52
+32-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:17:9-52
 33        <activity
-33-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:19:9-27:20
+33-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:20:9-28:20
 34            android:name="com.expensemanager.app.MainActivity"
-34-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:20:13-41
+34-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:21:13-41
 35            android:exported="true"
-35-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:21:13-36
+35-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:22:13-36
 36            android:theme="@style/Theme.ExpenseManager" >
-36-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:22:13-56
+36-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:23:13-56
 37            <intent-filter>
-37-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:23:13-26:29
+37-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:24:13-27:29
 38                <action android:name="android.intent.action.MAIN" />
-38-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:24:17-69
-38-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:24:25-66
+38-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:25:17-69
+38-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:25:25-66
 39
 40                <category android:name="android.intent.category.LAUNCHER" />
-40-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:25:17-77
-40-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:25:27-74
+40-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:26:17-77
+40-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:26:27-74
 41            </intent-filter>
 42        </activity>
 43
 44        <receiver
-44-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:29:9-36:20
+44-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:30:9-37:20
 45            android:name="com.expensemanager.app.utils.SMSReceiver"
-45-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:30:13-46
+45-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:31:13-46
 46            android:enabled="true"
-46-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:31:13-35
+46-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:32:13-35
 47            android:exported="true" >
-47-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:32:13-36
+47-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:33:13-36
 48            <intent-filter android:priority="1000" >
-48-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:33:13-35:29
-48-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:33:28-51
+48-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:34:13-36:29
+48-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:34:28-51
 49                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
-49-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:34:17-82
-49-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:34:25-79
+49-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:35:17-82
+49-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:35:25-79
 50            </intent-filter>
 51        </receiver>
 52        <receiver
-52-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:38:9-42:20
+52-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:39:9-43:20
 53            android:name="com.expensemanager.app.notifications.TransactionNotificationReceiver"
-53-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:39:13-74
+53-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:40:13-74
 54            android:enabled="true"
-54-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:40:13-35
+54-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:41:13-35
 55            android:exported="false" >
-55-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:41:13-37
+55-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:42:13-37
 56        </receiver>
 57
 58        <provider
 59            android:name="androidx.core.content.FileProvider"
-59-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:45:13-62
+59-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:46:13-62
 60            android:authorities="com.expensemanager.app.provider"
-60-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:46:13-60
+60-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:47:13-60
 61            android:exported="false"
-61-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:47:13-37
+61-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:48:13-37
 62            android:grantUriPermissions="true" >
-62-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:48:13-47
+62-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:49:13-47
 63            <meta-data
-63-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:49:13-51:54
+63-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:50:13-52:54
 64                android:name="android.support.FILE_PROVIDER_PATHS"
-64-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:50:17-67
+64-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:51:17-67
 65                android:resource="@xml/file_paths" />
-65-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:51:17-51
+65-->/Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:52:17-51
 66        </provider>
 67
 68        <activity
@@ -162,43 +163,52 @@
 92            android:required="false" />
 92-->[androidx.window:window:1.0.0] /Users/anuragmishra/.gradle/caches/transforms-4/45e37d65629fdbffd9a2dc6598d595ff/transformed/window-1.0.0/AndroidManifest.xml:30:13-37
 93
-94        <receiver
-94-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:34:9-52:20
-95            android:name="androidx.profileinstaller.ProfileInstallReceiver"
-95-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:35:13-76
-96            android:directBootAware="false"
-96-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:36:13-44
-97            android:enabled="true"
-97-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:37:13-35
-98            android:exported="true"
-98-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:38:13-36
-99            android:permission="android.permission.DUMP" >
-99-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:39:13-57
-100            <intent-filter>
-100-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:40:13-42:29
-101                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
-101-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:41:17-91
-101-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:41:25-88
-102            </intent-filter>
-103            <intent-filter>
-103-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:43:13-45:29
-104                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
-104-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:44:17-85
-104-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:44:25-82
-105            </intent-filter>
-106            <intent-filter>
-106-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:46:13-48:29
-107                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
-107-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:47:17-88
-107-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:47:25-85
-108            </intent-filter>
-109            <intent-filter>
-109-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:49:13-51:29
-110                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
-110-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:50:17-95
-110-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:50:25-92
-111            </intent-filter>
-112        </receiver>
-113    </application>
-114
-115</manifest>
+94        <service
+94-->[androidx.room:room-runtime:2.5.0] /Users/anuragmishra/.gradle/caches/transforms-4/efc0a49aa2c0b718e69b317b1e88fda9/transformed/room-runtime-2.5.0/AndroidManifest.xml:24:9-28:63
+95            android:name="androidx.room.MultiInstanceInvalidationService"
+95-->[androidx.room:room-runtime:2.5.0] /Users/anuragmishra/.gradle/caches/transforms-4/efc0a49aa2c0b718e69b317b1e88fda9/transformed/room-runtime-2.5.0/AndroidManifest.xml:25:13-74
+96            android:directBootAware="true"
+96-->[androidx.room:room-runtime:2.5.0] /Users/anuragmishra/.gradle/caches/transforms-4/efc0a49aa2c0b718e69b317b1e88fda9/transformed/room-runtime-2.5.0/AndroidManifest.xml:26:13-43
+97            android:exported="false" />
+97-->[androidx.room:room-runtime:2.5.0] /Users/anuragmishra/.gradle/caches/transforms-4/efc0a49aa2c0b718e69b317b1e88fda9/transformed/room-runtime-2.5.0/AndroidManifest.xml:27:13-37
+98
+99        <receiver
+99-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:34:9-52:20
+100            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+100-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:35:13-76
+101            android:directBootAware="false"
+101-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:36:13-44
+102            android:enabled="true"
+102-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:37:13-35
+103            android:exported="true"
+103-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:38:13-36
+104            android:permission="android.permission.DUMP" >
+104-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:39:13-57
+105            <intent-filter>
+105-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:40:13-42:29
+106                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
+106-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:41:17-91
+106-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:41:25-88
+107            </intent-filter>
+108            <intent-filter>
+108-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:43:13-45:29
+109                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
+109-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:44:17-85
+109-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:44:25-82
+110            </intent-filter>
+111            <intent-filter>
+111-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:46:13-48:29
+112                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
+112-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:47:17-88
+112-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:47:25-85
+113            </intent-filter>
+114            <intent-filter>
+114-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:49:13-51:29
+115                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
+115-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:50:17-95
+115-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:50:25-92
+116            </intent-filter>
+117        </receiver>
+118    </application>
+119
+120</manifest>

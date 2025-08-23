@@ -18,7 +18,9 @@ data class MerchantGroup(
     val category: String,
     var isExpanded: Boolean = false,
     var isIncludedInCalculations: Boolean = true,
-    val latestTransactionDate: Long = 0L
+    val latestTransactionDate: Long = 0L,
+    val primaryBankName: String = "",
+    val averageConfidence: Double = 0.0
 )
 
 class GroupedMessagesAdapter(

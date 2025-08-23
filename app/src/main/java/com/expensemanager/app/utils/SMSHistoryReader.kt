@@ -27,11 +27,15 @@ data class ParsedTransaction(
     val confidence: Float
 )
 
-class SMSHistoryReader(private val context: Context) {
+class SMSHistoryReader(
+    private val context: Context,
+    private val progressCallback: ((current: Int, total: Int, status: String) -> Unit)? = null
+) {
     
     companion object {
         private const val TAG = "SMSHistoryReader"
         private const val MONTHS_TO_SCAN = 6 // Scan last 6 months
+        private const val MAX_SMS_TO_PROCESS = 5000 // Limit SMS processing to prevent ANR
         
         // Verified bank sender patterns (more specific)
         private val BANK_SENDERS = listOf(
@@ -87,32 +91,63 @@ class SMSHistoryReader(private val context: Context) {
         val transactions = mutableListOf<ParsedTransaction>()
         var acceptedCount = 0
         var rejectedCount = 0
+        var processedCount = 0
         
         try {
+            Log.d(TAG, "🔍 Starting SMS scan...")
+            progressCallback?.invoke(0, 100, "Reading SMS history...")
+            
             val historicalSMS = readSMSHistory()
-            //Log.d(TAG, "Found ${historicalSMS.size} historical SMS messages")
+            Log.d(TAG, "📱 Found ${historicalSMS.size} historical SMS messages (limited to $MAX_SMS_TO_PROCESS)")
+            
+            val totalSMS = historicalSMS.size
+            progressCallback?.invoke(0, totalSMS, "Found $totalSMS messages, analyzing...")
             
             for (sms in historicalSMS) {
+                processedCount++
+                
+                // Update progress callback every 50 messages for smooth progress
+                if (processedCount % 50 == 0) {
+                    val status = "Processed $processedCount/$totalSMS messages • Found $acceptedCount transactions"
+                    progressCallback?.invoke(processedCount, totalSMS, status)
+                    Log.d(TAG, "📊 Progress: $processedCount/$totalSMS SMS processed, $acceptedCount transactions found")
+                }
+                
                 if (isBankTransaction(sms)) {
                     val transaction = parseTransaction(sms)
                     if (transaction != null) {
                         transactions.add(transaction)
                         acceptedCount++
-//                        Log.d(TAG, "ACCEPTED TRANSACTION: ${sms.address} - ${sms.body.take(100)}")
+                        Log.v(TAG, "✅ TRANSACTION: ${sms.address} - ₹${transaction.amount} at ${transaction.merchant}")
+                        
+                        // Update progress immediately when we find a transaction
+                        if (acceptedCount % 10 == 0) {
+                            val status = "Processing messages... • Found $acceptedCount transactions"
+                            progressCallback?.invoke(processedCount, totalSMS, status)
+                        }
                     }
                 } else {
                     rejectedCount++
                 }
+                
+                // Yield occasionally to prevent ANR
+                if (processedCount % 100 == 0) {
+                    kotlinx.coroutines.yield()
+                }
             }
             
-//            Log.d(TAG, "SMS Processing Summary:")
-//            Log.d(TAG, "Total SMS scanned: ${historicalSMS.size}")
-//            Log.d(TAG, "Accepted transactions: $acceptedCount")
-//            Log.d(TAG, "Rejected SMS: $rejectedCount")
-//            Log.d(TAG, "Final parsed transactions: ${transactions.size}")
+            // Final progress update
+            progressCallback?.invoke(totalSMS, totalSMS, "Scan complete! Found $acceptedCount transactions")
+            
+            Log.d(TAG, "SMS Processing Summary:")
+            Log.d(TAG, "Total SMS scanned: $totalSMS")
+            Log.d(TAG, "Accepted transactions: $acceptedCount")
+            Log.d(TAG, "Rejected SMS: $rejectedCount")
+            Log.d(TAG, "Final parsed transactions: ${transactions.size}")
             
         } catch (e: Exception) {
             Log.e(TAG, "Error scanning historical SMS", e)
+            progressCallback?.invoke(0, 100, "Error: ${e.message}")
         }
         
         return@withContext transactions
@@ -140,10 +175,11 @@ class SMSHistoryReader(private val context: Context) {
             startDate.toString(),
             Telephony.Sms.MESSAGE_TYPE_INBOX.toString()
         )
-        val sortOrder = "${Telephony.Sms.DATE} DESC" // Newest first
+        val sortOrder = "${Telephony.Sms.DATE} DESC LIMIT $MAX_SMS_TO_PROCESS" // Newest first, limited
         
         var cursor: Cursor? = null
         try {
+            Log.d(TAG, "📱 Querying SMS from last $MONTHS_TO_SCAN months (max $MAX_SMS_TO_PROCESS messages)")
             cursor = context.contentResolver.query(
                 uri, projection, selection, selectionArgs, sortOrder
             )

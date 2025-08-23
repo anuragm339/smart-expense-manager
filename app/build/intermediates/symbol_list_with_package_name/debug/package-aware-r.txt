@@ -1470,6 +1470,7 @@ color divider
 color error
 color error_color_material_dark
 color error_color_material_light
+color error_red
 color foreground_material_dark
 color foreground_material_light
 color highlighted_text_material_dark
@@ -2122,6 +2123,7 @@ color secondary_text_default_material_light
 color secondary_text_disabled_material_dark
 color secondary_text_disabled_material_light
 color success
+color success_green
 color surface
 color switch_thumb_disabled_material_dark
 color switch_thumb_disabled_material_light
@@ -2139,6 +2141,7 @@ color transparent
 color warning
 color warning_dark
 color warning_light
+color warning_orange
 color white
 dimen abc_action_bar_content_inset_material
 dimen abc_action_bar_content_inset_with_nav
@@ -3035,6 +3038,7 @@ drawable design_password_eye
 drawable design_snackbar_background
 drawable ic_add
 drawable ic_arrow_back_black_24
+drawable ic_arrow_left
 drawable ic_arrow_right
 drawable ic_auto_fix
 drawable ic_backup
@@ -3078,6 +3082,7 @@ drawable ic_notifications
 drawable ic_privacy
 drawable ic_profile
 drawable ic_refresh
+drawable ic_search
 drawable ic_search_black_24
 drawable ic_sort
 drawable ic_store
@@ -3220,10 +3225,12 @@ id action_bar_subtitle
 id action_bar_title
 id action_container
 id action_context_bar
+id action_dashboard_to_merchant_transactions
 id action_divider
 id action_image
 id action_menu_divider
 id action_menu_presenter
+id action_merchant_transactions_to_transaction_details
 id action_mode_bar
 id action_mode_bar_stub
 id action_mode_close_button
@@ -3266,6 +3273,8 @@ id bounce
 id bounceBoth
 id bounceEnd
 id bounceStart
+id btnCancel
+id btnUpdate
 id btn_add
 id btn_add_category
 id btn_add_category_budget
@@ -3273,6 +3282,7 @@ id btn_add_expense
 id btn_ai_insights
 id btn_backup_data
 id btn_budget_goals
+id btn_bulk_actions
 id btn_cancel
 id btn_close
 id btn_dashboard_period
@@ -3308,6 +3318,9 @@ id card_export_json
 id card_export_pdf
 id card_transaction_count
 id carryVelocity
+id categoryEmoji
+id categoryListView
+id categoryName
 id category_selector_card
 id center
 id centerCrop
@@ -3319,6 +3332,7 @@ id chain2
 id chains
 id checkbox
 id checked
+id chip_group_banks
 id chronometer
 id circle_center
 id clear_text
@@ -3355,6 +3369,8 @@ id design_menu_item_action_area
 id design_menu_item_action_area_stub
 id design_menu_item_text
 id design_navigation_view
+id dialogMessage
+id dialogTitle
 id dialog_button
 id dimensions
 id direct
@@ -3388,9 +3404,14 @@ id enterAlwaysCollapsed
 id et_amount
 id et_budget_amount
 id et_category_name
+id et_date_from
+id et_date_to
 id et_emoji
 id et_group_name
+id et_max_amount
 id et_merchant
+id et_min_amount
+id et_search
 id exitUntilCollapsed
 id expand_activities_button
 id expanded_menu
@@ -3454,6 +3475,7 @@ id layout_cloud_backup
 id layout_currency
 id layout_date_range
 id layout_empty
+id layout_empty_state
 id layout_export
 id layout_language
 id layout_monthly_comparison
@@ -3549,6 +3571,7 @@ id navigation_dashboard
 id navigation_export_data
 id navigation_header_container
 id navigation_insights
+id navigation_merchant_transactions
 id navigation_messages
 id navigation_notifications_settings
 id navigation_profile
@@ -3600,6 +3623,8 @@ id pin
 id position
 id postLayout
 id pressed
+id progressBar
+id progressText
 id progress_budget
 id progress_category_budget
 id progress_circular
@@ -3607,7 +3632,7 @@ id progress_confidence
 id progress_horizontal
 id progress_spending
 id radio
-id radio_category
+id radioButton
 id ratio
 id rectangles
 id recycler_categories
@@ -3658,6 +3683,7 @@ id sin
 id skipCollapsed
 id skipped
 id slide
+id slider_confidence
 id sliding_pane_detail_container
 id sliding_pane_layout
 id snackbar_action
@@ -3684,6 +3710,7 @@ id startToEnd
 id startVertical
 id staticLayout
 id staticPostLayout
+id statusText
 id stop
 id stretch
 id submenuarrow
@@ -3696,6 +3723,7 @@ id switch_auto_categorization
 id switch_budget_alerts
 id switch_budget_exceeded_alert
 id switch_include_group
+id switch_include_in_expense
 id switch_monthly_report
 id switch_realtime_processing
 id switch_transaction_notifications
@@ -3730,11 +3758,13 @@ id textinput_helper_text
 id textinput_placeholder
 id textinput_prefix_text
 id textinput_suffix_text
+id til_search
 id time
 id title
 id titleDividerNoCustom
 id title_template
 id toggle
+id toolbar
 id top
 id topPanel
 id touch_outside
@@ -3770,6 +3800,7 @@ id tv_date_confidence
 id tv_date_range
 id tv_date_time
 id tv_expand_collapse
+id tv_inclusion_status
 id tv_language_value
 id tv_last_month_amount
 id tv_last_transaction
@@ -3950,9 +3981,13 @@ layout design_navigation_menu_item
 layout design_text_input_end_icon
 layout design_text_input_start_icon
 layout dialog_add_category
+layout dialog_advanced_filter
+layout dialog_category_selection
+layout dialog_category_selection_custom
 layout dialog_edit_budget
 layout dialog_edit_merchant_group
 layout dialog_quick_add_expense
+layout dialog_sms_progress
 layout dropdown_item_category
 layout fragment_budget_goals
 layout fragment_categories
@@ -3960,6 +3995,7 @@ layout fragment_category_transactions
 layout fragment_dashboard
 layout fragment_export_data
 layout fragment_insights
+layout fragment_merchant_transactions
 layout fragment_messages
 layout fragment_notifications
 layout fragment_profile

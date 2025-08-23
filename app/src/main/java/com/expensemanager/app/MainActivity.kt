@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -226,34 +227,124 @@ class MainActivity : AppCompatActivity() {
     
     private fun scanHistoricalSMS() {
         lifecycleScope.launch {
+            var progressDialog: androidx.appcompat.app.AlertDialog? = null
+            var progressView: android.widget.ProgressBar? = null
+            var progressText: android.widget.TextView? = null
+            
             try {
-                // Show scanning progress
-                val progressDialog = MaterialAlertDialogBuilder(this@MainActivity)
+                Log.d("MainActivity", "🚀 Starting SMS scan process...")
+                
+                // Create custom progress dialog with percentage indicator
+                val dialogView = layoutInflater.inflate(R.layout.dialog_sms_progress, null)
+                progressView = dialogView.findViewById<android.widget.ProgressBar>(R.id.progressBar)
+                progressText = dialogView.findViewById<android.widget.TextView>(R.id.progressText)
+                val statusText = dialogView.findViewById<android.widget.TextView>(R.id.statusText)
+                
+                progressDialog = MaterialAlertDialogBuilder(this@MainActivity)
                     .setTitle("Scanning SMS History")
-                    .setMessage("Reading your past bank SMS messages to find transactions...")
-                    .setCancelable(false)
+                    .setView(dialogView)
+                    .setCancelable(true)
+                    .setNegativeButton("Cancel") { dialog, _ ->
+                        Log.d("MainActivity", "❌ User cancelled SMS scan")
+                        dialog.dismiss()
+                    }
                     .create()
                 progressDialog.show()
                 
-                // Scan historical SMS
-                val smsReader = SMSHistoryReader(this@MainActivity)
-                val transactions = smsReader.scanHistoricalSMS()
+                // Initialize progress
+                progressView?.progress = 0
+                progressText?.text = "0%"
+                statusText?.text = "Initializing scan..."
                 
-                progressDialog.dismiss()
+                // Add timeout protection
+                val timeoutMillis = 60000L // 60 seconds timeout
+                val startTime = System.currentTimeMillis()
+                
+                // Use repository to sync SMS and store in database
+                val repository = com.expensemanager.app.data.repository.ExpenseRepository.getInstance(this@MainActivity)
+                
+                // Create SMS reader with progress callback for repository sync
+                val syncResult = kotlinx.coroutines.withTimeoutOrNull(timeoutMillis) {
+                    // Create a progress-enabled SMS reader for repository sync
+                    val smsReader = SMSHistoryReader(this@MainActivity) { current, total, status ->
+                        // Update progress on main thread
+                        runOnUiThread {
+                            val percentage = if (total > 0) ((current * 100) / total) else 0
+                            progressView?.progress = percentage
+                            progressText?.text = "$percentage%"
+                            statusText?.text = status
+                            
+                            Log.d("MainActivity", "📊 Progress: $percentage% ($current/$total) - $status")
+                        }
+                    }
+                    
+                    // Scan and store transactions through repository
+                    val transactions = smsReader.scanHistoricalSMS()
+                    Log.d("MainActivity", "📱 Found ${transactions.size} transactions from SMS scan")
+                    
+                    // Now insert them into the database through repository
+                    var insertedCount = 0
+                    for (parsedTransaction in transactions) {
+                        try {
+                            val transactionEntity = repository.convertToTransactionEntity(parsedTransaction)
+                            
+                            // Check if transaction already exists
+                            val existingTransaction = repository.getTransactionBySmsId(transactionEntity.smsId)
+                            if (existingTransaction == null) {
+                                val insertedId = repository.insertTransaction(transactionEntity)
+                                if (insertedId > 0) {
+                                    insertedCount++
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.e("MainActivity", "Error inserting transaction: ${parsedTransaction.id}", e)
+                        }
+                    }
+                    
+                    Log.d("MainActivity", "💾 Inserted $insertedCount new transactions into database")
+                    
+                    // Update sync state
+                    repository.updateSyncState(java.util.Date())
+                    
+                    // Return both scan results and insert count
+                    Pair(transactions, insertedCount)
+                }
+                
+                val scanDuration = System.currentTimeMillis() - startTime
+                Log.d("MainActivity", "⏱️ SMS scan completed in ${scanDuration}ms")
+                
+                progressDialog?.dismiss()
+                progressDialog = null
+                
+                if (syncResult == null) {
+                    // Timeout occurred
+                    Log.w("MainActivity", "⚠️ SMS scan timed out after ${timeoutMillis}ms")
+                    Toast.makeText(
+                        this@MainActivity,
+                        "SMS scan is taking longer than expected. You can try again later or check the Messages tab.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    return@launch
+                }
+                
+                val (transactions, insertedCount) = syncResult
                 
                 // Show results
                 if (transactions.isNotEmpty()) {
                     MaterialAlertDialogBuilder(this@MainActivity)
                         .setTitle("SMS Scan Complete! 🎉")
-                        .setMessage("Found ${transactions.size} transactions from your past SMS messages (last 6 months).\n\nYou can view them in the Messages tab.")
-                        .setPositiveButton("View Messages") { _, _ ->
+                        .setMessage("Found ${transactions.size} transactions from your SMS history.\n\nSaved $insertedCount new transactions to your expense database.\n\nYour dashboard will now show your spending data!")
+                        .setPositiveButton("View Dashboard") { _, _ ->
+                            // Navigate back to dashboard to see the updated data
+                            binding.bottomNavigation.selectedItemId = R.id.navigation_dashboard
+                        }
+                        .setNegativeButton("View Messages") { _, _ ->
                             // Navigate to messages tab
                             binding.bottomNavigation.selectedItemId = R.id.navigation_messages
                         }
-                        .setNegativeButton("OK") { dialog, _ ->
-                            dialog.dismiss()
-                        }
                         .show()
+                    
+                    Log.d("MainActivity", "✅ SMS scan and database sync completed successfully")
                 } else {
                     Toast.makeText(
                         this@MainActivity,
@@ -263,9 +354,18 @@ class MainActivity : AppCompatActivity() {
                 }
                 
             } catch (e: Exception) {
+                progressDialog?.dismiss()
+                Log.e("MainActivity", "❌ Error during SMS scan", e)
+                
+                val errorMessage = when (e) {
+                    is SecurityException -> "SMS permission was revoked during scan"
+                    is kotlinx.coroutines.TimeoutCancellationException -> "SMS scan timed out - too many messages to process"
+                    else -> "Error scanning SMS: ${e.message ?: "Unknown error"}"
+                }
+                
                 Toast.makeText(
                     this@MainActivity,
-                    "Error scanning SMS history: ${e.message}",
+                    errorMessage,
                     Toast.LENGTH_LONG
                 ).show()
             }

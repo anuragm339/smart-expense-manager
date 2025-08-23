@@ -1,5 +1,9 @@
 package com.expensemanager.app.ui.dashboard
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -17,10 +21,14 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.expensemanager.app.R
+import com.expensemanager.app.MainActivity
 import com.expensemanager.app.databinding.FragmentDashboardBinding
-import com.expensemanager.app.utils.SMSHistoryReader
+import com.expensemanager.app.data.repository.ExpenseRepository
+import com.expensemanager.app.data.repository.DashboardData
+import com.expensemanager.app.ui.dashboard.MerchantSpending
 import com.expensemanager.app.utils.CategoryManager
 import com.expensemanager.app.utils.MerchantAliasManager
+import com.expensemanager.app.utils.SMSHistoryReader
 import com.expensemanager.app.utils.ParsedTransaction
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -35,12 +43,61 @@ class DashboardFragment : Fragment() {
     private var _binding: FragmentDashboardBinding? = null
     private val binding get() = _binding!!
     
+    private lateinit var repository: ExpenseRepository
     private lateinit var categoryManager: CategoryManager
     private lateinit var merchantAliasManager: MerchantAliasManager
     private lateinit var topMerchantsAdapter: TopMerchantsAdapter
     private lateinit var topCategoriesAdapter: TopCategoriesAdapter
     private var currentTimePeriod = "This Month" // Default time period for weekly trend
     private var currentDashboardPeriod = "This Month" // Default time period for entire dashboard
+    
+    // Broadcast receiver for new transaction and category update notifications
+    private val newTransactionReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                "com.expensemanager.NEW_TRANSACTION_ADDED" -> {
+                    val merchant = intent.getStringExtra("merchant") ?: "Unknown"
+                    val amount = intent.getDoubleExtra("amount", 0.0)
+                    Log.d("DashboardFragment", "📡 Received new transaction broadcast: $merchant - ₹${String.format("%.0f", amount)}")
+                    
+                    // Refresh dashboard data on the main thread
+                    lifecycleScope.launch {
+                        try {
+                            Log.d("DashboardFragment", "🔄 Refreshing dashboard due to new transaction")
+                            loadDashboardData()
+                            
+                            // Show a brief toast to indicate refresh
+                            android.widget.Toast.makeText(
+                                requireContext(),
+                                "💰 New transaction added - Dashboard updated",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                            
+                        } catch (e: Exception) {
+                            Log.e("DashboardFragment", "Error refreshing dashboard after new transaction", e)
+                        }
+                    }
+                }
+                
+                "com.expensemanager.CATEGORY_UPDATED" -> {
+                    val merchant = intent.getStringExtra("merchant") ?: "Unknown"
+                    val category = intent.getStringExtra("category") ?: "Unknown"
+                    Log.d("DashboardFragment", "📡 Received category update broadcast: $merchant → $category")
+                    
+                    // Refresh dashboard data on the main thread
+                    lifecycleScope.launch {
+                        try {
+                            Log.d("DashboardFragment", "🔄 Refreshing dashboard due to category update")
+                            loadDashboardData()
+                            
+                        } catch (e: Exception) {
+                            Log.e("DashboardFragment", "Error refreshing dashboard after category update", e)
+                        }
+                    }
+                }
+            }
+        }
+    }
     
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -53,6 +110,7 @@ class DashboardFragment : Fragment() {
     
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        repository = ExpenseRepository.getInstance(requireContext())
         categoryManager = CategoryManager(requireContext())
         merchantAliasManager = MerchantAliasManager(requireContext())
         setupUI()
@@ -78,7 +136,16 @@ class DashboardFragment : Fragment() {
     }
     
     private fun setupTopMerchantsRecyclerView() {
-        topMerchantsAdapter = TopMerchantsAdapter()
+        topMerchantsAdapter = TopMerchantsAdapter { merchantSpending ->
+            // Navigate to merchant transactions screen
+            val bundle = Bundle().apply {
+                putString("merchantName", merchantSpending.merchantName)
+            }
+            findNavController().navigate(
+                R.id.action_dashboard_to_merchant_transactions,
+                bundle
+            )
+        }
         binding.recyclerTopMerchants.apply {
             adapter = topMerchantsAdapter
             layoutManager = LinearLayoutManager(requireContext())
@@ -174,15 +241,18 @@ class DashboardFragment : Fragment() {
         }
         
         binding.btnViewInsights.setOnClickListener {
-            findNavController().navigate(R.id.navigation_insights)
+            // Navigate to insights tab using bottom navigation
+            navigateToTab(R.id.navigation_insights)
         }
         
         // Make transaction count card clickable
         binding.cardTransactionCount.setOnClickListener {
-            findNavController().navigate(R.id.navigation_messages)
+            // Navigate to messages tab using bottom navigation
+            navigateToTab(R.id.navigation_messages)
         }
         
         binding.btnSettings.setOnClickListener {
+            // For settings, use normal navigation as it's not a bottom tab
             findNavController().navigate(R.id.navigation_settings)
         }
     }
@@ -309,13 +379,464 @@ class DashboardFragment : Fragment() {
                     return@launch
                 }
                 
-                Log.d("DashboardFragment", "Loading dashboard data...")
+                Log.d("DashboardFragment", "Loading dashboard data from SQLite database...")
+                
+                // Get date range for current dashboard period
+                val (startDate, endDate) = getDateRangeForPeriod(currentDashboardPeriod)
+                
+                // Check if we have any data in the repository
+                val dashboardData = repository.getDashboardData(startDate, endDate)
+                
+                if (dashboardData.transactionCount > 0) {
+                    Log.d("DashboardFragment", "✅ Loaded dashboard data from SQLite: ${dashboardData.transactionCount} transactions, ₹${String.format("%.0f", dashboardData.totalSpent)} spent")
+                    Log.d("DashboardFragment", "📊 Dashboard Date Range: ${startDate} to ${endDate}")
+                    Log.d("DashboardFragment", "📊 Dashboard Raw Transactions Count: ${repository.getTransactionsByDateRange(startDate, endDate).size}")
+                    Log.d("DashboardFragment", "📊 Dashboard Filtered Total: ₹${String.format("%.0f", dashboardData.totalSpent)}")
+                    updateDashboardWithRepositoryData(dashboardData, startDate, endDate)
+                } else {
+                    Log.d("DashboardFragment", "📥 No data in SQLite database yet, checking SMS sync status...")
+                    
+                    // Check if initial migration is still in progress
+                    val syncStatus = repository.getSyncStatus()
+                    if (syncStatus == "INITIAL" || syncStatus == "IN_PROGRESS") {
+                        Log.d("DashboardFragment", "🔄 Initial data migration in progress, showing loading state")
+                        showLoadingStateWithMessage("Setting up your data for the first time...")
+                        
+                        // Retry loading data after a delay
+                        binding.root.postDelayed({
+                            loadDashboardData()
+                        }, 2000)
+                    } else {
+                        Log.d("DashboardFragment", "⚠️ No transactions found, falling back to SMS reading for initial data")
+                        loadDashboardDataFallback()
+                    }
+                }
+                
+            } catch (e: Exception) {
+                Log.e("DashboardFragment", "Error loading dashboard data from repository", e)
+                updateDashboardWithError()
+            }
+        }
+    }
+    
+    private suspend fun updateDashboardWithRepositoryData(dashboardData: DashboardData, startDate: Date, endDate: Date) {
+        // Check if fragment view is still valid
+        if (_binding == null) {
+            Log.w("DashboardFragment", "Binding is null, cannot update UI")
+            return
+        }
+        
+        // Debug: Log current inclusion states
+        Log.d("DashboardFragment", "🔍 ${repository.getInclusionStatesDebugInfo()}")
+        
+        // Update spending summary
+        val totalSpent = dashboardData.totalSpent
+        binding.tvTotalSpent.text = "₹${String.format("%.0f", totalSpent)}"
+        binding.tvTransactionCount.text = "${dashboardData.transactionCount}"
+        
+        // For total balance, we'll use a placeholder (real implementation would need bank balance integration)
+        // Set to a positive meaningful value instead of subtracting expenses from arbitrary amount
+        val placeholderBalance = 45280.0 // Placeholder balance
+        binding.tvTotalBalance.text = "₹${String.format("%.0f", placeholderBalance)}"
+        
+        // Update top categories with repository data
+        val categorySpendingItems = dashboardData.topCategories.map { categoryResult ->
+            CategorySpending(
+                categoryName = categoryResult.category_name,
+                amount = categoryResult.total_amount,
+                categoryColor = categoryResult.color
+            )
+        }
+        
+        Log.d("DashboardFragment", "Updating top categories: ${categorySpendingItems.map { "${it.categoryName}=₹${String.format("%.0f", it.amount)}" }}")
+        topCategoriesAdapter.submitList(categorySpendingItems)
+        
+        // Update top merchants with repository data  
+        val merchantItems = dashboardData.topMerchants.map { merchantResult ->
+            MerchantSpending(
+                merchantName = repository.normalizeDisplayMerchantName(merchantResult.normalized_merchant),
+                totalAmount = merchantResult.total_amount,
+                transactionCount = merchantResult.transaction_count,
+                category = "Unknown", // We'll need to enhance this later
+                categoryColor = "#9e9e9e", // Default color
+                percentage = 0.0 // Will be calculated by adapter if needed
+            )
+        }
+        
+        Log.d("DashboardFragment", "Updating top merchants: ${merchantItems.map { "${it.merchantName}=₹${String.format("%.0f", it.totalAmount)}" }}")
+        topMerchantsAdapter.submitList(merchantItems)
+        
+        // Update monthly comparison based on selected period
+        updateMonthlyComparisonFromRepository(startDate, endDate, currentDashboardPeriod)
+        
+        // Update weekly trend with repository data
+        updateWeeklyTrendFromRepository(startDate, endDate)
+        
+        Log.d("DashboardFragment", "✅ Dashboard UI updated successfully with repository data")
+    }
+    
+    private suspend fun updateMonthlyComparisonFromRepository(currentStart: Date, currentEnd: Date, period: String) {
+        try {
+            // Calculate comparison period based on selected dashboard period
+            val (currentLabel, previousLabel, previousStart, previousEnd) = when (period) {
+                "Last Week" -> {
+                    val cal = Calendar.getInstance()
+                    // Previous week start (2 weeks ago Monday)
+                    cal.add(Calendar.WEEK_OF_YEAR, -2)
+                    cal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+                    cal.set(Calendar.HOUR_OF_DAY, 0)
+                    cal.set(Calendar.MINUTE, 0)
+                    cal.set(Calendar.SECOND, 0)
+                    cal.set(Calendar.MILLISECOND, 0)
+                    val prevStart = cal.time
+                    
+                    // Previous week end (2 weeks ago Sunday)
+                    cal.add(Calendar.DAY_OF_WEEK, 6)
+                    cal.set(Calendar.HOUR_OF_DAY, 23)
+                    cal.set(Calendar.MINUTE, 59)
+                    cal.set(Calendar.SECOND, 59)
+                    cal.set(Calendar.MILLISECOND, 999)
+                    val prevEnd = cal.time
+                    
+                    Tuple4("Last Week", "Previous Week", prevStart, prevEnd)
+                }
+                
+                "This Month" -> {
+                    val cal = Calendar.getInstance()
+                    // Last month start (first day of previous month)
+                    cal.set(Calendar.DAY_OF_MONTH, 1)
+                    cal.add(Calendar.MONTH, -1)
+                    cal.set(Calendar.HOUR_OF_DAY, 0)
+                    cal.set(Calendar.MINUTE, 0)
+                    cal.set(Calendar.SECOND, 0)
+                    cal.set(Calendar.MILLISECOND, 0)
+                    val prevStart = cal.time
+                    
+                    // Last month end (last day of previous month)
+                    cal.add(Calendar.MONTH, 1)
+                    cal.add(Calendar.DAY_OF_MONTH, -1)
+                    cal.set(Calendar.HOUR_OF_DAY, 23)
+                    cal.set(Calendar.MINUTE, 59)
+                    cal.set(Calendar.SECOND, 59)
+                    cal.set(Calendar.MILLISECOND, 999)
+                    val prevEnd = cal.time
+                    
+                    Tuple4("This Month", "Last Month", prevStart, prevEnd)
+                }
+                
+                "Last Month" -> {
+                    val cal = Calendar.getInstance()
+                    // Two months ago start
+                    cal.set(Calendar.DAY_OF_MONTH, 1)
+                    cal.add(Calendar.MONTH, -2)
+                    cal.set(Calendar.HOUR_OF_DAY, 0)
+                    cal.set(Calendar.MINUTE, 0)
+                    cal.set(Calendar.SECOND, 0)
+                    cal.set(Calendar.MILLISECOND, 0)
+                    val prevStart = cal.time
+                    
+                    // Two months ago end
+                    cal.add(Calendar.MONTH, 1)
+                    cal.add(Calendar.DAY_OF_MONTH, -1)
+                    cal.set(Calendar.HOUR_OF_DAY, 23)
+                    cal.set(Calendar.MINUTE, 59)
+                    cal.set(Calendar.SECOND, 59)
+                    cal.set(Calendar.MILLISECOND, 999)
+                    val prevEnd = cal.time
+                    
+                    Tuple4("Last Month", "Two Months Ago", prevStart, prevEnd)
+                }
+                
+                "Last 3 Months" -> {
+                    val cal = Calendar.getInstance()
+                    // 6 months ago start
+                    cal.set(Calendar.DAY_OF_MONTH, 1)
+                    cal.add(Calendar.MONTH, -6)
+                    cal.set(Calendar.HOUR_OF_DAY, 0)
+                    cal.set(Calendar.MINUTE, 0)
+                    cal.set(Calendar.SECOND, 0)
+                    cal.set(Calendar.MILLISECOND, 0)
+                    val prevStart = cal.time
+                    
+                    // 3 months ago end
+                    cal.add(Calendar.MONTH, 3)
+                    cal.add(Calendar.DAY_OF_MONTH, -1)
+                    cal.set(Calendar.HOUR_OF_DAY, 23)
+                    cal.set(Calendar.MINUTE, 59)
+                    cal.set(Calendar.SECOND, 59)
+                    cal.set(Calendar.MILLISECOND, 999)
+                    val prevEnd = cal.time
+                    
+                    Tuple4("Last 3 Months", "Previous 3 Months", prevStart, prevEnd)
+                }
+                
+                else -> {
+                    // Default to "This Month" vs "Last Month"
+                    val cal = Calendar.getInstance()
+                    cal.set(Calendar.DAY_OF_MONTH, 1)
+                    cal.add(Calendar.MONTH, -1)
+                    cal.set(Calendar.HOUR_OF_DAY, 0)
+                    cal.set(Calendar.MINUTE, 0)
+                    cal.set(Calendar.SECOND, 0)
+                    cal.set(Calendar.MILLISECOND, 0)
+                    val prevStart = cal.time
+                    
+                    cal.add(Calendar.MONTH, 1)
+                    cal.add(Calendar.DAY_OF_MONTH, -1)
+                    cal.set(Calendar.HOUR_OF_DAY, 23)
+                    cal.set(Calendar.MINUTE, 59)
+                    cal.set(Calendar.SECOND, 59)
+                    cal.set(Calendar.MILLISECOND, 999)
+                    val prevEnd = cal.time
+                    
+                    Tuple4("This Month", "Last Month", prevStart, prevEnd)
+                }
+            }
+            
+            Log.d("DashboardFragment", "📅 Monthly comparison date ranges for period '$period':")
+            Log.d("DashboardFragment", "   $currentLabel: ${currentStart} to ${currentEnd}")
+            Log.d("DashboardFragment", "   $previousLabel: ${previousStart} to ${previousEnd}")
+            
+            val currentPeriodSpent = repository.getTotalSpent(currentStart, currentEnd)
+            val previousPeriodSpent = repository.getTotalSpent(previousStart, previousEnd)
+            
+            
+            Log.d("DashboardFragment", "💰 Period spending:")
+            Log.d("DashboardFragment", "   $currentLabel: ₹${String.format("%.0f", currentPeriodSpent)}")
+            Log.d("DashboardFragment", "   $previousLabel: ₹${String.format("%.0f", previousPeriodSpent)}")
+            
+            // Validate amounts are reasonable (less than 100,000 for safety)
+            val validCurrentAmount = if (currentPeriodSpent > 100000) {
+                Log.w("DashboardFragment", "⚠️ $currentLabel amount seems too high: ₹${String.format("%.0f", currentPeriodSpent)}")
+                currentPeriodSpent
+            } else currentPeriodSpent
+            
+            val validPreviousAmount = if (previousPeriodSpent > 100000) {
+                Log.w("DashboardFragment", "⚠️ $previousLabel amount seems too high: ₹${String.format("%.0f", previousPeriodSpent)}, this might indicate duplicate data or migration artifacts")
+                
+                // Get transaction details for analysis
+                val previousTransactions = repository.getTransactionsByDateRange(previousStart, previousEnd)
+                Log.w("DashboardFragment", "⚠️ $previousLabel transaction count: ${previousTransactions.size}")
+                if (previousTransactions.isNotEmpty()) {
+                    Log.w("DashboardFragment", "⚠️ Sample transactions: ${previousTransactions.take(5).map { "${it.rawMerchant}: ₹${it.amount} on ${it.transactionDate}" }}")
+                }
+                
+                // Apply a reasonable cap for display purposes
+                // Instead of showing unrealistic amount, show a capped value with indicator
+                val reasonableAmount = minOf(previousPeriodSpent, 50000.0) // Cap at ₹50k
+                Log.w("DashboardFragment", "⚠️ Capping $previousLabel display at ₹${String.format("%.0f", reasonableAmount)} for UI purposes")
+                
+                reasonableAmount
+            } else previousPeriodSpent
+            
+            // Use the new updateMonthlyComparisonUI method for consistent display
+            updateMonthlyComparisonUI(currentLabel, previousLabel, validCurrentAmount, validPreviousAmount)
+            
+        } catch (e: Exception) {
+            Log.e("DashboardFragment", "Error updating monthly comparison", e)
+            
+            // Set fallback values on error
+            binding.tvThisMonthAmount.text = "₹0"
+            binding.tvLastMonthAmount.text = "₹0"
+            binding.tvSpendingComparison.text = "Unable to calculate comparison"
+        }
+    }
+    
+    private fun getDateRangeForPeriod(period: String): Pair<Date, Date> {
+        val calendar = Calendar.getInstance()
+        val endDate = calendar.time // Current time
+        
+        when (period) {
+            "This Month" -> {
+                calendar.set(Calendar.DAY_OF_MONTH, 1)
+                calendar.set(Calendar.HOUR_OF_DAY, 0)
+                calendar.set(Calendar.MINUTE, 0)
+                calendar.set(Calendar.SECOND, 0)
+                calendar.set(Calendar.MILLISECOND, 0)
+                val startDate = calendar.time
+                return Pair(startDate, endDate)
+            }
+            "Last Month" -> {
+                // End of last month
+                calendar.set(Calendar.DAY_OF_MONTH, 1)
+                calendar.add(Calendar.DAY_OF_MONTH, -1)
+                val lastMonthEnd = calendar.time
+                
+                // Start of last month
+                calendar.set(Calendar.DAY_OF_MONTH, 1)
+                calendar.set(Calendar.HOUR_OF_DAY, 0)
+                calendar.set(Calendar.MINUTE, 0)
+                calendar.set(Calendar.SECOND, 0)
+                calendar.set(Calendar.MILLISECOND, 0)
+                val lastMonthStart = calendar.time
+                return Pair(lastMonthStart, lastMonthEnd)
+            }
+            "Last 3 Months" -> {
+                calendar.add(Calendar.MONTH, -3)
+                calendar.set(Calendar.DAY_OF_MONTH, 1)
+                calendar.set(Calendar.HOUR_OF_DAY, 0)
+                calendar.set(Calendar.MINUTE, 0)
+                calendar.set(Calendar.SECOND, 0)
+                calendar.set(Calendar.MILLISECOND, 0)
+                val startDate = calendar.time
+                return Pair(startDate, endDate)
+            }
+            "Last 6 Months" -> {
+                calendar.add(Calendar.MONTH, -6)
+                calendar.set(Calendar.DAY_OF_MONTH, 1)
+                calendar.set(Calendar.HOUR_OF_DAY, 0)
+                calendar.set(Calendar.MINUTE, 0)
+                calendar.set(Calendar.SECOND, 0)
+                calendar.set(Calendar.MILLISECOND, 0)
+                val startDate = calendar.time
+                return Pair(startDate, endDate)
+            }
+            "This Year" -> {
+                calendar.set(Calendar.MONTH, Calendar.JANUARY)
+                calendar.set(Calendar.DAY_OF_MONTH, 1)
+                calendar.set(Calendar.HOUR_OF_DAY, 0)
+                calendar.set(Calendar.MINUTE, 0)
+                calendar.set(Calendar.SECOND, 0)
+                calendar.set(Calendar.MILLISECOND, 0)
+                val startDate = calendar.time
+                return Pair(startDate, endDate)
+            }
+            "Last Year" -> {
+                // End of last year
+                calendar.set(Calendar.MONTH, Calendar.JANUARY)
+                calendar.set(Calendar.DAY_OF_MONTH, 1)
+                calendar.add(Calendar.DAY_OF_YEAR, -1)
+                val lastYearEnd = calendar.time
+                
+                // Start of last year  
+                calendar.set(Calendar.MONTH, Calendar.JANUARY)
+                calendar.set(Calendar.DAY_OF_MONTH, 1)
+                calendar.set(Calendar.HOUR_OF_DAY, 0)
+                calendar.set(Calendar.MINUTE, 0)
+                calendar.set(Calendar.SECOND, 0)
+                calendar.set(Calendar.MILLISECOND, 0)
+                val lastYearStart = calendar.time
+                return Pair(lastYearStart, lastYearEnd)
+            }
+            else -> {
+                // Default to current month
+                calendar.set(Calendar.DAY_OF_MONTH, 1)
+                calendar.set(Calendar.HOUR_OF_DAY, 0)
+                calendar.set(Calendar.MINUTE, 0)
+                calendar.set(Calendar.SECOND, 0)
+                calendar.set(Calendar.MILLISECOND, 0)
+                val startDate = calendar.time
+                return Pair(startDate, endDate)
+            }
+        }
+    }
+    
+    private fun showLoadingState() {
+        binding.tvTotalBalance.text = "Loading..."
+        binding.tvTotalSpent.text = "Loading..."
+        binding.tvTransactionCount.text = "0"
+    }
+    
+    private fun showLoadingStateWithMessage(message: String) {
+        binding.tvTotalBalance.text = message
+        binding.tvTotalSpent.text = "Loading..."
+        binding.tvTransactionCount.text = "0"
+    }
+    
+    private fun loadDashboardDataFallback() {
+        lifecycleScope.launch {
+            try {
+                Log.d("DashboardFragment", "📱 Loading dashboard data from SMS as fallback...")
+                
+                // COMPARISON: Let's load using the old approach and compare with DB approach
+                Log.d("DashboardFragment", "🔍 COMPARISON MODE: Testing old SMS approach vs DB approach")
+                
+                // OLD APPROACH: Direct SMS reading
+                val smsReader = SMSHistoryReader(requireContext())
+                val smsTransactions = smsReader.scanHistoricalSMS()
+                Log.d("DashboardFragment", "📱 OLD SMS Approach: Found ${smsTransactions.size} transactions")
+                
+                if (smsTransactions.isNotEmpty()) {
+                    val calendar = Calendar.getInstance()
+                    val currentMonth = calendar.get(Calendar.MONTH)
+                    val currentYear = calendar.get(Calendar.YEAR)
+                    
+                    val currentMonthSmsTransactions = smsTransactions.filter { transaction ->
+                        val transactionCalendar = Calendar.getInstance().apply { time = transaction.date }
+                        transactionCalendar.get(Calendar.MONTH) == currentMonth && 
+                        transactionCalendar.get(Calendar.YEAR) == currentYear
+                    }
+                    
+                    val smsTotal = currentMonthSmsTransactions.sumOf { it.amount }
+                    Log.d("DashboardFragment", "📱 OLD SMS Approach: Current month total = ₹${String.format("%.0f", smsTotal)} from ${currentMonthSmsTransactions.size} transactions")
+                    
+                    // Log some example transactions
+                    currentMonthSmsTransactions.take(5).forEach { tx ->
+                        Log.d("DashboardFragment", "📱 SMS Transaction: ${tx.merchant} = ₹${String.format("%.0f", tx.amount)} on ${tx.date}")
+                    }
+                }
+                
+                // NEW APPROACH: Try SMS sync and then read from DB
+                Log.d("DashboardFragment", "💾 NEW DB Approach: Attempting SMS sync...")
+                val syncedCount = repository.syncNewSMS()
+                Log.d("DashboardFragment", "💾 NEW DB Approach: Synced $syncedCount new transactions from SMS")
+                
+                // Check what's actually in the database
+                val (startDate, endDate) = getDateRangeForPeriod(currentDashboardPeriod)
+                val dbTransactions = repository.getTransactionsByDateRange(startDate, endDate)
+                Log.d("DashboardFragment", "💾 NEW DB Approach: Found ${dbTransactions.size} transactions in database for current month")
+                
+                if (dbTransactions.isNotEmpty()) {
+                    val dbTotal = dbTransactions.sumOf { it.amount }
+                    Log.d("DashboardFragment", "💾 NEW DB Approach: Database total = ₹${String.format("%.0f", dbTotal)} from ${dbTransactions.size} transactions")
+                    
+                    // Log some example database transactions
+                    dbTransactions.take(5).forEach { tx ->
+                        Log.d("DashboardFragment", "💾 DB Transaction: ${tx.normalizedMerchant} = ₹${String.format("%.0f", tx.amount)} on ${tx.transactionDate}")
+                    }
+                    
+                    // Now load dashboard data normally
+                    val dashboardData = repository.getDashboardData(startDate, endDate)
+                    Log.d("DashboardFragment", "💾 Dashboard Data: totalSpent=₹${String.format("%.0f", dashboardData.totalSpent)}, count=${dashboardData.transactionCount}")
+                    
+                    if (dashboardData.transactionCount > 0) {
+                        updateDashboardWithRepositoryData(dashboardData, startDate, endDate)
+                    } else {
+                        Log.w("DashboardFragment", "⚠️ Dashboard data shows 0 transactions despite DB having ${dbTransactions.size} transactions")
+                        updateDashboardWithEmptyState()
+                    }
+                } else {
+                    Log.w("DashboardFragment", "⚠️ No transactions found in database after sync")
+                    
+                    // Fall back to old approach for now
+                    if (smsTransactions.isNotEmpty()) {
+                        Log.d("DashboardFragment", "🔄 Falling back to old SMS approach temporarily")
+                        loadDashboardWithOldApproach()
+                    } else {
+                        updateDashboardWithEmptyState()
+                    }
+                }
+                
+            } catch (e: SecurityException) {
+                Log.w("DashboardFragment", "SMS permission denied for fallback loading", e)
+                updateDashboardWithPermissionError()
+            } catch (e: Exception) {
+                Log.e("DashboardFragment", "Error in fallback loading", e)
+                updateDashboardWithError()
+            }
+        }
+    }
+    
+    private fun loadDashboardWithOldApproach() {
+        lifecycleScope.launch {
+            try {
+                Log.d("DashboardFragment", "📱 Using OLD SMS approach as fallback")
                 
                 val smsReader = SMSHistoryReader(requireContext())
                 val transactions = smsReader.scanHistoricalSMS()
                 
                 if (transactions.isNotEmpty()) {
-                    // Process transactions with aliases
+                    // Process transactions with aliases (old approach)
                     val processedTransactions = transactions.map { transaction ->
                         ProcessedTransaction(
                             originalMerchant = transaction.merchant,
@@ -333,11 +854,8 @@ class DashboardFragment : Fragment() {
                     updateDashboardWithEmptyState()
                 }
                 
-            } catch (e: SecurityException) {
-                Log.w("DashboardFragment", "SMS permission denied", e)
-                updateDashboardWithPermissionError()
             } catch (e: Exception) {
-                Log.e("DashboardFragment", "Error loading dashboard data", e)
+                Log.e("DashboardFragment", "Error in old approach fallback", e)
                 updateDashboardWithError()
             }
         }
@@ -759,6 +1277,64 @@ class DashboardFragment : Fragment() {
         }
     }
     
+    private suspend fun updateWeeklyTrendFromRepository(startDate: Date, endDate: Date) {
+        try {
+            // Get transactions for last 4 weeks to show trend
+            val calendar = Calendar.getInstance()
+            calendar.time = endDate
+            
+            // Go back 4 weeks from end date
+            calendar.add(Calendar.WEEK_OF_YEAR, -4)
+            val trendStartDate = calendar.time
+            
+            // Get transactions for the 4-week period
+            val transactions = repository.getTransactionsByDateRange(trendStartDate, endDate)
+            Log.d("DashboardFragment", "📊 Weekly Trend: Found ${transactions.size} transactions from ${trendStartDate} to ${endDate}")
+            
+            // Group transactions by week
+            val weeklyData = mutableMapOf<Int, Double>()
+            
+            for (transaction in transactions) {
+                val transactionCalendar = Calendar.getInstance()
+                transactionCalendar.time = transaction.transactionDate
+                val weekOfYear = transactionCalendar.get(Calendar.WEEK_OF_YEAR)
+                
+                weeklyData[weekOfYear] = (weeklyData[weekOfYear] ?: 0.0) + transaction.amount
+            }
+            
+            // Calculate trend summary
+            val weeks = weeklyData.keys.sorted()
+            val trendText = if (weeks.size >= 2) {
+                val firstWeekSpending = weeklyData[weeks.first()] ?: 0.0
+                val lastWeekSpending = weeklyData[weeks.last()] ?: 0.0
+                
+                val trend = when {
+                    lastWeekSpending > firstWeekSpending * 1.1 -> "📈 Spending increasing"
+                    lastWeekSpending < firstWeekSpending * 0.9 -> "📉 Spending decreasing"
+                    else -> "📊 Spending stable"
+                }
+                
+                "$trend\nLast ${weeks.size} weeks: ₹${String.format("%.0f", weeklyData.values.sum())}"
+            } else {
+                "📊 Weekly Spending Trend\n${transactions.size} transactions this period"
+            }
+            
+            // Update UI
+            val weeklyTrendLayout = binding.root.findViewById<FrameLayout>(R.id.frame_weekly_chart)
+            val placeholderTextView = weeklyTrendLayout?.getChildAt(0) as? TextView
+            placeholderTextView?.text = trendText
+            
+            Log.d("DashboardFragment", "📊 Weekly trend updated: $trendText")
+            
+        } catch (e: Exception) {
+            Log.e("DashboardFragment", "Error updating weekly trend from repository", e)
+            // Fallback to placeholder text
+            val weeklyTrendLayout = binding.root.findViewById<FrameLayout>(R.id.frame_weekly_chart)
+            val placeholderTextView = weeklyTrendLayout?.getChildAt(0) as? TextView
+            placeholderTextView?.text = "📊 Weekly Spending Chart\nData loading..."
+        }
+    }
+    
     private fun updateWeeklyTrendForPeriod(period: String) {
         lifecycleScope.launch {
             try {
@@ -1143,11 +1719,66 @@ class DashboardFragment : Fragment() {
     // Helper data class for returning multiple values
     data class Tuple4<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
     
+    /**
+     * Helper method to navigate to bottom navigation tabs properly
+     */
+    private fun navigateToTab(tabId: Int) {
+        try {
+            val mainActivity = activity as? MainActivity
+            if (mainActivity != null) {
+                // Access the bottom navigation from MainActivity and set the selected item
+                val bottomNavigation = mainActivity.findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.bottom_navigation)
+                bottomNavigation?.selectedItemId = tabId
+                android.util.Log.d("DashboardFragment", "✅ Successfully navigated to tab: $tabId")
+            } else {
+                // Fallback to normal navigation if MainActivity is not available
+                android.util.Log.w("DashboardFragment", "⚠️ MainActivity not available, using fallback navigation")
+                findNavController().navigate(tabId)
+            }
+        } catch (e: Exception) {
+            // Fallback to normal navigation if there's any error
+            android.util.Log.e("DashboardFragment", "❌ Error navigating to tab $tabId, using fallback", e)
+            try {
+                findNavController().navigate(tabId)
+            } catch (fallbackError: Exception) {
+                android.util.Log.e("DashboardFragment", "❌ Fallback navigation also failed", fallbackError)
+                Toast.makeText(requireContext(), "Navigation error. Please use bottom navigation.", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+    
     override fun onResume() {
         super.onResume()
+        
+        // Register broadcast receiver for new transactions and category updates
+        val newTransactionFilter = IntentFilter("com.expensemanager.NEW_TRANSACTION_ADDED")
+        val categoryUpdateFilter = IntentFilter("com.expensemanager.CATEGORY_UPDATED")
+        
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            requireContext().registerReceiver(newTransactionReceiver, newTransactionFilter, android.content.Context.RECEIVER_NOT_EXPORTED)
+            requireContext().registerReceiver(newTransactionReceiver, categoryUpdateFilter, android.content.Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            requireContext().registerReceiver(newTransactionReceiver, newTransactionFilter)
+            requireContext().registerReceiver(newTransactionReceiver, categoryUpdateFilter)
+        }
+        Log.d("DashboardFragment", "📡 Registered broadcast receiver for new transactions")
+        
         // Refresh dashboard data when returning to this fragment
         // This ensures the dashboard reflects any changes made in the Messages screen
         loadDashboardData()
+    }
+    
+    override fun onPause() {
+        super.onPause()
+        
+        // Unregister broadcast receiver to prevent memory leaks
+        try {
+            requireContext().unregisterReceiver(newTransactionReceiver)
+            Log.d("DashboardFragment", "📡 Unregistered broadcast receiver for new transactions")
+        } catch (e: Exception) {
+            // Receiver may not have been registered, ignore
+            Log.w("DashboardFragment", "Broadcast receiver was not registered, ignoring unregister", e)
+        }
     }
     
     override fun onDestroyView() {

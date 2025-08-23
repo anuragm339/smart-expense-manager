@@ -15,6 +15,7 @@ import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.expensemanager.app.R
+import com.expensemanager.app.MainActivity
 import com.expensemanager.app.databinding.FragmentBudgetGoalsBinding
 import com.expensemanager.app.databinding.ItemCategoryBudgetBinding
 import com.expensemanager.app.utils.SMSHistoryReader
@@ -438,8 +439,8 @@ class BudgetGoalsFragment : Fragment() {
                 .setTitle("🚨 Budget Exceeded!")
                 .setMessage("You've exceeded your monthly budget by ₹${String.format("%.0f", overAmount)}.\n\nWould you like to:\n• View spending breakdown\n• Set spending limits\n• Get AI recommendations")
                 .setPositiveButton("View Breakdown") { _, _ ->
-                    // Navigate to categories or analytics
-                    findNavController().navigate(R.id.navigation_categories)
+                    // Navigate to categories tab using bottom navigation
+                    navigateToBottomTab(R.id.navigation_categories)
                 }
                 .setNeutralButton("AI Help") { _, _ ->
                     showAIBudgetRecommendations(currentSpent, monthlyBudget)
@@ -453,7 +454,7 @@ class BudgetGoalsFragment : Fragment() {
                 .setTitle("💡 Budget Alert")
                 .setMessage("You've used ${budgetProgress}% of your budget with only ₹${String.format("%.0f", remaining)} remaining.\n\nConsider reducing expenses in high-spending categories.")
                 .setPositiveButton("View Categories") { _, _ ->
-                    findNavController().navigate(R.id.navigation_categories)
+                    navigateToBottomTab(R.id.navigation_categories)
                 }
                 .setNegativeButton("OK", null)
                 .show()
@@ -605,6 +606,31 @@ class BudgetGoalsFragment : Fragment() {
         }
     }
     
+    /**
+     * Helper method to navigate to bottom navigation tabs properly
+     */
+    private fun navigateToBottomTab(tabId: Int) {
+        try {
+            val mainActivity = activity as? MainActivity
+            if (mainActivity != null) {
+                val bottomNavigation = mainActivity.findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.bottom_navigation)
+                bottomNavigation?.selectedItemId = tabId
+                Log.d("BudgetGoalsFragment", "✅ Successfully navigated to tab: $tabId")
+            } else {
+                Log.w("BudgetGoalsFragment", "⚠️ MainActivity not available, using fallback navigation")
+                findNavController().navigate(tabId)
+            }
+        } catch (e: Exception) {
+            Log.e("BudgetGoalsFragment", "❌ Error navigating to tab $tabId, using fallback", e)
+            try {
+                findNavController().navigate(tabId)
+            } catch (fallbackError: Exception) {
+                Log.e("BudgetGoalsFragment", "❌ Fallback navigation also failed", fallbackError)
+                Toast.makeText(requireContext(), "Navigation error. Please use bottom navigation.", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         // Refresh budget data when returning to this fragment

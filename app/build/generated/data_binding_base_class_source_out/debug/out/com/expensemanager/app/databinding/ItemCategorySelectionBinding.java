@@ -21,16 +21,21 @@ public final class ItemCategorySelectionBinding implements ViewBinding {
   private final LinearLayout rootView;
 
   @NonNull
-  public final RadioButton radioCategory;
+  public final TextView categoryEmoji;
 
   @NonNull
-  public final TextView tvCategoryName;
+  public final TextView categoryName;
+
+  @NonNull
+  public final RadioButton radioButton;
 
   private ItemCategorySelectionBinding(@NonNull LinearLayout rootView,
-      @NonNull RadioButton radioCategory, @NonNull TextView tvCategoryName) {
+      @NonNull TextView categoryEmoji, @NonNull TextView categoryName,
+      @NonNull RadioButton radioButton) {
     this.rootView = rootView;
-    this.radioCategory = radioCategory;
-    this.tvCategoryName = tvCategoryName;
+    this.categoryEmoji = categoryEmoji;
+    this.categoryName = categoryName;
+    this.radioButton = radioButton;
   }
 
   @Override
@@ -60,20 +65,26 @@ public final class ItemCategorySelectionBinding implements ViewBinding {
     // This is done to optimize the compiled bytecode for size and performance.
     int id;
     missingId: {
-      id = R.id.radio_category;
-      RadioButton radioCategory = ViewBindings.findChildViewById(rootView, id);
-      if (radioCategory == null) {
+      id = R.id.categoryEmoji;
+      TextView categoryEmoji = ViewBindings.findChildViewById(rootView, id);
+      if (categoryEmoji == null) {
         break missingId;
       }
 
-      id = R.id.tv_category_name;
-      TextView tvCategoryName = ViewBindings.findChildViewById(rootView, id);
-      if (tvCategoryName == null) {
+      id = R.id.categoryName;
+      TextView categoryName = ViewBindings.findChildViewById(rootView, id);
+      if (categoryName == null) {
         break missingId;
       }
 
-      return new ItemCategorySelectionBinding((LinearLayout) rootView, radioCategory,
-          tvCategoryName);
+      id = R.id.radioButton;
+      RadioButton radioButton = ViewBindings.findChildViewById(rootView, id);
+      if (radioButton == null) {
+        break missingId;
+      }
+
+      return new ItemCategorySelectionBinding((LinearLayout) rootView, categoryEmoji, categoryName,
+          radioButton);
     }
     String missingId = rootView.getResources().getResourceName(id);
     throw new NullPointerException("Missing required view with ID: ".concat(missingId));

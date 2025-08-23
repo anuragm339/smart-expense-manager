@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.expensemanager.app-mergeDebugResources-47:/values-cs/values-cs.xml",
+            "outputFile": "com.expensemanager.app-mergeDebugResources-51:/values-cs/values-cs.xml",
             "map": [
                 {
                     "source": "/Users/anuragmishra/.gradle/caches/transforms-4/f5bc84a3f3dc20cc0c8dce7b65fc8f7e/transformed/material-1.10.0/res/values-cs/values-cs.xml",
