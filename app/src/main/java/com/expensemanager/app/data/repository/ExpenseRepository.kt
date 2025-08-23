@@ -5,8 +5,9 @@ import android.util.Log
 import com.expensemanager.app.data.database.ExpenseDatabase
 import com.expensemanager.app.data.entities.*
 import com.expensemanager.app.data.dao.*
-import com.expensemanager.app.utils.SMSHistoryReader
+// REMOVED: SMSHistoryReader import - SMS reading now done directly in repository
 import com.expensemanager.app.utils.ParsedTransaction
+import android.provider.Telephony
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.Flow
@@ -219,7 +220,7 @@ class ExpenseRepository(private val context: Context) {
     
     suspend fun syncNewSMS(): Int = withContext(Dispatchers.IO) {
         try {
-            Log.d(TAG, "Starting SMS sync...")
+            Log.d(TAG, "Starting SMS sync via repository (no SMSHistoryReader)...")
             
             val syncState = syncStateDao.getSyncState()
             val lastSyncTimestamp = syncState?.lastSmsSyncTimestamp ?: Date(0)
@@ -228,8 +229,8 @@ class ExpenseRepository(private val context: Context) {
             
             syncStateDao.updateSyncStatus("IN_PROGRESS")
             
-            val smsReader = SMSHistoryReader(context)
-            val allTransactions = smsReader.scanHistoricalSMS()
+            // FIXED: Read SMS directly in repository without SMSHistoryReader
+            val allTransactions = readSMSTransactionsDirectly()
             
             val newTransactions = allTransactions.filter { 
                 it.date.after(lastSyncTimestamp) 
@@ -263,13 +264,163 @@ class ExpenseRepository(private val context: Context) {
                 )
             }
             
-            Log.d(TAG, "SMS sync completed. Inserted $insertedCount new transactions")
+            Log.d(TAG, "Repository-based SMS sync completed. Inserted $insertedCount new transactions")
             insertedCount
             
         } catch (e: Exception) {
-            Log.e(TAG, "SMS sync failed", e)
+            Log.e(TAG, "Repository-based SMS sync failed", e)
             syncStateDao.updateSyncStatus("FAILED")
             throw e
+        }
+    }
+    
+    /**
+     * Read SMS transactions directly from ContentResolver (repository-controlled)
+     */
+    private suspend fun readSMSTransactionsDirectly(): List<ParsedTransaction> = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "📱 Reading SMS transactions directly from repository...")
+            
+            val transactions = mutableListOf<ParsedTransaction>()
+            
+            // Query SMS inbox
+            val projection = arrayOf(
+                Telephony.Sms._ID,
+                Telephony.Sms.ADDRESS,
+                Telephony.Sms.BODY,
+                Telephony.Sms.DATE,
+                Telephony.Sms.TYPE
+            )
+            
+            // Query last 6 months of SMS
+            val sixMonthsAgo = Calendar.getInstance()
+            sixMonthsAgo.add(Calendar.MONTH, -6)
+            
+            val selection = "${Telephony.Sms.DATE} > ?"
+            val selectionArgs = arrayOf(sixMonthsAgo.timeInMillis.toString())
+            val sortOrder = "${Telephony.Sms.DATE} DESC"
+            
+            val cursor = context.contentResolver.query(
+                Telephony.Sms.CONTENT_URI,
+                projection,
+                selection,
+                selectionArgs,
+                sortOrder
+            )
+            
+            cursor?.use { c ->
+                Log.d(TAG, "📱 Found ${c.count} SMS messages to process")
+                
+                val idIndex = c.getColumnIndexOrThrow(Telephony.Sms._ID)
+                val addressIndex = c.getColumnIndexOrThrow(Telephony.Sms.ADDRESS)
+                val bodyIndex = c.getColumnIndexOrThrow(Telephony.Sms.BODY)
+                val dateIndex = c.getColumnIndexOrThrow(Telephony.Sms.DATE)
+                val typeIndex = c.getColumnIndexOrThrow(Telephony.Sms.TYPE)
+                
+                var processedCount = 0
+                while (c.moveToNext() && processedCount < 2000) { // Limit to prevent ANR
+                    val smsId = c.getString(idIndex)
+                    val address = c.getString(addressIndex) ?: ""
+                    val body = c.getString(bodyIndex) ?: ""
+                    val dateMillis = c.getLong(dateIndex)
+                    val type = c.getInt(typeIndex)
+                    
+                    // Only process received messages from potential bank senders
+                    if (type == Telephony.Sms.MESSAGE_TYPE_INBOX && isPotentialBankSMS(address, body)) {
+                        val parsedTransaction = parseTransactionFromSMS(smsId, address, body, Date(dateMillis))
+                        parsedTransaction?.let { 
+                            transactions.add(it)
+                        }
+                    }
+                    
+                    processedCount++
+                }
+                
+                Log.d(TAG, "📱 Processed $processedCount SMS, found ${transactions.size} transactions")
+            }
+            
+            transactions
+            
+        } catch (e: SecurityException) {
+            Log.e(TAG, "SMS permission denied for repository reading", e)
+            emptyList()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error reading SMS directly in repository", e)
+            emptyList()
+        }
+    }
+    
+    private fun isPotentialBankSMS(address: String, body: String): Boolean {
+        // Bank SMS patterns
+        val bankKeywords = listOf("debited", "credited", "spent", "transaction", "account", "balance", 
+            "withdraw", "deposit", "transfer", "payment", "upi", "atm")
+        val bodyLower = body.lowercase()
+        
+        return bankKeywords.any { keyword -> bodyLower.contains(keyword) } ||
+               address.matches(Regex("^[A-Z]{2,6}-?\\d*$")) || // Bank sender IDs like HDFC-123456
+               address.matches(Regex("^\\d{4,6}$")) // Shortcodes like 567678
+    }
+    
+    private fun parseTransactionFromSMS(smsId: String, address: String, body: String, date: Date): ParsedTransaction? {
+        try {
+            // Simple parsing logic - look for amount patterns
+            val amountRegex = Regex("""(?:rs\.?\s*|inr\s*|₹\s*)?(\d+(?:[,]\d+)*(?:\.\d{2})?)\b""", RegexOption.IGNORE_CASE)
+            val amountMatch = amountRegex.find(body)
+            
+            val amount = amountMatch?.groupValues?.get(1)?.replace(",", "")?.toDoubleOrNull()
+            
+            if (amount != null && amount > 0) {
+                // Extract merchant name (simple logic)
+                val merchant = extractMerchantFromSMS(body) ?: "Unknown Merchant"
+                
+                // Determine bank from sender
+                val bankName = determineBankFromSender(address)
+                
+                return ParsedTransaction(
+                    id = smsId,
+                    amount = amount,
+                    merchant = merchant,
+                    bankName = bankName,
+                    date = date,
+                    rawSMS = body,
+                    confidence = 0.8f // Basic confidence
+                )
+            }
+            
+            return null
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing transaction from SMS: $body", e)
+            return null
+        }
+    }
+    
+    private fun extractMerchantFromSMS(body: String): String? {
+        // Look for common merchant patterns in SMS
+        val merchantPatterns = listOf(
+            Regex("""at\s+([A-Z][A-Z0-9\s&]+?)(?:\s+on|\s+dated|\.)""", RegexOption.IGNORE_CASE),
+            Regex("""spent\s+at\s+([A-Z][A-Z0-9\s&]+?)(?:\s+on|\s+dated|\.)""", RegexOption.IGNORE_CASE),
+            Regex("""paid\s+to\s+([A-Z][A-Z0-9\s&]+?)(?:\s+on|\s+dated|\.)""", RegexOption.IGNORE_CASE)
+        )
+        
+        for (pattern in merchantPatterns) {
+            val match = pattern.find(body)
+            if (match != null) {
+                return match.groupValues[1].trim()
+            }
+        }
+        
+        return "Unknown Merchant"
+    }
+    
+    private fun determineBankFromSender(address: String): String {
+        return when {
+            address.contains("HDFC", ignoreCase = true) -> "HDFC Bank"
+            address.contains("ICICI", ignoreCase = true) -> "ICICI Bank"
+            address.contains("SBI", ignoreCase = true) -> "SBI"
+            address.contains("AXIS", ignoreCase = true) -> "Axis Bank"
+            address.contains("KOTAK", ignoreCase = true) -> "Kotak Bank"
+            else -> "Unknown Bank"
         }
     }
     
