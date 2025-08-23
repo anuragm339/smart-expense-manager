@@ -71,42 +71,7 @@ object ExclusionMigrationHelper {
         }
     }
     
-    /**
-     * Mark specific merchants as excluded in the database (for large/test transactions)
-     */
-    suspend fun excludeLargeTransactionMerchants(repository: ExpenseRepository) {
-        try {
-            Log.d(TAG, "🔧 Marking large transaction merchants as excluded...")
-            
-            val merchantsToExclude = listOf(
-                "myhdfc ac x3300 with hdfc0005493 sent from yono",
-                "inr",
-                "vishal kumar",
-                "chandra shekhar mishra", 
-                "deepak prakash srivastav",
-                "learning",
-                "imps",
-                "linked to mobile 8xxxxxx832"
-            )
-            
-            var excludedCount = 0
-            for (normalizedName in merchantsToExclude) {
-                try {
-                    val merchant = repository.getMerchantByNormalizedName(normalizedName)
-                    if (merchant != null) {
-                        repository.updateMerchantExclusion(normalizedName, true)
-                        excludedCount++
-                        Log.d(TAG, "🚫 Excluded large transaction merchant: ${merchant.displayName}")
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error excluding merchant: $normalizedName", e)
-                }
-            }
-            
-            Log.d(TAG, "✅ Excluded $excludedCount large transaction merchants")
-            
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Error excluding large transaction merchants", e)
-        }
-    }
+    // REMOVED: excludeLargeTransactionMerchants() method
+    // All exclusions should be user-controlled through the Messages screen
+    // No automatic system-based exclusions
 }

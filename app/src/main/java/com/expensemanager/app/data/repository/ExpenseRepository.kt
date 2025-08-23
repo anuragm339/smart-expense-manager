@@ -289,13 +289,15 @@ class ExpenseRepository(private val context: Context) {
         val totalSpent = getTotalSpent(startDate, endDate)
         val transactionCount = getTransactionCount(startDate, endDate)
         val categorySpending = getCategorySpending(startDate, endDate)
-        val topMerchants = getTopMerchants(startDate, endDate, 5)
+        
+        // FIXED: Request more merchants to ensure consistent display after exclusion filtering
+        val topMerchants = getTopMerchants(startDate, endDate, 8) // Request 8 to get at least 5 after filtering
         
         return DashboardData(
             totalSpent = totalSpent,
             transactionCount = transactionCount,
             topCategories = categorySpending.take(6),
-            topMerchants = topMerchants
+            topMerchants = topMerchants.take(5) // Always take exactly 5 for consistent display
         )
     }
     

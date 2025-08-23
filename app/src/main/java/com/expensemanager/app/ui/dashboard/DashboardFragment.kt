@@ -564,6 +564,67 @@ class DashboardFragment : Fragment() {
         }
     }
     
+    private fun ensureMinimumMerchants(realMerchants: List<MerchantSpending>, minimumCount: Int): List<MerchantSpending> {
+        if (realMerchants.size >= minimumCount) {
+            return realMerchants.take(minimumCount) // Take exactly the minimum count
+        }
+        
+        // If we don't have enough real merchants, add placeholder merchants
+        val placeholderMerchants = listOf(
+            MerchantSpending("Swiggy", 0.0, 0, "Food & Dining", "#ff5722", 0.0),
+            MerchantSpending("Amazon", 0.0, 0, "Shopping", "#ff9800", 0.0),
+            MerchantSpending("Uber", 0.0, 0, "Transportation", "#3f51b5", 0.0),
+            MerchantSpending("BigBasket", 0.0, 0, "Groceries", "#4caf50", 0.0),
+            MerchantSpending("Netflix", 0.0, 0, "Entertainment", "#9c27b0", 0.0)
+        )
+        
+        val combinedList = realMerchants.toMutableList()
+        
+        // Add placeholders until we reach minimum count
+        for (placeholder in placeholderMerchants) {
+            if (combinedList.size >= minimumCount) break
+            // Only add if this merchant name doesn't already exist
+            if (combinedList.none { it.merchantName == placeholder.merchantName }) {
+                combinedList.add(placeholder)
+            }
+        }
+        
+        Log.d("DashboardFragment", "📊 Ensured minimum merchants: ${realMerchants.size} real + ${combinedList.size - realMerchants.size} placeholders = ${combinedList.size} total")
+        
+        return combinedList.take(minimumCount)
+    }
+    
+    private fun ensureMinimumCategories(realCategories: List<CategorySpending>, minimumCount: Int): List<CategorySpending> {
+        if (realCategories.size >= minimumCount) {
+            return realCategories.take(minimumCount) // Take exactly the minimum count
+        }
+        
+        // If we don't have enough real categories, add placeholder categories
+        val placeholderCategories = listOf(
+            CategorySpending("Food & Dining", 0.0, "#ff5722"),
+            CategorySpending("Transportation", 0.0, "#3f51b5"),
+            CategorySpending("Shopping", 0.0, "#ff9800"),
+            CategorySpending("Groceries", 0.0, "#4caf50"),
+            CategorySpending("Entertainment", 0.0, "#9c27b0"),
+            CategorySpending("Utilities", 0.0, "#607d8b")
+        )
+        
+        val combinedList = realCategories.toMutableList()
+        
+        // Add placeholders until we reach minimum count
+        for (placeholder in placeholderCategories) {
+            if (combinedList.size >= minimumCount) break
+            // Only add if this category name doesn't already exist
+            if (combinedList.none { it.categoryName == placeholder.categoryName }) {
+                combinedList.add(placeholder)
+            }
+        }
+        
+        Log.d("DashboardFragment", "📊 Ensured minimum categories: ${realCategories.size} real + ${combinedList.size - realCategories.size} placeholders = ${combinedList.size} total")
+        
+        return combinedList.take(minimumCount)
+    }
+    
     private fun performSMSSync() {
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("🔄 Sync SMS Messages")
@@ -683,7 +744,7 @@ class DashboardFragment : Fragment() {
         
         // One-time migration of exclusion states from SharedPreferences to database
         com.expensemanager.app.utils.ExclusionMigrationHelper.migrateExclusionStatesToDatabase(requireContext(), repository)
-        com.expensemanager.app.utils.ExclusionMigrationHelper.excludeLargeTransactionMerchants(repository)
+        // REMOVED: Automatic large transfer exclusions - only user-controlled exclusions now
         
         // Debug: Log current exclusion states
         Log.d("DashboardFragment", "🔍 ${repository.getExclusionStatesDebugInfo()}")
@@ -707,8 +768,11 @@ class DashboardFragment : Fragment() {
             )
         }
         
-        Log.d("DashboardFragment", "Updating top categories: ${categorySpendingItems.map { "${it.categoryName}=₹${String.format("%.0f", it.amount)}" }}")
-        topCategoriesAdapter.submitList(categorySpendingItems)
+        // FIXED: Ensure consistent display - always show at least 4 categories (2x2 grid)
+        val finalCategoryItems = ensureMinimumCategories(categorySpendingItems, 4)
+        
+        Log.d("DashboardFragment", "Updating top categories: ${finalCategoryItems.map { "${it.categoryName}=₹${String.format("%.0f", it.amount)}" }}")
+        topCategoriesAdapter.submitList(finalCategoryItems)
         
         // Update top merchants with repository data  
         val merchantItems = dashboardData.topMerchants.map { merchantResult ->
@@ -722,8 +786,11 @@ class DashboardFragment : Fragment() {
             )
         }
         
-        Log.d("DashboardFragment", "Updating top merchants: ${merchantItems.map { "${it.merchantName}=₹${String.format("%.0f", it.totalAmount)}" }}")
-        topMerchantsAdapter.submitList(merchantItems)
+        // FIXED: Ensure consistent display - always show at least 3 merchants
+        val finalMerchantItems = ensureMinimumMerchants(merchantItems, 3)
+        
+        Log.d("DashboardFragment", "Updating top merchants: ${finalMerchantItems.map { "${it.merchantName}=₹${String.format("%.0f", it.totalAmount)}" }}")
+        topMerchantsAdapter.submitList(finalMerchantItems)
         
         // Update monthly comparison based on selected period
         updateMonthlyComparisonFromRepository(startDate, endDate, currentDashboardPeriod)
@@ -1329,60 +1396,105 @@ class DashboardFragment : Fragment() {
     
     private suspend fun updateWeeklyTrendFromRepository(startDate: Date, endDate: Date) {
         try {
-            // Get transactions for last 4 weeks to show trend
+            // FIXED: Use same filtering logic as monthly comparison for consistency
+            Log.d("DashboardFragment", "📊 Weekly Trend: Using consistent filtering like monthly comparison")
+            
+            // Calculate current period total (matches monthly comparison)
+            val currentPeriodTotal = repository.getTotalSpent(startDate, endDate)
+            
+            // Calculate previous period for comparison (like monthly comparison logic)
             val calendar = Calendar.getInstance()
-            calendar.time = endDate
-            
-            // Go back 4 weeks from end date
-            calendar.add(Calendar.WEEK_OF_YEAR, -4)
-            val trendStartDate = calendar.time
-            
-            // Get transactions for the 4-week period
-            val transactions = repository.getTransactionsByDateRange(trendStartDate, endDate)
-            Log.d("DashboardFragment", "📊 Weekly Trend: Found ${transactions.size} transactions from ${trendStartDate} to ${endDate}")
-            
-            // Group transactions by week
-            val weeklyData = mutableMapOf<Int, Double>()
-            
-            for (transaction in transactions) {
-                val transactionCalendar = Calendar.getInstance()
-                transactionCalendar.time = transaction.transactionDate
-                val weekOfYear = transactionCalendar.get(Calendar.WEEK_OF_YEAR)
-                
-                weeklyData[weekOfYear] = (weeklyData[weekOfYear] ?: 0.0) + transaction.amount
-            }
-            
-            // Calculate trend summary
-            val weeks = weeklyData.keys.sorted()
-            val trendText = if (weeks.size >= 2) {
-                val firstWeekSpending = weeklyData[weeks.first()] ?: 0.0
-                val lastWeekSpending = weeklyData[weeks.last()] ?: 0.0
-                
-                val trend = when {
-                    lastWeekSpending > firstWeekSpending * 1.1 -> "📈 Spending increasing"
-                    lastWeekSpending < firstWeekSpending * 0.9 -> "📉 Spending decreasing"
-                    else -> "📊 Spending stable"
+            when (currentDashboardPeriod) {
+                "This Month" -> {
+                    // Compare with last month
+                    calendar.set(Calendar.DAY_OF_MONTH, 1)
+                    calendar.add(Calendar.MONTH, -1)
+                    calendar.set(Calendar.HOUR_OF_DAY, 0)
+                    calendar.set(Calendar.MINUTE, 0)
+                    calendar.set(Calendar.SECOND, 0)
+                    calendar.set(Calendar.MILLISECOND, 0)
+                    val prevStart = calendar.time
+                    
+                    calendar.add(Calendar.MONTH, 1)
+                    calendar.add(Calendar.DAY_OF_MONTH, -1)
+                    calendar.set(Calendar.HOUR_OF_DAY, 23)
+                    calendar.set(Calendar.MINUTE, 59)
+                    calendar.set(Calendar.SECOND, 59)
+                    calendar.set(Calendar.MILLISECOND, 999)
+                    val prevEnd = calendar.time
+                    
+                    val previousPeriodTotal = repository.getTotalSpent(prevStart, prevEnd)
+                    
+                    val trendText = createTrendText("This Month", currentPeriodTotal, "Last Month", previousPeriodTotal)
+                    updateWeeklyTrendUI(trendText)
                 }
                 
-                "$trend\nLast ${weeks.size} weeks: ₹${String.format("%.0f", weeklyData.values.sum())}"
-            } else {
-                "📊 Weekly Spending Trend\n${transactions.size} transactions this period"
+                "Last Month" -> {
+                    // Compare with two months ago  
+                    calendar.set(Calendar.DAY_OF_MONTH, 1)
+                    calendar.add(Calendar.MONTH, -2)
+                    calendar.set(Calendar.HOUR_OF_DAY, 0)
+                    calendar.set(Calendar.MINUTE, 0)
+                    calendar.set(Calendar.SECOND, 0)
+                    calendar.set(Calendar.MILLISECOND, 0)
+                    val prevStart = calendar.time
+                    
+                    calendar.add(Calendar.MONTH, 1)
+                    calendar.add(Calendar.DAY_OF_MONTH, -1)
+                    calendar.set(Calendar.HOUR_OF_DAY, 23)
+                    calendar.set(Calendar.MINUTE, 59)
+                    calendar.set(Calendar.SECOND, 59)
+                    calendar.set(Calendar.MILLISECOND, 999)
+                    val prevEnd = calendar.time
+                    
+                    val previousPeriodTotal = repository.getTotalSpent(prevStart, prevEnd)
+                    
+                    val trendText = createTrendText("Last Month", currentPeriodTotal, "Two Months Ago", previousPeriodTotal)
+                    updateWeeklyTrendUI(trendText)
+                }
+                
+                else -> {
+                    // For custom months, show the current period info
+                    val currentLabel = if (customFirstMonth != null) {
+                        java.text.SimpleDateFormat("MMMM yyyy", java.util.Locale.getDefault()).format(startDate)
+                    } else {
+                        "Current Period"
+                    }
+                    
+                    val trendText = "📊 Period Summary\n$currentLabel: ₹${String.format("%.0f", currentPeriodTotal)}"
+                    updateWeeklyTrendUI(trendText)
+                }
             }
-            
-            // Update UI
-            val weeklyTrendLayout = binding.root.findViewById<FrameLayout>(R.id.frame_weekly_chart)
-            val placeholderTextView = weeklyTrendLayout?.getChildAt(0) as? TextView
-            placeholderTextView?.text = trendText
-            
-            Log.d("DashboardFragment", "📊 Weekly trend updated: $trendText")
             
         } catch (e: Exception) {
             Log.e("DashboardFragment", "Error updating weekly trend from repository", e)
-            // Fallback to placeholder text
-            val weeklyTrendLayout = binding.root.findViewById<FrameLayout>(R.id.frame_weekly_chart)
-            val placeholderTextView = weeklyTrendLayout?.getChildAt(0) as? TextView
-            placeholderTextView?.text = "📊 Weekly Spending Chart\nData loading..."
+            updateWeeklyTrendUI("📊 Weekly Spending Chart\nData loading...")
         }
+    }
+    
+    private fun createTrendText(currentLabel: String, currentAmount: Double, previousLabel: String, previousAmount: Double): String {
+        val trend = when {
+            previousAmount > 0 -> {
+                val change = ((currentAmount - previousAmount) / previousAmount) * 100
+                when {
+                    change > 10 -> "📈 Spending increased"
+                    change < -10 -> "📉 Spending decreased"  
+                    else -> "📊 Spending stable"
+                }
+            }
+            currentAmount > 0 -> "📈 New spending period"
+            else -> "📊 No spending data"
+        }
+        
+        return "$trend\n$currentLabel: ₹${String.format("%.0f", currentAmount)}"
+    }
+    
+    private fun updateWeeklyTrendUI(trendText: String) {
+        val weeklyTrendLayout = binding.root.findViewById<FrameLayout>(R.id.frame_weekly_chart)
+        val placeholderTextView = weeklyTrendLayout?.getChildAt(0) as? TextView
+        placeholderTextView?.text = trendText
+        
+        Log.d("DashboardFragment", "📊 Weekly trend updated with consistent data: $trendText")
     }
     
     // REMOVED: updateWeeklyTrendForPeriod() - no more direct SMS reading
