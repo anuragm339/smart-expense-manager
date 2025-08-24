@@ -411,6 +411,7 @@
                         android:orientation="vertical">
 
                         <TextView
+                            android:id="@+id/tvMerchant1Name"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Swiggy"
@@ -419,6 +420,7 @@
                             android:textColor="@color/text_primary" />
 
                         <TextView
+                            android:id="@+id/tvMerchant1Details"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="23 transactions"
@@ -428,6 +430,7 @@
                     </LinearLayout>
 
                     <TextView
+                        android:id="@+id/tvMerchant1Amount"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="₹3,420"
@@ -461,6 +464,7 @@
                         android:orientation="vertical">
 
                         <TextView
+                            android:id="@+id/tvMerchant2Name"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Big Bazaar"
@@ -469,6 +473,7 @@
                             android:textColor="@color/text_primary" />
 
                         <TextView
+                            android:id="@+id/tvMerchant2Details"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="8 transactions"
@@ -478,6 +483,7 @@
                     </LinearLayout>
 
                     <TextView
+                        android:id="@+id/tvMerchant2Amount"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="₹2,150"
@@ -510,6 +516,7 @@
                         android:orientation="vertical">
 
                         <TextView
+                            android:id="@+id/tvMerchant3Name"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Uber"
@@ -518,6 +525,7 @@
                             android:textColor="@color/text_primary" />
 
                         <TextView
+                            android:id="@+id/tvMerchant3Details"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="15 transactions"
@@ -527,6 +535,7 @@
                     </LinearLayout>
 
                     <TextView
+                        android:id="@+id/tvMerchant3Amount"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="₹1,890"

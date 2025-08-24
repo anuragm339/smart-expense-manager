@@ -18,10 +18,10 @@ interface AIInsightsApiService {
      * @param request The insights request containing transaction data and context
      * @return API response with generated insights
      */
-    @POST("api/v1/insights/generate")
+    @POST("api/ai/insights")
     suspend fun generateInsights(
         @Body request: AIInsightsRequest
-    ): Response<AIInsightsResponse>
+    ): Response<YourApiResponse>
     
     /**
      * Get cached insights for a user (optional endpoint for quick loading)

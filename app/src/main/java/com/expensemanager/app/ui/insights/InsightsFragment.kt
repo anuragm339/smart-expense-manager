@@ -61,6 +61,9 @@ class InsightsFragment : Fragment() {
         setupUI()
         observeUIState()
         setupClickListeners()
+        
+        // Force initial refresh when fragment is created
+        forceInitialRefresh()
     }
     
     /**
@@ -193,6 +196,13 @@ class InsightsFragment : Fragment() {
                 launch {
                     viewModel.savingsOpportunities.collect { savingsData ->
                         updateSavingsOpportunities(savingsData)
+                    }
+                }
+                
+                // Observe budget recommendations
+                launch {
+                    viewModel.budgetRecommendations.collect { recommendations ->
+                        updateBudgetOptimization(recommendations)
                     }
                 }
             }
@@ -350,86 +360,125 @@ class InsightsFragment : Fragment() {
     }
     
     /**
-     * Update spending forecast section
+     * Update spending forecast section with direct API data
      */
     private fun updateSpendingForecast(forecastData: SpendingForecastUIData) {
         try {
-            // Find and update spending forecast TextViews
-            binding.root.findViewById<TextView>(R.id.tvSpendingAmount)?.text = 
-                "Based on your current spending pattern, you're likely to spend ₹${String.format("%.0f", forecastData.projectedAmount)} this month."
-            
-            binding.root.findViewById<TextView>(R.id.tvSpendingAdvice)?.text = forecastData.advice.ifEmpty {
-                "That's ${String.format("%.0f", forecastData.comparisonToLastMonth)}% more than last month. Consider reducing dining expenses."
+            // Get direct insight from API instead of calculated data
+            val forecastInsights = viewModel.uiState.value.getInsightsByType(InsightType.SPENDING_FORECAST)
+            if (forecastInsights.isNotEmpty()) {
+                val forecastInsight = forecastInsights.first()
+                
+                // Show API description directly (contains all the forecast info)
+                binding.root.findViewById<TextView>(R.id.tvSpendingAmount)?.text = forecastInsight.description
+                binding.root.findViewById<TextView>(R.id.tvSpendingAdvice)?.text = forecastInsight.actionableAdvice
+                
+                Log.d(TAG, "Spending forecast updated with direct API data")
+            } else {
+                // Fallback to calculated data if no API insight available
+                binding.root.findViewById<TextView>(R.id.tvSpendingAmount)?.text = 
+                    "Based on your current spending pattern, you're likely to spend ₹${String.format("%.0f", forecastData.projectedAmount)} this month."
+                
+                binding.root.findViewById<TextView>(R.id.tvSpendingAdvice)?.text = forecastData.advice.ifEmpty {
+                    "That's ${String.format("%.0f", forecastData.comparisonToLastMonth)}% more than last month."
+                }
             }
             
-            // Update progress bar
+            // Update progress bar with API data if available
             binding.root.findViewById<View>(R.id.progressSpending)?.let { progressBar ->
-                // Set progress (you'd need to cast to actual ProgressBar and set progress)
                 Log.d(TAG, "Updated spending progress: ${forecastData.progressPercentage}%")
             }
             
-            Log.d(TAG, "Spending forecast updated: ₹${forecastData.projectedAmount}")
         } catch (e: Exception) {
             Log.e(TAG, "Error updating spending forecast", e)
         }
     }
     
     /**
-     * Update pattern alerts section
+     * Update pattern alerts section with direct API data
      */
     private fun updatePatternAlerts(alerts: List<PatternAlertUIData>) {
-        if (alerts.isNotEmpty()) {
-            val firstAlert = alerts.first()
+        try {
+            // Get pattern alert insights directly from API
+            val patternInsights = viewModel.uiState.value.getInsightsByType(InsightType.PATTERN_ALERT)
             
-            try {
-                // Update pattern alert text
+            if (patternInsights.isNotEmpty()) {
+                // Show first alert directly from API
                 binding.root.findViewById<TextView>(R.id.tvPatternAlert1)?.text = 
-                    "Your ${firstAlert.category} expenses ${if (firstAlert.isIncrease) "increased" else "decreased"} by ${String.format("%.0f", firstAlert.changePercentage)}% ${firstAlert.period}"
+                    patternInsights[0].description
                 
-                if (alerts.size > 1) {
-                    val secondAlert = alerts[1]
+                // Show second alert if available
+                if (patternInsights.size > 1) {
                     binding.root.findViewById<TextView>(R.id.tvPatternAlert2)?.text = 
-                        "Unusual spending detected: ₹${String.format("%.0f", secondAlert.changePercentage * 100)} at ${secondAlert.category}"
+                        patternInsights[1].description
+                } else {
+                    binding.root.findViewById<TextView>(R.id.tvPatternAlert2)?.text = 
+                        "No additional alerts"
                 }
                 
-                Log.d(TAG, "Pattern alerts updated: ${alerts.size} alerts")
-            } catch (e: Exception) {
-                Log.e(TAG, "Error updating pattern alerts", e)
+                Log.d(TAG, "Pattern alerts updated with direct API data: ${patternInsights.size} alerts")
+            } else {
+                // Show no alerts message
+                binding.root.findViewById<TextView>(R.id.tvPatternAlert1)?.text = 
+                    "No pattern alerts from API"
+                binding.root.findViewById<TextView>(R.id.tvPatternAlert2)?.text = 
+                    "All spending patterns appear normal"
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error updating pattern alerts", e)
         }
     }
     
     /**
-     * Update savings opportunities section
+     * Update savings opportunities section with direct API data
      */
     private fun updateSavingsOpportunities(savingsData: SavingsOpportunityUIData) {
         try {
-            // Update potential savings amounts
+            // Keep the calculated savings amounts (API doesn't provide specific amounts)
             binding.root.findViewById<TextView>(R.id.tvMonthlySavings)?.text = 
                 "₹${String.format("%.0f", savingsData.monthlyPotential)}"
             
             binding.root.findViewById<TextView>(R.id.tvYearlySavings)?.text = 
                 "₹${String.format("%.0f", savingsData.yearlyImpact)}"
             
-            // Update recommendations
-            if (savingsData.recommendations.isNotEmpty()) {
+            // But use actual API recommendations for the text
+            val savingsInsights = viewModel.uiState.value.getInsightsByType(InsightType.SAVINGS_OPPORTUNITY)
+            if (savingsInsights.isNotEmpty()) {
+                // Show first API recommendation
                 binding.root.findViewById<TextView>(R.id.tvSavingsRecommendation1)?.text = 
-                    savingsData.recommendations.firstOrNull() ?: "Cook at home 2 more days per week to save ₹1,200/month"
+                    savingsInsights[0].description
                 
-                if (savingsData.recommendations.size > 1) {
+                // Show second recommendation if available from API
+                if (savingsInsights.size > 1) {
                     binding.root.findViewById<TextView>(R.id.tvSavingsRecommendation2)?.text = 
-                        savingsData.recommendations[1]
+                        savingsInsights[1].description
+                } else {
+                    // Hide second recommendation or show placeholder
+                    binding.root.findViewById<TextView>(R.id.tvSavingsRecommendation2)?.text = 
+                        "Continue monitoring spending for more opportunities"
+                }
+                
+                Log.d(TAG, "Savings opportunities updated with API recommendations: ${savingsInsights.size}")
+            } else {
+                // Fallback to calculated data
+                if (savingsData.recommendations.isNotEmpty()) {
+                    binding.root.findViewById<TextView>(R.id.tvSavingsRecommendation1)?.text = 
+                        savingsData.recommendations.firstOrNull() ?: "No specific recommendations available"
+                    
+                    if (savingsData.recommendations.size > 1) {
+                        binding.root.findViewById<TextView>(R.id.tvSavingsRecommendation2)?.text = 
+                            savingsData.recommendations[1]
+                    }
                 }
             }
             
-            Log.d(TAG, "Savings opportunities updated: ₹${savingsData.monthlyPotential}/month")
         } catch (e: Exception) {
             Log.e(TAG, "Error updating savings opportunities", e)
         }
     }
     
     /**
-     * Update top merchants section with real data
+     * Update top merchants section with direct API data
      */
     private fun updateTopMerchants(state: InsightsUIState) {
         try {
@@ -437,15 +486,67 @@ class InsightsFragment : Fragment() {
             val merchantInsights = state.getInsightsByType(InsightType.MERCHANT_RECOMMENDATION)
             
             if (merchantInsights.isNotEmpty()) {
-                // Update merchant data with actual insights
-                Log.d(TAG, "Updated top merchants from insights data")
+                val firstMerchant = merchantInsights.first()
+                
+                // Use merchant title directly from API (merchant name)
+                val merchantName = firstMerchant.title
+                val avgTransaction = firstMerchant.impactAmount
+                
+                // Update first merchant with direct API data
+                binding.root.findViewById<TextView>(R.id.tvMerchant1Name)?.text = merchantName
+                binding.root.findViewById<TextView>(R.id.tvMerchant1Details)?.text = 
+                    "Avg: ₹${String.format("%.0f", avgTransaction)}"
+                binding.root.findViewById<TextView>(R.id.tvMerchant1Amount)?.text = 
+                    "₹${String.format("%.0f", avgTransaction)}" // Show actual average, not calculated
+                
+                // If we have more merchants, update them too
+                if (merchantInsights.size > 1) {
+                    val secondMerchant = merchantInsights[1]
+                    binding.root.findViewById<TextView>(R.id.tvMerchant2Name)?.text = secondMerchant.title
+                    binding.root.findViewById<TextView>(R.id.tvMerchant2Details)?.text = 
+                        "Avg: ₹${String.format("%.0f", secondMerchant.impactAmount)}"
+                    binding.root.findViewById<TextView>(R.id.tvMerchant2Amount)?.text = 
+                        "₹${String.format("%.0f", secondMerchant.impactAmount)}"
+                }
+                
+                if (merchantInsights.size > 2) {
+                    val thirdMerchant = merchantInsights[2]
+                    binding.root.findViewById<TextView>(R.id.tvMerchant3Name)?.text = thirdMerchant.title
+                    binding.root.findViewById<TextView>(R.id.tvMerchant3Details)?.text = 
+                        "Avg: ₹${String.format("%.0f", thirdMerchant.impactAmount)}"
+                    binding.root.findViewById<TextView>(R.id.tvMerchant3Amount)?.text = 
+                        "₹${String.format("%.0f", thirdMerchant.impactAmount)}"
+                }
+                
+                Log.d(TAG, "Updated merchants with direct API data: ${merchantInsights.size} merchants")
             } else {
-                // Keep existing static data as fallback
-                Log.d(TAG, "Using fallback merchant data")
+                // Show "No merchant data available" instead of static fallback
+                binding.root.findViewById<TextView>(R.id.tvMerchant1Name)?.text = "No API Data"
+                binding.root.findViewById<TextView>(R.id.tvMerchant1Details)?.text = "No merchant insights from API"
+                binding.root.findViewById<TextView>(R.id.tvMerchant1Amount)?.text = "₹0"
+                Log.d(TAG, "No merchant insights available from API")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error updating top merchants", e)
         }
+    }
+    
+    /**
+     * Extract merchant name from API description
+     */
+    private fun extractMerchantName(description: String): String {
+        // Look for merchant name patterns in the description
+        val merchantKeywords = listOf("N/A", "Swiggy", "Zomato", "Amazon", "Flipkart", "Uber", "Ola")
+        
+        for (keyword in merchantKeywords) {
+            if (description.contains(keyword, ignoreCase = true)) {
+                return keyword
+            }
+        }
+        
+        // If no specific merchant found, extract first word that might be a merchant name
+        val words = description.split(" ")
+        return words.find { it.length > 3 && it[0].isUpperCase() } ?: "Unknown Merchant"
     }
     
     /**
@@ -454,6 +555,35 @@ class InsightsFragment : Fragment() {
     @Deprecated("Use showShimmerLoading instead")
     private fun showLoadingState(isLoading: Boolean) {
         showShimmerLoading(isLoading)
+    }
+    
+    /**
+     * Update budget optimization section with API recommendations
+     */
+    private fun updateBudgetOptimization(recommendations: List<String>) {
+        try {
+            // Update first recommendation if available
+            if (recommendations.isNotEmpty()) {
+                binding.root.findViewById<TextView>(R.id.tvSavingsRecommendation1)?.text = 
+                    recommendations.first()
+                Log.d(TAG, "Updated first budget recommendation: ${recommendations.first()}")
+            }
+            
+            // Update second recommendation if available
+            if (recommendations.size > 1) {
+                binding.root.findViewById<TextView>(R.id.tvSavingsRecommendation2)?.text = 
+                    recommendations[1]
+                Log.d(TAG, "Updated second budget recommendation: ${recommendations[1]}")
+            } else {
+                // Hide second recommendation if only one available
+                binding.root.findViewById<TextView>(R.id.tvSavingsRecommendation2)?.visibility = 
+                    android.view.View.GONE
+            }
+            
+            Log.d(TAG, "Budget optimization updated with ${recommendations.size} recommendations")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error updating budget optimization", e)
+        }
     }
     
     /**
@@ -472,6 +602,20 @@ class InsightsFragment : Fragment() {
     private fun showSampleDataIndicator() {
         // Could show a small badge or toast indicating sample data
         Log.d(TAG, "Using sample insights data")
+    }
+    
+    /**
+     * Force initial refresh when fragment loads
+     */
+    private fun forceInitialRefresh() {
+        Log.d(TAG, "Forcing initial refresh on fragment load")
+        
+        // Trigger refresh immediately
+        viewLifecycleOwner.lifecycleScope.launch {
+            // Small delay to ensure ViewModel is fully setup
+            kotlinx.coroutines.delay(100)
+            viewModel.handleEvent(InsightsUIEvent.Refresh)
+        }
     }
     
     /**
@@ -505,6 +649,12 @@ class InsightsFragment : Fragment() {
         // Restart shimmer animations if we're in loading state
         if (::shimmerLoading.isInitialized && shimmerLoading.visibility == View.VISIBLE) {
             startAllShimmerAnimations(shimmerLoading)
+        }
+        
+        // Force refresh if no data is currently displayed
+        if (::viewModel.isInitialized && viewModel.uiState.value.insights.isEmpty()) {
+            Log.d(TAG, "Fragment resumed with no data - triggering refresh")
+            viewModel.handleEvent(InsightsUIEvent.Refresh)
         }
     }
 }

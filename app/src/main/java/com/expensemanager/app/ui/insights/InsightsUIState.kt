@@ -139,11 +139,43 @@ fun AIInsight.toSpendingForecastUIData(): SpendingForecastUIData {
 }
 
 fun AIInsight.toPatternAlertUIData(): PatternAlertUIData {
+    // Parse actual data from API description
+    val description = this.description
+    val title = this.title
+    
+    // Extract category from description or title
+    val category = when {
+        description.contains("Food", ignoreCase = true) || description.contains("Dining", ignoreCase = true) -> "Food & Dining"
+        description.contains("Transport", ignoreCase = true) || description.contains("Uber", ignoreCase = true) || description.contains("Ola", ignoreCase = true) -> "Transportation"
+        description.contains("Grocery", ignoreCase = true) || description.contains("Groceries", ignoreCase = true) -> "Groceries"
+        description.contains("Shopping", ignoreCase = true) || description.contains("Amazon", ignoreCase = true) -> "Shopping"
+        description.contains("Healthcare", ignoreCase = true) || description.contains("Medical", ignoreCase = true) -> "Healthcare"
+        else -> "General Spending"
+    }
+    
+    // Extract percentage from description if available
+    val percentageRegex = """(\d+(?:\.\d+)?)%""".toRegex()
+    val changePercentage = percentageRegex.find(description)?.groupValues?.get(1)?.toDoubleOrNull() ?: 0.0
+    
+    // Determine if it's an increase based on description text
+    val isIncrease = description.contains("increase", ignoreCase = true) || 
+                    description.contains("high", ignoreCase = true) ||
+                    description.contains("more", ignoreCase = true) ||
+                    description.contains("spike", ignoreCase = true)
+    
+    // Determine period from description
+    val period = when {
+        description.contains("week", ignoreCase = true) -> "this week"
+        description.contains("month", ignoreCase = true) -> "this month"
+        description.contains("day", ignoreCase = true) -> "recent days"
+        else -> "recently"
+    }
+    
     return PatternAlertUIData(
-        category = "Food & Dining", // Would be parsed from description
-        changePercentage = 45.0, // Would come from API
-        isIncrease = true,
-        period = "this week",
+        category = category,
+        changePercentage = changePercentage,
+        isIncrease = isIncrease,
+        period = period,
         severity = when (this.priority.name) {
             "URGENT" -> AlertSeverity.CRITICAL
             "HIGH" -> AlertSeverity.HIGH

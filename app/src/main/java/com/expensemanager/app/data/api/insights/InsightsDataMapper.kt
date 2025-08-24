@@ -115,5 +115,6 @@ private fun MonthlySummary.toMonthlyTrend(): MonthlyTrend {
  * Generate unique user ID (in production, this would come from authentication)
  */
 fun generateUserId(): String {
-    return "user_${System.currentTimeMillis()}_${Random().nextInt(1000)}"
+    // For testing purposes, use a consistent ID
+    return "expense_manager_user_test"
 }

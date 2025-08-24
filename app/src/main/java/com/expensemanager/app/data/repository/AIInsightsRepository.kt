@@ -65,9 +65,11 @@ class AIInsightsRepository(
             emit(Result.success(cachedInsights))
         }
         
-        // Handle different scenarios
-        if (isOnline && !isOfflineModeEnabled && shouldRefreshInsights()) {
-            Log.d(TAG, "Refreshing insights from API (online mode)...")
+        // Handle different scenarios - Force refresh if no cached data OR if cache expired
+        val needsRefresh = cachedInsights.isEmpty() || shouldRefreshInsights()
+        
+        if (isOnline && !isOfflineModeEnabled && needsRefresh) {
+            Log.d(TAG, "Refreshing insights from API (online mode) - No cache: ${cachedInsights.isEmpty()}, Expired: ${shouldRefreshInsights()}")
             
             try {
                 val freshInsights = fetchInsightsFromApi()
@@ -172,22 +174,24 @@ class AIInsightsRepository(
                 contextData = transactionData.contextData
             )
             
-            Log.d(TAG, "Making API call for insights...")
+            Log.d(TAG, "Making API call to: ${apiService.javaClass.simpleName}")
             Log.d(TAG, "Request summary: ${transactionData.transactionSummary.totalSpent} spent, ${transactionData.transactionSummary.transactionCount} transactions")
+            Log.d(TAG, "Categories: ${transactionData.transactionSummary.categoryBreakdown.size}")
+            Log.d(TAG, "Top merchants: ${transactionData.transactionSummary.topMerchants.size}")
             
             // Make API call
             val response = apiService.generateInsights(request)
             
             if (response.isSuccessful) {
                 val apiResponse = response.body()
-                if (apiResponse?.success == true) {
-                    val insights = InsightsDataMapper.mapToDomainInsights(apiResponse)
+                if (apiResponse != null) {
+                    val insights = DirectApiMapper.mapToAIInsights(apiResponse)
                     Log.d(TAG, "API call successful: ${insights.size} insights received")
+                    Log.d(TAG, "Insights: ${insights.map { "${it.type}: ${it.title}" }}")
                     Result.success(insights)
                 } else {
-                    val errorMsg = apiResponse?.error?.message ?: "Unknown API error"
-                    Log.e(TAG, "API returned error: $errorMsg")
-                    Result.failure(Exception("API Error: $errorMsg"))
+                    Log.e(TAG, "API returned null response")
+                    Result.failure(Exception("API Error: Null response"))
                 }
             } else {
                 val errorMsg = "HTTP ${response.code()}: ${response.message()}"
@@ -234,11 +238,20 @@ class AIInsightsRepository(
             set(Calendar.SECOND, 59)
         }.time
         
-        // Get dashboard data for current month
+        // Debug: Log exclusion status before gathering data
+        val exclusionDebugInfo = expenseRepository.getExclusionStatesDebugInfo()
+        Log.d(TAG, "🔍 AI Data Prep - Exclusion Status: $exclusionDebugInfo")
+        
+        // Get dashboard data for current month (already filtered by exclusions)
         val dashboardData = expenseRepository.getDashboardData(currentMonthStart, currentMonthEnd)
         
-        // Get previous month spending for comparison
+        // Get previous month spending for comparison (already filtered by exclusions)
         val previousMonthSpent = expenseRepository.getTotalSpent(previousMonthStart, previousMonthEnd)
+        
+        // Debug: Log filtered data being sent to AI
+        Log.d(TAG, "🔍 AI Data Prep - Filtered totals: Current ₹${dashboardData.totalSpent}, Previous ₹$previousMonthSpent")
+        Log.d(TAG, "🔍 AI Data Prep - Filtered merchants: ${dashboardData.topMerchants.size} merchants")
+        Log.d(TAG, "🔍 AI Data Prep - Filtered categories: ${dashboardData.topCategories.size} categories")
         
         // Generate monthly trends (last 3 months)
         val monthlyTrends = generateMonthlyTrends()
@@ -276,6 +289,7 @@ class AIInsightsRepository(
      * Generate monthly trends for the last 3 months
      */
     private suspend fun generateMonthlyTrends(): List<MonthlySummary> {
+        Log.d(TAG, "🔍 AI Data Prep - Generating monthly trends (with exclusions)")
         val trends = mutableListOf<MonthlySummary>()
         
         for (monthsBack in 0..2) {
@@ -298,10 +312,13 @@ class AIInsightsRepository(
                 set(Calendar.SECOND, 59)
             }.time
             
+            // These calls already apply exclusion filtering in ExpenseRepository
             val totalSpent = expenseRepository.getTotalSpent(startOfMonth, endOfMonth)
             val transactionCount = expenseRepository.getTransactionCount(startOfMonth, endOfMonth)
             
             val monthKey = String.format("%d-%02d", calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH) + 1)
+            
+            Log.d(TAG, "🔍 AI Data Prep - Month $monthKey: ₹$totalSpent ($transactionCount transactions)")
             
             trends.add(MonthlySummary(
                 month = monthKey,
@@ -311,6 +328,7 @@ class AIInsightsRepository(
             ))
         }
         
+        Log.d(TAG, "🔍 AI Data Prep - Monthly trends complete: ${trends.size} months")
         return trends.reversed() // Return oldest to newest
     }
     

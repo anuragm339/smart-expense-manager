@@ -12,8 +12,8 @@ import java.util.concurrent.TimeUnit
  */
 object NetworkConfig {
     
-    // TODO: Replace with your actual AI API base URL
-    private const val BASE_URL = "https://your-ai-api-server.com/"
+    // AI API base URL - Updated to point to localhost
+    private const val BASE_URL = "http://localhost:8080/"
     
     // Network timeouts
     private const val CONNECT_TIMEOUT = 30L
@@ -46,6 +46,27 @@ object NetworkConfig {
                 // .header("Authorization", "Bearer $API_KEY")
                 
                 chain.proceed(requestBuilder.build())
+            }
+            .addInterceptor { chain ->
+                // Fix malformed JSON responses (remove markdown code blocks)
+                val response = chain.proceed(chain.request())
+                if (response.isSuccessful && response.body != null) {
+                    val originalBody = response.body!!.string()
+                    val cleanedBody = originalBody
+                        .replace("```json", "")
+                        .replace("```", "")
+                        .trim()
+                    
+                    Log.d(TAG, "Cleaned JSON response: ${cleanedBody.take(200)}...")
+                    
+                    val newBody = okhttp3.ResponseBody.create(
+                        response.body!!.contentType(),
+                        cleanedBody
+                    )
+                    response.newBuilder().body(newBody).build()
+                } else {
+                    response
+                }
             }
             .connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS)
             .readTimeout(READ_TIMEOUT, TimeUnit.SECONDS)

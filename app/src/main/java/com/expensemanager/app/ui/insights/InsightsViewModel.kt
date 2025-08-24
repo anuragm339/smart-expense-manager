@@ -343,6 +343,20 @@ class InsightsViewModel(
         )
     
     /**
+     * Get budget optimization recommendations for UI
+     */
+    val budgetRecommendations: StateFlow<List<String>> = _uiState
+        .map { state ->
+            state.getInsightsByType(InsightType.BUDGET_OPTIMIZATION)
+                .map { it.description }
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+    
+    /**
      * Check network status and cache information
      */
     fun getCacheStatus() = viewModelScope.launch {
