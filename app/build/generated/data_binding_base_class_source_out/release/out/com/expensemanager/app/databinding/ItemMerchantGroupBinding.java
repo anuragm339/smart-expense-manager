@@ -8,10 +8,10 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewbinding.ViewBinding;
 import androidx.viewbinding.ViewBindings;
 import com.expensemanager.app.R;
+import com.expensemanager.app.ui.messages.NestedScrollableRecyclerView;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.switchmaterial.SwitchMaterial;
 import java.lang.NullPointerException;
@@ -26,7 +26,7 @@ public final class ItemMerchantGroupBinding implements ViewBinding {
   public final ImageView ivExpandCollapse;
 
   @NonNull
-  public final RecyclerView recyclerTransactions;
+  public final NestedScrollableRecyclerView recyclerTransactions;
 
   @NonNull
   public final SwitchMaterial switchIncludeGroup;
@@ -50,7 +50,8 @@ public final class ItemMerchantGroupBinding implements ViewBinding {
   public final View viewCategoryColor;
 
   private ItemMerchantGroupBinding(@NonNull MaterialCardView rootView,
-      @NonNull ImageView ivExpandCollapse, @NonNull RecyclerView recyclerTransactions,
+      @NonNull ImageView ivExpandCollapse,
+      @NonNull NestedScrollableRecyclerView recyclerTransactions,
       @NonNull SwitchMaterial switchIncludeGroup, @NonNull TextView tvCategory,
       @NonNull TextView tvDateRange, @NonNull TextView tvMerchantName,
       @NonNull TextView tvTotalAmount, @NonNull TextView tvTransactionCount,
@@ -101,7 +102,7 @@ public final class ItemMerchantGroupBinding implements ViewBinding {
       }
 
       id = R.id.recycler_transactions;
-      RecyclerView recyclerTransactions = ViewBindings.findChildViewById(rootView, id);
+      NestedScrollableRecyclerView recyclerTransactions = ViewBindings.findChildViewById(rootView, id);
       if (recyclerTransactions == null) {
         break missingId;
       }

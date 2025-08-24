@@ -14,6 +14,7 @@
     <color name="category_utilities">#607d8b</color>
     <color name="divider">#e0e0e0</color>
     <color name="error">#e53e3e</color>
+    <color name="error_red">#e53e3e</color>
     <color name="info">#2196f3</color>
     <color name="primary">#1a237e</color>
     <color name="primary_dark">#000051</color>
@@ -22,6 +23,7 @@
     <color name="secondary_dark">#c53d13</color>
     <color name="secondary_light">#ff9d64</color>
     <color name="success">#4caf50</color>
+    <color name="success_green">#4caf50</color>
     <color name="surface">#ffffff</color>
     <color name="text_hint">#bdbdbd</color>
     <color name="text_on_primary">#ffffff</color>
@@ -31,6 +33,7 @@
     <color name="warning">#ff9800</color>
     <color name="warning_dark">#e65100</color>
     <color name="warning_light">#fff3e0</color>
+    <color name="warning_orange">#ff9800</color>
     <color name="white">#FFFFFFFF</color>
     <string name="app_name">Smart Expense Manager</string>
     <string name="auto_categorized">Auto-categorized</string>

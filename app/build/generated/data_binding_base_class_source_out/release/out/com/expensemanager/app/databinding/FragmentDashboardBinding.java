@@ -5,7 +5,6 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
-import android.widget.GridLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -16,6 +15,7 @@ import androidx.viewbinding.ViewBinding;
 import androidx.viewbinding.ViewBindings;
 import com.expensemanager.app.R;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.card.MaterialCardView;
 import java.lang.NullPointerException;
 import java.lang.Override;
 import java.lang.String;
@@ -31,6 +31,9 @@ public final class FragmentDashboardBinding implements ViewBinding {
   public final MaterialButton btnAiInsights;
 
   @NonNull
+  public final MaterialButton btnDashboardPeriod;
+
+  @NonNull
   public final MaterialButton btnExportData;
 
   @NonNull
@@ -40,19 +43,25 @@ public final class FragmentDashboardBinding implements ViewBinding {
   public final MaterialButton btnSyncSms;
 
   @NonNull
+  public final MaterialButton btnTimeFilter;
+
+  @NonNull
   public final MaterialButton btnViewBudget;
 
   @NonNull
   public final MaterialButton btnViewInsights;
 
   @NonNull
+  public final MaterialCardView cardTransactionCount;
+
+  @NonNull
   public final FrameLayout frameWeeklyChart;
 
   @NonNull
-  public final GridLayout gridCategories;
+  public final LinearLayout layoutMonthlyComparison;
 
   @NonNull
-  public final LinearLayout layoutMonthlyComparison;
+  public final RecyclerView recyclerTopCategories;
 
   @NonNull
   public final RecyclerView recyclerTopMerchants;
@@ -77,25 +86,29 @@ public final class FragmentDashboardBinding implements ViewBinding {
 
   private FragmentDashboardBinding(@NonNull ScrollView rootView,
       @NonNull MaterialButton btnAddExpense, @NonNull MaterialButton btnAiInsights,
-      @NonNull MaterialButton btnExportData, @NonNull MaterialButton btnSettings,
-      @NonNull MaterialButton btnSyncSms, @NonNull MaterialButton btnViewBudget,
-      @NonNull MaterialButton btnViewInsights, @NonNull FrameLayout frameWeeklyChart,
-      @NonNull GridLayout gridCategories, @NonNull LinearLayout layoutMonthlyComparison,
-      @NonNull RecyclerView recyclerTopMerchants, @NonNull TextView tvLastMonthAmount,
-      @NonNull TextView tvSpendingComparison, @NonNull TextView tvThisMonthAmount,
-      @NonNull TextView tvTotalBalance, @NonNull TextView tvTotalSpent,
-      @NonNull TextView tvTransactionCount) {
+      @NonNull MaterialButton btnDashboardPeriod, @NonNull MaterialButton btnExportData,
+      @NonNull MaterialButton btnSettings, @NonNull MaterialButton btnSyncSms,
+      @NonNull MaterialButton btnTimeFilter, @NonNull MaterialButton btnViewBudget,
+      @NonNull MaterialButton btnViewInsights, @NonNull MaterialCardView cardTransactionCount,
+      @NonNull FrameLayout frameWeeklyChart, @NonNull LinearLayout layoutMonthlyComparison,
+      @NonNull RecyclerView recyclerTopCategories, @NonNull RecyclerView recyclerTopMerchants,
+      @NonNull TextView tvLastMonthAmount, @NonNull TextView tvSpendingComparison,
+      @NonNull TextView tvThisMonthAmount, @NonNull TextView tvTotalBalance,
+      @NonNull TextView tvTotalSpent, @NonNull TextView tvTransactionCount) {
     this.rootView = rootView;
     this.btnAddExpense = btnAddExpense;
     this.btnAiInsights = btnAiInsights;
+    this.btnDashboardPeriod = btnDashboardPeriod;
     this.btnExportData = btnExportData;
     this.btnSettings = btnSettings;
     this.btnSyncSms = btnSyncSms;
+    this.btnTimeFilter = btnTimeFilter;
     this.btnViewBudget = btnViewBudget;
     this.btnViewInsights = btnViewInsights;
+    this.cardTransactionCount = cardTransactionCount;
     this.frameWeeklyChart = frameWeeklyChart;
-    this.gridCategories = gridCategories;
     this.layoutMonthlyComparison = layoutMonthlyComparison;
+    this.recyclerTopCategories = recyclerTopCategories;
     this.recyclerTopMerchants = recyclerTopMerchants;
     this.tvLastMonthAmount = tvLastMonthAmount;
     this.tvSpendingComparison = tvSpendingComparison;
@@ -144,6 +157,12 @@ public final class FragmentDashboardBinding implements ViewBinding {
         break missingId;
       }
 
+      id = R.id.btn_dashboard_period;
+      MaterialButton btnDashboardPeriod = ViewBindings.findChildViewById(rootView, id);
+      if (btnDashboardPeriod == null) {
+        break missingId;
+      }
+
       id = R.id.btn_export_data;
       MaterialButton btnExportData = ViewBindings.findChildViewById(rootView, id);
       if (btnExportData == null) {
@@ -162,6 +181,12 @@ public final class FragmentDashboardBinding implements ViewBinding {
         break missingId;
       }
 
+      id = R.id.btn_time_filter;
+      MaterialButton btnTimeFilter = ViewBindings.findChildViewById(rootView, id);
+      if (btnTimeFilter == null) {
+        break missingId;
+      }
+
       id = R.id.btn_view_budget;
       MaterialButton btnViewBudget = ViewBindings.findChildViewById(rootView, id);
       if (btnViewBudget == null) {
@@ -174,21 +199,27 @@ public final class FragmentDashboardBinding implements ViewBinding {
         break missingId;
       }
 
+      id = R.id.card_transaction_count;
+      MaterialCardView cardTransactionCount = ViewBindings.findChildViewById(rootView, id);
+      if (cardTransactionCount == null) {
+        break missingId;
+      }
+
       id = R.id.frame_weekly_chart;
       FrameLayout frameWeeklyChart = ViewBindings.findChildViewById(rootView, id);
       if (frameWeeklyChart == null) {
         break missingId;
       }
 
-      id = R.id.grid_categories;
-      GridLayout gridCategories = ViewBindings.findChildViewById(rootView, id);
-      if (gridCategories == null) {
-        break missingId;
-      }
-
       id = R.id.layout_monthly_comparison;
       LinearLayout layoutMonthlyComparison = ViewBindings.findChildViewById(rootView, id);
       if (layoutMonthlyComparison == null) {
+        break missingId;
+      }
+
+      id = R.id.recycler_top_categories;
+      RecyclerView recyclerTopCategories = ViewBindings.findChildViewById(rootView, id);
+      if (recyclerTopCategories == null) {
         break missingId;
       }
 
@@ -235,10 +266,10 @@ public final class FragmentDashboardBinding implements ViewBinding {
       }
 
       return new FragmentDashboardBinding((ScrollView) rootView, btnAddExpense, btnAiInsights,
-          btnExportData, btnSettings, btnSyncSms, btnViewBudget, btnViewInsights, frameWeeklyChart,
-          gridCategories, layoutMonthlyComparison, recyclerTopMerchants, tvLastMonthAmount,
-          tvSpendingComparison, tvThisMonthAmount, tvTotalBalance, tvTotalSpent,
-          tvTransactionCount);
+          btnDashboardPeriod, btnExportData, btnSettings, btnSyncSms, btnTimeFilter, btnViewBudget,
+          btnViewInsights, cardTransactionCount, frameWeeklyChart, layoutMonthlyComparison,
+          recyclerTopCategories, recyclerTopMerchants, tvLastMonthAmount, tvSpendingComparison,
+          tvThisMonthAmount, tvTotalBalance, tvTotalSpent, tvTransactionCount);
     }
     String missingId = rootView.getResources().getResourceName(id);
     throw new NullPointerException("Missing required view with ID: ".concat(missingId));

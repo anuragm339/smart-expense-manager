@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.expensemanager.app-mergeDebugResources-47:/values-pt-rBR/values-pt-rBR.xml",
+            "outputFile": "com.expensemanager.app-mergeDebugResources-53:/values-pt-rBR/values-pt-rBR.xml",
             "map": [
                 {
                     "source": "/Users/anuragmishra/.gradle/caches/transforms-4/f368374aac6e219dea888ba954f9a563/transformed/core-1.12.0/res/values-pt-rBR/values-pt-rBR.xml",

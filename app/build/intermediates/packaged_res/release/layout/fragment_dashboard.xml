@@ -60,6 +60,36 @@
 
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- Dashboard Period Filter -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Dashboard Period"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_primary" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_dashboard_period"
+                android:layout_width="140dp"
+                android:layout_height="wrap_content"
+                android:text="This Month"
+                android:textSize="14sp"
+                android:minHeight="40dp"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                app:iconTint="@color/primary"
+                app:icon="@drawable/ic_expand_more" />
+
+        </LinearLayout>
+
         <!-- Quick Stats Row -->
         <LinearLayout
             android:layout_width="match_parent"
@@ -103,11 +133,15 @@
             </com.google.android.material.card.MaterialCardView>
 
             <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card_transaction_count"
                 style="@style/CardStyle"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:layout_marginStart="8dp">
+                android:layout_marginStart="8dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -159,175 +193,15 @@
                     android:text="@string/top_categories"
                     android:layout_marginBottom="16dp" />
 
-                <!-- Category Grid -->
-                <GridLayout
-                    android:id="@+id/grid_categories"
+                <!-- Dynamic Top Categories RecyclerView -->
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/recycler_top_categories"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:columnCount="2"
-                    android:rowCount="4">
+                    android:minHeight="120dp"
+                    android:background="#f0f0f0"
+                    android:nestedScrollingEnabled="false" />
 
-                    <!-- Food &amp; Dining -->
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_columnWeight="1"
-                        android:orientation="horizontal"
-                        android:padding="8dp"
-                        android:gravity="center_vertical">
-
-                        <View
-                            android:layout_width="16dp"
-                            android:layout_height="16dp"
-                            android:background="@color/category_food"
-                            android:layout_marginEnd="8dp" />
-
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:orientation="vertical">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="@string/food_dining"
-                                android:textSize="14sp"
-                                android:textColor="@color/text_primary" />
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="₹4,250"
-                                android:textSize="12sp"
-                                android:textStyle="bold"
-                                android:textColor="@color/primary" />
-
-                        </LinearLayout>
-
-                    </LinearLayout>
-
-                    <!-- Transportation -->
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_columnWeight="1"
-                        android:orientation="horizontal"
-                        android:padding="8dp"
-                        android:gravity="center_vertical">
-
-                        <View
-                            android:layout_width="16dp"
-                            android:layout_height="16dp"
-                            android:background="@color/category_transport"
-                            android:layout_marginEnd="8dp" />
-
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:orientation="vertical">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="@string/transportation"
-                                android:textSize="14sp"
-                                android:textColor="@color/text_primary" />
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="₹2,150"
-                                android:textSize="12sp"
-                                android:textStyle="bold"
-                                android:textColor="@color/primary" />
-
-                        </LinearLayout>
-
-                    </LinearLayout>
-
-                    <!-- Healthcare -->
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_columnWeight="1"
-                        android:orientation="horizontal"
-                        android:padding="8dp"
-                        android:gravity="center_vertical">
-
-                        <View
-                            android:layout_width="16dp"
-                            android:layout_height="16dp"
-                            android:background="@color/category_healthcare"
-                            android:layout_marginEnd="8dp" />
-
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:orientation="vertical">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="@string/healthcare"
-                                android:textSize="14sp"
-                                android:textColor="@color/text_primary" />
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="₹1,840"
-                                android:textSize="12sp"
-                                android:textStyle="bold"
-                                android:textColor="@color/primary" />
-
-                        </LinearLayout>
-
-                    </LinearLayout>
-
-                    <!-- Groceries -->
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_columnWeight="1"
-                        android:orientation="horizontal"
-                        android:padding="8dp"
-                        android:gravity="center_vertical">
-
-                        <View
-                            android:layout_width="16dp"
-                            android:layout_height="16dp"
-                            android:background="@color/category_groceries"
-                            android:layout_marginEnd="8dp" />
-
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:orientation="vertical">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="@string/groceries"
-                                android:textSize="14sp"
-                                android:textColor="@color/text_primary" />
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="₹3,100"
-                                android:textSize="12sp"
-                                android:textStyle="bold"
-                                android:textColor="@color/primary" />
-
-                        </LinearLayout>
-
-                    </LinearLayout>
-
-                </GridLayout>
 
             </LinearLayout>
 
@@ -389,12 +263,32 @@
                 android:orientation="vertical"
                 android:padding="16dp">
 
-                <TextView
-                    style="@style/SubHeaderTextStyle"
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="@string/weekly_trend"
-                    android:layout_marginBottom="16dp" />
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="16dp">
+
+                    <TextView
+                        style="@style/SubHeaderTextStyle"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/weekly_trend" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_time_filter"
+                        android:layout_width="120dp"
+                        android:layout_height="wrap_content"
+                        android:text="This Month"
+                        android:textSize="12sp"
+                        android:minHeight="36dp"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        app:iconTint="@color/primary"
+                        app:icon="@drawable/ic_expand_more" />
+
+                </LinearLayout>
 
                 <!-- Chart placeholder -->
                 <FrameLayout
@@ -512,9 +406,9 @@
                         android:id="@+id/tv_spending_comparison"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="↓ 18% less spending"
+                        android:text="Loading..."
                         android:textSize="14sp"
-                        android:textColor="@color/success"
+                        android:textColor="@color/text_secondary"
                         android:textStyle="bold" />
 
                 </LinearLayout>

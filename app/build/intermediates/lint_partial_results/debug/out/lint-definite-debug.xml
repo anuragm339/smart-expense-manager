@@ -12,12 +12,12 @@
             value="android.permission.BROADCAST_SMS"/>
         <location
             file="${:app*debug*sourceProvider*0*manifest*0}"
-            line="28"
+            line="34"
             column="10"
-            startOffset="1106"
-            endLine="28"
+            startOffset="1506"
+            endLine="34"
             endColumn="18"
-            endOffset="1114"/>
+            endOffset="1514"/>
     </incident>
 
     <incident
@@ -191,6 +191,286 @@
     <incident
         id="HardcodedText"
         severity="warning"
+        message="Hardcoded string &quot;💰 Amount Range&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/dialog_advanced_filter.xml"
+            line="17"
+            column="13"
+            startOffset="586"
+            endLine="17"
+            endColumn="43"
+            endOffset="616"/>
+    </incident>
+
+    <incident
+        id="DisableBaselineAlignment"
+        severity="warning"
+        message="Set `android:baselineAligned=&quot;false&quot;` on this element for better performance">
+        <fix-attribute
+            description="Set baselineAligned=&quot;false&quot;"
+            robot="true"
+            independent="true"
+            namespace="http://schemas.android.com/apk/res/android"
+            attribute="baselineAligned"
+            value="false"/>
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/dialog_advanced_filter.xml"
+            line="23"
+            column="10"
+            startOffset="802"
+            endLine="23"
+            endColumn="22"
+            endOffset="814"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;Min Amount&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/dialog_advanced_filter.xml"
+            line="35"
+            column="17"
+            startOffset="1350"
+            endLine="35"
+            endColumn="42"
+            endOffset="1375"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;Max Amount&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/dialog_advanced_filter.xml"
+            line="51"
+            column="17"
+            startOffset="2090"
+            endLine="51"
+            endColumn="42"
+            endOffset="2115"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;📅 Date Range&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/dialog_advanced_filter.xml"
+            line="67"
+            column="13"
+            startOffset="2671"
+            endLine="67"
+            endColumn="41"
+            endOffset="2699"/>
+    </incident>
+
+    <incident
+        id="DisableBaselineAlignment"
+        severity="warning"
+        message="Set `android:baselineAligned=&quot;false&quot;` on this element for better performance">
+        <fix-attribute
+            description="Set baselineAligned=&quot;false&quot;"
+            robot="true"
+            independent="true"
+            namespace="http://schemas.android.com/apk/res/android"
+            attribute="baselineAligned"
+            value="false"/>
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/dialog_advanced_filter.xml"
+            line="73"
+            column="10"
+            startOffset="2885"
+            endLine="73"
+            endColumn="22"
+            endOffset="2897"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;From Date&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/dialog_advanced_filter.xml"
+            line="85"
+            column="17"
+            startOffset="3433"
+            endLine="85"
+            endColumn="41"
+            endOffset="3457"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;To Date&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/dialog_advanced_filter.xml"
+            line="102"
+            column="17"
+            startOffset="4208"
+            endLine="102"
+            endColumn="39"
+            endOffset="4230"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;🎯 Minimum Confidence&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/dialog_advanced_filter.xml"
+            line="119"
+            column="13"
+            startOffset="4820"
+            endLine="119"
+            endColumn="49"
+            endOffset="4856"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;🏦 Select Banks&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/dialog_advanced_filter.xml"
+            line="140"
+            column="13"
+            startOffset="5612"
+            endLine="140"
+            endColumn="43"
+            endOffset="5642"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;💡 Leave fields empty to disable that filter. Multiple bank selections are allowed.&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/dialog_advanced_filter.xml"
+            line="158"
+            column="13"
+            startOffset="6309"
+            endLine="158"
+            endColumn="111"
+            endOffset="6407"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;📝 Change Category&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/dialog_category_selection.xml"
+            line="20"
+            column="13"
+            startOffset="661"
+            endLine="20"
+            endColumn="46"
+            endOffset="694"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;Select a new category for this merchant&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/dialog_category_selection.xml"
+            line="30"
+            column="13"
+            startOffset="1041"
+            endLine="30"
+            endColumn="67"
+            endOffset="1095"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;Cancel&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/dialog_category_selection.xml"
+            line="64"
+            column="13"
+            startOffset="2226"
+            endLine="64"
+            endColumn="34"
+            endOffset="2247"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;Update&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/dialog_category_selection.xml"
+            line="72"
+            column="13"
+            startOffset="2565"
+            endLine="72"
+            endColumn="34"
+            endOffset="2586"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;📝 Change Category&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/dialog_category_selection_custom.xml"
+            line="30"
+            column="17"
+            startOffset="1141"
+            endLine="30"
+            endColumn="50"
+            endOffset="1174"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;Select a new category for this merchant&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/dialog_category_selection_custom.xml"
+            line="40"
+            column="17"
+            startOffset="1603"
+            endLine="40"
+            endColumn="71"
+            endOffset="1657"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;Cancel&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/dialog_category_selection_custom.xml"
+            line="75"
+            column="17"
+            startOffset="2977"
+            endLine="75"
+            endColumn="38"
+            endOffset="2998"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;Update&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/dialog_category_selection_custom.xml"
+            line="84"
+            column="17"
+            startOffset="3407"
+            endLine="84"
+            endColumn="38"
+            endOffset="3428"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
         message="Hardcoded string &quot;Budget Amount&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/dialog_edit_budget.xml"
@@ -222,12 +502,40 @@
         message="Hardcoded string &quot;Category&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/dialog_edit_merchant_group.xml"
-            line="32"
+            line="33"
             column="9"
-            startOffset="1254"
-            endLine="32"
+            startOffset="1252"
+            endLine="33"
             endColumn="32"
-            endOffset="1277"/>
+            endOffset="1275"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;Select Category&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/dialog_edit_merchant_group.xml"
+            line="63"
+            column="17"
+            startOffset="2373"
+            endLine="63"
+            endColumn="47"
+            endOffset="2403"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;▼&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/dialog_edit_merchant_group.xml"
+            line="70"
+            column="17"
+            startOffset="2631"
+            endLine="70"
+            endColumn="33"
+            endOffset="2647"/>
     </incident>
 
     <incident
@@ -236,12 +544,12 @@
         message="Hardcoded string &quot;💡 Tip: All future transactions from this merchant will be grouped under the new name and category.&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/dialog_edit_merchant_group.xml"
-            line="52"
+            line="84"
             column="9"
-            startOffset="1980"
-            endLine="52"
+            startOffset="3047"
+            endLine="84"
             endColumn="123"
-            endOffset="2094"/>
+            endOffset="3161"/>
     </incident>
 
     <incident
@@ -345,6 +653,252 @@
     <incident
         id="HardcodedText"
         severity="warning"
+        message="Hardcoded string &quot;Initializing scan...&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/dialog_sms_progress.xml"
+            line="12"
+            column="9"
+            startOffset="405"
+            endLine="12"
+            endColumn="44"
+            endOffset="440"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;0%&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/dialog_sms_progress.xml"
+            line="39"
+            column="13"
+            startOffset="1356"
+            endLine="39"
+            endColumn="30"
+            endOffset="1373"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;Reading your bank SMS messages...&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/dialog_sms_progress.xml"
+            line="47"
+            column="13"
+            startOffset="1625"
+            endLine="47"
+            endColumn="61"
+            endOffset="1673"/>
+    </incident>
+
+    <incident
+        id="ContentDescription"
+        severity="warning"
+        message="Missing `contentDescription` attribute on image">
+        <fix-alternatives>
+            <fix-attribute
+                description="Set contentDescription"
+                namespace="http://schemas.android.com/apk/res/android"
+                attribute="contentDescription"
+                value="TODO"
+                dot="4"
+                mark="0"/>
+            <fix-attribute
+                description="Set importantForAccessibility=&quot;no&quot;"
+                namespace="http://schemas.android.com/apk/res/android"
+                attribute="importantForAccessibility"
+                value="no"/>
+        </fix-alternatives>
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/empty_state_insights.xml"
+            line="10"
+            column="6"
+            startOffset="347"
+            endLine="10"
+            endColumn="15"
+            endOffset="356"/>
+    </incident>
+
+    <incident
+        id="UseAppTint"
+        severity="error"
+        message="Must use `app:tint` instead of `android:tint`">
+        <fix-composite>
+            <fix-attribute
+                description="Set tint=&quot;@color/text_hint&quot;"
+                namespace="http://schemas.android.com/apk/res-auto"
+                attribute="tint"
+                value="@color/text_hint"/>
+            <fix-attribute
+                description="Delete tint"
+                namespace="http://schemas.android.com/apk/res/android"
+                attribute="tint"/>
+        </fix-composite>
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/empty_state_insights.xml"
+            line="15"
+            column="9"
+            startOffset="533"
+            endLine="15"
+            endColumn="40"
+            endOffset="564"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;No Insights Available&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/empty_state_insights.xml"
+            line="21"
+            column="9"
+            startOffset="716"
+            endLine="21"
+            endColumn="45"
+            endOffset="752"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;Start adding some transactions to get personalized financial insights&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/empty_state_insights.xml"
+            line="31"
+            column="9"
+            startOffset="1056"
+            endLine="31"
+            endColumn="93"
+            endOffset="1140"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;Add Transactions&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/empty_state_insights.xml"
+            line="42"
+            column="9"
+            startOffset="1555"
+            endLine="42"
+            endColumn="40"
+            endOffset="1586"/>
+    </incident>
+
+    <incident
+        id="ContentDescription"
+        severity="warning"
+        message="Missing `contentDescription` attribute on image">
+        <fix-alternatives>
+            <fix-attribute
+                description="Set contentDescription"
+                namespace="http://schemas.android.com/apk/res/android"
+                attribute="contentDescription"
+                value="TODO"
+                dot="4"
+                mark="0"/>
+            <fix-attribute
+                description="Set importantForAccessibility=&quot;no&quot;"
+                namespace="http://schemas.android.com/apk/res/android"
+                attribute="importantForAccessibility"
+                value="no"/>
+        </fix-alternatives>
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/error_state_insights.xml"
+            line="10"
+            column="6"
+            startOffset="347"
+            endLine="10"
+            endColumn="15"
+            endOffset="356"/>
+    </incident>
+
+    <incident
+        id="UseAppTint"
+        severity="error"
+        message="Must use `app:tint` instead of `android:tint`">
+        <fix-composite>
+            <fix-attribute
+                description="Set tint=&quot;@color/text_secondary&quot;"
+                namespace="http://schemas.android.com/apk/res-auto"
+                attribute="tint"
+                value="@color/text_secondary"/>
+            <fix-attribute
+                description="Delete tint"
+                namespace="http://schemas.android.com/apk/res/android"
+                attribute="tint"/>
+        </fix-composite>
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/error_state_insights.xml"
+            line="15"
+            column="9"
+            startOffset="530"
+            endLine="15"
+            endColumn="45"
+            endOffset="566"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;Unable to Load Insights&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/error_state_insights.xml"
+            line="22"
+            column="9"
+            startOffset="762"
+            endLine="22"
+            endColumn="47"
+            endOffset="800"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;Check your internet connection and try again&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/error_state_insights.xml"
+            line="33"
+            column="9"
+            startOffset="1145"
+            endLine="33"
+            endColumn="68"
+            endOffset="1204"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;Try Again&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/error_state_insights.xml"
+            line="43"
+            column="9"
+            startOffset="1554"
+            endLine="43"
+            endColumn="33"
+            endOffset="1578"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;View Sample Insights&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/error_state_insights.xml"
+            line="56"
+            column="9"
+            startOffset="2083"
+            endLine="56"
+            endColumn="44"
+            endOffset="2118"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
         message="Hardcoded string &quot;Monthly Budget&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_budget_goals.xml"
@@ -376,12 +930,12 @@
         message="Hardcoded string &quot;Budget: ₹15,000&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_budget_goals.xml"
-            line="65"
+            line="66"
             column="25"
-            startOffset="2706"
-            endLine="65"
+            startOffset="2765"
+            endLine="66"
             endColumn="55"
-            endOffset="2736"/>
+            endOffset="2795"/>
     </incident>
 
     <incident
@@ -390,12 +944,12 @@
         message="Hardcoded string &quot;Spent: ₹12,540&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_budget_goals.xml"
-            line="73"
+            line="74"
             column="25"
-            startOffset="3086"
-            endLine="73"
+            startOffset="3145"
+            endLine="74"
             endColumn="54"
-            endOffset="3115"/>
+            endOffset="3174"/>
     </incident>
 
     <incident
@@ -404,12 +958,12 @@
         message="Hardcoded string &quot;83.6% of budget used&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_budget_goals.xml"
-            line="97"
+            line="98"
             column="25"
-            startOffset="4145"
-            endLine="97"
+            startOffset="4204"
+            endLine="98"
             endColumn="60"
-            endOffset="4180"/>
+            endOffset="4239"/>
     </incident>
 
     <incident
@@ -418,12 +972,12 @@
         message="Hardcoded string &quot;₹2,460 remaining&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_budget_goals.xml"
-            line="105"
+            line="106"
             column="25"
-            startOffset="4529"
-            endLine="105"
+            startOffset="4588"
+            endLine="106"
             endColumn="56"
-            endOffset="4560"/>
+            endOffset="4619"/>
     </incident>
 
     <incident
@@ -432,12 +986,12 @@
         message="Hardcoded string &quot;Category Budgets&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_budget_goals.xml"
-            line="127"
+            line="128"
             column="17"
-            startOffset="5272"
-            endLine="127"
+            startOffset="5331"
+            endLine="128"
             endColumn="48"
-            endOffset="5303"/>
+            endOffset="5362"/>
     </incident>
 
     <incident
@@ -446,12 +1000,12 @@
         message="Hardcoded string &quot;Add&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_budget_goals.xml"
-            line="136"
+            line="137"
             column="17"
-            startOffset="5687"
-            endLine="136"
+            startOffset="5746"
+            endLine="137"
             endColumn="35"
-            endOffset="5705"/>
+            endOffset="5764"/>
     </incident>
 
     <incident
@@ -460,12 +1014,12 @@
         message="Hardcoded string &quot;Budget Insights&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_budget_goals.xml"
-            line="167"
+            line="168"
             column="21"
-            startOffset="6890"
-            endLine="167"
+            startOffset="6949"
+            endLine="168"
             endColumn="51"
-            endOffset="6920"/>
+            endOffset="6979"/>
     </incident>
 
     <incident
@@ -474,12 +1028,12 @@
         message="Hardcoded string &quot;📊 You&apos;re 83% through your monthly budget with 10 days remaining.&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_budget_goals.xml"
-            line="177"
+            line="178"
             column="21"
-            startOffset="7338"
-            endLine="177"
+            startOffset="7397"
+            endLine="178"
             endColumn="101"
-            endOffset="7418"/>
+            endOffset="7477"/>
     </incident>
 
     <incident
@@ -488,12 +1042,12 @@
         message="Hardcoded string &quot;💡 Tip: Consider reducing Food &amp; Dining expenses to stay within budget.&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_budget_goals.xml"
-            line="186"
+            line="187"
             column="21"
-            startOffset="7792"
-            endLine="186"
+            startOffset="7851"
+            endLine="187"
             endColumn="111"
-            endOffset="7882"/>
+            endOffset="7941"/>
     </incident>
 
     <incident
@@ -787,99 +1341,15 @@
     <incident
         id="HardcodedText"
         severity="warning"
-        message="Hardcoded string &quot;₹12,540&quot;, should use `@string` resource">
+        message="Hardcoded string &quot;Dashboard Period&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_dashboard.xml"
-            line="96"
-            column="25"
-            startOffset="3902"
-            endLine="96"
-            endColumn="47"
-            endOffset="3924"/>
-    </incident>
-
-    <incident
-        id="HardcodedText"
-        severity="warning"
-        message="Hardcoded string &quot;127&quot;, should use `@string` resource">
-        <location
-            file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_dashboard.xml"
-            line="131"
-            column="25"
-            startOffset="5381"
-            endLine="131"
-            endColumn="43"
-            endOffset="5399"/>
-    </incident>
-
-    <incident
-        id="HardcodedText"
-        severity="warning"
-        message="Hardcoded string &quot;₹4,250&quot;, should use `@string` resource">
-        <location
-            file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_dashboard.xml"
-            line="201"
-            column="33"
-            startOffset="8354"
-            endLine="201"
-            endColumn="54"
-            endOffset="8375"/>
-    </incident>
-
-    <incident
-        id="HardcodedText"
-        severity="warning"
-        message="Hardcoded string &quot;₹2,150&quot;, should use `@string` resource">
-        <location
-            file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_dashboard.xml"
-            line="241"
-            column="33"
-            startOffset="10185"
-            endLine="241"
-            endColumn="54"
-            endOffset="10206"/>
-    </incident>
-
-    <incident
-        id="HardcodedText"
-        severity="warning"
-        message="Hardcoded string &quot;₹1,840&quot;, should use `@string` resource">
-        <location
-            file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_dashboard.xml"
-            line="281"
-            column="33"
-            startOffset="12009"
-            endLine="281"
-            endColumn="54"
-            endOffset="12030"/>
-    </incident>
-
-    <incident
-        id="HardcodedText"
-        severity="warning"
-        message="Hardcoded string &quot;₹3,100&quot;, should use `@string` resource">
-        <location
-            file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_dashboard.xml"
-            line="321"
-            column="33"
-            startOffset="13830"
-            endLine="321"
-            endColumn="54"
-            endOffset="13851"/>
-    </incident>
-
-    <incident
-        id="HardcodedText"
-        severity="warning"
-        message="Hardcoded string &quot;Weekly Spending Chart&quot;, should use `@string` resource">
-        <location
-            file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_dashboard.xml"
-            line="411"
-            column="25"
-            startOffset="17379"
-            endLine="411"
-            endColumn="61"
-            endOffset="17415"/>
+            line="75"
+            column="17"
+            startOffset="2942"
+            endLine="75"
+            endColumn="48"
+            endOffset="2973"/>
     </incident>
 
     <incident
@@ -888,12 +1358,12 @@
         message="Hardcoded string &quot;This Month&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_dashboard.xml"
-            line="455"
-            column="29"
-            startOffset="19128"
-            endLine="455"
-            endColumn="54"
-            endOffset="19153"/>
+            line="84"
+            column="17"
+            startOffset="3347"
+            endLine="84"
+            endColumn="42"
+            endOffset="3372"/>
     </incident>
 
     <incident
@@ -902,12 +1372,82 @@
         message="Hardcoded string &quot;₹12,540&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_dashboard.xml"
-            line="464"
+            line="126"
+            column="25"
+            startOffset="5087"
+            endLine="126"
+            endColumn="47"
+            endOffset="5109"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;127&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_dashboard.xml"
+            line="165"
+            column="25"
+            startOffset="6773"
+            endLine="165"
+            endColumn="43"
+            endOffset="6791"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;This Month&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_dashboard.xml"
+            line="284"
+            column="25"
+            startOffset="11580"
+            endLine="284"
+            endColumn="50"
+            endOffset="11605"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;Weekly Spending Chart&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_dashboard.xml"
+            line="305"
+            column="25"
+            startOffset="12503"
+            endLine="305"
+            endColumn="61"
+            endOffset="12539"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;This Month&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_dashboard.xml"
+            line="349"
             column="29"
-            startOffset="19597"
-            endLine="464"
+            startOffset="14252"
+            endLine="349"
+            endColumn="54"
+            endOffset="14277"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;₹12,540&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_dashboard.xml"
+            line="358"
+            column="29"
+            startOffset="14721"
+            endLine="358"
             endColumn="51"
-            endOffset="19619"/>
+            endOffset="14743"/>
     </incident>
 
     <incident
@@ -916,12 +1456,12 @@
         message="Hardcoded string &quot;Last Month&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_dashboard.xml"
-            line="486"
+            line="380"
             column="29"
-            startOffset="20518"
-            endLine="486"
+            startOffset="15642"
+            endLine="380"
             endColumn="54"
-            endOffset="20543"/>
+            endOffset="15667"/>
     </incident>
 
     <incident
@@ -930,26 +1470,26 @@
         message="Hardcoded string &quot;₹15,230&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_dashboard.xml"
-            line="495"
+            line="389"
             column="29"
-            startOffset="20987"
-            endLine="495"
+            startOffset="16111"
+            endLine="389"
             endColumn="51"
-            endOffset="21009"/>
+            endOffset="16133"/>
     </incident>
 
     <incident
         id="HardcodedText"
         severity="warning"
-        message="Hardcoded string &quot;↓ 18% less spending&quot;, should use `@string` resource">
+        message="Hardcoded string &quot;Loading...&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_dashboard.xml"
-            line="515"
+            line="409"
             column="25"
-            startOffset="21787"
-            endLine="515"
-            endColumn="59"
-            endOffset="21821"/>
+            startOffset="16911"
+            endLine="409"
+            endColumn="50"
+            endOffset="16936"/>
     </incident>
 
     <incident
@@ -958,12 +1498,12 @@
         message="Hardcoded string &quot;⚡ Quick Actions&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_dashboard.xml"
-            line="543"
+            line="437"
             column="21"
-            startOffset="22801"
-            endLine="543"
+            startOffset="17923"
+            endLine="437"
             endColumn="51"
-            endOffset="22831"/>
+            endOffset="17953"/>
     </incident>
 
     <incident
@@ -972,12 +1512,12 @@
         message="Hardcoded string &quot;Add Expense&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_dashboard.xml"
-            line="560"
+            line="454"
             column="25"
-            startOffset="23603"
-            endLine="560"
+            startOffset="18725"
+            endLine="454"
             endColumn="51"
-            endOffset="23629"/>
+            endOffset="18751"/>
     </incident>
 
     <incident
@@ -986,12 +1526,12 @@
         message="Hardcoded string &quot;Sync SMS&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_dashboard.xml"
-            line="572"
+            line="466"
             column="25"
-            startOffset="24215"
-            endLine="572"
+            startOffset="19337"
+            endLine="466"
             endColumn="48"
-            endOffset="24238"/>
+            endOffset="19360"/>
     </incident>
 
     <incident
@@ -1000,12 +1540,12 @@
         message="Hardcoded string &quot;Budget&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_dashboard.xml"
-            line="584"
+            line="478"
             column="25"
-            startOffset="24838"
-            endLine="584"
+            startOffset="19960"
+            endLine="478"
             endColumn="46"
-            endOffset="24859"/>
+            endOffset="19981"/>
     </incident>
 
     <incident
@@ -1014,12 +1554,12 @@
         message="Hardcoded string &quot;Export&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_dashboard.xml"
-            line="604"
+            line="498"
             column="25"
-            startOffset="25741"
-            endLine="604"
+            startOffset="20863"
+            endLine="498"
             endColumn="46"
-            endOffset="25762"/>
+            endOffset="20884"/>
     </incident>
 
     <incident
@@ -1028,12 +1568,12 @@
         message="Hardcoded string &quot;Insights&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_dashboard.xml"
-            line="616"
+            line="510"
             column="25"
-            startOffset="26371"
-            endLine="616"
+            startOffset="21493"
+            endLine="510"
             endColumn="48"
-            endOffset="26394"/>
+            endOffset="21516"/>
     </incident>
 
     <incident
@@ -1042,12 +1582,12 @@
         message="Hardcoded string &quot;Settings&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_dashboard.xml"
-            line="628"
+            line="522"
             column="25"
-            startOffset="26995"
-            endLine="628"
+            startOffset="22117"
+            endLine="522"
             endColumn="48"
-            endOffset="27018"/>
+            endOffset="22140"/>
     </incident>
 
     <incident
@@ -1669,12 +2209,12 @@
         </fix-composite>
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_insights.xml"
-            line="26"
-            column="13"
-            startOffset="965"
-            endLine="26"
-            endColumn="58"
-            endOffset="1010"/>
+            line="43"
+            column="21"
+            startOffset="1831"
+            endLine="43"
+            endColumn="66"
+            endOffset="1876"/>
     </incident>
 
     <incident
@@ -1694,12 +2234,12 @@
         </fix-composite>
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_insights.xml"
-            line="28"
-            column="13"
-            startOffset="1066"
-            endLine="28"
-            endColumn="52"
-            endOffset="1105"/>
+            line="45"
+            column="21"
+            startOffset="1948"
+            endLine="45"
+            endColumn="60"
+            endOffset="1987"/>
     </incident>
 
     <incident
@@ -1708,12 +2248,12 @@
         message="Hardcoded string &quot;AI Financial Insights&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_insights.xml"
-            line="24"
-            column="13"
-            startOffset="869"
-            endLine="24"
-            endColumn="49"
-            endOffset="905"/>
+            line="41"
+            column="21"
+            startOffset="1719"
+            endLine="41"
+            endColumn="57"
+            endOffset="1755"/>
     </incident>
 
     <incident
@@ -1722,12 +2262,12 @@
         message="Hardcoded string &quot;Based on your current spending pattern, you&apos;re likely to spend ₹18,400 this month.&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_insights.xml"
-            line="56"
+            line="75"
             column="21"
-            startOffset="2216"
-            endLine="56"
+            startOffset="3276"
+            endLine="75"
             endColumn="118"
-            endOffset="2313"/>
+            endOffset="3373"/>
     </incident>
 
     <incident
@@ -1736,12 +2276,12 @@
         message="Hardcoded string &quot;That&apos;s 12% more than last month. Consider reducing dining expenses.&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_insights.xml"
-            line="64"
+            line="84"
             column="21"
-            startOffset="2635"
-            endLine="64"
+            startOffset="3750"
+            endLine="84"
             endColumn="103"
-            endOffset="2717"/>
+            endOffset="3832"/>
     </incident>
 
     <incident
@@ -1750,12 +2290,12 @@
         message="Hardcoded string &quot;68% of predicted monthly spending&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_insights.xml"
-            line="81"
+            line="103"
             column="21"
-            startOffset="3468"
-            endLine="81"
+            startOffset="4695"
+            endLine="103"
             endColumn="69"
-            endOffset="3516"/>
+            endOffset="4743"/>
     </incident>
 
     <incident
@@ -1764,12 +2304,12 @@
         message="Hardcoded string &quot;Your food expenses increased by 45% this week&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_insights.xml"
-            line="130"
+            line="153"
             column="25"
-            startOffset="5498"
-            endLine="130"
+            startOffset="6783"
+            endLine="153"
             endColumn="85"
-            endOffset="5558"/>
+            endOffset="6843"/>
     </incident>
 
     <incident
@@ -1778,12 +2318,12 @@
         message="Hardcoded string &quot;Unusual spending detected: ₹2,500 at Electronics Store&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_insights.xml"
-            line="153"
+            line="177"
             column="25"
-            startOffset="6494"
-            endLine="153"
+            startOffset="7837"
+            endLine="177"
             endColumn="94"
-            endOffset="6563"/>
+            endOffset="7906"/>
     </incident>
 
     <incident
@@ -1792,12 +2332,12 @@
         message="Hardcoded string &quot;Smart Recommendations&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_insights.xml"
-            line="189"
+            line="213"
             column="21"
-            startOffset="7910"
-            endLine="189"
+            startOffset="9253"
+            endLine="213"
             endColumn="57"
-            endOffset="7946"/>
+            endOffset="9289"/>
     </incident>
 
     <incident
@@ -1806,12 +2346,12 @@
         message="Hardcoded string &quot;💡&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_insights.xml"
-            line="204"
+            line="228"
             column="25"
-            startOffset="8581"
-            endLine="204"
+            startOffset="9924"
+            endLine="228"
             endColumn="42"
-            endOffset="8598"/>
+            endOffset="9941"/>
     </incident>
 
     <incident
@@ -1820,12 +2360,12 @@
         message="Hardcoded string &quot;Cook at home 2 more days per week to save ₹1,200/month&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_insights.xml"
-            line="212"
+            line="237"
             column="25"
-            startOffset="8922"
-            endLine="212"
+            startOffset="10332"
+            endLine="237"
             endColumn="94"
-            endOffset="8991"/>
+            endOffset="10401"/>
     </incident>
 
     <incident
@@ -1834,12 +2374,12 @@
         message="Hardcoded string &quot;🚗&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_insights.xml"
-            line="226"
+            line="251"
             column="25"
-            startOffset="9514"
-            endLine="226"
+            startOffset="10924"
+            endLine="251"
             endColumn="42"
-            endOffset="9531"/>
+            endOffset="10941"/>
     </incident>
 
     <incident
@@ -1848,12 +2388,12 @@
         message="Hardcoded string &quot;Use metro instead of cab for daily commute - save ₹800/month&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_insights.xml"
-            line="234"
+            line="260"
             column="25"
-            startOffset="9855"
-            endLine="234"
+            startOffset="11332"
+            endLine="260"
             endColumn="100"
-            endOffset="9930"/>
+            endOffset="11407"/>
     </incident>
 
     <incident
@@ -1862,12 +2402,12 @@
         message="Hardcoded string &quot;Potential Monthly Savings&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_insights.xml"
-            line="281"
+            line="307"
             column="29"
-            startOffset="11789"
-            endLine="281"
+            startOffset="13266"
+            endLine="307"
             endColumn="69"
-            endOffset="11829"/>
+            endOffset="13306"/>
     </incident>
 
     <incident
@@ -1876,12 +2416,12 @@
         message="Hardcoded string &quot;₹2,000&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_insights.xml"
-            line="289"
+            line="316"
             column="29"
-            startOffset="12206"
-            endLine="289"
+            startOffset="13746"
+            endLine="316"
             endColumn="50"
-            endOffset="12227"/>
+            endOffset="13767"/>
     </incident>
 
     <incident
@@ -1890,12 +2430,12 @@
         message="Hardcoded string &quot;Yearly Impact&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_insights.xml"
-            line="312"
+            line="339"
             column="29"
-            startOffset="13182"
-            endLine="312"
+            startOffset="14722"
+            endLine="339"
             endColumn="57"
-            endOffset="13210"/>
+            endOffset="14750"/>
     </incident>
 
     <incident
@@ -1904,12 +2444,12 @@
         message="Hardcoded string &quot;₹24,000&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_insights.xml"
-            line="320"
+            line="348"
             column="29"
-            startOffset="13587"
-            endLine="320"
+            startOffset="15189"
+            endLine="348"
             endColumn="51"
-            endOffset="13609"/>
+            endOffset="15211"/>
     </incident>
 
     <incident
@@ -1918,12 +2458,12 @@
         message="Hardcoded string &quot;Create Savings Plan&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_insights.xml"
-            line="332"
+            line="361"
             column="21"
-            startOffset="14052"
-            endLine="332"
+            startOffset="15713"
+            endLine="361"
             endColumn="55"
-            endOffset="14086"/>
+            endOffset="15747"/>
     </incident>
 
     <incident
@@ -1932,12 +2472,12 @@
         message="Hardcoded string &quot;Top Spending Sources&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_insights.xml"
-            line="357"
+            line="386"
             column="21"
-            startOffset="15009"
-            endLine="357"
+            startOffset="16670"
+            endLine="386"
             endColumn="56"
-            endOffset="15044"/>
+            endOffset="16705"/>
     </incident>
 
     <incident
@@ -1946,12 +2486,12 @@
         message="Hardcoded string &quot;1&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_insights.xml"
-            line="372"
+            line="401"
             column="25"
-            startOffset="15677"
-            endLine="372"
+            startOffset="17338"
+            endLine="401"
             endColumn="41"
-            endOffset="15693"/>
+            endOffset="17354"/>
     </incident>
 
     <incident
@@ -1960,12 +2500,12 @@
         message="Hardcoded string &quot;Swiggy&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_insights.xml"
-            line="387"
+            line="417"
             column="29"
-            startOffset="16361"
-            endLine="387"
+            startOffset="18084"
+            endLine="417"
             endColumn="50"
-            endOffset="16382"/>
+            endOffset="18105"/>
     </incident>
 
     <incident
@@ -1974,12 +2514,12 @@
         message="Hardcoded string &quot;23 transactions&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_insights.xml"
-            line="395"
+            line="426"
             column="29"
-            startOffset="16751"
-            endLine="395"
+            startOffset="18539"
+            endLine="426"
             endColumn="59"
-            endOffset="16781"/>
+            endOffset="18569"/>
     </incident>
 
     <incident
@@ -1988,12 +2528,12 @@
         message="Hardcoded string &quot;₹3,420&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_insights.xml"
-            line="404"
+            line="436"
             column="25"
-            startOffset="17120"
-            endLine="404"
+            startOffset="18968"
+            endLine="436"
             endColumn="46"
-            endOffset="17141"/>
+            endOffset="18989"/>
     </incident>
 
     <incident
@@ -2002,12 +2542,12 @@
         message="Hardcoded string &quot;2&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_insights.xml"
-            line="422"
+            line="454"
             column="25"
-            startOffset="17851"
-            endLine="422"
+            startOffset="19699"
+            endLine="454"
             endColumn="41"
-            endOffset="17867"/>
+            endOffset="19715"/>
     </incident>
 
     <incident
@@ -2016,12 +2556,12 @@
         message="Hardcoded string &quot;Big Bazaar&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_insights.xml"
-            line="437"
+            line="470"
             column="29"
-            startOffset="18535"
-            endLine="437"
+            startOffset="20445"
+            endLine="470"
             endColumn="54"
-            endOffset="18560"/>
+            endOffset="20470"/>
     </incident>
 
     <incident
@@ -2030,12 +2570,12 @@
         message="Hardcoded string &quot;8 transactions&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_insights.xml"
-            line="445"
+            line="479"
             column="29"
-            startOffset="18929"
-            endLine="445"
+            startOffset="20904"
+            endLine="479"
             endColumn="58"
-            endOffset="18958"/>
+            endOffset="20933"/>
     </incident>
 
     <incident
@@ -2044,12 +2584,12 @@
         message="Hardcoded string &quot;₹2,150&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_insights.xml"
-            line="454"
+            line="489"
             column="25"
-            startOffset="19297"
-            endLine="454"
+            startOffset="21332"
+            endLine="489"
             endColumn="46"
-            endOffset="19318"/>
+            endOffset="21353"/>
     </incident>
 
     <incident
@@ -2058,12 +2598,12 @@
         message="Hardcoded string &quot;3&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_insights.xml"
-            line="471"
+            line="506"
             column="25"
-            startOffset="19973"
-            endLine="471"
+            startOffset="22008"
+            endLine="506"
             endColumn="41"
-            endOffset="19989"/>
+            endOffset="22024"/>
     </incident>
 
     <incident
@@ -2072,12 +2612,12 @@
         message="Hardcoded string &quot;Uber&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_insights.xml"
-            line="486"
+            line="522"
             column="29"
-            startOffset="20657"
-            endLine="486"
+            startOffset="22754"
+            endLine="522"
             endColumn="48"
-            endOffset="20676"/>
+            endOffset="22773"/>
     </incident>
 
     <incident
@@ -2086,12 +2626,12 @@
         message="Hardcoded string &quot;15 transactions&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_insights.xml"
-            line="494"
+            line="531"
             column="29"
-            startOffset="21045"
-            endLine="494"
+            startOffset="23207"
+            endLine="531"
             endColumn="59"
-            endOffset="21075"/>
+            endOffset="23237"/>
     </incident>
 
     <incident
@@ -2100,12 +2640,96 @@
         message="Hardcoded string &quot;₹1,890&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_insights.xml"
-            line="503"
+            line="541"
             column="25"
-            startOffset="21414"
-            endLine="503"
+            startOffset="23636"
+            endLine="541"
             endColumn="46"
-            endOffset="21435"/>
+            endOffset="23657"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;Include in Expense Calculations&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_merchant_transactions.xml"
+            line="116"
+            column="33"
+            startOffset="4962"
+            endLine="116"
+            endColumn="79"
+            endOffset="5008"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;When disabled, transactions from this merchant won&apos;t be counted in your total spending.&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_merchant_transactions.xml"
+            line="142"
+            column="25"
+            startOffset="6243"
+            endLine="142"
+            endColumn="127"
+            endOffset="6345"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;Bulk Actions&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_merchant_transactions.xml"
+            line="163"
+            column="21"
+            startOffset="7182"
+            endLine="163"
+            endColumn="48"
+            endOffset="7209"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;📭&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_merchant_transactions.xml"
+            line="190"
+            column="21"
+            startOffset="8303"
+            endLine="190"
+            endColumn="38"
+            endOffset="8320"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;No Transactions Found&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_merchant_transactions.xml"
+            line="197"
+            column="21"
+            startOffset="8580"
+            endLine="197"
+            endColumn="57"
+            endOffset="8616"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;No transactions found for this merchant.&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_merchant_transactions.xml"
+            line="206"
+            column="21"
+            startOffset="8981"
+            endLine="206"
+            endColumn="76"
+            endOffset="9036"/>
     </incident>
 
     <incident
@@ -2175,15 +2799,43 @@
     <incident
         id="HardcodedText"
         severity="warning"
-        message="Hardcoded string &quot;Filter&quot;, should use `@string` resource">
+        message="Hardcoded string &quot;Sort&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_messages.xml"
             line="33"
             column="13"
-            startOffset="1260"
+            startOffset="1258"
             endLine="33"
+            endColumn="32"
+            endOffset="1277"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;Filter&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_messages.xml"
+            line="45"
+            column="13"
+            startOffset="1739"
+            endLine="45"
             endColumn="34"
-            endOffset="1281"/>
+            endOffset="1760"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;Search transactions...&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_messages.xml"
+            line="65"
+            column="9"
+            startOffset="2494"
+            endLine="65"
+            endColumn="46"
+            endOffset="2531"/>
     </incident>
 
     <incident
@@ -2192,12 +2844,12 @@
         message="Hardcoded string &quot;127&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_messages.xml"
-            line="76"
+            line="110"
             column="21"
-            startOffset="2892"
-            endLine="76"
+            startOffset="4257"
+            endLine="110"
             endColumn="39"
-            endOffset="2910"/>
+            endOffset="4275"/>
     </incident>
 
     <incident
@@ -2206,12 +2858,12 @@
         message="Hardcoded string &quot;124&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_messages.xml"
-            line="111"
+            line="145"
             column="21"
-            startOffset="4256"
-            endLine="111"
+            startOffset="5621"
+            endLine="145"
             endColumn="39"
-            endOffset="4274"/>
+            endOffset="5639"/>
     </incident>
 
     <incident
@@ -2220,12 +2872,12 @@
         message="Hardcoded string &quot;📱&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_messages.xml"
-            line="149"
+            line="183"
             column="13"
-            startOffset="5491"
-            endLine="149"
+            startOffset="6856"
+            endLine="183"
             endColumn="30"
-            endOffset="5508"/>
+            endOffset="6873"/>
     </incident>
 
     <incident
@@ -2234,12 +2886,12 @@
         message="Hardcoded string &quot;No SMS transactions found&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_messages.xml"
-            line="156"
+            line="190"
             column="13"
-            startOffset="5723"
-            endLine="156"
+            startOffset="7088"
+            endLine="190"
             endColumn="53"
-            endOffset="5763"/>
+            endOffset="7128"/>
     </incident>
 
     <incident
@@ -2248,12 +2900,12 @@
         message="Hardcoded string &quot;Grant SMS permissions to automatically track your bank transactions&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_messages.xml"
-            line="165"
+            line="199"
             column="13"
-            startOffset="6066"
-            endLine="165"
+            startOffset="7431"
+            endLine="199"
             endColumn="95"
-            endOffset="6148"/>
+            endOffset="7513"/>
     </incident>
 
     <incident
@@ -2262,12 +2914,12 @@
         message="Hardcoded string &quot;Grant Permissions&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_messages.xml"
-            line="175"
+            line="209"
             column="13"
-            startOffset="6550"
-            endLine="175"
+            startOffset="7915"
+            endLine="209"
             endColumn="45"
-            endOffset="6582"/>
+            endOffset="7947"/>
     </incident>
 
     <incident
@@ -4231,6 +4883,76 @@
     </incident>
 
     <incident
+        id="NestedWeights"
+        severity="warning"
+        message="Nested weights are bad for performance">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/item_category_selection.xml"
+            line="41"
+            column="13"
+            startOffset="1394"
+            endLine="41"
+            endColumn="38"
+            endOffset="1419"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;📂&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/item_category_selection.xml"
+            line="32"
+            column="13"
+            startOffset="1100"
+            endLine="32"
+            endColumn="30"
+            endOffset="1117"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;Category Name&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/item_category_selection.xml"
+            line="42"
+            column="13"
+            startOffset="1432"
+            endLine="42"
+            endColumn="41"
+            endOffset="1460"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;Food &amp; Dining&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/item_dashboard_category.xml"
+            line="29"
+            column="13"
+            startOffset="962"
+            endLine="29"
+            endColumn="45"
+            endOffset="994"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;₹4,250&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/item_dashboard_category.xml"
+            line="37"
+            column="13"
+            startOffset="1254"
+            endLine="37"
+            endColumn="34"
+            endOffset="1275"/>
+    </incident>
+
+    <incident
         id="HardcodedText"
         severity="warning"
         message="Hardcoded string &quot;Swiggy&quot;, should use `@string` resource">
@@ -4446,12 +5168,12 @@
         message="Hardcoded string &quot;Food &amp; Dining&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/item_message.xml"
-            line="108"
+            line="109"
             column="21"
-            startOffset="4108"
-            endLine="108"
+            startOffset="4147"
+            endLine="109"
             endColumn="53"
-            endOffset="4140"/>
+            endOffset="4179"/>
     </incident>
 
     <incident
@@ -4460,12 +5182,12 @@
         message="Avoid using sizes smaller than `11sp`: `10sp`">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/item_message.xml"
-            line="130"
+            line="131"
             column="21"
-            startOffset="4912"
-            endLine="130"
+            startOffset="4951"
+            endLine="131"
             endColumn="44"
-            endOffset="4935"/>
+            endOffset="4974"/>
     </incident>
 
     <incident
@@ -4474,12 +5196,12 @@
         message="Hardcoded string &quot;98%&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/item_message.xml"
-            line="138"
+            line="139"
             column="21"
-            startOffset="5264"
-            endLine="138"
+            startOffset="5303"
+            endLine="139"
             endColumn="39"
-            endOffset="5282"/>
+            endOffset="5321"/>
     </incident>
 
     <incident
@@ -4488,12 +5210,12 @@
         message="Avoid using sizes smaller than `11sp`: `10sp`">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/item_message.xml"
-            line="139"
+            line="140"
             column="21"
-            startOffset="5303"
-            endLine="139"
+            startOffset="5342"
+            endLine="140"
             endColumn="44"
-            endOffset="5326"/>
+            endOffset="5365"/>
     </incident>
 
     <incident
@@ -4502,12 +5224,12 @@
         message="Hardcoded string &quot;Original SMS:&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/item_message.xml"
-            line="165"
+            line="166"
             column="17"
-            startOffset="6193"
-            endLine="165"
+            startOffset="6232"
+            endLine="166"
             endColumn="45"
-            endOffset="6221"/>
+            endOffset="6260"/>
     </incident>
 
     <incident
@@ -4516,12 +5238,12 @@
         message="Avoid using sizes smaller than `11sp`: `10sp`">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/item_message.xml"
-            line="166"
+            line="167"
             column="17"
-            startOffset="6238"
-            endLine="166"
+            startOffset="6277"
+            endLine="167"
             endColumn="40"
-            endOffset="6261"/>
+            endOffset="6300"/>
     </incident>
 
     <incident
@@ -4530,12 +5252,12 @@
         message="Hardcoded string &quot;INR 1,250.00 debited from A/c **1234 on 19-Aug-25 at Swiggy. Avl Bal: INR 45,280.00&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/item_message.xml"
-            line="175"
+            line="176"
             column="17"
-            startOffset="6603"
-            endLine="175"
+            startOffset="6642"
+            endLine="176"
             endColumn="115"
-            endOffset="6701"/>
+            endOffset="6740"/>
     </incident>
 
     <incident
@@ -4544,12 +5266,12 @@
         message="Hardcoded string &quot;View SMS ↓&quot;, should use `@string` resource">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/item_message.xml"
-            line="191"
+            line="192"
             column="13"
-            startOffset="7269"
-            endLine="191"
+            startOffset="7308"
+            endLine="192"
             endColumn="38"
-            endOffset="7294"/>
+            endOffset="7333"/>
     </incident>
 
     <incident
@@ -4558,12 +5280,12 @@
         message="Avoid using sizes smaller than `11sp`: `10sp`">
         <location
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/item_message.xml"
-            line="192"
+            line="193"
             column="13"
-            startOffset="7307"
-            endLine="192"
+            startOffset="7346"
+            endLine="193"
             endColumn="36"
-            endOffset="7330"/>
+            endOffset="7369"/>
     </incident>
 
     <incident
@@ -4651,6 +5373,76 @@
     </incident>
 
     <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;₹276 • HDFC Bank&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/item_transaction_simple.xml"
+            line="18"
+            column="9"
+            startOffset="640"
+            endLine="18"
+            endColumn="40"
+            endOffset="671"/>
+    </incident>
+
+    <incident
+        id="HardcodedText"
+        severity="warning"
+        message="Hardcoded string &quot;1 hour ago • 98% confidence&quot;, should use `@string` resource">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/item_transaction_simple.xml"
+            line="29"
+            column="9"
+            startOffset="1020"
+            endLine="29"
+            endColumn="51"
+            endOffset="1062"/>
+    </incident>
+
+    <incident
+        id="DisableBaselineAlignment"
+        severity="warning"
+        message="Set `android:baselineAligned=&quot;false&quot;` on this element for better performance">
+        <fix-attribute
+            description="Set baselineAligned=&quot;false&quot;"
+            robot="true"
+            independent="true"
+            namespace="http://schemas.android.com/apk/res/android"
+            attribute="baselineAligned"
+            value="false"/>
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/shimmer_insights_loading.xml"
+            line="302"
+            column="14"
+            startOffset="11372"
+            endLine="302"
+            endColumn="26"
+            endOffset="11384"/>
+    </incident>
+
+    <incident
+        id="DisableBaselineAlignment"
+        severity="warning"
+        message="Set `android:baselineAligned=&quot;false&quot;` on this element for better performance">
+        <fix-attribute
+            description="Set baselineAligned=&quot;false&quot;"
+            robot="true"
+            independent="true"
+            namespace="http://schemas.android.com/apk/res/android"
+            attribute="baselineAligned"
+            value="false"/>
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/shimmer_insights_loading.xml"
+            line="370"
+            column="14"
+            startOffset="14144"
+            endLine="370"
+            endColumn="26"
+            endOffset="14156"/>
+    </incident>
+
+    <incident
         id="TypographyEllipsis"
         severity="warning"
         message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?">
@@ -4666,6 +5458,62 @@
             endLine="54"
             endColumn="38"
             endOffset="2951"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/MainActivity.kt"
+            line="257"
+            column="37"
+            startOffset="10612"
+            endLine="257"
+            endColumn="57"
+            endOffset="10632"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/MainActivity.kt"
+            line="274"
+            column="50"
+            startOffset="11691"
+            endLine="274"
+            endColumn="64"
+            endOffset="11705"/>
+    </incident>
+
+    <incident
+        id="StaticFieldLeak"
+        severity="warning"
+        message="Do not place Android context classes in static fields (static reference to `AIInsightsRepository` which has field `context` pointing to `Context`); this is a memory leak">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/data/repository/AIInsightsRepository.kt"
+            line="41"
+            column="9"
+            startOffset="1611"
+            endLine="42"
+            endColumn="59"
+            endOffset="1679"/>
+    </incident>
+
+    <incident
+        id="StaticFieldLeak"
+        severity="warning"
+        message="Do not place Android context classes in static fields (static reference to `ExpenseRepository` which has field `context` pointing to `Context`); this is a memory leak">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/data/repository/ExpenseRepository.kt"
+            line="28"
+            column="9"
+            startOffset="1023"
+            endLine="29"
+            endColumn="56"
+            endOffset="1088"/>
     </incident>
 
     <incident
@@ -4730,12 +5578,12 @@
         message="String literal in `setText` can not be translated. Use Android resources instead.">
         <location
             file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/categories/CategoriesFragment.kt"
-            line="73"
+            line="82"
             column="41"
-            startOffset="2694"
-            endLine="73"
+            startOffset="3202"
+            endLine="82"
             endColumn="51"
-            endOffset="2704"/>
+            endOffset="3212"/>
     </incident>
 
     <incident
@@ -4744,12 +5592,12 @@
         message="String literal in `setText` can not be translated. Use Android resources instead.">
         <location
             file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/categories/CategoriesFragment.kt"
-            line="74"
+            line="83"
             column="43"
-            startOffset="2748"
-            endLine="74"
+            startOffset="3256"
+            endLine="83"
             endColumn="55"
-            endOffset="2760"/>
+            endOffset="3268"/>
     </incident>
 
     <incident
@@ -4758,12 +5606,12 @@
         message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
         <location
             file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/categories/CategoriesFragment.kt"
-            line="132"
+            line="163"
             column="52"
-            startOffset="6258"
-            endLine="132"
+            startOffset="8106"
+            endLine="163"
             endColumn="91"
-            endOffset="6297"/>
+            endOffset="8145"/>
     </incident>
 
     <incident
@@ -4772,12 +5620,12 @@
         message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
         <location
             file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/categories/CategoriesFragment.kt"
-            line="133"
+            line="164"
             column="54"
-            startOffset="6351"
-            endLine="133"
+            startOffset="8199"
+            endLine="164"
             endColumn="100"
-            endOffset="6397"/>
+            endOffset="8245"/>
     </incident>
 
     <incident
@@ -4786,12 +5634,12 @@
         message="String literal in `setText` can not be translated. Use Android resources instead.">
         <location
             file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/categories/CategoriesFragment.kt"
-            line="133"
+            line="164"
             column="88"
-            startOffset="6385"
-            endLine="133"
+            startOffset="8233"
+            endLine="164"
             endColumn="99"
-            endOffset="6396"/>
+            endOffset="8244"/>
     </incident>
 
     <incident
@@ -4800,26 +5648,12 @@
         message="String literal in `setText` can not be translated. Use Android resources instead.">
         <location
             file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/categories/CategoriesFragment.kt"
-            line="139"
-            column="55"
-            startOffset="6682"
-            endLine="139"
-            endColumn="67"
-            endOffset="6694"/>
-    </incident>
-
-    <incident
-        id="SetTextI18n"
-        severity="warning"
-        message="String literal in `setText` can not be translated. Use Android resources instead.">
-        <location
-            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/categories/CategoriesFragment.kt"
-            line="145"
+            line="174"
             column="49"
-            startOffset="6948"
-            endLine="145"
+            startOffset="8696"
+            endLine="174"
             endColumn="56"
-            endOffset="6955"/>
+            endOffset="8703"/>
     </incident>
 
     <incident
@@ -4828,12 +5662,12 @@
         message="String literal in `setText` can not be translated. Use Android resources instead.">
         <location
             file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/categories/CategoriesFragment.kt"
-            line="146"
+            line="175"
             column="51"
-            startOffset="7007"
-            endLine="146"
+            startOffset="8755"
+            endLine="175"
             endColumn="63"
-            endOffset="7019"/>
+            endOffset="8767"/>
     </incident>
 
     <incident
@@ -4842,12 +5676,12 @@
         message="String literal in `setText` can not be translated. Use Android resources instead.">
         <location
             file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/categories/CategoriesFragment.kt"
-            line="151"
+            line="180"
             column="49"
-            startOffset="7348"
-            endLine="151"
+            startOffset="9096"
+            endLine="180"
             endColumn="56"
-            endOffset="7355"/>
+            endOffset="9103"/>
     </incident>
 
     <incident
@@ -4856,12 +5690,68 @@
         message="String literal in `setText` can not be translated. Use Android resources instead.">
         <location
             file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/categories/CategoriesFragment.kt"
-            line="152"
+            line="181"
             column="51"
-            startOffset="7407"
-            endLine="152"
+            startOffset="9155"
+            endLine="181"
             endColumn="63"
-            endOffset="7419"/>
+            endOffset="9167"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/categories/CategoriesFragment.kt"
+            line="260"
+            column="56"
+            startOffset="13553"
+            endLine="260"
+            endColumn="95"
+            endOffset="13592"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/categories/CategoriesFragment.kt"
+            line="261"
+            column="58"
+            startOffset="13650"
+            endLine="261"
+            endColumn="104"
+            endOffset="13696"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/categories/CategoriesFragment.kt"
+            line="261"
+            column="92"
+            startOffset="13684"
+            endLine="261"
+            endColumn="103"
+            endOffset="13695"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/categories/CategoriesFragment.kt"
+            line="282"
+            column="43"
+            startOffset="14489"
+            endLine="282"
+            endColumn="55"
+            endOffset="14501"/>
     </incident>
 
     <incident
@@ -4870,20 +5760,20 @@
         message="The id `R.id.et_emoji` has already been looked up in this method; possible cut &amp; paste error?">
         <location
             file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/categories/CategoriesFragment.kt"
-            line="232"
+            line="359"
             column="33"
-            startOffset="10397"
-            endLine="232"
+            startOffset="17348"
+            endLine="359"
             endColumn="90"
-            endOffset="10454"/>
+            endOffset="17405"/>
         <location
             file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/categories/CategoriesFragment.kt"
-            line="208"
+            line="335"
             column="26"
-            startOffset="9228"
-            endLine="208"
+            startOffset="16179"
+            endLine="335"
             endColumn="83"
-            endOffset="9285"
+            endOffset="16236"
             message="First usage here"/>
     </incident>
 
@@ -4893,12 +5783,12 @@
         message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
         <location
             file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/categories/CategoriesFragment.kt"
-            line="266"
+            line="396"
             column="42"
-            startOffset="11541"
-            endLine="266"
+            startOffset="18599"
+            endLine="396"
             endColumn="74"
-            endOffset="11573"/>
+            endOffset="18631"/>
     </incident>
 
     <incident
@@ -4907,40 +5797,12 @@
         message="String literal in `setText` can not be translated. Use Android resources instead.">
         <location
             file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/categories/CategoriesFragment.kt"
-            line="266"
+            line="396"
             column="62"
-            startOffset="11561"
-            endLine="266"
+            startOffset="18619"
+            endLine="396"
             endColumn="73"
-            endOffset="11572"/>
-    </incident>
-
-    <incident
-        id="SetTextI18n"
-        severity="warning"
-        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
-        <location
-            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/categories/CategoryTransactionsFragment.kt"
-            line="119"
-            column="52"
-            startOffset="4780"
-            endLine="119"
-            endColumn="92"
-            endOffset="4820"/>
-    </incident>
-
-    <incident
-        id="SetTextI18n"
-        severity="warning"
-        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
-        <location
-            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/categories/CategoryTransactionsFragment.kt"
-            line="120"
-            column="54"
-            startOffset="4874"
-            endLine="120"
-            endColumn="113"
-            endOffset="4933"/>
+            endOffset="18630"/>
     </incident>
 
     <incident
@@ -4948,69 +5810,13 @@
         severity="warning"
         message="String literal in `setText` can not be translated. Use Android resources instead.">
         <location
-            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/categories/CategoryTransactionsFragment.kt"
-            line="120"
-            column="86"
-            startOffset="4906"
-            endLine="120"
-            endColumn="112"
-            endOffset="4932"/>
-    </incident>
-
-    <incident
-        id="SetTextI18n"
-        severity="warning"
-        message="String literal in `setText` can not be translated. Use Android resources instead.">
-        <location
-            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/categories/CategoryTransactionsFragment.kt"
-            line="125"
-            column="55"
-            startOffset="5207"
-            endLine="125"
-            endColumn="82"
-            endOffset="5234"/>
-    </incident>
-
-    <incident
-        id="SetTextI18n"
-        severity="warning"
-        message="String literal in `setText` can not be translated. Use Android resources instead.">
-        <location
-            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/categories/CategoryTransactionsFragment.kt"
-            line="133"
-            column="51"
-            startOffset="5585"
-            endLine="133"
-            endColumn="78"
-            endOffset="5612"/>
-    </incident>
-
-    <incident
-        id="SetTextI18n"
-        severity="warning"
-        message="String literal in `setText` can not be translated. Use Android resources instead.">
-        <location
-            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/dashboard/DashboardFragment.kt"
-            line="61"
-            column="40"
-            startOffset="2258"
-            endLine="61"
-            endColumn="50"
-            endOffset="2268"/>
-    </incident>
-
-    <incident
-        id="SetTextI18n"
-        severity="warning"
-        message="String literal in `setText` can not be translated. Use Android resources instead.">
-        <location
-            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/dashboard/DashboardFragment.kt"
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/categories/CategorySelectionDialogFragment.kt"
             line="62"
-            column="38"
-            startOffset="2307"
+            column="71"
+            startOffset="2349"
             endLine="62"
-            endColumn="48"
-            endOffset="2317"/>
+            endColumn="89"
+            endOffset="2367"/>
     </incident>
 
     <incident
@@ -5018,13 +5824,27 @@
         severity="warning"
         message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
         <location
-            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/dashboard/DashboardFragment.kt"
-            line="187"
-            column="57"
-            startOffset="7406"
-            endLine="187"
-            endColumn="97"
-            endOffset="7446"/>
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/categories/CategorySelectionDialogFragment.kt"
+            line="63"
+            column="72"
+            startOffset="2440"
+            endLine="63"
+            endColumn="113"
+            endOffset="2481"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/categories/CategorySelectionDialogFragment.kt"
+            line="63"
+            column="73"
+            startOffset="2441"
+            endLine="63"
+            endColumn="99"
+            endOffset="2467"/>
     </incident>
 
     <incident
@@ -5032,13 +5852,13 @@
         severity="warning"
         message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
         <location
-            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/dashboard/DashboardFragment.kt"
-            line="289"
-            column="37"
-            startOffset="12254"
-            endLine="289"
-            endColumn="83"
-            endOffset="12300"/>
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/categories/CategoryTransactionsFragment.kt"
+            line="182"
+            column="52"
+            startOffset="8161"
+            endLine="182"
+            endColumn="92"
+            endOffset="8201"/>
     </incident>
 
     <incident
@@ -5046,13 +5866,27 @@
         severity="warning"
         message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
         <location
-            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/dashboard/DashboardFragment.kt"
-            line="294"
-            column="39"
-            startOffset="12610"
-            endLine="294"
-            endColumn="84"
-            endOffset="12655"/>
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/categories/CategoryTransactionsFragment.kt"
+            line="183"
+            column="54"
+            startOffset="8255"
+            endLine="183"
+            endColumn="129"
+            endOffset="8330"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/categories/CategoryTransactionsFragment.kt"
+            line="183"
+            column="92"
+            startOffset="8293"
+            endLine="183"
+            endColumn="108"
+            endOffset="8309"/>
     </incident>
 
     <incident
@@ -5060,27 +5894,167 @@
         severity="warning"
         message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
         <location
-            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/dashboard/DashboardFragment.kt"
-            line="344"
-            column="35"
-            startOffset="15155"
-            endLine="344"
-            endColumn="81"
-            endOffset="15201"/>
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/categories/CategoryTransactionsFragment.kt"
+            line="190"
+            column="54"
+            startOffset="8748"
+            endLine="190"
+            endColumn="93"
+            endOffset="8787"/>
     </incident>
 
     <incident
         id="SetTextI18n"
         severity="warning"
-        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
         <location
-            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/dashboard/DashboardFragment.kt"
-            line="345"
-            column="35"
-            startOffset="15236"
-            endLine="345"
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/categories/CategoryTransactionsFragment.kt"
+            line="190"
+            column="55"
+            startOffset="8749"
+            endLine="190"
+            endColumn="72"
+            endOffset="8766"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/categories/CategoryTransactionsFragment.kt"
+            line="201"
+            column="51"
+            startOffset="9361"
+            endLine="201"
             endColumn="78"
-            endOffset="15279"/>
+            endOffset="9388"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/categories/CategoryTransactionsFragment.kt"
+            line="521"
+            column="44"
+            startOffset="25899"
+            endLine="521"
+            endColumn="84"
+            endOffset="25939"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/categories/CategoryTransactionsFragment.kt"
+            line="522"
+            column="46"
+            startOffset="25985"
+            endLine="522"
+            endColumn="121"
+            endOffset="26060"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/categories/CategoryTransactionsFragment.kt"
+            line="522"
+            column="84"
+            startOffset="26023"
+            endLine="522"
+            endColumn="100"
+            endOffset="26039"/>
+    </incident>
+
+    <incident
+        id="UnspecifiedRegisterReceiverFlag"
+        severity="warning"
+        message="`newTransactionReceiver` \&#xA;is missing `RECEIVER_EXPORTED` or `RECEIVER_NOT_EXPORTED` flag for unprotected \&#xA;broadcasts registered for com.expensemanager.NEW_TRANSACTION_ADDED">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/categories/CategoryTransactionsFragment.kt"
+            line="640"
+            column="13"
+            startOffset="30931"
+            endLine="640"
+            endColumn="84"
+            endOffset="31002"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/dashboard/DashboardFragment.kt"
+            line="127"
+            column="40"
+            startOffset="5782"
+            endLine="127"
+            endColumn="50"
+            endOffset="5792"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/dashboard/DashboardFragment.kt"
+            line="128"
+            column="38"
+            startOffset="5831"
+            endLine="128"
+            endColumn="48"
+            endOffset="5841"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/dashboard/DashboardFragment.kt"
+            line="330"
+            column="21"
+            startOffset="13713"
+            endLine="330"
+            endColumn="36"
+            endOffset="13728"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/dashboard/DashboardFragment.kt"
+            line="354"
+            column="21"
+            startOffset="14573"
+            endLine="354"
+            endColumn="55"
+            endOffset="14607"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/dashboard/DashboardFragment.kt"
+            line="427"
+            column="52"
+            startOffset="17621"
+            endLine="427"
+            endColumn="65"
+            endOffset="17634"/>
     </incident>
 
     <incident
@@ -5089,12 +6063,110 @@
         message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
         <location
             file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/dashboard/DashboardFragment.kt"
-            line="392"
-            column="48"
-            startOffset="17555"
-            endLine="392"
+            line="754"
+            column="37"
+            startOffset="33702"
+            endLine="754"
+            endColumn="76"
+            endOffset="33741"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/dashboard/DashboardFragment.kt"
+            line="760"
+            column="39"
+            startOffset="34143"
+            endLine="760"
+            endColumn="86"
+            endOffset="34190"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/dashboard/DashboardFragment.kt"
+            line="902"
+            column="50"
+            startOffset="41663"
+            endLine="902"
+            endColumn="80"
+            endOffset="41693"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/dashboard/DashboardFragment.kt"
+            line="996"
+            column="40"
+            startOffset="45669"
+            endLine="996"
+            endColumn="50"
+            endOffset="45679"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/dashboard/DashboardFragment.kt"
+            line="997"
+            column="38"
+            startOffset="45718"
+            endLine="997"
+            endColumn="48"
+            endOffset="45728"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/dashboard/DashboardFragment.kt"
+            line="1003"
+            column="38"
+            startOffset="45933"
+            endLine="1003"
+            endColumn="48"
+            endOffset="45943"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/dashboard/DashboardFragment.kt"
+            line="1074"
+            column="37"
+            startOffset="49392"
+            endLine="1074"
             endColumn="83"
-            endOffset="17590"/>
+            endOffset="49438"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/dashboard/DashboardFragment.kt"
+            line="1079"
+            column="39"
+            startOffset="49748"
+            endLine="1079"
+            endColumn="84"
+            endOffset="49793"/>
     </incident>
 
     <incident
@@ -5103,12 +6175,26 @@
         message="String literal in `setText` can not be translated. Use Android resources instead.">
         <location
             file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/dashboard/DashboardFragment.kt"
-            line="464"
+            line="1107"
+            column="46"
+            startOffset="51028"
+            endLine="1107"
+            endColumn="56"
+            endOffset="51038"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/dashboard/DashboardFragment.kt"
+            line="1329"
             column="40"
-            startOffset="20424"
-            endLine="464"
+            startOffset="61860"
+            endLine="1329"
             endColumn="59"
-            endOffset="20443"/>
+            endOffset="61879"/>
     </incident>
 
     <incident
@@ -5117,12 +6203,96 @@
         message="String literal in `setText` can not be translated. Use Android resources instead.">
         <location
             file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/dashboard/DashboardFragment.kt"
-            line="471"
+            line="1342"
             column="40"
-            startOffset="20679"
-            endLine="471"
+            startOffset="62317"
+            endLine="1342"
             endColumn="53"
-            endOffset="20692"/>
+            endOffset="62330"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/dashboard/DashboardFragment.kt"
+            line="1608"
+            column="38"
+            startOffset="75779"
+            endLine="1608"
+            endColumn="80"
+            endOffset="75821"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/dashboard/DashboardFragment.kt"
+            line="1609"
+            column="38"
+            startOffset="75859"
+            endLine="1609"
+            endColumn="81"
+            endOffset="75902"/>
+    </incident>
+
+    <incident
+        id="UnspecifiedRegisterReceiverFlag"
+        severity="warning"
+        message="`newTransactionReceiver` \&#xA;is missing `RECEIVER_EXPORTED` or `RECEIVER_NOT_EXPORTED` flag for unprotected \&#xA;broadcasts registered for com.expensemanager.NEW_TRANSACTION_ADDED">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/dashboard/DashboardFragment.kt"
+            line="1693"
+            column="13"
+            startOffset="80531"
+            endLine="1693"
+            endColumn="92"
+            endOffset="80610"/>
+    </incident>
+
+    <incident
+        id="UnspecifiedRegisterReceiverFlag"
+        severity="warning"
+        message="`newTransactionReceiver` \&#xA;is missing `RECEIVER_EXPORTED` or `RECEIVER_NOT_EXPORTED` flag for unprotected \&#xA;broadcasts registered for com.expensemanager.CATEGORY_UPDATED">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/dashboard/DashboardFragment.kt"
+            line="1694"
+            column="13"
+            startOffset="80623"
+            endLine="1694"
+            endColumn="92"
+            endOffset="80702"/>
+    </incident>
+
+    <incident
+        id="NotifyDataSetChanged"
+        severity="warning"
+        message="It will always be more efficient to use more specific change events if you can. Rely on `notifyDataSetChanged` as a last resort.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/dashboard/TopCategoriesAdapter.kt"
+            line="24"
+            column="9"
+            startOffset="768"
+            endLine="24"
+            endColumn="31"
+            endOffset="790"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/dashboard/TopCategoriesAdapter.kt"
+            line="52"
+            column="29"
+            startOffset="2157"
+            endLine="52"
+            endColumn="73"
+            endOffset="2201"/>
     </incident>
 
     <incident
@@ -5131,12 +6301,12 @@
         message="It will always be more efficient to use more specific change events if you can. Rely on `notifyDataSetChanged` as a last resort.">
         <location
             file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/dashboard/TopMerchantsAdapter.kt"
-            line="26"
+            line="28"
             column="9"
-            startOffset="742"
-            endLine="26"
+            startOffset="810"
+            endLine="28"
             endColumn="31"
-            endOffset="764"/>
+            endOffset="832"/>
     </incident>
 
     <incident
@@ -5145,40 +6315,12 @@
         message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
         <location
             file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/dashboard/TopMerchantsAdapter.kt"
-            line="53"
+            line="55"
             column="29"
-            startOffset="2004"
-            endLine="53"
+            startOffset="2078"
+            endLine="55"
             endColumn="78"
-            endOffset="2053"/>
-    </incident>
-
-    <incident
-        id="SetTextI18n"
-        severity="warning"
-        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
-        <location
-            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/dashboard/TopMerchantsAdapter.kt"
-            line="54"
-            column="39"
-            startOffset="2092"
-            endLine="54"
-            endColumn="82"
-            endOffset="2135"/>
-    </incident>
-
-    <incident
-        id="SetTextI18n"
-        severity="warning"
-        message="String literal in `setText` can not be translated. Use Android resources instead.">
-        <location
-            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/dashboard/TopMerchantsAdapter.kt"
-            line="54"
-            column="68"
-            startOffset="2121"
-            endLine="54"
-            endColumn="81"
-            endOffset="2134"/>
+            endOffset="2127"/>
     </incident>
 
     <incident
@@ -5188,25 +6330,25 @@
         <location
             file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/dashboard/TopMerchantsAdapter.kt"
             line="56"
-            column="33"
-            startOffset="2216"
+            column="39"
+            startOffset="2166"
+            endLine="56"
+            endColumn="82"
+            endOffset="2209"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/dashboard/TopMerchantsAdapter.kt"
+            line="56"
+            column="68"
+            startOffset="2195"
             endLine="56"
             endColumn="81"
-            endOffset="2264"/>
-    </incident>
-
-    <incident
-        id="NotifyDataSetChanged"
-        severity="warning"
-        message="It will always be more efficient to use more specific change events if you can. Rely on `notifyDataSetChanged` as a last resort.">
-        <location
-            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/messages/GroupedMessagesAdapter.kt"
-            line="35"
-            column="9"
-            startOffset="1215"
-            endLine="35"
-            endColumn="31"
-            endOffset="1237"/>
+            endOffset="2208"/>
     </incident>
 
     <incident
@@ -5214,13 +6356,27 @@
         severity="warning"
         message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
         <location
-            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/messages/GroupedMessagesAdapter.kt"
-            line="61"
-            column="43"
-            startOffset="2180"
-            endLine="61"
-            endColumn="84"
-            endOffset="2221"/>
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/dashboard/TopMerchantsAdapter.kt"
+            line="58"
+            column="33"
+            startOffset="2290"
+            endLine="58"
+            endColumn="81"
+            endOffset="2338"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/insights/InsightsFragment.kt"
+            line="377"
+            column="21"
+            startOffset="13147"
+            endLine="377"
+            endColumn="153"
+            endOffset="13279"/>
     </incident>
 
     <incident
@@ -5228,13 +6384,391 @@
         severity="warning"
         message="String literal in `setText` can not be translated. Use Android resources instead.">
         <location
-            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/messages/GroupedMessagesAdapter.kt"
-            line="61"
-            column="70"
-            startOffset="2207"
-            endLine="61"
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/insights/InsightsFragment.kt"
+            line="377"
+            column="22"
+            startOffset="13148"
+            endLine="377"
+            endColumn="86"
+            endOffset="13212"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/insights/InsightsFragment.kt"
+            line="377"
+            column="140"
+            startOffset="13266"
+            endLine="377"
+            endColumn="152"
+            endOffset="13278"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/insights/InsightsFragment.kt"
+            line="413"
+            column="26"
+            startOffset="14921"
+            endLine="413"
+            endColumn="46"
+            endOffset="14941"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/insights/InsightsFragment.kt"
+            line="420"
+            column="22"
+            startOffset="15251"
+            endLine="420"
+            endColumn="48"
+            endOffset="15277"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/insights/InsightsFragment.kt"
+            line="422"
+            column="22"
+            startOffset="15383"
+            endLine="422"
+            endColumn="57"
+            endOffset="15418"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/insights/InsightsFragment.kt"
+            line="436"
+            column="17"
+            startOffset="15912"
+            endLine="436"
+            endColumn="74"
+            endOffset="15969"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/insights/InsightsFragment.kt"
+            line="439"
+            column="17"
+            startOffset="16078"
+            endLine="439"
+            endColumn="70"
+            endOffset="16131"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/insights/InsightsFragment.kt"
+            line="455"
+            column="26"
+            startOffset="17057"
+            endLine="455"
+            endColumn="77"
+            endOffset="17108"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/insights/InsightsFragment.kt"
+            line="495"
+            column="21"
+            startOffset="18924"
+            endLine="495"
+            endColumn="69"
+            endOffset="18972"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/insights/InsightsFragment.kt"
+            line="495"
+            column="22"
+            startOffset="18925"
+            endLine="495"
+            endColumn="28"
+            endOffset="18931"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/insights/InsightsFragment.kt"
+            line="497"
+            column="21"
+            startOffset="19078"
+            endLine="497"
+            endColumn="64"
+            endOffset="19121"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/insights/InsightsFragment.kt"
+            line="504"
+            column="25"
+            startOffset="19571"
+            endLine="504"
+            endColumn="86"
+            endOffset="19632"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/insights/InsightsFragment.kt"
+            line="504"
+            column="26"
+            startOffset="19572"
+            endLine="504"
+            endColumn="32"
+            endOffset="19578"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/insights/InsightsFragment.kt"
+            line="506"
+            column="25"
+            startOffset="19746"
+            endLine="506"
+            endColumn="81"
+            endOffset="19802"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/insights/InsightsFragment.kt"
+            line="513"
+            column="25"
+            startOffset="20167"
+            endLine="513"
+            endColumn="85"
+            endOffset="20227"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/insights/InsightsFragment.kt"
+            line="513"
+            column="26"
+            startOffset="20168"
+            endLine="513"
+            endColumn="32"
+            endOffset="20174"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/insights/InsightsFragment.kt"
+            line="515"
+            column="25"
+            startOffset="20341"
+            endLine="515"
+            endColumn="80"
+            endOffset="20396"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/insights/InsightsFragment.kt"
+            line="521"
+            column="84"
+            startOffset="20721"
+            endLine="521"
+            endColumn="95"
+            endOffset="20732"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/insights/InsightsFragment.kt"
+            line="522"
+            column="87"
+            startOffset="20820"
+            endLine="522"
+            endColumn="116"
+            endOffset="20849"/>
+    </incident>
+
+    <incident
+        id="NotifyDataSetChanged"
+        severity="warning"
+        message="It will always be more efficient to use more specific change events if you can. Rely on `notifyDataSetChanged` as a last resort.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/merchant/MerchantTransactionsAdapter.kt"
+            line="21"
+            column="9"
+            startOffset="720"
+            endLine="21"
+            endColumn="31"
+            endOffset="742"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/merchant/MerchantTransactionsAdapter.kt"
+            line="46"
+            column="33"
+            startOffset="1748"
+            endLine="46"
+            endColumn="106"
+            endOffset="1821"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/merchant/MerchantTransactionsAdapter.kt"
+            line="51"
+            column="37"
+            startOffset="2074"
+            endLine="51"
+            endColumn="86"
+            endOffset="2123"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/merchant/MerchantTransactionsAdapter.kt"
+            line="51"
+            column="73"
+            startOffset="2110"
+            endLine="51"
+            endColumn="85"
+            endOffset="2122"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/merchant/MerchantTransactionsFragment.kt"
+            line="127"
+            column="46"
+            startOffset="4779"
+            endLine="127"
+            endColumn="86"
+            endOffset="4819"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/merchant/MerchantTransactionsFragment.kt"
+            line="128"
+            column="51"
+            startOffset="4870"
+            endLine="128"
+            endColumn="77"
+            endOffset="4896"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/merchant/MerchantTransactionsFragment.kt"
+            line="128"
+            column="63"
+            startOffset="4882"
+            endLine="128"
+            endColumn="76"
+            endOffset="4895"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/merchant/MerchantTransactionsFragment.kt"
+            line="229"
+            column="47"
+            startOffset="9257"
+            endLine="229"
+            endColumn="81"
+            endOffset="9291"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/merchant/MerchantTransactionsFragment.kt"
+            line="232"
+            column="47"
+            startOffset="9456"
+            endLine="232"
             endColumn="83"
-            endOffset="2220"/>
+            endOffset="9492"/>
     </incident>
 
     <incident
@@ -5243,12 +6777,12 @@
         message="It will always be more efficient to use more specific change events if you can. Rely on `notifyDataSetChanged` as a last resort.">
         <location
             file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/messages/GroupedMessagesAdapter.kt"
-            line="171"
+            line="37"
             column="9"
-            startOffset="7291"
-            endLine="171"
+            startOffset="1294"
+            endLine="37"
             endColumn="31"
-            endOffset="7313"/>
+            endOffset="1316"/>
     </incident>
 
     <incident
@@ -5257,26 +6791,12 @@
         message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
         <location
             file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/messages/GroupedMessagesAdapter.kt"
-            line="193"
-            column="26"
-            startOffset="8176"
-            endLine="193"
-            endColumn="99"
-            endOffset="8249"/>
-    </incident>
-
-    <incident
-        id="SetTextI18n"
-        severity="warning"
-        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
-        <location
-            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/messages/GroupedMessagesAdapter.kt"
-            line="194"
-            column="26"
-            startOffset="8275"
-            endLine="194"
-            endColumn="91"
-            endOffset="8340"/>
+            line="63"
+            column="43"
+            startOffset="2259"
+            endLine="63"
+            endColumn="84"
+            endOffset="2300"/>
     </incident>
 
     <incident
@@ -5285,12 +6805,68 @@
         message="String literal in `setText` can not be translated. Use Android resources instead.">
         <location
             file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/messages/GroupedMessagesAdapter.kt"
-            line="194"
-            column="78"
-            startOffset="8327"
-            endLine="194"
-            endColumn="90"
-            endOffset="8339"/>
+            line="63"
+            column="70"
+            startOffset="2286"
+            endLine="63"
+            endColumn="83"
+            endOffset="2299"/>
+    </incident>
+
+    <incident
+        id="NotifyDataSetChanged"
+        severity="warning"
+        message="It will always be more efficient to use more specific change events if you can. Rely on `notifyDataSetChanged` as a last resort.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/messages/GroupedMessagesAdapter.kt"
+            line="209"
+            column="9"
+            startOffset="9420"
+            endLine="209"
+            endColumn="31"
+            endOffset="9442"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/messages/GroupedMessagesAdapter.kt"
+            line="231"
+            column="35"
+            startOffset="10408"
+            endLine="231"
+            endColumn="108"
+            endOffset="10481"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/messages/GroupedMessagesAdapter.kt"
+            line="232"
+            column="39"
+            startOffset="10520"
+            endLine="232"
+            endColumn="104"
+            endOffset="10585"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/messages/GroupedMessagesAdapter.kt"
+            line="232"
+            column="91"
+            startOffset="10572"
+            endLine="232"
+            endColumn="103"
+            endOffset="10584"/>
     </incident>
 
     <incident
@@ -5326,83 +6902,223 @@
         severity="warning"
         message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
         <location
-            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/profile/BudgetGoalsFragment.kt"
-            line="72"
-            column="38"
-            startOffset="2541"
-            endLine="72"
-            endColumn="86"
-            endOffset="2589"/>
-    </incident>
-
-    <incident
-        id="SetTextI18n"
-        severity="warning"
-        message="String literal in `setText` can not be translated. Use Android resources instead.">
-        <location
-            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/profile/BudgetGoalsFragment.kt"
-            line="72"
-            column="39"
-            startOffset="2542"
-            endLine="72"
-            endColumn="47"
-            endOffset="2550"/>
-    </incident>
-
-    <incident
-        id="SetTextI18n"
-        severity="warning"
-        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
-        <location
-            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/profile/BudgetGoalsFragment.kt"
-            line="73"
-            column="36"
-            startOffset="2625"
-            endLine="73"
-            endColumn="103"
-            endOffset="2692"/>
-    </incident>
-
-    <incident
-        id="SetTextI18n"
-        severity="warning"
-        message="String literal in `setText` can not be translated. Use Android resources instead.">
-        <location
-            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/profile/BudgetGoalsFragment.kt"
-            line="73"
-            column="92"
-            startOffset="2681"
-            endLine="73"
-            endColumn="102"
-            endOffset="2691"/>
-    </incident>
-
-    <incident
-        id="SetTextI18n"
-        severity="warning"
-        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
-        <location
-            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/profile/BudgetGoalsFragment.kt"
-            line="147"
-            column="39"
-            startOffset="5774"
-            endLine="147"
-            endColumn="131"
-            endOffset="5866"/>
-    </incident>
-
-    <incident
-        id="SetTextI18n"
-        severity="warning"
-        message="String literal in `setText` can not be translated. Use Android resources instead.">
-        <location
-            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/profile/BudgetGoalsFragment.kt"
-            line="147"
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/messages/MessagesFragment.kt"
+            line="264"
             column="40"
-            startOffset="5775"
-            endLine="147"
+            startOffset="10488"
+            endLine="264"
+            endColumn="87"
+            endOffset="10535"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/messages/MessagesFragment.kt"
+            line="264"
+            column="41"
+            startOffset="10489"
+            endLine="264"
+            endColumn="47"
+            endOffset="10495"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/messages/MessagesFragment.kt"
+            line="342"
+            column="43"
+            startOffset="14574"
+            endLine="342"
+            endColumn="49"
+            endOffset="14580"/>
+    </incident>
+
+    <incident
+        id="UnspecifiedRegisterReceiverFlag"
+        severity="warning"
+        message="`newTransactionReceiver` \&#xA;is missing `RECEIVER_EXPORTED` or `RECEIVER_NOT_EXPORTED` flag for unprotected \&#xA;broadcasts registered for com.expensemanager.NEW_TRANSACTION_ADDED">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/messages/MessagesFragment.kt"
+            line="1463"
+            column="13"
+            startOffset="67321"
+            endLine="1463"
+            endColumn="84"
+            endOffset="67392"/>
+    </incident>
+
+    <incident
+        id="ClickableViewAccessibility"
+        severity="warning"
+        message="Custom view `NestedScrollableRecyclerView` overrides `onTouchEvent` but not `performClick`">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/messages/NestedScrollableRecyclerView.kt"
+            line="44"
+            column="18"
+            startOffset="1476"
+            endLine="44"
+            endColumn="30"
+            endOffset="1488"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/profile/BudgetGoalsFragment.kt"
+            line="206"
+            column="46"
+            startOffset="9120"
+            endLine="206"
+            endColumn="94"
+            endOffset="9168"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/profile/BudgetGoalsFragment.kt"
+            line="206"
+            column="47"
+            startOffset="9121"
+            endLine="206"
+            endColumn="55"
+            endOffset="9129"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/profile/BudgetGoalsFragment.kt"
+            line="207"
+            column="44"
+            startOffset="9212"
+            endLine="207"
+            endColumn="111"
+            endOffset="9279"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/profile/BudgetGoalsFragment.kt"
+            line="207"
+            column="100"
+            startOffset="9268"
+            endLine="207"
+            endColumn="110"
+            endOffset="9278"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/profile/BudgetGoalsFragment.kt"
+            line="213"
+            column="47"
+            startOffset="9604"
+            endLine="213"
+            endColumn="97"
+            endOffset="9654"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/profile/BudgetGoalsFragment.kt"
+            line="213"
+            column="48"
+            startOffset="9605"
+            endLine="213"
+            endColumn="57"
+            endOffset="9614"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/profile/BudgetGoalsFragment.kt"
+            line="239"
+            column="39"
+            startOffset="10655"
+            endLine="239"
+            endColumn="48"
+            endOffset="10664"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/profile/BudgetGoalsFragment.kt"
+            line="240"
+            column="36"
+            startOffset="10701"
+            endLine="240"
+            endColumn="88"
+            endOffset="10753"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/profile/BudgetGoalsFragment.kt"
+            line="240"
+            column="77"
+            startOffset="10742"
+            endLine="240"
+            endColumn="87"
+            endOffset="10752"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/profile/BudgetGoalsFragment.kt"
+            line="381"
+            column="39"
+            startOffset="16893"
+            endLine="381"
+            endColumn="176"
+            endOffset="17030"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/profile/BudgetGoalsFragment.kt"
+            line="381"
+            column="40"
+            startOffset="16894"
+            endLine="381"
             endColumn="50"
-            endOffset="5785"/>
+            endOffset="16904"/>
     </incident>
 
     <incident
@@ -5411,12 +7127,12 @@
         message="String literal in `setText` can not be translated. Use Android resources instead.">
         <location
             file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/profile/BudgetGoalsFragment.kt"
-            line="147"
+            line="381"
             column="65"
-            startOffset="5800"
-            endLine="147"
+            startOffset="16919"
+            endLine="381"
             endColumn="100"
-            endOffset="5835"/>
+            endOffset="16954"/>
     </incident>
 
     <incident
@@ -5425,12 +7141,26 @@
         message="String literal in `setText` can not be translated. Use Android resources instead.">
         <location
             file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/profile/BudgetGoalsFragment.kt"
-            line="147"
+            line="381"
             column="114"
-            startOffset="5849"
-            endLine="147"
-            endColumn="130"
-            endOffset="5865"/>
+            startOffset="16968"
+            endLine="381"
+            endColumn="131"
+            endOffset="16985"/>
+    </incident>
+
+    <incident
+        id="SetTextI18n"
+        severity="warning"
+        message="String literal in `setText` can not be translated. Use Android resources instead.">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/profile/BudgetGoalsFragment.kt"
+            line="381"
+            column="155"
+            startOffset="17009"
+            endLine="381"
+            endColumn="175"
+            endOffset="17029"/>
     </incident>
 
     <incident
@@ -5439,12 +7169,12 @@
         message="It will always be more efficient to use more specific change events if you can. Rely on `notifyDataSetChanged` as a last resort.">
         <location
             file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/profile/BudgetGoalsFragment.kt"
-            line="290"
+            line="637"
             column="9"
-            startOffset="11770"
-            endLine="290"
+            startOffset="28504"
+            endLine="637"
             endColumn="31"
-            endOffset="11792"/>
+            endOffset="28526"/>
     </incident>
 
     <incident
@@ -5453,12 +7183,12 @@
         message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
         <location
             file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/profile/BudgetGoalsFragment.kt"
-            line="312"
+            line="659"
             column="43"
-            startOffset="12621"
-            endLine="312"
+            startOffset="29355"
+            endLine="659"
             endColumn="97"
-            endOffset="12675"/>
+            endOffset="29409"/>
     </incident>
 
     <incident
@@ -5467,12 +7197,12 @@
         message="String literal in `setText` can not be translated. Use Android resources instead.">
         <location
             file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/profile/BudgetGoalsFragment.kt"
-            line="312"
+            line="659"
             column="44"
-            startOffset="12622"
-            endLine="312"
+            startOffset="29356"
+            endLine="659"
             endColumn="53"
-            endOffset="12631"/>
+            endOffset="29365"/>
     </incident>
 
     <incident
@@ -5481,12 +7211,12 @@
         message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
         <location
             file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/profile/BudgetGoalsFragment.kt"
-            line="313"
+            line="660"
             column="42"
-            startOffset="12717"
-            endLine="313"
+            startOffset="29451"
+            endLine="660"
             endColumn="94"
-            endOffset="12769"/>
+            endOffset="29503"/>
     </incident>
 
     <incident
@@ -5495,12 +7225,12 @@
         message="String literal in `setText` can not be translated. Use Android resources instead.">
         <location
             file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/profile/BudgetGoalsFragment.kt"
-            line="313"
+            line="660"
             column="43"
-            startOffset="12718"
-            endLine="313"
+            startOffset="29452"
+            endLine="660"
             endColumn="51"
-            endOffset="12726"/>
+            endOffset="29460"/>
     </incident>
 
     <incident
@@ -5509,12 +7239,12 @@
         message="Do not concatenate text displayed with `setText`. Use resource string with placeholders.">
         <location
             file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/profile/BudgetGoalsFragment.kt"
-            line="317"
+            line="664"
             column="47"
-            startOffset="13012"
-            endLine="317"
+            startOffset="29746"
+            endLine="664"
             endColumn="66"
-            endOffset="13031"/>
+            endOffset="29765"/>
     </incident>
 
     <incident
@@ -5523,12 +7253,12 @@
         message="String literal in `setText` can not be translated. Use Android resources instead.">
         <location
             file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/profile/BudgetGoalsFragment.kt"
-            line="317"
+            line="664"
             column="59"
-            startOffset="13024"
-            endLine="317"
+            startOffset="29758"
+            endLine="664"
             endColumn="65"
-            endOffset="13030"/>
+            endOffset="29764"/>
     </incident>
 
     <incident
@@ -5653,6 +7383,20 @@
     </incident>
 
     <incident
+        id="MissingInflatedId"
+        severity="error"
+        message="`@layout/dialog_edit_merchant_group` does not contain a declaration with id `spinner_category`">
+        <location
+            file="${:app*debug*sourceProvider*0*javaDir*0}/com/expensemanager/app/ui/transaction/TransactionDetailsFragment.kt"
+            line="254"
+            column="77"
+            startOffset="9841"
+            endLine="254"
+            endColumn="98"
+            endOffset="9862"/>
+    </incident>
+
+    <incident
         id="GradleDependency"
         severity="warning"
         message="A newer version of androidx.core:core-ktx than 1.12.0 is available: 1.17.0">
@@ -5663,12 +7407,12 @@
             replacement="1.17.0"/>
         <location
             file="${:app*projectDir}/build.gradle"
-            line="42"
+            line="43"
             column="20"
-            startOffset="863"
-            endLine="42"
+            startOffset="919"
+            endLine="43"
             endColumn="51"
-            endOffset="894"/>
+            endOffset="950"/>
     </incident>
 
     <incident
@@ -5682,12 +7426,12 @@
             replacement="1.7.1"/>
         <location
             file="${:app*projectDir}/build.gradle"
-            line="43"
+            line="44"
             column="20"
-            startOffset="914"
-            endLine="43"
+            startOffset="970"
+            endLine="44"
             endColumn="56"
-            endOffset="950"/>
+            endOffset="1006"/>
     </incident>
 
     <incident
@@ -5701,12 +7445,12 @@
             replacement="1.12.0"/>
         <location
             file="${:app*projectDir}/build.gradle"
-            line="44"
+            line="45"
             column="20"
-            startOffset="970"
-            endLine="44"
+            startOffset="1026"
+            endLine="45"
             endColumn="65"
-            endOffset="1015"/>
+            endOffset="1071"/>
     </incident>
 
     <incident
@@ -5720,12 +7464,12 @@
             replacement="2.2.1"/>
         <location
             file="${:app*projectDir}/build.gradle"
-            line="45"
+            line="46"
             column="20"
-            startOffset="1035"
-            endLine="45"
+            startOffset="1091"
+            endLine="46"
             endColumn="70"
-            endOffset="1085"/>
+            endOffset="1141"/>
     </incident>
 
     <incident
@@ -5739,12 +7483,12 @@
             replacement="2.9.3"/>
         <location
             file="${:app*projectDir}/build.gradle"
-            line="48"
+            line="49"
             column="20"
-            startOffset="1128"
-            endLine="48"
+            startOffset="1184"
+            endLine="49"
             endColumn="71"
-            endOffset="1179"/>
+            endOffset="1235"/>
     </incident>
 
     <incident
@@ -5758,12 +7502,12 @@
             replacement="2.9.3"/>
         <location
             file="${:app*projectDir}/build.gradle"
-            line="49"
+            line="50"
             column="20"
-            startOffset="1199"
-            endLine="49"
+            startOffset="1255"
+            endLine="50"
             endColumn="65"
-            endOffset="1244"/>
+            endOffset="1300"/>
     </incident>
 
     <incident
@@ -5777,12 +7521,12 @@
             replacement="2.9.2"/>
         <location
             file="${:app*projectDir}/build.gradle"
-            line="52"
+            line="53"
             column="20"
-            startOffset="1299"
-            endLine="52"
+            startOffset="1355"
+            endLine="53"
             endColumn="70"
-            endOffset="1349"/>
+            endOffset="1405"/>
     </incident>
 
     <incident
@@ -5796,12 +7540,88 @@
             replacement="2.9.2"/>
         <location
             file="${:app*projectDir}/build.gradle"
-            line="53"
+            line="54"
             column="20"
-            startOffset="1369"
-            endLine="53"
+            startOffset="1425"
+            endLine="54"
             endColumn="69"
-            endOffset="1418"/>
+            endOffset="1474"/>
+    </incident>
+
+    <incident
+        id="GradleDependency"
+        severity="warning"
+        message="A newer version of androidx.room:room-runtime than 2.5.0 is available: 2.7.2">
+        <fix-replace
+            description="Change to 2.7.2"
+            family="Update versions"
+            oldString="2.5.0"
+            replacement="2.7.2"/>
+        <location
+            file="${:app*projectDir}/build.gradle"
+            line="60"
+            column="20"
+            startOffset="1632"
+            endLine="60"
+            endColumn="54"
+            endOffset="1666"/>
+    </incident>
+
+    <incident
+        id="GradleDependency"
+        severity="warning"
+        message="A newer version of androidx.room:room-ktx than 2.5.0 is available: 2.7.2">
+        <fix-replace
+            description="Change to 2.7.2"
+            family="Update versions"
+            oldString="2.5.0"
+            replacement="2.7.2"/>
+        <location
+            file="${:app*projectDir}/build.gradle"
+            line="61"
+            column="20"
+            startOffset="1686"
+            endLine="61"
+            endColumn="50"
+            endOffset="1716"/>
+    </incident>
+
+    <incident
+        id="GradleDependency"
+        severity="warning"
+        message="A newer version of androidx.room:room-compiler than 2.5.0 is available: 2.7.2">
+        <fix-replace
+            description="Change to 2.7.2"
+            family="Update versions"
+            oldString="2.5.0"
+            replacement="2.7.2"/>
+        <location
+            file="${:app*projectDir}/build.gradle"
+            line="62"
+            column="9"
+            startOffset="1725"
+            endLine="62"
+            endColumn="44"
+            endOffset="1760"/>
+    </incident>
+
+    <incident
+        id="GradleDependency"
+        severity="warning"
+        message="A newer version of com.google.code.gson:gson than 2.10.1 is available: 2.11.0">
+        <fix-replace
+            description="Change to 2.11.0"
+            family="Update versions"
+            oldString="2.10.1"
+            replacement="2.11.0"/>
+        <location
+            file="${:app*projectDir}/build.gradle"
+            line="78"
+            column="20"
+            startOffset="2333"
+            endLine="78"
+            endColumn="54"
+            endOffset="2367"/>
     </incident>
 
     <incident
@@ -5815,12 +7635,12 @@
             replacement="1.3.0"/>
         <location
             file="${:app*projectDir}/build.gradle"
-            line="72"
+            line="85"
             column="31"
-            startOffset="2064"
-            endLine="72"
+            startOffset="2553"
+            endLine="85"
             endColumn="62"
-            endOffset="2095"/>
+            endOffset="2584"/>
     </incident>
 
     <incident
@@ -5834,12 +7654,26 @@
             replacement="3.7.0"/>
         <location
             file="${:app*projectDir}/build.gradle"
-            line="73"
+            line="86"
             column="31"
-            startOffset="2126"
-            endLine="73"
+            startOffset="2615"
+            endLine="86"
             endColumn="75"
-            endOffset="2170"/>
+            endOffset="2659"/>
+    </incident>
+
+    <incident
+        id="Overdraw"
+        severity="warning"
+        message="Possible overdraw: Root element paints background `@android:color/white` with a theme that also paints a background (inferred theme is `@style/Theme.ExpenseManager`)">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/dialog_category_selection_custom.xml"
+            line="9"
+            column="5"
+            startOffset="367"
+            endLine="9"
+            endColumn="46"
+            endOffset="408"/>
     </incident>
 
     <incident
@@ -5920,10 +7754,10 @@
             file="${:app*debug*sourceProvider*0*resDir*0}/layout/fragment_insights.xml"
             line="7"
             column="5"
-            startOffset="302"
+            startOffset="341"
             endLine="7"
             endColumn="43"
-            endOffset="340"/>
+            endOffset="379"/>
     </incident>
 
     <incident
@@ -5994,6 +7828,34 @@
             endLine="7"
             endColumn="43"
             endOffset="340"/>
+    </incident>
+
+    <incident
+        id="Overdraw"
+        severity="warning"
+        message="Possible overdraw: Root element paints background `?android:attr/selectableItemBackground` with a theme that also paints a background (inferred theme is `@style/Theme.ExpenseManager`)">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/item_category_selection.xml"
+            line="8"
+            column="5"
+            startOffset="299"
+            endLine="8"
+            endColumn="64"
+            endOffset="358"/>
+    </incident>
+
+    <incident
+        id="Overdraw"
+        severity="warning"
+        message="Possible overdraw: Root element paints background `@color/surface` with a theme that also paints a background (inferred theme is `@style/Theme.ExpenseManager`)">
+        <location
+            file="${:app*debug*sourceProvider*0*resDir*0}/layout/item_transaction_simple.xml"
+            line="6"
+            column="5"
+            startOffset="232"
+            endLine="6"
+            endColumn="40"
+            endOffset="267"/>
     </incident>
 
 </incidents>

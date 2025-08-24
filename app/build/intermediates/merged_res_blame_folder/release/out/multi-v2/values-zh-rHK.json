@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.expensemanager.app-mergeReleaseResources-47:/values-zh-rHK/values-zh-rHK.xml",
+            "outputFile": "com.expensemanager.app-mergeReleaseResources-53:/values-zh-rHK/values-zh-rHK.xml",
             "map": [
                 {
                     "source": "/Users/anuragmishra/.gradle/caches/transforms-4/2b62c47b0077372403fd43a3573bcab3/transformed/appcompat-1.6.1/res/values-zh-rHK/values-zh-rHK.xml",

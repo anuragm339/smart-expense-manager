@@ -17,7 +17,9 @@ data class MerchantSpending(
     val percentage: Double
 )
 
-class TopMerchantsAdapter : RecyclerView.Adapter<TopMerchantsAdapter.MerchantViewHolder>() {
+class TopMerchantsAdapter(
+    private val onMerchantClick: (MerchantSpending) -> Unit = {}
+) : RecyclerView.Adapter<TopMerchantsAdapter.MerchantViewHolder>() {
     
     private var merchants = listOf<MerchantSpending>()
     
@@ -39,7 +41,7 @@ class TopMerchantsAdapter : RecyclerView.Adapter<TopMerchantsAdapter.MerchantVie
     
     override fun getItemCount(): Int = merchants.size
     
-    class MerchantViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+    inner class MerchantViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         
         private val tvMerchantName = itemView.findViewById<TextView>(R.id.tv_merchant_name)
         private val tvAmount = itemView.findViewById<TextView>(R.id.tv_amount)
@@ -61,6 +63,11 @@ class TopMerchantsAdapter : RecyclerView.Adapter<TopMerchantsAdapter.MerchantVie
             } catch (e: Exception) {
                 // Fallback to default color
                 viewCategoryColor.setBackgroundColor(Color.parseColor("#9e9e9e"))
+            }
+            
+            // Set click listener
+            itemView.setOnClickListener {
+                onMerchantClick(merchant)
             }
         }
     }

@@ -1,6 +1,6 @@
 <dependencies>
   <compile
-      roots="androidx.databinding:viewbinding:8.1.2@aar,com.karumi:dexter:6.2.3@aar,androidx.navigation:navigation-common:2.7.4@aar,androidx.navigation:navigation-common-ktx:2.7.4@aar,androidx.navigation:navigation-runtime:2.7.4@aar,androidx.navigation:navigation-runtime-ktx:2.7.4@aar,androidx.navigation:navigation-fragment:2.7.4@aar,androidx.navigation:navigation-fragment-ktx:2.7.4@aar,androidx.navigation:navigation-ui-ktx:2.7.4@aar,androidx.navigation:navigation-ui:2.7.4@aar,com.google.android.material:material:1.10.0@aar,androidx.appcompat:appcompat:1.6.1@aar,androidx.viewpager2:viewpager2:1.0.0@aar,androidx.fragment:fragment-ktx:1.6.0@aar,androidx.fragment:fragment:1.6.0@aar,androidx.fragment:fragment:1.6.0@aar,androidx.activity:activity-ktx:1.8.0@aar,androidx.activity:activity:1.8.0@aar,androidx.lifecycle:lifecycle-runtime-ktx:2.7.0@aar,androidx.lifecycle:lifecycle-common:2.7.0@jar,androidx.lifecycle:lifecycle-livedata-core:2.7.0@aar,androidx.lifecycle:lifecycle-livedata-core-ktx:2.7.0@aar,androidx.dynamicanimation:dynamicanimation:1.0.0@aar,androidx.legacy:legacy-support-core-utils:1.0.0@aar,androidx.loader:loader:1.0.0@aar,androidx.lifecycle:lifecycle-livedata:2.7.0@aar,androidx.lifecycle:lifecycle-livedata:2.7.0@aar,androidx.lifecycle:lifecycle-viewmodel:2.7.0@aar,androidx.lifecycle:lifecycle-viewmodel:2.7.0@aar,androidx.lifecycle:lifecycle-viewmodel-savedstate:2.7.0@aar,androidx.core:core-ktx:1.12.0@aar,androidx.appcompat:appcompat-resources:1.6.1@aar,androidx.drawerlayout:drawerlayout:1.1.1@aar,androidx.coordinatorlayout:coordinatorlayout:1.1.0@aar,androidx.recyclerview:recyclerview:1.1.0@aar,androidx.transition:transition:1.4.1@aar,androidx.vectordrawable:vectordrawable-animated:1.1.0@aar,androidx.vectordrawable:vectordrawable:1.1.0@aar,androidx.viewpager:viewpager:1.0.0@aar,androidx.slidingpanelayout:slidingpanelayout:1.2.0@aar,androidx.customview:customview:1.1.0@aar,androidx.core:core:1.12.0@aar,androidx.core:core:1.12.0@aar,androidx.lifecycle:lifecycle-runtime:2.7.0@aar,androidx.lifecycle:lifecycle-livedata-ktx:2.7.0@aar,androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0@aar,org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.7.3@jar,org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3@jar,org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.0@jar,androidx.constraintlayout:constraintlayout:2.1.4@aar,com.github.PhilJay:MPAndroidChart:v3.1.0@aar,androidx.cursoradapter:cursoradapter:1.0.0@aar,androidx.savedstate:savedstate-ktx:1.2.1@aar,androidx.savedstate:savedstate:1.2.1@aar,androidx.cardview:cardview:1.0.0@aar,androidx.versionedparcelable:versionedparcelable:1.1.1@aar,androidx.collection:collection-ktx:1.1.0@jar,androidx.collection:collection:1.1.0@jar,androidx.arch.core:core-runtime:2.2.0@aar,androidx.arch.core:core-common:2.2.0@jar,androidx.interpolator:interpolator:1.0.0@aar,androidx.documentfile:documentfile:1.0.0@aar,androidx.localbroadcastmanager:localbroadcastmanager:1.0.0@aar,androidx.print:print:1.0.0@aar,androidx.annotation:annotation-jvm:1.6.0@jar,org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.0@jar,androidx.annotation:annotation-experimental:1.3.0@aar,org.jetbrains.kotlin:kotlin-stdlib:1.9.0@jar,org.jetbrains.kotlin:kotlin-stdlib-common:1.9.0@jar,org.jetbrains:annotations:23.0.0@jar,androidx.resourceinspection:resourceinspection-annotation:1.0.1@jar">
+      roots="androidx.databinding:viewbinding:8.1.2@aar,com.karumi:dexter:6.2.3@aar,androidx.navigation:navigation-common:2.7.4@aar,androidx.navigation:navigation-common-ktx:2.7.4@aar,androidx.navigation:navigation-runtime:2.7.4@aar,androidx.navigation:navigation-runtime-ktx:2.7.4@aar,androidx.navigation:navigation-fragment:2.7.4@aar,androidx.navigation:navigation-fragment-ktx:2.7.4@aar,androidx.navigation:navigation-ui-ktx:2.7.4@aar,androidx.navigation:navigation-ui:2.7.4@aar,com.google.android.material:material:1.10.0@aar,androidx.appcompat:appcompat:1.6.1@aar,androidx.viewpager2:viewpager2:1.0.0@aar,androidx.fragment:fragment-ktx:1.6.0@aar,androidx.fragment:fragment:1.6.0@aar,androidx.fragment:fragment:1.6.0@aar,androidx.activity:activity-ktx:1.8.0@aar,androidx.activity:activity:1.8.0@aar,androidx.lifecycle:lifecycle-runtime-ktx:2.7.0@aar,androidx.lifecycle:lifecycle-common:2.7.0@jar,androidx.lifecycle:lifecycle-livedata-core:2.7.0@aar,androidx.lifecycle:lifecycle-livedata-core-ktx:2.7.0@aar,androidx.dynamicanimation:dynamicanimation:1.0.0@aar,androidx.legacy:legacy-support-core-utils:1.0.0@aar,androidx.loader:loader:1.0.0@aar,androidx.lifecycle:lifecycle-livedata:2.7.0@aar,androidx.lifecycle:lifecycle-livedata:2.7.0@aar,androidx.lifecycle:lifecycle-viewmodel:2.7.0@aar,androidx.lifecycle:lifecycle-viewmodel:2.7.0@aar,androidx.lifecycle:lifecycle-viewmodel-savedstate:2.7.0@aar,androidx.core:core-ktx:1.12.0@aar,androidx.swiperefreshlayout:swiperefreshlayout:1.1.0@aar,androidx.appcompat:appcompat-resources:1.6.1@aar,androidx.drawerlayout:drawerlayout:1.1.1@aar,androidx.coordinatorlayout:coordinatorlayout:1.1.0@aar,androidx.recyclerview:recyclerview:1.1.0@aar,androidx.transition:transition:1.4.1@aar,androidx.vectordrawable:vectordrawable-animated:1.1.0@aar,androidx.vectordrawable:vectordrawable:1.1.0@aar,androidx.viewpager:viewpager:1.0.0@aar,androidx.slidingpanelayout:slidingpanelayout:1.2.0@aar,androidx.customview:customview:1.1.0@aar,androidx.core:core:1.12.0@aar,androidx.core:core:1.12.0@aar,androidx.lifecycle:lifecycle-runtime:2.7.0@aar,androidx.lifecycle:lifecycle-livedata-ktx:2.7.0@aar,androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0@aar,androidx.room:room-ktx:2.5.0@aar,org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.7.3@jar,org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3@jar,com.squareup.retrofit2:converter-gson:2.9.0@jar,com.squareup.retrofit2:retrofit:2.9.0@jar,com.squareup.okhttp3:logging-interceptor:4.12.0@jar,com.squareup.okhttp3:okhttp:4.12.0@jar,androidx.room:room-runtime:2.5.0@aar,androidx.room:room-common:2.5.0@jar,com.squareup.okio:okio-jvm:3.6.0@jar,org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.10@jar,androidx.constraintlayout:constraintlayout:2.1.4@aar,com.github.PhilJay:MPAndroidChart:v3.1.0@aar,com.google.code.gson:gson:2.10.1@jar,com.facebook.shimmer:shimmer:0.5.0@aar,androidx.cursoradapter:cursoradapter:1.0.0@aar,androidx.savedstate:savedstate-ktx:1.2.1@aar,androidx.savedstate:savedstate:1.2.1@aar,androidx.cardview:cardview:1.0.0@aar,androidx.sqlite:sqlite-framework:2.3.0@aar,androidx.sqlite:sqlite:2.3.0@aar,androidx.interpolator:interpolator:1.0.0@aar,androidx.versionedparcelable:versionedparcelable:1.1.1@aar,androidx.collection:collection-ktx:1.1.0@jar,androidx.collection:collection:1.1.0@jar,androidx.arch.core:core-runtime:2.2.0@aar,androidx.arch.core:core-common:2.2.0@jar,androidx.documentfile:documentfile:1.0.0@aar,androidx.localbroadcastmanager:localbroadcastmanager:1.0.0@aar,androidx.print:print:1.0.0@aar,androidx.annotation:annotation-jvm:1.6.0@jar,org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.10@jar,androidx.annotation:annotation-experimental:1.3.0@aar,org.jetbrains.kotlin:kotlin-stdlib:1.9.10@jar,org.jetbrains.kotlin:kotlin-stdlib-common:1.9.10@jar,org.jetbrains:annotations:23.0.0@jar,androidx.resourceinspection:resourceinspection-annotation:1.0.1@jar">
     <dependency
         name="androidx.databinding:viewbinding:8.1.2@aar"
         simpleName="androidx.databinding:viewbinding"/>
@@ -86,6 +86,9 @@
         name="androidx.core:core-ktx:1.12.0@aar"
         simpleName="androidx.core:core-ktx"/>
     <dependency
+        name="androidx.swiperefreshlayout:swiperefreshlayout:1.1.0@aar"
+        simpleName="androidx.swiperefreshlayout:swiperefreshlayout"/>
+    <dependency
         name="androidx.appcompat:appcompat-resources:1.6.1@aar"
         simpleName="androidx.appcompat:appcompat-resources"/>
     <dependency
@@ -128,13 +131,37 @@
         name="androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0@aar"
         simpleName="androidx.lifecycle:lifecycle-viewmodel-ktx"/>
     <dependency
+        name="androidx.room:room-ktx:2.5.0@aar"
+        simpleName="androidx.room:room-ktx"/>
+    <dependency
         name="org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.7.3@jar"
         simpleName="org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm"/>
     <dependency
         name="org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3@jar"
         simpleName="org.jetbrains.kotlinx:kotlinx-coroutines-android"/>
     <dependency
-        name="org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.0@jar"
+        name="com.squareup.retrofit2:converter-gson:2.9.0@jar"
+        simpleName="com.squareup.retrofit2:converter-gson"/>
+    <dependency
+        name="com.squareup.retrofit2:retrofit:2.9.0@jar"
+        simpleName="com.squareup.retrofit2:retrofit"/>
+    <dependency
+        name="com.squareup.okhttp3:logging-interceptor:4.12.0@jar"
+        simpleName="com.squareup.okhttp3:logging-interceptor"/>
+    <dependency
+        name="com.squareup.okhttp3:okhttp:4.12.0@jar"
+        simpleName="com.squareup.okhttp3:okhttp"/>
+    <dependency
+        name="androidx.room:room-runtime:2.5.0@aar"
+        simpleName="androidx.room:room-runtime"/>
+    <dependency
+        name="androidx.room:room-common:2.5.0@jar"
+        simpleName="androidx.room:room-common"/>
+    <dependency
+        name="com.squareup.okio:okio-jvm:3.6.0@jar"
+        simpleName="com.squareup.okio:okio-jvm"/>
+    <dependency
+        name="org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.10@jar"
         simpleName="org.jetbrains.kotlin:kotlin-stdlib-jdk8"/>
     <dependency
         name="androidx.constraintlayout:constraintlayout:2.1.4@aar"
@@ -142,6 +169,12 @@
     <dependency
         name="com.github.PhilJay:MPAndroidChart:v3.1.0@aar"
         simpleName="com.github.PhilJay:MPAndroidChart"/>
+    <dependency
+        name="com.google.code.gson:gson:2.10.1@jar"
+        simpleName="com.google.code.gson:gson"/>
+    <dependency
+        name="com.facebook.shimmer:shimmer:0.5.0@aar"
+        simpleName="com.facebook.shimmer:shimmer"/>
     <dependency
         name="androidx.cursoradapter:cursoradapter:1.0.0@aar"
         simpleName="androidx.cursoradapter:cursoradapter"/>
@@ -154,6 +187,15 @@
     <dependency
         name="androidx.cardview:cardview:1.0.0@aar"
         simpleName="androidx.cardview:cardview"/>
+    <dependency
+        name="androidx.sqlite:sqlite-framework:2.3.0@aar"
+        simpleName="androidx.sqlite:sqlite-framework"/>
+    <dependency
+        name="androidx.sqlite:sqlite:2.3.0@aar"
+        simpleName="androidx.sqlite:sqlite"/>
+    <dependency
+        name="androidx.interpolator:interpolator:1.0.0@aar"
+        simpleName="androidx.interpolator:interpolator"/>
     <dependency
         name="androidx.versionedparcelable:versionedparcelable:1.1.1@aar"
         simpleName="androidx.versionedparcelable:versionedparcelable"/>
@@ -170,9 +212,6 @@
         name="androidx.arch.core:core-common:2.2.0@jar"
         simpleName="androidx.arch.core:core-common"/>
     <dependency
-        name="androidx.interpolator:interpolator:1.0.0@aar"
-        simpleName="androidx.interpolator:interpolator"/>
-    <dependency
         name="androidx.documentfile:documentfile:1.0.0@aar"
         simpleName="androidx.documentfile:documentfile"/>
     <dependency
@@ -185,16 +224,16 @@
         name="androidx.annotation:annotation-jvm:1.6.0@jar"
         simpleName="androidx.annotation:annotation-jvm"/>
     <dependency
-        name="org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.0@jar"
+        name="org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.10@jar"
         simpleName="org.jetbrains.kotlin:kotlin-stdlib-jdk7"/>
     <dependency
         name="androidx.annotation:annotation-experimental:1.3.0@aar"
         simpleName="androidx.annotation:annotation-experimental"/>
     <dependency
-        name="org.jetbrains.kotlin:kotlin-stdlib:1.9.0@jar"
+        name="org.jetbrains.kotlin:kotlin-stdlib:1.9.10@jar"
         simpleName="org.jetbrains.kotlin:kotlin-stdlib"/>
     <dependency
-        name="org.jetbrains.kotlin:kotlin-stdlib-common:1.9.0@jar"
+        name="org.jetbrains.kotlin:kotlin-stdlib-common:1.9.10@jar"
         simpleName="org.jetbrains.kotlin:kotlin-stdlib-common"/>
     <dependency
         name="org.jetbrains:annotations:23.0.0@jar"
@@ -204,7 +243,7 @@
         simpleName="androidx.resourceinspection:resourceinspection-annotation"/>
   </compile>
   <package
-      roots="androidx.databinding:viewbinding:8.1.2@aar,com.karumi:dexter:6.2.3@aar,androidx.navigation:navigation-common:2.7.4@aar,androidx.navigation:navigation-common-ktx:2.7.4@aar,androidx.navigation:navigation-runtime:2.7.4@aar,androidx.navigation:navigation-runtime-ktx:2.7.4@aar,androidx.navigation:navigation-fragment:2.7.4@aar,androidx.navigation:navigation-fragment-ktx:2.7.4@aar,androidx.navigation:navigation-ui-ktx:2.7.4@aar,androidx.navigation:navigation-ui:2.7.4@aar,com.google.android.material:material:1.10.0@aar,androidx.constraintlayout:constraintlayout:2.1.4@aar,androidx.appcompat:appcompat-resources:1.6.1@aar,androidx.appcompat:appcompat:1.6.1@aar,androidx.viewpager2:viewpager2:1.0.0@aar,androidx.fragment:fragment-ktx:1.6.0@aar,androidx.fragment:fragment:1.6.0@aar,androidx.fragment:fragment:1.6.0@aar,androidx.activity:activity-ktx:1.8.0@aar,androidx.activity:activity:1.8.0@aar,androidx.emoji2:emoji2-views-helper:1.2.0@aar,androidx.emoji2:emoji2:1.2.0@aar,androidx.savedstate:savedstate-ktx:1.2.1@aar,androidx.savedstate:savedstate:1.2.1@aar,androidx.lifecycle:lifecycle-runtime-ktx:2.7.0@aar,androidx.lifecycle:lifecycle-common:2.7.0@jar,androidx.lifecycle:lifecycle-livedata-core:2.7.0@aar,androidx.lifecycle:lifecycle-process:2.7.0@aar,androidx.lifecycle:lifecycle-livedata-core-ktx:2.7.0@aar,androidx.dynamicanimation:dynamicanimation:1.0.0@aar,androidx.legacy:legacy-support-core-utils:1.0.0@aar,androidx.loader:loader:1.0.0@aar,androidx.lifecycle:lifecycle-livedata:2.7.0@aar,androidx.lifecycle:lifecycle-livedata:2.7.0@aar,androidx.lifecycle:lifecycle-viewmodel-savedstate:2.7.0@aar,androidx.core:core-ktx:1.12.0@aar,androidx.drawerlayout:drawerlayout:1.1.1@aar,androidx.coordinatorlayout:coordinatorlayout:1.1.0@aar,androidx.vectordrawable:vectordrawable-animated:1.1.0@aar,androidx.vectordrawable:vectordrawable:1.1.0@aar,androidx.recyclerview:recyclerview:1.1.0@aar,androidx.slidingpanelayout:slidingpanelayout:1.2.0@aar,androidx.viewpager:viewpager:1.0.0@aar,androidx.customview:customview:1.1.0@aar,androidx.transition:transition:1.4.1@aar,androidx.window:window:1.0.0@aar,androidx.core:core:1.12.0@aar,androidx.core:core:1.12.0@aar,androidx.lifecycle:lifecycle-runtime:2.7.0@aar,androidx.lifecycle:lifecycle-viewmodel:2.7.0@aar,androidx.lifecycle:lifecycle-viewmodel:2.7.0@aar,androidx.lifecycle:lifecycle-livedata-ktx:2.7.0@aar,androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0@aar,org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.7.3@jar,org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3@jar,org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.0@jar,com.github.PhilJay:MPAndroidChart:v3.1.0@aar,androidx.cursoradapter:cursoradapter:1.0.0@aar,androidx.resourceinspection:resourceinspection-annotation:1.0.1@jar,androidx.cardview:cardview:1.0.0@aar,androidx.interpolator:interpolator:1.0.0@aar,androidx.versionedparcelable:versionedparcelable:1.1.1@aar,androidx.collection:collection-ktx:1.1.0@jar,androidx.collection:collection:1.1.0@jar,androidx.profileinstaller:profileinstaller:1.3.0@aar,androidx.startup:startup-runtime:1.1.1@aar,androidx.tracing:tracing:1.0.0@aar,androidx.arch.core:core-runtime:2.2.0@aar,androidx.arch.core:core-common:2.2.0@jar,androidx.concurrent:concurrent-futures:1.1.0@jar,androidx.documentfile:documentfile:1.0.0@aar,androidx.localbroadcastmanager:localbroadcastmanager:1.0.0@aar,androidx.print:print:1.0.0@aar,org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.0@jar,androidx.annotation:annotation-experimental:1.3.0@aar,androidx.annotation:annotation-jvm:1.6.0@jar,org.jetbrains.kotlin:kotlin-stdlib:1.9.0@jar,com.google.errorprone:error_prone_annotations:2.15.0@jar,androidx.constraintlayout:constraintlayout-core:1.0.4@jar,org.jetbrains.kotlin:kotlin-stdlib-common:1.9.0@jar,org.jetbrains:annotations:23.0.0@jar,com.google.guava:listenablefuture:1.0@jar">
+      roots="androidx.databinding:viewbinding:8.1.2@aar,com.karumi:dexter:6.2.3@aar,androidx.navigation:navigation-common:2.7.4@aar,androidx.navigation:navigation-common-ktx:2.7.4@aar,androidx.navigation:navigation-runtime:2.7.4@aar,androidx.navigation:navigation-runtime-ktx:2.7.4@aar,androidx.navigation:navigation-fragment:2.7.4@aar,androidx.navigation:navigation-fragment-ktx:2.7.4@aar,androidx.navigation:navigation-ui-ktx:2.7.4@aar,androidx.navigation:navigation-ui:2.7.4@aar,com.google.android.material:material:1.10.0@aar,androidx.constraintlayout:constraintlayout:2.1.4@aar,androidx.appcompat:appcompat-resources:1.6.1@aar,androidx.appcompat:appcompat:1.6.1@aar,androidx.viewpager2:viewpager2:1.0.0@aar,androidx.fragment:fragment-ktx:1.6.0@aar,androidx.fragment:fragment:1.6.0@aar,androidx.fragment:fragment:1.6.0@aar,androidx.activity:activity-ktx:1.8.0@aar,androidx.activity:activity:1.8.0@aar,androidx.emoji2:emoji2-views-helper:1.2.0@aar,androidx.emoji2:emoji2:1.2.0@aar,androidx.savedstate:savedstate-ktx:1.2.1@aar,androidx.savedstate:savedstate:1.2.1@aar,androidx.lifecycle:lifecycle-runtime-ktx:2.7.0@aar,androidx.lifecycle:lifecycle-common:2.7.0@jar,androidx.lifecycle:lifecycle-livedata-core:2.7.0@aar,androidx.lifecycle:lifecycle-process:2.7.0@aar,androidx.lifecycle:lifecycle-livedata-core-ktx:2.7.0@aar,androidx.dynamicanimation:dynamicanimation:1.0.0@aar,androidx.legacy:legacy-support-core-utils:1.0.0@aar,androidx.loader:loader:1.0.0@aar,androidx.lifecycle:lifecycle-livedata:2.7.0@aar,androidx.lifecycle:lifecycle-livedata:2.7.0@aar,androidx.lifecycle:lifecycle-viewmodel-savedstate:2.7.0@aar,androidx.core:core-ktx:1.12.0@aar,androidx.swiperefreshlayout:swiperefreshlayout:1.1.0@aar,androidx.drawerlayout:drawerlayout:1.1.1@aar,androidx.coordinatorlayout:coordinatorlayout:1.1.0@aar,androidx.vectordrawable:vectordrawable-animated:1.1.0@aar,androidx.vectordrawable:vectordrawable:1.1.0@aar,androidx.recyclerview:recyclerview:1.1.0@aar,androidx.slidingpanelayout:slidingpanelayout:1.2.0@aar,androidx.viewpager:viewpager:1.0.0@aar,androidx.customview:customview:1.1.0@aar,androidx.transition:transition:1.4.1@aar,androidx.window:window:1.0.0@aar,androidx.core:core:1.12.0@aar,androidx.core:core:1.12.0@aar,androidx.lifecycle:lifecycle-runtime:2.7.0@aar,androidx.lifecycle:lifecycle-viewmodel:2.7.0@aar,androidx.lifecycle:lifecycle-viewmodel:2.7.0@aar,androidx.lifecycle:lifecycle-livedata-ktx:2.7.0@aar,androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0@aar,androidx.room:room-ktx:2.5.0@aar,org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.7.3@jar,org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3@jar,com.squareup.retrofit2:converter-gson:2.9.0@jar,com.squareup.retrofit2:retrofit:2.9.0@jar,com.squareup.okhttp3:logging-interceptor:4.12.0@jar,com.squareup.okhttp3:okhttp:4.12.0@jar,androidx.room:room-runtime:2.5.0@aar,androidx.room:room-common:2.5.0@jar,com.squareup.okio:okio-jvm:3.6.0@jar,org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.10@jar,com.github.PhilJay:MPAndroidChart:v3.1.0@aar,com.google.code.gson:gson:2.10.1@jar,com.facebook.shimmer:shimmer:0.5.0@aar,androidx.cursoradapter:cursoradapter:1.0.0@aar,androidx.resourceinspection:resourceinspection-annotation:1.0.1@jar,androidx.cardview:cardview:1.0.0@aar,androidx.sqlite:sqlite-framework:2.3.0@aar,androidx.sqlite:sqlite:2.3.0@aar,androidx.interpolator:interpolator:1.0.0@aar,androidx.versionedparcelable:versionedparcelable:1.1.1@aar,androidx.collection:collection-ktx:1.1.0@jar,androidx.collection:collection:1.1.0@jar,androidx.profileinstaller:profileinstaller:1.3.0@aar,androidx.startup:startup-runtime:1.1.1@aar,androidx.tracing:tracing:1.0.0@aar,androidx.arch.core:core-runtime:2.2.0@aar,androidx.arch.core:core-common:2.2.0@jar,androidx.concurrent:concurrent-futures:1.1.0@jar,androidx.documentfile:documentfile:1.0.0@aar,androidx.localbroadcastmanager:localbroadcastmanager:1.0.0@aar,androidx.print:print:1.0.0@aar,androidx.annotation:annotation-experimental:1.3.0@aar,androidx.annotation:annotation-jvm:1.6.0@jar,org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.10@jar,org.jetbrains.kotlin:kotlin-stdlib:1.9.10@jar,com.google.errorprone:error_prone_annotations:2.15.0@jar,androidx.constraintlayout:constraintlayout-core:1.0.4@jar,org.jetbrains.kotlin:kotlin-stdlib-common:1.9.10@jar,org.jetbrains:annotations:23.0.0@jar,com.google.guava:listenablefuture:1.0@jar">
     <dependency
         name="androidx.databinding:viewbinding:8.1.2@aar"
         simpleName="androidx.databinding:viewbinding"/>
@@ -308,6 +347,9 @@
         name="androidx.core:core-ktx:1.12.0@aar"
         simpleName="androidx.core:core-ktx"/>
     <dependency
+        name="androidx.swiperefreshlayout:swiperefreshlayout:1.1.0@aar"
+        simpleName="androidx.swiperefreshlayout:swiperefreshlayout"/>
+    <dependency
         name="androidx.drawerlayout:drawerlayout:1.1.1@aar"
         simpleName="androidx.drawerlayout:drawerlayout"/>
     <dependency
@@ -353,17 +395,47 @@
         name="androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0@aar"
         simpleName="androidx.lifecycle:lifecycle-viewmodel-ktx"/>
     <dependency
+        name="androidx.room:room-ktx:2.5.0@aar"
+        simpleName="androidx.room:room-ktx"/>
+    <dependency
         name="org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.7.3@jar"
         simpleName="org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm"/>
     <dependency
         name="org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3@jar"
         simpleName="org.jetbrains.kotlinx:kotlinx-coroutines-android"/>
     <dependency
-        name="org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.0@jar"
+        name="com.squareup.retrofit2:converter-gson:2.9.0@jar"
+        simpleName="com.squareup.retrofit2:converter-gson"/>
+    <dependency
+        name="com.squareup.retrofit2:retrofit:2.9.0@jar"
+        simpleName="com.squareup.retrofit2:retrofit"/>
+    <dependency
+        name="com.squareup.okhttp3:logging-interceptor:4.12.0@jar"
+        simpleName="com.squareup.okhttp3:logging-interceptor"/>
+    <dependency
+        name="com.squareup.okhttp3:okhttp:4.12.0@jar"
+        simpleName="com.squareup.okhttp3:okhttp"/>
+    <dependency
+        name="androidx.room:room-runtime:2.5.0@aar"
+        simpleName="androidx.room:room-runtime"/>
+    <dependency
+        name="androidx.room:room-common:2.5.0@jar"
+        simpleName="androidx.room:room-common"/>
+    <dependency
+        name="com.squareup.okio:okio-jvm:3.6.0@jar"
+        simpleName="com.squareup.okio:okio-jvm"/>
+    <dependency
+        name="org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.10@jar"
         simpleName="org.jetbrains.kotlin:kotlin-stdlib-jdk8"/>
     <dependency
         name="com.github.PhilJay:MPAndroidChart:v3.1.0@aar"
         simpleName="com.github.PhilJay:MPAndroidChart"/>
+    <dependency
+        name="com.google.code.gson:gson:2.10.1@jar"
+        simpleName="com.google.code.gson:gson"/>
+    <dependency
+        name="com.facebook.shimmer:shimmer:0.5.0@aar"
+        simpleName="com.facebook.shimmer:shimmer"/>
     <dependency
         name="androidx.cursoradapter:cursoradapter:1.0.0@aar"
         simpleName="androidx.cursoradapter:cursoradapter"/>
@@ -373,6 +445,12 @@
     <dependency
         name="androidx.cardview:cardview:1.0.0@aar"
         simpleName="androidx.cardview:cardview"/>
+    <dependency
+        name="androidx.sqlite:sqlite-framework:2.3.0@aar"
+        simpleName="androidx.sqlite:sqlite-framework"/>
+    <dependency
+        name="androidx.sqlite:sqlite:2.3.0@aar"
+        simpleName="androidx.sqlite:sqlite"/>
     <dependency
         name="androidx.interpolator:interpolator:1.0.0@aar"
         simpleName="androidx.interpolator:interpolator"/>
@@ -413,16 +491,16 @@
         name="androidx.print:print:1.0.0@aar"
         simpleName="androidx.print:print"/>
     <dependency
-        name="org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.0@jar"
-        simpleName="org.jetbrains.kotlin:kotlin-stdlib-jdk7"/>
-    <dependency
         name="androidx.annotation:annotation-experimental:1.3.0@aar"
         simpleName="androidx.annotation:annotation-experimental"/>
     <dependency
         name="androidx.annotation:annotation-jvm:1.6.0@jar"
         simpleName="androidx.annotation:annotation-jvm"/>
     <dependency
-        name="org.jetbrains.kotlin:kotlin-stdlib:1.9.0@jar"
+        name="org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.10@jar"
+        simpleName="org.jetbrains.kotlin:kotlin-stdlib-jdk7"/>
+    <dependency
+        name="org.jetbrains.kotlin:kotlin-stdlib:1.9.10@jar"
         simpleName="org.jetbrains.kotlin:kotlin-stdlib"/>
     <dependency
         name="com.google.errorprone:error_prone_annotations:2.15.0@jar"
@@ -431,7 +509,7 @@
         name="androidx.constraintlayout:constraintlayout-core:1.0.4@jar"
         simpleName="androidx.constraintlayout:constraintlayout-core"/>
     <dependency
-        name="org.jetbrains.kotlin:kotlin-stdlib-common:1.9.0@jar"
+        name="org.jetbrains.kotlin:kotlin-stdlib-common:1.9.10@jar"
         simpleName="org.jetbrains.kotlin:kotlin-stdlib-common"/>
     <dependency
         name="org.jetbrains:annotations:23.0.0@jar"

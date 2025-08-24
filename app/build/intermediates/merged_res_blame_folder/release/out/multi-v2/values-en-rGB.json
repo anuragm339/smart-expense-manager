@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.expensemanager.app-mergeReleaseResources-47:/values-en-rGB/values-en-rGB.xml",
+            "outputFile": "com.expensemanager.app-mergeReleaseResources-53:/values-en-rGB/values-en-rGB.xml",
             "map": [
                 {
                     "source": "/Users/anuragmishra/.gradle/caches/transforms-4/2b62c47b0077372403fd43a3573bcab3/transformed/appcompat-1.6.1/res/values-en-rGB/values-en-rGB.xml",

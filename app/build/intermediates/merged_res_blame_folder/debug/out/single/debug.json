@@ -1,278 +1,330 @@
 [
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/drawable_ic_category.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/drawable/ic_category.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_ic_refresh.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/ic_refresh.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/layout_fragment_dashboard.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/layout/fragment_dashboard.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/layout_fragment_categories.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/layout/fragment_categories.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/layout_fragment_profile.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/layout/fragment_profile.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/layout_dialog_add_category.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/layout/dialog_add_category.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/drawable_ic_profile.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/drawable/ic_profile.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/layout_dialog_quick_add_expense.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/layout/dialog_quick_add_expense.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/layout_dialog_edit_budget.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/layout/dialog_edit_budget.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/layout_fragment_category_transactions.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/layout/fragment_category_transactions.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/drawable_ic_language.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/drawable/ic_language.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_ic_money.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/ic_money.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/drawable_circle_shape.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/drawable/circle_shape.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/xml_network_security_config.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/xml/network_security_config.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/layout_fragment_messages.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/layout/fragment_messages.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/layout_dialog_category_selection_custom.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/layout/dialog_category_selection_custom.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/layout_item_top_merchant.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/layout/item_top_merchant.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_ic_sort.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/ic_sort.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/layout_fragment_budget_goals.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/layout/fragment_budget_goals.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_category_chip_background.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/category_chip_background.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/drawable_ic_target.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/drawable/ic_target.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/layout_dialog_edit_budget.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/layout/dialog_edit_budget.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/drawable_ic_delete.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/drawable/ic_delete.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/layout_dialog_category_selection.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/layout/dialog_category_selection.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/drawable_ic_money.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/drawable/ic_money.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_ic_categories.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/ic_categories.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/xml_backup_rules.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/xml/backup_rules.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_circle_shape.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/circle_shape.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/xml_file_paths.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/xml/file_paths.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_bank_tag_background.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/bank_tag_background.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/layout_fragment_insights.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/layout/fragment_insights.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_ic_search.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/ic_search.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/layout_item_transaction_simple.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/layout/item_transaction_simple.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/layout_activity_main.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/layout/activity_main.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/menu_bottom_nav_menu.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/menu/bottom_nav_menu.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/layout_fragment_insights.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/layout/fragment_insights.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/layout_dialog_edit_merchant_group.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/layout/dialog_edit_merchant_group.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/layout_item_merchant_group.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/layout/item_merchant_group.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/drawable_ic_file_csv.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/drawable/ic_file_csv.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/layout_item_category.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/layout/item_category.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/layout_fragment_notifications.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/layout/fragment_notifications.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/layout_item_message.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/layout/item_message.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/drawable_ic_code.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/drawable/ic_code.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/layout_fragment_export_data.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/layout/fragment_export_data.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/drawable_ic_info.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/drawable/ic_info.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_ic_warning.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/ic_warning.xml"
     },
     {
-        "merged": "com.expensemanager.app-merged_res-49:/layout_item_dashboard_category.xml.flat",
-        "source": "com.expensemanager.app-main-51:/layout/item_dashboard_category.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_ic_auto_fix.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/ic_auto_fix.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/drawable_ic_calendar.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/drawable/ic_calendar.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_ic_file_pdf.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/ic_file_pdf.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/layout_fragment_export_data.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/layout/fragment_export_data.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/layout_item_top_merchant.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/layout/item_top_merchant.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/drawable_ic_arrow_right.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/drawable/ic_arrow_right.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/layout_dialog_advanced_filter.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/layout/dialog_advanced_filter.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/drawable_category_chip_background.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/drawable/category_chip_background.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_ic_chart.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/ic_chart.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/drawable_ic_backup.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/drawable/ic_backup.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/layout_dropdown_item_category.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/layout/dropdown_item_category.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/drawable_ic_chart.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/drawable/ic_chart.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/layout_dialog_sms_progress.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/layout/dialog_sms_progress.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/xml_data_extraction_rules.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/xml/data_extraction_rules.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/menu_bottom_nav_menu.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/menu/bottom_nav_menu.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/drawable_ic_dashboard.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/drawable/ic_dashboard.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_ic_info.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/ic_info.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/layout_item_message.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/layout/item_message.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_ic_code.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/ic_code.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/mipmap-anydpi-v26_ic_launcher.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/mipmap-anydpi-v26/ic_launcher.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/layout_fragment_dashboard.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/layout/fragment_dashboard.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/drawable_ic_cloud.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/drawable/ic_cloud.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/layout_fragment_settings.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/layout/fragment_settings.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/layout_dropdown_item_category.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/layout/dropdown_item_category.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/layout_fragment_notifications.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/layout/fragment_notifications.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/layout_fragment_categories.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/layout/fragment_categories.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/layout_fragment_merchant_transactions.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/layout/fragment_merchant_transactions.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/layout_dialog_add_category.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/layout/dialog_add_category.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_ic_export.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/ic_export.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/layout_fragment_transaction_details.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/layout/fragment_transaction_details.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_ic_cloud.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/ic_cloud.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/drawable_ic_auto_fix.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/drawable/ic_auto_fix.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_ic_profile.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/ic_profile.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/drawable_ic_add.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/drawable/ic_add.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/navigation_nav_graph.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/navigation/nav_graph.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/drawable_ic_currency.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/drawable/ic_currency.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/layout_item_dashboard_category.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/layout/item_dashboard_category.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/drawable_ic_insights.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/drawable/ic_insights.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_ic_add.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/ic_add.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/drawable_ic_expand_more.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/drawable/ic_expand_more.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_ic_delete.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/ic_delete.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/layout_item_category_selection.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/layout/item_category_selection.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_ic_store.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/ic_store.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/drawable_bank_tag_background.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/drawable/bank_tag_background.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_ic_launcher_foreground.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/ic_launcher_foreground.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/drawable_ic_launcher_foreground.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/drawable/ic_launcher_foreground.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/xml_data_extraction_rules.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/xml/data_extraction_rules.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/drawable_ic_messages.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/drawable/ic_messages.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_ic_target.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/ic_target.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/layout_item_merchant_group.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/layout/item_merchant_group.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/layout_empty_state_insights.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/layout/empty_state_insights.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/layout_fragment_settings.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/layout/fragment_settings.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_ic_calendar.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/ic_calendar.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/drawable_ic_export.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/drawable/ic_export.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/layout_item_category_budget.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/layout/item_category_budget.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/drawable_ic_store.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/drawable/ic_store.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_ic_launcher_legacy.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/ic_launcher_legacy.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/drawable_ic_sort.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/drawable/ic_sort.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/layout_dialog_edit_merchant_group.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/layout/dialog_edit_merchant_group.xml"
     },
     {
-        "merged": "com.expensemanager.app-merged_res-49:/layout_fragment_dashboard.xml.flat",
-        "source": "com.expensemanager.app-main-51:/layout/fragment_dashboard.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/xml_file_paths.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/xml/file_paths.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/navigation_nav_graph.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/navigation/nav_graph.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/layout_item_category_selection.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/layout/item_category_selection.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/layout_fragment_category_transactions.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/layout/fragment_category_transactions.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/layout_fragment_budget_goals.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/layout/fragment_budget_goals.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/layout_item_category.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/layout/item_category.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/mipmap-anydpi-v26_ic_launcher.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/mipmap-anydpi-v26/ic_launcher.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/drawable_ic_sync.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/drawable/ic_sync.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/xml_backup_rules.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/xml/backup_rules.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/drawable_ic_notifications.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/drawable/ic_notifications.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_ic_language.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/ic_language.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/drawable_ic_refresh.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/drawable/ic_refresh.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/layout_error_state_insights.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/layout/error_state_insights.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/layout_activity_main.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/layout/activity_main.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/layout_fragment_profile.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/layout/fragment_profile.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/layout_dialog_quick_add_expense.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/layout/dialog_quick_add_expense.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_ic_privacy.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/ic_privacy.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/layout_item_category_budget.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/layout/item_category_budget.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/layout_fragment_messages.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/layout/fragment_messages.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/drawable_ic_privacy.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/drawable/ic_privacy.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_ic_arrow_left.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/ic_arrow_left.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/drawable_ic_file_pdf.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/drawable/ic_file_pdf.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_ic_notifications.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/ic_notifications.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/drawable_ic_warning.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/drawable/ic_warning.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/layout_item_transaction_simple.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/layout/item_transaction_simple.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/layout_item_dashboard_category.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/layout/item_dashboard_category.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/layout_fragment_transaction_details.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/layout/fragment_transaction_details.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/drawable_ic_categories.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/drawable/ic_categories.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_ic_insights_empty.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/ic_insights_empty.xml"
     },
     {
-        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-49:/drawable_ic_launcher_legacy.xml.flat",
-        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-51:/drawable/ic_launcher_legacy.xml"
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_ic_insights.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/ic_insights.xml"
+    },
+    {
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_ic_backup.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/ic_backup.xml"
+    },
+    {
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_ic_category.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/ic_category.xml"
+    },
+    {
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_ic_dashboard.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/ic_dashboard.xml"
+    },
+    {
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_ic_sync.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/ic_sync.xml"
+    },
+    {
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_shimmer_placeholder.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/shimmer_placeholder.xml"
+    },
+    {
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/layout_shimmer_insights_loading.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/layout/shimmer_insights_loading.xml"
+    },
+    {
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_ic_currency.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/ic_currency.xml"
+    },
+    {
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_ic_file_csv.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/ic_file_csv.xml"
+    },
+    {
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_ic_arrow_right.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/ic_arrow_right.xml"
+    },
+    {
+        "merged": "com.expensemanager.app-merged_res-55:/layout_fragment_insights.xml.flat",
+        "source": "com.expensemanager.app-main-57:/layout/fragment_insights.xml"
+    },
+    {
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_ic_error_outline.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/ic_error_outline.xml"
+    },
+    {
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_ic_expand_more.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/ic_expand_more.xml"
+    },
+    {
+        "merged": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-merged_res-55:/drawable_ic_messages.xml.flat",
+        "source": "/Users/anuragmishra/.gradle/daemon/8.7/com.expensemanager.app-main-57:/drawable/ic_messages.xml"
     }
 ]

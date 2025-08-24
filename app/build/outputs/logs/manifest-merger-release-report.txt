@@ -1,20 +1,20 @@
 -- Merging decision tree log ---
 provider#androidx.core.content.FileProvider
-INJECTED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:37:9-45:20
+INJECTED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:49:9-57:20
 	android:grantUriPermissions
-		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:41:13-47
+		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:53:13-47
 	android:authorities
 		INJECTED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml
-		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:39:13-60
+		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:51:13-60
 	android:exported
-		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:40:13-37
+		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:52:13-37
 	android:name
-		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:38:13-62
+		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:50:13-62
 manifest
-ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:2:1-49:12
-INJECTED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:2:1-49:12
-INJECTED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:2:1-49:12
-INJECTED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:2:1-49:12
+ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:2:1-61:12
+INJECTED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:2:1-61:12
+INJECTED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:2:1-61:12
+INJECTED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:2:1-61:12
 MERGED from [androidx.databinding:viewbinding:8.1.2] /Users/anuragmishra/.gradle/caches/transforms-4/34324f577317ac5a8909abc599eefb68/transformed/viewbinding-8.1.2/AndroidManifest.xml:2:1-7:12
 MERGED from [com.karumi:dexter:6.2.3] /Users/anuragmishra/.gradle/caches/transforms-4/1c0a94dd3874db5d824472bb81d1d465/transformed/dexter-6.2.3/AndroidManifest.xml:17:1-32:12
 MERGED from [androidx.navigation:navigation-common:2.7.4] /Users/anuragmishra/.gradle/caches/transforms-4/271e915b17cd16fd4ec52baf55511d14/transformed/navigation-common-2.7.4/AndroidManifest.xml:17:1-22:12
@@ -48,6 +48,7 @@ MERGED from [androidx.loader:loader:1.0.0] /Users/anuragmishra/.gradle/caches/tr
 MERGED from [androidx.lifecycle:lifecycle-livedata:2.7.0] /Users/anuragmishra/.gradle/caches/transforms-4/21ae1f36e6356b48e446e7b08cca7449/transformed/lifecycle-livedata-2.7.0/AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.lifecycle:lifecycle-viewmodel-savedstate:2.7.0] /Users/anuragmishra/.gradle/caches/transforms-4/982b36e44cf130615a35bcfe4d2b4bbe/transformed/lifecycle-viewmodel-savedstate-2.7.0/AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.core:core-ktx:1.12.0] /Users/anuragmishra/.gradle/caches/transforms-4/ff836484345fef78825273bb3a39f732/transformed/core-ktx-1.12.0/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.swiperefreshlayout:swiperefreshlayout:1.1.0] /Users/anuragmishra/.gradle/caches/transforms-4/9e408368637805de105f7ff3ed7d1993/transformed/swiperefreshlayout-1.1.0/AndroidManifest.xml:17:1-24:12
 MERGED from [androidx.drawerlayout:drawerlayout:1.1.1] /Users/anuragmishra/.gradle/caches/transforms-4/be0be4c57953ba343e2ac00b070cec31/transformed/drawerlayout-1.1.1/AndroidManifest.xml:17:1-24:12
 MERGED from [androidx.coordinatorlayout:coordinatorlayout:1.1.0] /Users/anuragmishra/.gradle/caches/transforms-4/93c2c6160ea52247e77e71adfbdca1be/transformed/coordinatorlayout-1.1.0/AndroidManifest.xml:17:1-24:12
 MERGED from [androidx.vectordrawable:vectordrawable-animated:1.1.0] /Users/anuragmishra/.gradle/caches/transforms-4/58b3682464df94f96c7cc78b2e3035a6/transformed/vectordrawable-animated-1.1.0/AndroidManifest.xml:17:1-24:12
@@ -63,9 +64,14 @@ MERGED from [androidx.lifecycle:lifecycle-runtime:2.7.0] /Users/anuragmishra/.gr
 MERGED from [androidx.lifecycle:lifecycle-viewmodel:2.7.0] /Users/anuragmishra/.gradle/caches/transforms-4/bc4a197ffad2469e5abdf35d36b8cba1/transformed/lifecycle-viewmodel-2.7.0/AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.lifecycle:lifecycle-livedata-ktx:2.7.0] /Users/anuragmishra/.gradle/caches/transforms-4/8db9119ab0f1af68b09b6b2033f60f3c/transformed/lifecycle-livedata-ktx-2.7.0/AndroidManifest.xml:2:1-7:12
 MERGED from [androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0] /Users/anuragmishra/.gradle/caches/transforms-4/aef4bfca56e23bb9189ded1b8db7d616/transformed/lifecycle-viewmodel-ktx-2.7.0/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.room:room-ktx:2.5.0] /Users/anuragmishra/.gradle/caches/transforms-4/e1fcefac068cdb3977b39c28a1e30730/transformed/room-ktx-2.5.0/AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.room:room-runtime:2.5.0] /Users/anuragmishra/.gradle/caches/transforms-4/efc0a49aa2c0b718e69b317b1e88fda9/transformed/room-runtime-2.5.0/AndroidManifest.xml:17:1-31:12
 MERGED from [com.github.PhilJay:MPAndroidChart:v3.1.0] /Users/anuragmishra/.gradle/caches/transforms-4/2c942b4b6b7f543db4d768695815224d/transformed/MPAndroidChart-v3.1.0/AndroidManifest.xml:2:1-20:12
+MERGED from [com.facebook.shimmer:shimmer:0.5.0] /Users/anuragmishra/.gradle/caches/transforms-4/f1d48bcddc166a6a8d9ea3a842588d6c/transformed/shimmer-0.5.0/AndroidManifest.xml:2:1-7:12
 MERGED from [androidx.cursoradapter:cursoradapter:1.0.0] /Users/anuragmishra/.gradle/caches/transforms-4/67072ae8db5a18150a033b25ff3aafd6/transformed/cursoradapter-1.0.0/AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.cardview:cardview:1.0.0] /Users/anuragmishra/.gradle/caches/transforms-4/e38edb822914d3112a86449d436e09a8/transformed/cardview-1.0.0/AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.sqlite:sqlite-framework:2.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/f6894025e1315573382133225699577e/transformed/sqlite-framework-2.3.0/AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.sqlite:sqlite:2.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/098d48e5d37790873db5af150a5e4442/transformed/sqlite-2.3.0/AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.interpolator:interpolator:1.0.0] /Users/anuragmishra/.gradle/caches/transforms-4/2ad1a1d2c521a8170f6e9c25b34ccb1d/transformed/interpolator-1.0.0/AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] /Users/anuragmishra/.gradle/caches/transforms-4/23d7265917b4888a7b94cf9660019c62/transformed/versionedparcelable-1.1.1/AndroidManifest.xml:17:1-27:12
 MERGED from [androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:17:1-55:12
@@ -98,9 +104,21 @@ uses-permission#android.permission.INTERNET
 ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:7:5-67
 	android:name
 		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:7:22-64
+uses-permission#android.permission.ACCESS_NETWORK_STATE
+ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:8:5-79
+	android:name
+		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:8:22-76
+uses-permission#android.permission.POST_NOTIFICATIONS
+ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:9:5-77
+	android:name
+		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:9:22-74
+uses-permission#android.permission.WRITE_EXTERNAL_STORAGE
+ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:10:5-81
+	android:name
+		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:10:22-78
 application
-ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:9:5-47:19
-INJECTED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:9:5-47:19
+ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:12:5-59:19
+INJECTED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:12:5-59:19
 MERGED from [com.karumi:dexter:6.2.3] /Users/anuragmishra/.gradle/caches/transforms-4/1c0a94dd3874db5d824472bb81d1d465/transformed/dexter-6.2.3/AndroidManifest.xml:26:5-30:19
 MERGED from [com.karumi:dexter:6.2.3] /Users/anuragmishra/.gradle/caches/transforms-4/1c0a94dd3874db5d824472bb81d1d465/transformed/dexter-6.2.3/AndroidManifest.xml:26:5-30:19
 MERGED from [com.google.android.material:material:1.10.0] /Users/anuragmishra/.gradle/caches/transforms-4/f5bc84a3f3dc20cc0c8dce7b65fc8f7e/transformed/material-1.10.0/AndroidManifest.xml:22:5-20
@@ -115,6 +133,8 @@ MERGED from [androidx.window:window:1.0.0] /Users/anuragmishra/.gradle/caches/tr
 MERGED from [androidx.window:window:1.0.0] /Users/anuragmishra/.gradle/caches/transforms-4/45e37d65629fdbffd9a2dc6598d595ff/transformed/window-1.0.0/AndroidManifest.xml:24:5-31:19
 MERGED from [androidx.core:core:1.12.0] /Users/anuragmishra/.gradle/caches/transforms-4/f368374aac6e219dea888ba954f9a563/transformed/core-1.12.0/AndroidManifest.xml:28:5-89
 MERGED from [androidx.core:core:1.12.0] /Users/anuragmishra/.gradle/caches/transforms-4/f368374aac6e219dea888ba954f9a563/transformed/core-1.12.0/AndroidManifest.xml:28:5-89
+MERGED from [androidx.room:room-runtime:2.5.0] /Users/anuragmishra/.gradle/caches/transforms-4/efc0a49aa2c0b718e69b317b1e88fda9/transformed/room-runtime-2.5.0/AndroidManifest.xml:23:5-29:19
+MERGED from [androidx.room:room-runtime:2.5.0] /Users/anuragmishra/.gradle/caches/transforms-4/efc0a49aa2c0b718e69b317b1e88fda9/transformed/room-runtime-2.5.0/AndroidManifest.xml:23:5-29:19
 MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] /Users/anuragmishra/.gradle/caches/transforms-4/23d7265917b4888a7b94cf9660019c62/transformed/versionedparcelable-1.1.1/AndroidManifest.xml:24:5-25:19
 MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] /Users/anuragmishra/.gradle/caches/transforms-4/23d7265917b4888a7b94cf9660019c62/transformed/versionedparcelable-1.1.1/AndroidManifest.xml:24:5-25:19
 MERGED from [androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:23:5-53:19
@@ -126,59 +146,73 @@ MERGED from [androidx.startup:startup-runtime:1.1.1] /Users/anuragmishra/.gradle
 	android:appComponentFactory
 		ADDED from [androidx.core:core:1.12.0] /Users/anuragmishra/.gradle/caches/transforms-4/f368374aac6e219dea888ba954f9a563/transformed/core-1.12.0/AndroidManifest.xml:28:18-86
 	android:label
-		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:14:9-41
+		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:18:9-41
 	android:fullBackupContent
-		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:12:9-54
+		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:16:9-54
 	tools:targetApi
-		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:16:9-29
+		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:22:9-29
 	android:icon
-		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:13:9-52
+		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:17:9-52
 	android:allowBackup
-		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:10:9-35
+		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:14:9-35
 	android:theme
-		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:15:9-52
+		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:19:9-52
+	android:networkSecurityConfig
+		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:20:9-69
 	android:dataExtractionRules
-		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:11:9-65
+		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:15:9-65
+	android:usesCleartextTraffic
+		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:21:9-44
+	android:name
+		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:13:9-50
 activity#com.expensemanager.app.MainActivity
-ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:18:9-26:20
+ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:24:9-32:20
 	android:exported
-		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:20:13-36
+		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:26:13-36
 	android:theme
-		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:21:13-56
+		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:27:13-56
 	android:name
-		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:19:13-41
+		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:25:13-41
 intent-filter#action:name:android.intent.action.MAIN+category:name:android.intent.category.LAUNCHER
-ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:22:13-25:29
+ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:28:13-31:29
 action#android.intent.action.MAIN
-ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:23:17-69
+ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:29:17-69
 	android:name
-		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:23:25-66
+		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:29:25-66
 category#android.intent.category.LAUNCHER
-ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:24:17-77
+ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:30:17-77
 	android:name
-		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:24:27-74
+		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:30:27-74
 receiver#com.expensemanager.app.utils.SMSReceiver
-ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:28:9-35:20
+ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:34:9-41:20
 	android:enabled
-		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:30:13-35
+		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:36:13-35
 	android:exported
-		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:31:13-36
+		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:37:13-36
 	android:name
-		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:29:13-46
+		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:35:13-46
 intent-filter#action:name:android.provider.Telephony.SMS_RECEIVED
-ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:32:13-34:29
+ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:38:13-40:29
 	android:priority
-		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:32:28-51
+		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:38:28-51
 action#android.provider.Telephony.SMS_RECEIVED
-ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:33:17-82
+ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:39:17-82
 	android:name
-		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:33:25-79
+		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:39:25-79
+receiver#com.expensemanager.app.notifications.TransactionNotificationReceiver
+ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:43:9-47:20
+	android:enabled
+		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:45:13-35
+	android:exported
+		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:46:13-37
+	android:name
+		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:44:13-74
 meta-data#android.support.FILE_PROVIDER_PATHS
-ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:42:13-44:54
+ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:54:13-56:54
 	android:resource
-		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:44:17-51
+		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:56:17-51
 	android:name
-		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:43:17-67
+		ADDED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml:55:17-67
 uses-sdk
 INJECTED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml reason: use-sdk injection requested
 INJECTED from /Users/anuragmishra/Desktop/workspace/expencemanagement/app/src/main/AndroidManifest.xml
@@ -249,6 +283,8 @@ MERGED from [androidx.lifecycle:lifecycle-viewmodel-savedstate:2.7.0] /Users/anu
 MERGED from [androidx.lifecycle:lifecycle-viewmodel-savedstate:2.7.0] /Users/anuragmishra/.gradle/caches/transforms-4/982b36e44cf130615a35bcfe4d2b4bbe/transformed/lifecycle-viewmodel-savedstate-2.7.0/AndroidManifest.xml:20:5-44
 MERGED from [androidx.core:core-ktx:1.12.0] /Users/anuragmishra/.gradle/caches/transforms-4/ff836484345fef78825273bb3a39f732/transformed/core-ktx-1.12.0/AndroidManifest.xml:5:5-44
 MERGED from [androidx.core:core-ktx:1.12.0] /Users/anuragmishra/.gradle/caches/transforms-4/ff836484345fef78825273bb3a39f732/transformed/core-ktx-1.12.0/AndroidManifest.xml:5:5-44
+MERGED from [androidx.swiperefreshlayout:swiperefreshlayout:1.1.0] /Users/anuragmishra/.gradle/caches/transforms-4/9e408368637805de105f7ff3ed7d1993/transformed/swiperefreshlayout-1.1.0/AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.swiperefreshlayout:swiperefreshlayout:1.1.0] /Users/anuragmishra/.gradle/caches/transforms-4/9e408368637805de105f7ff3ed7d1993/transformed/swiperefreshlayout-1.1.0/AndroidManifest.xml:20:5-22:41
 MERGED from [androidx.drawerlayout:drawerlayout:1.1.1] /Users/anuragmishra/.gradle/caches/transforms-4/be0be4c57953ba343e2ac00b070cec31/transformed/drawerlayout-1.1.1/AndroidManifest.xml:20:5-22:41
 MERGED from [androidx.drawerlayout:drawerlayout:1.1.1] /Users/anuragmishra/.gradle/caches/transforms-4/be0be4c57953ba343e2ac00b070cec31/transformed/drawerlayout-1.1.1/AndroidManifest.xml:20:5-22:41
 MERGED from [androidx.coordinatorlayout:coordinatorlayout:1.1.0] /Users/anuragmishra/.gradle/caches/transforms-4/93c2c6160ea52247e77e71adfbdca1be/transformed/coordinatorlayout-1.1.0/AndroidManifest.xml:20:5-22:41
@@ -279,12 +315,22 @@ MERGED from [androidx.lifecycle:lifecycle-livedata-ktx:2.7.0] /Users/anuragmishr
 MERGED from [androidx.lifecycle:lifecycle-livedata-ktx:2.7.0] /Users/anuragmishra/.gradle/caches/transforms-4/8db9119ab0f1af68b09b6b2033f60f3c/transformed/lifecycle-livedata-ktx-2.7.0/AndroidManifest.xml:5:5-44
 MERGED from [androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0] /Users/anuragmishra/.gradle/caches/transforms-4/aef4bfca56e23bb9189ded1b8db7d616/transformed/lifecycle-viewmodel-ktx-2.7.0/AndroidManifest.xml:5:5-44
 MERGED from [androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0] /Users/anuragmishra/.gradle/caches/transforms-4/aef4bfca56e23bb9189ded1b8db7d616/transformed/lifecycle-viewmodel-ktx-2.7.0/AndroidManifest.xml:5:5-44
+MERGED from [androidx.room:room-ktx:2.5.0] /Users/anuragmishra/.gradle/caches/transforms-4/e1fcefac068cdb3977b39c28a1e30730/transformed/room-ktx-2.5.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.room:room-ktx:2.5.0] /Users/anuragmishra/.gradle/caches/transforms-4/e1fcefac068cdb3977b39c28a1e30730/transformed/room-ktx-2.5.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.room:room-runtime:2.5.0] /Users/anuragmishra/.gradle/caches/transforms-4/efc0a49aa2c0b718e69b317b1e88fda9/transformed/room-runtime-2.5.0/AndroidManifest.xml:21:5-44
+MERGED from [androidx.room:room-runtime:2.5.0] /Users/anuragmishra/.gradle/caches/transforms-4/efc0a49aa2c0b718e69b317b1e88fda9/transformed/room-runtime-2.5.0/AndroidManifest.xml:21:5-44
 MERGED from [com.github.PhilJay:MPAndroidChart:v3.1.0] /Users/anuragmishra/.gradle/caches/transforms-4/2c942b4b6b7f543db4d768695815224d/transformed/MPAndroidChart-v3.1.0/AndroidManifest.xml:16:5-18:41
 MERGED from [com.github.PhilJay:MPAndroidChart:v3.1.0] /Users/anuragmishra/.gradle/caches/transforms-4/2c942b4b6b7f543db4d768695815224d/transformed/MPAndroidChart-v3.1.0/AndroidManifest.xml:16:5-18:41
+MERGED from [com.facebook.shimmer:shimmer:0.5.0] /Users/anuragmishra/.gradle/caches/transforms-4/f1d48bcddc166a6a8d9ea3a842588d6c/transformed/shimmer-0.5.0/AndroidManifest.xml:5:5-44
+MERGED from [com.facebook.shimmer:shimmer:0.5.0] /Users/anuragmishra/.gradle/caches/transforms-4/f1d48bcddc166a6a8d9ea3a842588d6c/transformed/shimmer-0.5.0/AndroidManifest.xml:5:5-44
 MERGED from [androidx.cursoradapter:cursoradapter:1.0.0] /Users/anuragmishra/.gradle/caches/transforms-4/67072ae8db5a18150a033b25ff3aafd6/transformed/cursoradapter-1.0.0/AndroidManifest.xml:20:5-44
 MERGED from [androidx.cursoradapter:cursoradapter:1.0.0] /Users/anuragmishra/.gradle/caches/transforms-4/67072ae8db5a18150a033b25ff3aafd6/transformed/cursoradapter-1.0.0/AndroidManifest.xml:20:5-44
 MERGED from [androidx.cardview:cardview:1.0.0] /Users/anuragmishra/.gradle/caches/transforms-4/e38edb822914d3112a86449d436e09a8/transformed/cardview-1.0.0/AndroidManifest.xml:20:5-44
 MERGED from [androidx.cardview:cardview:1.0.0] /Users/anuragmishra/.gradle/caches/transforms-4/e38edb822914d3112a86449d436e09a8/transformed/cardview-1.0.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.sqlite:sqlite-framework:2.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/f6894025e1315573382133225699577e/transformed/sqlite-framework-2.3.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.sqlite:sqlite-framework:2.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/f6894025e1315573382133225699577e/transformed/sqlite-framework-2.3.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.sqlite:sqlite:2.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/098d48e5d37790873db5af150a5e4442/transformed/sqlite-2.3.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.sqlite:sqlite:2.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/098d48e5d37790873db5af150a5e4442/transformed/sqlite-2.3.0/AndroidManifest.xml:20:5-44
 MERGED from [androidx.interpolator:interpolator:1.0.0] /Users/anuragmishra/.gradle/caches/transforms-4/2ad1a1d2c521a8170f6e9c25b34ccb1d/transformed/interpolator-1.0.0/AndroidManifest.xml:20:5-44
 MERGED from [androidx.interpolator:interpolator:1.0.0] /Users/anuragmishra/.gradle/caches/transforms-4/2ad1a1d2c521a8170f6e9c25b34ccb1d/transformed/interpolator-1.0.0/AndroidManifest.xml:20:5-44
 MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] /Users/anuragmishra/.gradle/caches/transforms-4/23d7265917b4888a7b94cf9660019c62/transformed/versionedparcelable-1.1.1/AndroidManifest.xml:20:5-22:41
@@ -375,6 +421,16 @@ uses-permission#com.expensemanager.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
 ADDED from [androidx.core:core:1.12.0] /Users/anuragmishra/.gradle/caches/transforms-4/f368374aac6e219dea888ba954f9a563/transformed/core-1.12.0/AndroidManifest.xml:26:5-97
 	android:name
 		ADDED from [androidx.core:core:1.12.0] /Users/anuragmishra/.gradle/caches/transforms-4/f368374aac6e219dea888ba954f9a563/transformed/core-1.12.0/AndroidManifest.xml:26:22-94
+service#androidx.room.MultiInstanceInvalidationService
+ADDED from [androidx.room:room-runtime:2.5.0] /Users/anuragmishra/.gradle/caches/transforms-4/efc0a49aa2c0b718e69b317b1e88fda9/transformed/room-runtime-2.5.0/AndroidManifest.xml:24:9-28:63
+	android:exported
+		ADDED from [androidx.room:room-runtime:2.5.0] /Users/anuragmishra/.gradle/caches/transforms-4/efc0a49aa2c0b718e69b317b1e88fda9/transformed/room-runtime-2.5.0/AndroidManifest.xml:27:13-37
+	tools:ignore
+		ADDED from [androidx.room:room-runtime:2.5.0] /Users/anuragmishra/.gradle/caches/transforms-4/efc0a49aa2c0b718e69b317b1e88fda9/transformed/room-runtime-2.5.0/AndroidManifest.xml:28:13-60
+	android:directBootAware
+		ADDED from [androidx.room:room-runtime:2.5.0] /Users/anuragmishra/.gradle/caches/transforms-4/efc0a49aa2c0b718e69b317b1e88fda9/transformed/room-runtime-2.5.0/AndroidManifest.xml:26:13-43
+	android:name
+		ADDED from [androidx.room:room-runtime:2.5.0] /Users/anuragmishra/.gradle/caches/transforms-4/efc0a49aa2c0b718e69b317b1e88fda9/transformed/room-runtime-2.5.0/AndroidManifest.xml:25:13-74
 meta-data#androidx.profileinstaller.ProfileInstallerInitializer
 ADDED from [androidx.profileinstaller:profileinstaller:1.3.0] /Users/anuragmishra/.gradle/caches/transforms-4/4a3a6b214d366c16d725d60aa5c84560/transformed/profileinstaller-1.3.0/AndroidManifest.xml:29:13-31:52
 	android:value

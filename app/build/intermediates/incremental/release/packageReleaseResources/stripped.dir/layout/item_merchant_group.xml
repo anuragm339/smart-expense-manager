@@ -168,15 +168,18 @@
         </LinearLayout>
 
         <!-- Expandable Transactions List -->
-        <androidx.recyclerview.widget.RecyclerView
+        <com.expensemanager.app.ui.messages.NestedScrollableRecyclerView
             android:id="@+id/recycler_transactions"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="200dp"
             android:layout_marginTop="12dp"
             android:visibility="gone"
-            android:nestedScrollingEnabled="false"
-            android:background="@color/background"
-            android:padding="8dp" />
+            android:nestedScrollingEnabled="true"
+            android:background="@color/surface"
+            android:padding="8dp"
+            android:scrollbars="vertical"
+            android:fadeScrollbars="false"
+            android:overScrollMode="never" />
 
     </LinearLayout>
 

@@ -9,7 +9,11 @@
         android:id="@+id/navigation_dashboard"
         android:name="com.expensemanager.app.ui.dashboard.DashboardFragment"
         android:label="@string/nav_dashboard"
-        tools:layout="@layout/fragment_dashboard" />
+        tools:layout="@layout/fragment_dashboard">
+        <action
+            android:id="@+id/action_dashboard_to_merchant_transactions"
+            app:destination="@id/navigation_merchant_transactions" />
+    </fragment>
 
     <fragment
         android:id="@+id/navigation_insights"
@@ -117,6 +121,19 @@
         <argument
             android:name="rawSMS"
             app:argType="string" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/navigation_merchant_transactions"
+        android:name="com.expensemanager.app.ui.merchant.MerchantTransactionsFragment"
+        android:label="Merchant Transactions"
+        tools:layout="@layout/fragment_merchant_transactions">
+        <argument
+            android:name="merchantName"
+            app:argType="string" />
+        <action
+            android:id="@+id/action_merchant_transactions_to_transaction_details"
+            app:destination="@id/navigation_transaction_details" />
     </fragment>
 
 </navigation>

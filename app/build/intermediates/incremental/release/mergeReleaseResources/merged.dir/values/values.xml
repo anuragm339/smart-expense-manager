@@ -715,6 +715,7 @@
     <color name="error">#e53e3e</color>
     <color name="error_color_material_dark">#ff7043</color>
     <color name="error_color_material_light">#ff5722</color>
+    <color name="error_red">#e53e3e</color>
     <color name="foreground_material_dark">@android:color/white</color>
     <color name="foreground_material_light">@android:color/black</color>
     <color name="highlighted_text_material_dark">#6680cbc4</color>
@@ -980,6 +981,7 @@
     <color name="secondary_text_disabled_material_dark">#36ffffff</color>
     <color name="secondary_text_disabled_material_light">#24000000</color>
     <color name="success">#4caf50</color>
+    <color name="success_green">#4caf50</color>
     <color name="surface">#ffffff</color>
     <color name="switch_thumb_disabled_material_dark">#ff616161</color>
     <color name="switch_thumb_disabled_material_light">#ffbdbdbd</color>
@@ -995,6 +997,7 @@
     <color name="warning">#ff9800</color>
     <color name="warning_dark">#e65100</color>
     <color name="warning_light">#fff3e0</color>
+    <color name="warning_orange">#ff9800</color>
     <color name="white">#FFFFFFFF</color>
     <dimen name="abc_action_bar_content_inset_material">16dp</dimen>
     <dimen name="abc_action_bar_content_inset_with_nav">72dp</dimen>
@@ -12895,6 +12898,39 @@
     <attr format="dimension" name="contentPaddingStart"/>
     <attr name="contentPaddingTop"/>
   </declare-styleable>
+    <declare-styleable name="ShimmerFrameLayout">
+    <attr format="boolean" name="shimmer_clip_to_children"/>
+    <attr format="boolean" name="shimmer_colored"/>
+    <attr format="color" name="shimmer_base_color"/>
+    <attr format="color" name="shimmer_highlight_color"/>
+    <attr format="float" name="shimmer_base_alpha"/>
+    <attr format="float" name="shimmer_highlight_alpha"/>
+    <attr format="boolean" name="shimmer_auto_start"/>
+    <attr format="integer" name="shimmer_duration"/>
+    <attr format="integer" name="shimmer_repeat_count"/>
+    <attr format="integer" name="shimmer_repeat_delay"/>
+    <attr format="enum" name="shimmer_repeat_mode">
+      <enum name="restart" value="1"/>
+      <enum name="reverse" value="2"/>
+    </attr>
+    <attr format="enum" name="shimmer_direction">
+      <enum name="left_to_right" value="0"/>
+      <enum name="top_to_bottom" value="1"/>
+      <enum name="right_to_left" value="2"/>
+      <enum name="bottom_to_top" value="3"/>
+    </attr>
+    <attr format="float" name="shimmer_dropoff"/>
+    <attr format="dimension" name="shimmer_fixed_width"/>
+    <attr format="dimension" name="shimmer_fixed_height"/>
+    <attr format="float" name="shimmer_intensity"/>
+    <attr format="float" name="shimmer_width_ratio"/>
+    <attr format="float" name="shimmer_height_ratio"/>
+    <attr format="enum" name="shimmer_shape">
+      <enum name="linear" value="0"/>
+      <enum name="radial" value="1"/>
+    </attr>
+    <attr format="float" name="shimmer_tilt"/>
+  </declare-styleable>
     <declare-styleable name="SideSheetBehavior_Layout">
     
     <attr name="behavior_draggable"/>
@@ -13068,6 +13104,10 @@
     </declare-styleable>
     <declare-styleable name="StateSet">
         <attr format="reference" name="defaultState"/>
+    </declare-styleable>
+    <declare-styleable name="SwipeRefreshLayout">
+        
+        <attr format="color" name="swipeRefreshLayoutProgressSpinnerBackgroundColor"/>
     </declare-styleable>
     <declare-styleable name="SwitchCompat">
         

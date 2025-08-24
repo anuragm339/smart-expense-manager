@@ -1,40 +1,58 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/background"
-    android:fillViewport="true"
-    android:scrollbars="vertical"
     tools:context=".ui.insights.InsightsFragment">
 
-    <LinearLayout
+    <!-- Pull to refresh wrapper -->
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/swipeRefreshLayout"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="16dp"
-        android:paddingBottom="24dp">
+        android:layout_height="match_parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
 
-        <!-- Header -->
-        <TextView
-            style="@style/HeaderTextStyle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="AI Financial Insights"
-            android:layout_marginBottom="16dp"
-            android:drawableStart="@drawable/ic_insights"
-            android:drawablePadding="12dp"
-            android:drawableTint="@color/secondary" />
-
-        <!-- Spending Forecast -->
-        <com.google.android.material.card.MaterialCardView
-            style="@style/CardStyle"
+        <ScrollView
+            android:id="@+id/scrollViewContent"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            app:strokeColor="@color/secondary"
-            app:strokeWidth="2dp">
+            android:layout_height="match_parent"
+            android:fillViewport="true"
+            android:scrollbars="vertical">
+
+            <LinearLayout
+                android:id="@+id/layoutContent"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp"
+                android:paddingBottom="24dp"
+                android:visibility="gone">
+
+                <!-- Header -->
+                <TextView
+                    style="@style/HeaderTextStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="AI Financial Insights"
+                    android:layout_marginBottom="16dp"
+                    android:drawableStart="@drawable/ic_insights"
+                    android:drawablePadding="12dp"
+                    android:drawableTint="@color/secondary" />
+
+                <!-- Spending Forecast -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardSpendingForecast"
+                    style="@style/CardStyle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="16dp"
+                    app:strokeColor="@color/secondary"
+                    app:strokeWidth="2dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -51,6 +69,7 @@
                     android:layout_marginBottom="12dp" />
 
                 <TextView
+                    android:id="@+id/tvSpendingAmount"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Based on your current spending pattern, you're likely to spend ₹18,400 this month."
@@ -59,6 +78,7 @@
                     android:layout_marginBottom="8dp" />
 
                 <TextView
+                    android:id="@+id/tvSpendingAdvice"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="That's 12% more than last month. Consider reducing dining expenses."
@@ -66,6 +86,7 @@
                     android:textColor="@color/text_secondary" />
 
                 <ProgressBar
+                    android:id="@+id/progressSpending"
                     android:layout_width="match_parent"
                     android:layout_height="8dp"
                     android:layout_marginTop="12dp"
@@ -75,6 +96,7 @@
                     android:progressBackgroundTint="@color/text_hint" />
 
                 <TextView
+                    android:id="@+id/tvSpendingProgress"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
@@ -124,6 +146,7 @@
                         android:backgroundTint="@color/warning" />
 
                     <TextView
+                        android:id="@+id/tvPatternAlert1"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
@@ -147,6 +170,7 @@
                         android:backgroundTint="@color/info" />
 
                     <TextView
+                        android:id="@+id/tvPatternAlert2"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
@@ -206,6 +230,7 @@
                         android:layout_marginEnd="8dp" />
 
                     <TextView
+                        android:id="@+id/tvSavingsRecommendation1"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
@@ -228,6 +253,7 @@
                         android:layout_marginEnd="8dp" />
 
                     <TextView
+                        android:id="@+id/tvSavingsRecommendation2"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
@@ -283,6 +309,7 @@
                             android:textColor="@color/text_secondary" />
 
                         <TextView
+                            android:id="@+id/tvMonthlySavings"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="4dp"
@@ -314,6 +341,7 @@
                             android:textColor="@color/text_secondary" />
 
                         <TextView
+                            android:id="@+id/tvYearlySavings"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="4dp"
@@ -327,6 +355,7 @@
                 </LinearLayout>
 
                 <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnCreateSavingsPlan"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="Create Savings Plan"
@@ -382,6 +411,7 @@
                         android:orientation="vertical">
 
                         <TextView
+                            android:id="@+id/tvMerchant1Name"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Swiggy"
@@ -390,6 +420,7 @@
                             android:textColor="@color/text_primary" />
 
                         <TextView
+                            android:id="@+id/tvMerchant1Details"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="23 transactions"
@@ -399,6 +430,7 @@
                     </LinearLayout>
 
                     <TextView
+                        android:id="@+id/tvMerchant1Amount"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="₹3,420"
@@ -432,6 +464,7 @@
                         android:orientation="vertical">
 
                         <TextView
+                            android:id="@+id/tvMerchant2Name"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Big Bazaar"
@@ -440,6 +473,7 @@
                             android:textColor="@color/text_primary" />
 
                         <TextView
+                            android:id="@+id/tvMerchant2Details"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="8 transactions"
@@ -449,6 +483,7 @@
                     </LinearLayout>
 
                     <TextView
+                        android:id="@+id/tvMerchant2Amount"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="₹2,150"
@@ -481,6 +516,7 @@
                         android:orientation="vertical">
 
                         <TextView
+                            android:id="@+id/tvMerchant3Name"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Uber"
@@ -489,6 +525,7 @@
                             android:textColor="@color/text_primary" />
 
                         <TextView
+                            android:id="@+id/tvMerchant3Details"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="15 transactions"
@@ -498,6 +535,7 @@
                     </LinearLayout>
 
                     <TextView
+                        android:id="@+id/tvMerchant3Amount"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="₹1,890"
@@ -511,6 +549,46 @@
 
         </com.google.android.material.card.MaterialCardView>
 
-    </LinearLayout>
+            </LinearLayout>
 
-</ScrollView>
+        </ScrollView>
+    
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
+    <!-- Shimmer Loading State -->
+    <include
+        android:id="@+id/layoutShimmerLoading"
+        layout="@layout/shimmer_insights_loading"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="visible"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- Error State -->
+    <include
+        android:id="@+id/layoutErrorState"
+        layout="@layout/error_state_insights"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- Empty State -->
+    <include
+        android:id="@+id/layoutEmptyState"
+        layout="@layout/empty_state_insights"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -22,9 +22,9 @@
   <testFixturesSourceProviders>
   </testFixturesSourceProviders>
   <mainArtifact
-      classOutputs="build/intermediates/javac/release/classes:build/tmp/kotlin-classes/release:build/kotlinToolingMetadata:build/intermediates/compile_and_runtime_not_namespaced_r_class_jar/release/R.jar"
+      classOutputs="build/intermediates/javac/release/classes:build/tmp/kotlin-classes/release:build/kotlinToolingMetadata:build/generated/ksp/release/resources:build/intermediates/compile_and_runtime_not_namespaced_r_class_jar/release/R.jar"
       applicationId="com.expensemanager.app"
-      generatedSourceFolders="build/generated/ap_generated_sources/release/out:build/generated/data_binding_base_class_source_out/release/out"
+      generatedSourceFolders="build/generated/ksp/release/java:build/generated/ksp/release/kotlin:build/generated/ap_generated_sources/release/out:build/generated/data_binding_base_class_source_out/release/out"
       generatedResourceFolders="build/generated/res/resValues/release"
       desugaredMethodsFiles="/Users/anuragmishra/.gradle/caches/transforms-4/de48a1e3070397326010f7087965aafe/transformed/D8BackportedDesugaredMethods.txt">
   </mainArtifact>

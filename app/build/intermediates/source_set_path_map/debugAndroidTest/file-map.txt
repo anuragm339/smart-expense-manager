@@ -1,6 +1,0 @@
-com.expensemanager.app.test.app-annotation-experimental-1.3.0-0 /Users/anuragmishra/.gradle/caches/transforms-4/6c3c10619dae9e96735e67d9c5e91e27/transformed/annotation-experimental-1.3.0/res
-com.expensemanager.app.test.app-core-1.5.0-1 /Users/anuragmishra/.gradle/caches/transforms-4/b82cddc0bd40ad11806eef3aa59b997c/transformed/core-1.5.0/res
-com.expensemanager.app.test.app-androidTest-2 /Users/anuragmishra/Desktop/workspace/expencemanagement/app/build/generated/res/resValues/androidTest/debug
-com.expensemanager.app.test.app-mergeDebugAndroidTestResources-3 /Users/anuragmishra/Desktop/workspace/expencemanagement/app/build/intermediates/incremental/debugAndroidTest/mergeDebugAndroidTestResources/merged.dir
-com.expensemanager.app.test.app-mergeDebugAndroidTestResources-4 /Users/anuragmishra/Desktop/workspace/expencemanagement/app/build/intermediates/incremental/debugAndroidTest/mergeDebugAndroidTestResources/stripped.dir
-com.expensemanager.app.test.app-merged_res-5 /Users/anuragmishra/Desktop/workspace/expencemanagement/app/build/intermediates/merged_res/debugAndroidTest

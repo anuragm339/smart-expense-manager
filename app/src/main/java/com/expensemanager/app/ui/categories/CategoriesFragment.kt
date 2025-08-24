@@ -16,6 +16,8 @@ import com.expensemanager.app.databinding.FragmentCategoriesBinding
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
+import com.expensemanager.app.data.repository.ExpenseRepository
+import com.expensemanager.app.data.dao.CategorySpendingResult
 import com.expensemanager.app.utils.SMSHistoryReader
 import com.expensemanager.app.utils.MerchantAliasManager
 import com.expensemanager.app.utils.ParsedTransaction
@@ -31,6 +33,7 @@ class CategoriesFragment : Fragment() {
     private var _binding: FragmentCategoriesBinding? = null
     private val binding get() = _binding!!
     
+    private lateinit var repository: ExpenseRepository
     private lateinit var categoriesAdapter: CategoriesAdapter
     private lateinit var merchantAliasManager: MerchantAliasManager
     private lateinit var categoryManager: CategoryManager
@@ -46,6 +49,7 @@ class CategoriesFragment : Fragment() {
     
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        repository = ExpenseRepository.getInstance(requireContext())
         merchantAliasManager = MerchantAliasManager(requireContext())
         categoryManager = CategoryManager(requireContext())
         setupRecyclerView()
@@ -82,62 +86,46 @@ class CategoriesFragment : Fragment() {
     private fun loadRealCategoryData() {
         lifecycleScope.launch {
             try {
-                val smsReader = SMSHistoryReader(requireContext())
-                val transactions = smsReader.scanHistoricalSMS()
+                Log.d("CategoriesFragment", "Loading category data from repository...")
                 
-                if (transactions.isNotEmpty()) {
-                    // Process transactions with current month filter
-                    val calendar = Calendar.getInstance()
-                    val currentMonth = calendar.get(Calendar.MONTH)
-                    val currentYear = calendar.get(Calendar.YEAR)
-                    
-                    val currentMonthTransactions = transactions.filter { transaction ->
-                        val transactionCalendar = Calendar.getInstance().apply { time = transaction.date }
-                        transactionCalendar.get(Calendar.MONTH) == currentMonth && 
-                        transactionCalendar.get(Calendar.YEAR) == currentYear
-                    }
-                    
-                    // Convert to ProcessedTransaction format (same as Dashboard)
-                    val processedTransactions = currentMonthTransactions.map { parsedTransaction ->
-                        val category = merchantAliasManager.getMerchantCategory(parsedTransaction.merchant)
-                        ProcessedTransaction(
-                            originalMerchant = parsedTransaction.merchant,
-                            displayMerchant = merchantAliasManager.getDisplayName(parsedTransaction.merchant),
-                            amount = parsedTransaction.amount,
-                            category = category,
-                            categoryColor = merchantAliasManager.getMerchantCategoryColor(parsedTransaction.merchant),
-                            date = parsedTransaction.date,
-                            bankName = parsedTransaction.bankName
+                // Use the same date range as Dashboard (current month)
+                val calendar = Calendar.getInstance()
+                calendar.set(Calendar.DAY_OF_MONTH, 1)
+                calendar.set(Calendar.HOUR_OF_DAY, 0)
+                calendar.set(Calendar.MINUTE, 0)
+                calendar.set(Calendar.SECOND, 0)
+                calendar.set(Calendar.MILLISECOND, 0)
+                val startDate = calendar.time
+                
+                calendar.add(Calendar.MONTH, 1)
+                calendar.add(Calendar.DAY_OF_MONTH, -1)
+                val endDate = calendar.time
+                
+                // Get category spending from repository (same as Dashboard)
+                val categorySpendingResults = repository.getCategorySpending(startDate, endDate)
+                
+                Log.d("CategoriesFragment", "📊 Categories Date Range: ${startDate} to ${endDate}")
+                Log.d("CategoriesFragment", "📊 Categories Raw Transactions Count: ${repository.getTransactionsByDateRange(startDate, endDate).size}")
+                Log.d("CategoriesFragment", "Repository returned ${categorySpendingResults.size} category results")
+                
+                if (categorySpendingResults.isNotEmpty()) {
+                    // Convert repository results to CategoryItem format
+                    val transactionCategoryData = categorySpendingResults.map { categoryResult ->
+                        val lastTransactionText = categoryResult.last_transaction_date?.let { formatLastTransaction(it) } ?: "No transactions"
+                        
+                        Log.d("CategoriesFragment", "Repository Category: ${categoryResult.category_name}, Amount: ₹${String.format("%.0f", categoryResult.total_amount)}, Count: ${categoryResult.transaction_count}")
+                        
+                        CategoryItem(
+                            name = categoryResult.category_name,
+                            emoji = getCategoryEmoji(categoryResult.category_name),
+                            color = categoryResult.color,
+                            amount = categoryResult.total_amount,
+                            transactionCount = categoryResult.transaction_count,
+                            lastTransaction = lastTransactionText,
+                            percentage = 0, // Will be calculated after we have total
+                            progress = 0    // Will be calculated after we have total
                         )
                     }
-                    
-                    // Filter by inclusion states from Messages screen (same as Dashboard)
-                    val filteredTransactions = filterTransactionsByInclusionState(processedTransactions)
-                    
-                    Log.d("CategoriesFragment", "Processed ${filteredTransactions.size} transactions for categories")
-                    
-                    // Group by category and calculate spending (use filtered transactions)
-                    val transactionCategoryData = filteredTransactions
-                        .groupBy { transaction -> transaction.category }
-                        .map { (category, categoryTransactions) ->
-                            val amount = categoryTransactions.sumOf { transaction -> transaction.amount }
-                            val count = categoryTransactions.size
-                            val lastTransaction = categoryTransactions.maxByOrNull { transaction -> transaction.date }
-                            val lastTransactionText = lastTransaction?.let { formatLastTransaction(it.date) } ?: "No transactions"
-                            
-                            Log.d("CategoriesFragment", "Category: $category, Amount: ₹${String.format("%.0f", amount)}, Count: $count")
-                            
-                            CategoryItem(
-                                name = category,
-                                emoji = getCategoryEmoji(category),
-                                color = categoryTransactions.firstOrNull()?.categoryColor ?: categoryManager.getCategoryColor(category),
-                                amount = amount,
-                                transactionCount = count,
-                                lastTransaction = lastTransactionText,
-                                percentage = 0, // Will be calculated after we have total
-                                progress = 0    // Will be calculated after we have total
-                            )
-                        }
                     
                     // Add custom categories that might not have transactions yet
                     val allCategories = categoryManager.getAllCategories()
@@ -161,6 +149,7 @@ class CategoriesFragment : Fragment() {
                     
                     // Calculate percentages and progress
                     val totalSpent = categoryData.sumOf { categoryItem -> categoryItem.amount }
+                    Log.d("CategoriesFragment", "📊 Categories Calculated Total: ₹${String.format("%.0f", totalSpent)}")
                     val categoriesWithPercentages = categoryData.map { categoryItem ->
                         val percentage = if (totalSpent > 0) ((categoryItem.amount / totalSpent) * 100).toInt() else 0
                         categoryItem.copy(
@@ -175,10 +164,8 @@ class CategoriesFragment : Fragment() {
                     binding.tvCategoriesCount.text = "${categoriesWithPercentages.size} Categories"
                     
                 } else {
-                    // No data found - show empty state
-                    categoriesAdapter.submitList(getSampleCategories())
-                    binding.tvTotalSpending.text = "₹0"
-                    binding.tvCategoriesCount.text = "0 Categories"
+                    Log.d("CategoriesFragment", "No data in repository, falling back to SMS reading...")
+                    loadCategoryDataFallback()
                 }
                 
             } catch (e: SecurityException) {
@@ -195,6 +182,104 @@ class CategoriesFragment : Fragment() {
                 Toast.makeText(requireContext(), "Error loading category data", Toast.LENGTH_SHORT).show()
             }
         }
+    }
+    
+    private fun loadCategoryDataFallback() {
+        lifecycleScope.launch {
+            try {
+                Log.d("CategoriesFragment", "📱 Loading category data from SMS as fallback...")
+                
+                // Trigger SMS sync if no data exists
+                val syncedCount = repository.syncNewSMS()
+                Log.d("CategoriesFragment", "📥 Synced $syncedCount new transactions from SMS")
+                
+                if (syncedCount > 0) {
+                    // Now load data from repository
+                    val calendar = Calendar.getInstance()
+                    calendar.set(Calendar.DAY_OF_MONTH, 1)
+                    calendar.set(Calendar.HOUR_OF_DAY, 0)
+                    calendar.set(Calendar.MINUTE, 0)
+                    calendar.set(Calendar.SECOND, 0)
+                    calendar.set(Calendar.MILLISECOND, 0)
+                    val startDate = calendar.time
+                    
+                    calendar.add(Calendar.MONTH, 1)
+                    calendar.add(Calendar.DAY_OF_MONTH, -1)
+                    val endDate = calendar.time
+                    
+                    val categorySpendingResults = repository.getCategorySpending(startDate, endDate)
+                    
+                    if (categorySpendingResults.isNotEmpty()) {
+                        // Convert repository results to CategoryItem format
+                        val transactionCategoryData = categorySpendingResults.map { categoryResult ->
+                            val lastTransactionText = categoryResult.last_transaction_date?.let { formatLastTransaction(it) } ?: "No transactions"
+                            
+                            CategoryItem(
+                                name = categoryResult.category_name,
+                                emoji = getCategoryEmoji(categoryResult.category_name),
+                                color = categoryResult.color,
+                                amount = categoryResult.total_amount,
+                                transactionCount = categoryResult.transaction_count,
+                                lastTransaction = lastTransactionText,
+                                percentage = 0,
+                                progress = 0
+                            )
+                        }
+                        
+                        // Add missing categories and calculate percentages
+                        val allCategories = categoryManager.getAllCategories()
+                        val existingCategoryNames = transactionCategoryData.map { it.name }
+                        val missingCategories = allCategories.filter { !existingCategoryNames.contains(it) }
+                            .map { categoryName ->
+                                CategoryItem(
+                                    name = categoryName,
+                                    emoji = getCategoryEmoji(categoryName),
+                                    color = getRandomCategoryColor(),
+                                    amount = 0.0,
+                                    transactionCount = 0,
+                                    lastTransaction = "No transactions yet",
+                                    percentage = 0,
+                                    progress = 0
+                                )
+                            }
+                        
+                        val categoryData = (transactionCategoryData + missingCategories)
+                            .sortedByDescending { it.amount }
+                        
+                        val totalSpent = categoryData.sumOf { it.amount }
+                        val categoriesWithPercentages = categoryData.map { categoryItem ->
+                            val percentage = if (totalSpent > 0) ((categoryItem.amount / totalSpent) * 100).toInt() else 0
+                            categoryItem.copy(
+                                percentage = percentage,
+                                progress = percentage.coerceAtMost(100)
+                            )
+                        }
+                        
+                        // Update UI
+                        categoriesAdapter.submitList(categoriesWithPercentages)
+                        binding.tvTotalSpending.text = "₹${String.format("%.0f", totalSpent)}"
+                        binding.tvCategoriesCount.text = "${categoriesWithPercentages.size} Categories"
+                    } else {
+                        showEmptyState()
+                    }
+                } else {
+                    showEmptyState()
+                }
+                
+            } catch (e: SecurityException) {
+                Log.w("CategoriesFragment", "SMS permission denied for fallback loading", e)
+                categoriesAdapter.submitList(getSampleCategories())
+            } catch (e: Exception) {
+                Log.e("CategoriesFragment", "Error in fallback loading", e)
+                categoriesAdapter.submitList(getSampleCategories())
+            }
+        }
+    }
+    
+    private fun showEmptyState() {
+        categoriesAdapter.submitList(getSampleCategories())
+        binding.tvTotalSpending.text = "₹0"
+        binding.tvCategoriesCount.text = "0 Categories"
     }
     
     private fun getCategoryEmoji(category: String): String {

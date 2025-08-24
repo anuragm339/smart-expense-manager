@@ -13,6 +13,8 @@ import androidx.viewbinding.ViewBinding;
 import androidx.viewbinding.ViewBindings;
 import com.expensemanager.app.R;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 import java.lang.NullPointerException;
 import java.lang.Override;
 import java.lang.String;
@@ -28,10 +30,19 @@ public final class FragmentMessagesBinding implements ViewBinding {
   public final MaterialButton btnGrantPermissions;
 
   @NonNull
+  public final MaterialButton btnSort;
+
+  @NonNull
+  public final TextInputEditText etSearch;
+
+  @NonNull
   public final LinearLayout layoutEmpty;
 
   @NonNull
   public final RecyclerView recyclerMessages;
+
+  @NonNull
+  public final TextInputLayout tilSearch;
 
   @NonNull
   public final TextView tvAutoCategorized;
@@ -40,14 +51,18 @@ public final class FragmentMessagesBinding implements ViewBinding {
   public final TextView tvTotalMessages;
 
   private FragmentMessagesBinding(@NonNull LinearLayout rootView, @NonNull MaterialButton btnFilter,
-      @NonNull MaterialButton btnGrantPermissions, @NonNull LinearLayout layoutEmpty,
-      @NonNull RecyclerView recyclerMessages, @NonNull TextView tvAutoCategorized,
-      @NonNull TextView tvTotalMessages) {
+      @NonNull MaterialButton btnGrantPermissions, @NonNull MaterialButton btnSort,
+      @NonNull TextInputEditText etSearch, @NonNull LinearLayout layoutEmpty,
+      @NonNull RecyclerView recyclerMessages, @NonNull TextInputLayout tilSearch,
+      @NonNull TextView tvAutoCategorized, @NonNull TextView tvTotalMessages) {
     this.rootView = rootView;
     this.btnFilter = btnFilter;
     this.btnGrantPermissions = btnGrantPermissions;
+    this.btnSort = btnSort;
+    this.etSearch = etSearch;
     this.layoutEmpty = layoutEmpty;
     this.recyclerMessages = recyclerMessages;
+    this.tilSearch = tilSearch;
     this.tvAutoCategorized = tvAutoCategorized;
     this.tvTotalMessages = tvTotalMessages;
   }
@@ -91,6 +106,18 @@ public final class FragmentMessagesBinding implements ViewBinding {
         break missingId;
       }
 
+      id = R.id.btn_sort;
+      MaterialButton btnSort = ViewBindings.findChildViewById(rootView, id);
+      if (btnSort == null) {
+        break missingId;
+      }
+
+      id = R.id.et_search;
+      TextInputEditText etSearch = ViewBindings.findChildViewById(rootView, id);
+      if (etSearch == null) {
+        break missingId;
+      }
+
       id = R.id.layout_empty;
       LinearLayout layoutEmpty = ViewBindings.findChildViewById(rootView, id);
       if (layoutEmpty == null) {
@@ -100,6 +127,12 @@ public final class FragmentMessagesBinding implements ViewBinding {
       id = R.id.recycler_messages;
       RecyclerView recyclerMessages = ViewBindings.findChildViewById(rootView, id);
       if (recyclerMessages == null) {
+        break missingId;
+      }
+
+      id = R.id.til_search;
+      TextInputLayout tilSearch = ViewBindings.findChildViewById(rootView, id);
+      if (tilSearch == null) {
         break missingId;
       }
 
@@ -116,7 +149,8 @@ public final class FragmentMessagesBinding implements ViewBinding {
       }
 
       return new FragmentMessagesBinding((LinearLayout) rootView, btnFilter, btnGrantPermissions,
-          layoutEmpty, recyclerMessages, tvAutoCategorized, tvTotalMessages);
+          btnSort, etSearch, layoutEmpty, recyclerMessages, tilSearch, tvAutoCategorized,
+          tvTotalMessages);
     }
     String missingId = rootView.getResources().getResourceName(id);
     throw new NullPointerException("Missing required view with ID: ".concat(missingId));

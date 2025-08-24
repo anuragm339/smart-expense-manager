@@ -35,6 +35,9 @@ public final class FragmentBudgetGoalsBinding implements ViewBinding {
   public final RecyclerView recyclerCategoryBudgets;
 
   @NonNull
+  public final TextView tvBudgetAmount;
+
+  @NonNull
   public final TextView tvBudgetStatus;
 
   @NonNull
@@ -49,14 +52,15 @@ public final class FragmentBudgetGoalsBinding implements ViewBinding {
   private FragmentBudgetGoalsBinding(@NonNull ScrollView rootView,
       @NonNull MaterialButton btnAddCategoryBudget, @NonNull MaterialButton btnEditBudget,
       @NonNull LinearProgressIndicator progressBudget,
-      @NonNull RecyclerView recyclerCategoryBudgets, @NonNull TextView tvBudgetStatus,
-      @NonNull TextView tvBudgetTip, @NonNull TextView tvRemaining,
-      @NonNull TextView tvSpentAmount) {
+      @NonNull RecyclerView recyclerCategoryBudgets, @NonNull TextView tvBudgetAmount,
+      @NonNull TextView tvBudgetStatus, @NonNull TextView tvBudgetTip,
+      @NonNull TextView tvRemaining, @NonNull TextView tvSpentAmount) {
     this.rootView = rootView;
     this.btnAddCategoryBudget = btnAddCategoryBudget;
     this.btnEditBudget = btnEditBudget;
     this.progressBudget = progressBudget;
     this.recyclerCategoryBudgets = recyclerCategoryBudgets;
+    this.tvBudgetAmount = tvBudgetAmount;
     this.tvBudgetStatus = tvBudgetStatus;
     this.tvBudgetTip = tvBudgetTip;
     this.tvRemaining = tvRemaining;
@@ -114,6 +118,12 @@ public final class FragmentBudgetGoalsBinding implements ViewBinding {
         break missingId;
       }
 
+      id = R.id.tv_budget_amount;
+      TextView tvBudgetAmount = ViewBindings.findChildViewById(rootView, id);
+      if (tvBudgetAmount == null) {
+        break missingId;
+      }
+
       id = R.id.tv_budget_status;
       TextView tvBudgetStatus = ViewBindings.findChildViewById(rootView, id);
       if (tvBudgetStatus == null) {
@@ -139,8 +149,8 @@ public final class FragmentBudgetGoalsBinding implements ViewBinding {
       }
 
       return new FragmentBudgetGoalsBinding((ScrollView) rootView, btnAddCategoryBudget,
-          btnEditBudget, progressBudget, recyclerCategoryBudgets, tvBudgetStatus, tvBudgetTip,
-          tvRemaining, tvSpentAmount);
+          btnEditBudget, progressBudget, recyclerCategoryBudgets, tvBudgetAmount, tvBudgetStatus,
+          tvBudgetTip, tvRemaining, tvSpentAmount);
     }
     String missingId = rootView.getResources().getResourceName(id);
     throw new NullPointerException("Missing required view with ID: ".concat(missingId));

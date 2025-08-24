@@ -355,6 +355,19 @@
       externalAnnotations="annotations.zip"
       proguardRules="proguard.txt"/>
   <library
+      name="androidx.swiperefreshlayout:swiperefreshlayout:1.1.0@aar"
+      jars="/Users/anuragmishra/.gradle/caches/transforms-4/9e408368637805de105f7ff3ed7d1993/transformed/swiperefreshlayout-1.1.0/jars/classes.jar"
+      resolved="androidx.swiperefreshlayout:swiperefreshlayout:1.1.0"
+      folder="/Users/anuragmishra/.gradle/caches/transforms-4/9e408368637805de105f7ff3ed7d1993/transformed/swiperefreshlayout-1.1.0"
+      manifest="AndroidManifest.xml"
+      resFolder="res"
+      assetsFolder="assets"
+      lintJar="lint.jar"
+      publicResources="public.txt"
+      symbolFile="R.txt"
+      externalAnnotations="annotations.zip"
+      proguardRules="proguard.txt"/>
+  <library
       name="androidx.appcompat:appcompat-resources:1.6.1@aar"
       jars="/Users/anuragmishra/.gradle/caches/transforms-4/1d48115a4cafe2b3b37e159d1f2e5d8a/transformed/appcompat-resources-1.6.1/jars/classes.jar"
       resolved="androidx.appcompat:appcompat-resources:1.6.1"
@@ -537,6 +550,19 @@
       externalAnnotations="annotations.zip"
       proguardRules="proguard.txt"/>
   <library
+      name="androidx.room:room-ktx:2.5.0@aar"
+      jars="/Users/anuragmishra/.gradle/caches/transforms-4/e1fcefac068cdb3977b39c28a1e30730/transformed/room-ktx-2.5.0/jars/classes.jar"
+      resolved="androidx.room:room-ktx:2.5.0"
+      folder="/Users/anuragmishra/.gradle/caches/transforms-4/e1fcefac068cdb3977b39c28a1e30730/transformed/room-ktx-2.5.0"
+      manifest="AndroidManifest.xml"
+      resFolder="res"
+      assetsFolder="assets"
+      lintJar="lint.jar"
+      publicResources="public.txt"
+      symbolFile="R.txt"
+      externalAnnotations="annotations.zip"
+      proguardRules="proguard.txt"/>
+  <library
       name="org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.7.3@jar"
       jars="/Users/anuragmishra/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlinx/kotlinx-coroutines-core-jvm/1.7.3/2b09627576f0989a436a00a4a54b55fa5026fb86/kotlinx-coroutines-core-jvm-1.7.3.jar"
       resolved="org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.7.3"/>
@@ -545,9 +571,46 @@
       jars="/Users/anuragmishra/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlinx/kotlinx-coroutines-android/1.7.3/38d9cad3a0b03a10453b56577984bdeb48edeed5/kotlinx-coroutines-android-1.7.3.jar"
       resolved="org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3"/>
   <library
-      name="org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.0@jar"
-      jars="/Users/anuragmishra/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib-jdk8/1.9.0/e000bd084353d84c9e888f6fb341dc1f5b79d948/kotlin-stdlib-jdk8-1.9.0.jar"
-      resolved="org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.0"/>
+      name="com.squareup.retrofit2:converter-gson:2.9.0@jar"
+      jars="/Users/anuragmishra/.gradle/caches/modules-2/files-2.1/com.squareup.retrofit2/converter-gson/2.9.0/fc93484fc67ab52b1e0ccbdaa3922d8a6678e097/converter-gson-2.9.0.jar"
+      resolved="com.squareup.retrofit2:converter-gson:2.9.0"/>
+  <library
+      name="com.squareup.retrofit2:retrofit:2.9.0@jar"
+      jars="/Users/anuragmishra/.gradle/caches/modules-2/files-2.1/com.squareup.retrofit2/retrofit/2.9.0/d8fdfbd5da952141a665a403348b74538efc05ff/retrofit-2.9.0.jar"
+      resolved="com.squareup.retrofit2:retrofit:2.9.0"/>
+  <library
+      name="com.squareup.okhttp3:logging-interceptor:4.12.0@jar"
+      jars="/Users/anuragmishra/.gradle/caches/modules-2/files-2.1/com.squareup.okhttp3/logging-interceptor/4.12.0/e922c1f14d365c0f2bed140cc0825e18462c2778/logging-interceptor-4.12.0.jar"
+      resolved="com.squareup.okhttp3:logging-interceptor:4.12.0"/>
+  <library
+      name="com.squareup.okhttp3:okhttp:4.12.0@jar"
+      jars="/Users/anuragmishra/.gradle/caches/modules-2/files-2.1/com.squareup.okhttp3/okhttp/4.12.0/2f4525d4a200e97e1b87449c2cd9bd2e25b7e8cd/okhttp-4.12.0.jar"
+      resolved="com.squareup.okhttp3:okhttp:4.12.0"/>
+  <library
+      name="androidx.room:room-runtime:2.5.0@aar"
+      jars="/Users/anuragmishra/.gradle/caches/transforms-4/efc0a49aa2c0b718e69b317b1e88fda9/transformed/room-runtime-2.5.0/jars/classes.jar"
+      resolved="androidx.room:room-runtime:2.5.0"
+      folder="/Users/anuragmishra/.gradle/caches/transforms-4/efc0a49aa2c0b718e69b317b1e88fda9/transformed/room-runtime-2.5.0"
+      manifest="AndroidManifest.xml"
+      resFolder="res"
+      assetsFolder="assets"
+      lintJar="lint.jar"
+      publicResources="public.txt"
+      symbolFile="R.txt"
+      externalAnnotations="annotations.zip"
+      proguardRules="proguard.txt"/>
+  <library
+      name="androidx.room:room-common:2.5.0@jar"
+      jars="/Users/anuragmishra/.gradle/caches/modules-2/files-2.1/androidx.room/room-common/2.5.0/829a83fb92f1696a8a32f3beea884dfc87b2693/room-common-2.5.0.jar"
+      resolved="androidx.room:room-common:2.5.0"/>
+  <library
+      name="com.squareup.okio:okio-jvm:3.6.0@jar"
+      jars="/Users/anuragmishra/.gradle/caches/modules-2/files-2.1/com.squareup.okio/okio-jvm/3.6.0/5600569133b7bdefe1daf9ec7f4abeb6d13e1786/okio-jvm-3.6.0.jar"
+      resolved="com.squareup.okio:okio-jvm:3.6.0"/>
+  <library
+      name="org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.10@jar"
+      jars="/Users/anuragmishra/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib-jdk8/1.9.10/c7510d64a83411a649c76f2778304ddf71d7437b/kotlin-stdlib-jdk8-1.9.10.jar"
+      resolved="org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.10"/>
   <library
       name="androidx.constraintlayout:constraintlayout:2.1.4@aar"
       jars="/Users/anuragmishra/.gradle/caches/transforms-4/457e9c476689151c94230a01a8e9b7f3/transformed/constraintlayout-2.1.4/jars/classes.jar"
@@ -566,6 +629,23 @@
       jars="/Users/anuragmishra/.gradle/caches/transforms-4/2c942b4b6b7f543db4d768695815224d/transformed/MPAndroidChart-v3.1.0/jars/classes.jar"
       resolved="com.github.PhilJay:MPAndroidChart:v3.1.0"
       folder="/Users/anuragmishra/.gradle/caches/transforms-4/2c942b4b6b7f543db4d768695815224d/transformed/MPAndroidChart-v3.1.0"
+      manifest="AndroidManifest.xml"
+      resFolder="res"
+      assetsFolder="assets"
+      lintJar="lint.jar"
+      publicResources="public.txt"
+      symbolFile="R.txt"
+      externalAnnotations="annotations.zip"
+      proguardRules="proguard.txt"/>
+  <library
+      name="com.google.code.gson:gson:2.10.1@jar"
+      jars="/Users/anuragmishra/.gradle/caches/modules-2/files-2.1/com.google.code.gson/gson/2.10.1/b3add478d4382b78ea20b1671390a858002feb6c/gson-2.10.1.jar"
+      resolved="com.google.code.gson:gson:2.10.1"/>
+  <library
+      name="com.facebook.shimmer:shimmer:0.5.0@aar"
+      jars="/Users/anuragmishra/.gradle/caches/transforms-4/f1d48bcddc166a6a8d9ea3a842588d6c/transformed/shimmer-0.5.0/jars/classes.jar"
+      resolved="com.facebook.shimmer:shimmer:0.5.0"
+      folder="/Users/anuragmishra/.gradle/caches/transforms-4/f1d48bcddc166a6a8d9ea3a842588d6c/transformed/shimmer-0.5.0"
       manifest="AndroidManifest.xml"
       resFolder="res"
       assetsFolder="assets"
@@ -627,6 +707,45 @@
       externalAnnotations="annotations.zip"
       proguardRules="proguard.txt"/>
   <library
+      name="androidx.sqlite:sqlite-framework:2.3.0@aar"
+      jars="/Users/anuragmishra/.gradle/caches/transforms-4/f6894025e1315573382133225699577e/transformed/sqlite-framework-2.3.0/jars/classes.jar"
+      resolved="androidx.sqlite:sqlite-framework:2.3.0"
+      folder="/Users/anuragmishra/.gradle/caches/transforms-4/f6894025e1315573382133225699577e/transformed/sqlite-framework-2.3.0"
+      manifest="AndroidManifest.xml"
+      resFolder="res"
+      assetsFolder="assets"
+      lintJar="lint.jar"
+      publicResources="public.txt"
+      symbolFile="R.txt"
+      externalAnnotations="annotations.zip"
+      proguardRules="proguard.txt"/>
+  <library
+      name="androidx.sqlite:sqlite:2.3.0@aar"
+      jars="/Users/anuragmishra/.gradle/caches/transforms-4/098d48e5d37790873db5af150a5e4442/transformed/sqlite-2.3.0/jars/classes.jar"
+      resolved="androidx.sqlite:sqlite:2.3.0"
+      folder="/Users/anuragmishra/.gradle/caches/transforms-4/098d48e5d37790873db5af150a5e4442/transformed/sqlite-2.3.0"
+      manifest="AndroidManifest.xml"
+      resFolder="res"
+      assetsFolder="assets"
+      lintJar="lint.jar"
+      publicResources="public.txt"
+      symbolFile="R.txt"
+      externalAnnotations="annotations.zip"
+      proguardRules="proguard.txt"/>
+  <library
+      name="androidx.interpolator:interpolator:1.0.0@aar"
+      jars="/Users/anuragmishra/.gradle/caches/transforms-4/2ad1a1d2c521a8170f6e9c25b34ccb1d/transformed/interpolator-1.0.0/jars/classes.jar"
+      resolved="androidx.interpolator:interpolator:1.0.0"
+      folder="/Users/anuragmishra/.gradle/caches/transforms-4/2ad1a1d2c521a8170f6e9c25b34ccb1d/transformed/interpolator-1.0.0"
+      manifest="AndroidManifest.xml"
+      resFolder="res"
+      assetsFolder="assets"
+      lintJar="lint.jar"
+      publicResources="public.txt"
+      symbolFile="R.txt"
+      externalAnnotations="annotations.zip"
+      proguardRules="proguard.txt"/>
+  <library
       name="androidx.versionedparcelable:versionedparcelable:1.1.1@aar"
       jars="/Users/anuragmishra/.gradle/caches/transforms-4/23d7265917b4888a7b94cf9660019c62/transformed/versionedparcelable-1.1.1/jars/classes.jar"
       resolved="androidx.versionedparcelable:versionedparcelable:1.1.1"
@@ -664,19 +783,6 @@
       name="androidx.arch.core:core-common:2.2.0@jar"
       jars="/Users/anuragmishra/.gradle/caches/modules-2/files-2.1/androidx.arch.core/core-common/2.2.0/5e1b8b81dfd5f52c56a8d53b18ca759c19a301f3/core-common-2.2.0.jar"
       resolved="androidx.arch.core:core-common:2.2.0"/>
-  <library
-      name="androidx.interpolator:interpolator:1.0.0@aar"
-      jars="/Users/anuragmishra/.gradle/caches/transforms-4/2ad1a1d2c521a8170f6e9c25b34ccb1d/transformed/interpolator-1.0.0/jars/classes.jar"
-      resolved="androidx.interpolator:interpolator:1.0.0"
-      folder="/Users/anuragmishra/.gradle/caches/transforms-4/2ad1a1d2c521a8170f6e9c25b34ccb1d/transformed/interpolator-1.0.0"
-      manifest="AndroidManifest.xml"
-      resFolder="res"
-      assetsFolder="assets"
-      lintJar="lint.jar"
-      publicResources="public.txt"
-      symbolFile="R.txt"
-      externalAnnotations="annotations.zip"
-      proguardRules="proguard.txt"/>
   <library
       name="androidx.documentfile:documentfile:1.0.0@aar"
       jars="/Users/anuragmishra/.gradle/caches/transforms-4/7394122149cee4ee1a186dd660f65fb5/transformed/documentfile-1.0.0/jars/classes.jar"
@@ -721,9 +827,9 @@
       jars="/Users/anuragmishra/.gradle/caches/modules-2/files-2.1/androidx.annotation/annotation-jvm/1.6.0/a7257339a052df0f91433cf9651231bbb802b502/annotation-jvm-1.6.0.jar"
       resolved="androidx.annotation:annotation-jvm:1.6.0"/>
   <library
-      name="org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.0@jar"
-      jars="/Users/anuragmishra/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib-jdk7/1.9.0/f320478990d05e0cfaadd74f9619fd6027adbf37/kotlin-stdlib-jdk7-1.9.0.jar"
-      resolved="org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.0"/>
+      name="org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.10@jar"
+      jars="/Users/anuragmishra/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib-jdk7/1.9.10/bc5bfc2690338defd5195b05c57562f2194eeb10/kotlin-stdlib-jdk7-1.9.10.jar"
+      resolved="org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.10"/>
   <library
       name="androidx.annotation:annotation-experimental:1.3.0@aar"
       jars="/Users/anuragmishra/.gradle/caches/transforms-4/6c3c10619dae9e96735e67d9c5e91e27/transformed/annotation-experimental-1.3.0/jars/classes.jar"
@@ -738,13 +844,13 @@
       externalAnnotations="annotations.zip"
       proguardRules="proguard.txt"/>
   <library
-      name="org.jetbrains.kotlin:kotlin-stdlib:1.9.0@jar"
-      jars="/Users/anuragmishra/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/1.9.0/8ee15ef0c67dc83d874f412d84378d7f0eb50b63/kotlin-stdlib-1.9.0.jar"
-      resolved="org.jetbrains.kotlin:kotlin-stdlib:1.9.0"/>
+      name="org.jetbrains.kotlin:kotlin-stdlib:1.9.10@jar"
+      jars="/Users/anuragmishra/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/1.9.10/72812e8a368917ab5c0a5081b56915ffdfec93b7/kotlin-stdlib-1.9.10.jar"
+      resolved="org.jetbrains.kotlin:kotlin-stdlib:1.9.10"/>
   <library
-      name="org.jetbrains.kotlin:kotlin-stdlib-common:1.9.0@jar"
-      jars="/Users/anuragmishra/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib-common/1.9.0/cd65c21cfd1eec4d44ef09f9f52b6d9f8a720636/kotlin-stdlib-common-1.9.0.jar"
-      resolved="org.jetbrains.kotlin:kotlin-stdlib-common:1.9.0"/>
+      name="org.jetbrains.kotlin:kotlin-stdlib-common:1.9.10@jar"
+      jars="/Users/anuragmishra/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib-common/1.9.10/dafaf2c27f27c09220cee312df10917d9a5d97ce/kotlin-stdlib-common-1.9.10.jar"
+      resolved="org.jetbrains.kotlin:kotlin-stdlib-common:1.9.10"/>
   <library
       name="org.jetbrains:annotations:23.0.0@jar"
       jars="/Users/anuragmishra/.gradle/caches/modules-2/files-2.1/org.jetbrains/annotations/23.0.0/8cc20c07506ec18e0834947b84a864bfc094484e/annotations-23.0.0.jar"
