@@ -46,6 +46,9 @@ interface MerchantDao {
     @Query("DELETE FROM merchants WHERE id = :merchantId")
     suspend fun deleteMerchantById(merchantId: Long)
     
+    @Query("DELETE FROM merchants")
+    suspend fun deleteAllMerchants()
+    
     // Merchant Aliases
     @Query("SELECT * FROM merchant_aliases WHERE merchant_id = :merchantId")
     suspend fun getAliasesForMerchant(merchantId: Long): List<MerchantAliasEntity>

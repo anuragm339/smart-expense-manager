@@ -11,6 +11,9 @@ import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.expensemanager.app.R
 import com.expensemanager.app.databinding.FragmentSettingsBinding
+import com.expensemanager.app.data.repository.ExpenseRepository
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 class SettingsFragment : Fragment() {
@@ -19,6 +22,7 @@ class SettingsFragment : Fragment() {
     private val binding get() = _binding!!
     
     private lateinit var prefs: SharedPreferences
+    private lateinit var repository: ExpenseRepository
     
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -32,6 +36,7 @@ class SettingsFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         prefs = requireContext().getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+        repository = ExpenseRepository.getInstance(requireContext())
         setupUI()
         setupClickListeners()
         loadSettings()
@@ -173,32 +178,132 @@ class SettingsFragment : Fragment() {
     }
     
     private fun clearAllData() {
-        try {
-            // Clear category rules
-            requireContext().getSharedPreferences("category_rules", Context.MODE_PRIVATE)
-                .edit().clear().apply()
-            
-            // Clear app settings (except basic preferences)
-            prefs.edit()
-                .remove("budget_goals")
-                .remove("notification_settings")
-                .apply()
-            
-            Toast.makeText(requireContext(), "All data cleared successfully", Toast.LENGTH_LONG).show()
-        } catch (e: Exception) {
-            Toast.makeText(requireContext(), "Error clearing data: ${e.message}", Toast.LENGTH_LONG).show()
+        lifecycleScope.launch {
+            try {
+                // Clear database data
+                val database = com.expensemanager.app.data.database.ExpenseDatabase.getDatabase(requireContext())
+                
+                // Clear all tables
+                database.transactionDao().deleteAllTransactions()
+                database.merchantDao().deleteAllMerchants()
+                database.syncStateDao().deleteSyncState()
+                // Note: We keep categories as they are system defaults
+                
+                // Clear all SharedPreferences files
+                requireContext().getSharedPreferences("category_rules", Context.MODE_PRIVATE)
+                    .edit().clear().apply()
+                requireContext().getSharedPreferences("expense_calculations", Context.MODE_PRIVATE)
+                    .edit().clear().apply()
+                requireContext().getSharedPreferences("budget_settings", Context.MODE_PRIVATE)
+                    .edit().clear().apply()
+                requireContext().getSharedPreferences("export_settings", Context.MODE_PRIVATE)
+                    .edit().clear().apply()
+                
+                // Clear app settings (except basic preferences like currency, language)
+                val basicSettings = mapOf(
+                    "currency" to prefs.getString("currency", "INR"),
+                    "language" to prefs.getString("language", "en"),
+                    "auto_categorization" to prefs.getBoolean("auto_categorization", true),
+                    "realtime_processing" to prefs.getBoolean("realtime_processing", true)
+                )
+                
+                prefs.edit().clear().apply()
+                
+                // Restore basic settings
+                prefs.edit().apply {
+                    basicSettings.forEach { (key, value) ->
+                        when (value) {
+                            is String -> putString(key, value)
+                            is Boolean -> putBoolean(key, value)
+                        }
+                    }
+                }.apply()
+                
+                Toast.makeText(requireContext(), "✅ All transaction data and settings cleared successfully", Toast.LENGTH_LONG).show()
+                
+            } catch (e: Exception) {
+                Toast.makeText(requireContext(), "❌ Error clearing data: ${e.message}", Toast.LENGTH_LONG).show()
+            }
         }
     }
     
     private fun resetCategories() {
-        try {
-            // Clear learned category rules
-            requireContext().getSharedPreferences("category_rules", Context.MODE_PRIVATE)
-                .edit().clear().apply()
+        lifecycleScope.launch {
+            try {
+                // Reset all merchant category assignments in database
+                val merchants = repository.getAllMerchants()
+                for (merchant in merchants) {
+                    // Re-categorize each merchant using the smart categorization logic
+                    val newCategoryName = recategorizeMerchant(merchant.displayName)
+                    val newCategory = repository.getCategoryByName(newCategoryName)
+                    
+                    if (newCategory != null) {
+                        val updatedMerchant = merchant.copy(categoryId = newCategory.id)
+                        repository.updateMerchant(updatedMerchant)
+                    }
+                }
+                
+                // Clear learned category rules from SharedPreferences
+                requireContext().getSharedPreferences("category_rules", Context.MODE_PRIVATE)
+                    .edit().clear().apply()
+                
+                // Reset exclusion states
+                for (merchant in merchants) {
+                    repository.updateMerchantExclusion(merchant.normalizedName, false)
+                }
+                
+                Toast.makeText(requireContext(), "✅ Categories reset to defaults successfully", Toast.LENGTH_LONG).show()
+                
+            } catch (e: Exception) {
+                Toast.makeText(requireContext(), "❌ Error resetting categories: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+    
+    private fun recategorizeMerchant(merchantName: String): String {
+        val nameUpper = merchantName.uppercase()
+        
+        return when {
+            // Food & Dining
+            nameUpper.contains("SWIGGY") || nameUpper.contains("ZOMATO") || 
+            nameUpper.contains("DOMINOES") || nameUpper.contains("PIZZA") ||
+            nameUpper.contains("MCDONALD") || nameUpper.contains("KFC") ||
+            nameUpper.contains("RESTAURANT") || nameUpper.contains("CAFE") ||
+            nameUpper.contains("FOOD") || nameUpper.contains("DINING") -> "Food & Dining"
             
-            Toast.makeText(requireContext(), "Categories reset to defaults", Toast.LENGTH_LONG).show()
-        } catch (e: Exception) {
-            Toast.makeText(requireContext(), "Error resetting categories: ${e.message}", Toast.LENGTH_LONG).show()
+            // Transportation
+            nameUpper.contains("UBER") || nameUpper.contains("OLA") ||
+            nameUpper.contains("TAXI") || nameUpper.contains("METRO") ||
+            nameUpper.contains("BUS") || nameUpper.contains("TRANSPORT") -> "Transportation"
+            
+            // Groceries
+            nameUpper.contains("BIGBAZAAR") || nameUpper.contains("DMART") ||
+            nameUpper.contains("RELIANCE") || nameUpper.contains("GROCERY") ||
+            nameUpper.contains("SUPERMARKET") || nameUpper.contains("FRESH") ||
+            nameUpper.contains("MART") -> "Groceries"
+            
+            // Healthcare  
+            nameUpper.contains("HOSPITAL") || nameUpper.contains("CLINIC") ||
+            nameUpper.contains("PHARMACY") || nameUpper.contains("MEDICAL") ||
+            nameUpper.contains("HEALTH") || nameUpper.contains("DOCTOR") -> "Healthcare"
+            
+            // Entertainment
+            nameUpper.contains("MOVIE") || nameUpper.contains("CINEMA") ||
+            nameUpper.contains("THEATRE") || nameUpper.contains("GAME") ||
+            nameUpper.contains("ENTERTAINMENT") || nameUpper.contains("NETFLIX") ||
+            nameUpper.contains("SPOTIFY") -> "Entertainment"
+            
+            // Shopping
+            nameUpper.contains("AMAZON") || nameUpper.contains("FLIPKART") ||
+            nameUpper.contains("MYNTRA") || nameUpper.contains("AJIO") ||
+            nameUpper.contains("SHOPPING") || nameUpper.contains("STORE") -> "Shopping"
+            
+            // Utilities
+            nameUpper.contains("ELECTRICITY") || nameUpper.contains("WATER") ||
+            nameUpper.contains("GAS") || nameUpper.contains("INTERNET") ||
+            nameUpper.contains("MOBILE") || nameUpper.contains("RECHARGE") -> "Utilities"
+            
+            else -> "Other"
         }
     }
     

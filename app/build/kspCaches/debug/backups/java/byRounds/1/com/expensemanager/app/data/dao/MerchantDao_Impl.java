@@ -51,6 +51,8 @@ public final class MerchantDao_Impl implements MerchantDao {
 
   private final SharedSQLiteStatement __preparedStmtOfDeleteMerchantById;
 
+  private final SharedSQLiteStatement __preparedStmtOfDeleteAllMerchants;
+
   private final SharedSQLiteStatement __preparedStmtOfDeleteAliasById;
 
   private final SharedSQLiteStatement __preparedStmtOfUpdateMerchantExclusion;
@@ -168,6 +170,13 @@ public final class MerchantDao_Impl implements MerchantDao {
       @Override
       public String createQuery() {
         final String _query = "DELETE FROM merchants WHERE id = ?";
+        return _query;
+      }
+    };
+    this.__preparedStmtOfDeleteAllMerchants = new SharedSQLiteStatement(__db) {
+      @Override
+      public String createQuery() {
+        final String _query = "DELETE FROM merchants";
         return _query;
       }
     };
@@ -337,6 +346,25 @@ public final class MerchantDao_Impl implements MerchantDao {
         } finally {
           __db.endTransaction();
           __preparedStmtOfDeleteMerchantById.release(_stmt);
+        }
+      }
+    }, continuation);
+  }
+
+  @Override
+  public Object deleteAllMerchants(final Continuation<? super Unit> continuation) {
+    return CoroutinesRoom.execute(__db, true, new Callable<Unit>() {
+      @Override
+      public Unit call() throws Exception {
+        final SupportSQLiteStatement _stmt = __preparedStmtOfDeleteAllMerchants.acquire();
+        __db.beginTransaction();
+        try {
+          _stmt.executeUpdateDelete();
+          __db.setTransactionSuccessful();
+          return Unit.INSTANCE;
+        } finally {
+          __db.endTransaction();
+          __preparedStmtOfDeleteAllMerchants.release(_stmt);
         }
       }
     }, continuation);

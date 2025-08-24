@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.expensemanager.app-mergeDebugResources-51:/values-or/values-or.xml",
+            "outputFile": "com.expensemanager.app-mergeDebugResources-53:/values-or/values-or.xml",
             "map": [
                 {
                     "source": "/Users/anuragmishra/.gradle/caches/transforms-4/2b62c47b0077372403fd43a3573bcab3/transformed/appcompat-1.6.1/res/values-or/values-or.xml",

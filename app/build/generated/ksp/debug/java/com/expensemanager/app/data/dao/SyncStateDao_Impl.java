@@ -45,6 +45,8 @@ public final class SyncStateDao_Impl implements SyncStateDao {
 
   private final SharedSQLiteStatement __preparedStmtOfUpdateTransactionCount;
 
+  private final SharedSQLiteStatement __preparedStmtOfDeleteSyncState;
+
   public SyncStateDao_Impl(RoomDatabase __db) {
     this.__db = __db;
     this.__insertionAdapterOfSyncStateEntity = new EntityInsertionAdapter<SyncStateEntity>(__db) {
@@ -113,6 +115,13 @@ public final class SyncStateDao_Impl implements SyncStateDao {
       @Override
       public String createQuery() {
         final String _query = "UPDATE sync_state SET total_transactions = ? WHERE id = 1";
+        return _query;
+      }
+    };
+    this.__preparedStmtOfDeleteSyncState = new SharedSQLiteStatement(__db) {
+      @Override
+      public String createQuery() {
+        final String _query = "DELETE FROM sync_state";
         return _query;
       }
     };
@@ -248,6 +257,25 @@ public final class SyncStateDao_Impl implements SyncStateDao {
         } finally {
           __db.endTransaction();
           __preparedStmtOfUpdateTransactionCount.release(_stmt);
+        }
+      }
+    }, continuation);
+  }
+
+  @Override
+  public Object deleteSyncState(final Continuation<? super Unit> continuation) {
+    return CoroutinesRoom.execute(__db, true, new Callable<Unit>() {
+      @Override
+      public Unit call() throws Exception {
+        final SupportSQLiteStatement _stmt = __preparedStmtOfDeleteSyncState.acquire();
+        __db.beginTransaction();
+        try {
+          _stmt.executeUpdateDelete();
+          __db.setTransactionSuccessful();
+          return Unit.INSTANCE;
+        } finally {
+          __db.endTransaction();
+          __preparedStmtOfDeleteSyncState.release(_stmt);
         }
       }
     }, continuation);

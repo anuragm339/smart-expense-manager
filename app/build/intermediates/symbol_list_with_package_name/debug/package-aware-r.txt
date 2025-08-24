@@ -1069,6 +1069,26 @@ attr shapeAppearanceMediumComponent
 attr shapeAppearanceOverlay
 attr shapeAppearanceSmallComponent
 attr shapeCornerFamily
+attr shimmer_auto_start
+attr shimmer_base_alpha
+attr shimmer_base_color
+attr shimmer_clip_to_children
+attr shimmer_colored
+attr shimmer_direction
+attr shimmer_dropoff
+attr shimmer_duration
+attr shimmer_fixed_height
+attr shimmer_fixed_width
+attr shimmer_height_ratio
+attr shimmer_highlight_alpha
+attr shimmer_highlight_color
+attr shimmer_intensity
+attr shimmer_repeat_count
+attr shimmer_repeat_delay
+attr shimmer_repeat_mode
+attr shimmer_shape
+attr shimmer_tilt
+attr shimmer_width_ratio
 attr shortcutMatchRequired
 attr shouldRemoveExpandedCorners
 attr showAnimationBehavior
@@ -1148,6 +1168,7 @@ attr suffixText
 attr suffixTextAppearance
 attr suffixTextColor
 attr suggestionRowLayout
+attr swipeRefreshLayoutProgressSpinnerBackgroundColor
 attr switchMinWidth
 attr switchPadding
 attr switchStyle
@@ -3059,12 +3080,14 @@ drawable ic_code
 drawable ic_currency
 drawable ic_dashboard
 drawable ic_delete
+drawable ic_error_outline
 drawable ic_expand_more
 drawable ic_export
 drawable ic_file_csv
 drawable ic_file_pdf
 drawable ic_info
 drawable ic_insights
+drawable ic_insights_empty
 drawable ic_keyboard_black_24dp
 drawable ic_language
 drawable ic_launcher_foreground
@@ -3162,6 +3185,7 @@ drawable notification_template_icon_bg
 drawable notification_template_icon_low_bg
 drawable notification_tile_bg
 drawable notify_panel_notification_icon_bg
+drawable shimmer_placeholder
 drawable test_level_drawable
 drawable tooltip_frame_dark
 drawable tooltip_frame_light
@@ -3269,12 +3293,17 @@ id bestChoice
 id blocking
 id bottom
 id bottom_navigation
+id bottom_to_top
 id bounce
 id bounceBoth
 id bounceEnd
 id bounceStart
 id btnCancel
+id btnCreateSavingsPlan
+id btnGoToMessages
+id btnRetry
 id btnUpdate
+id btnUseSampleData
 id btn_add
 id btn_add_category
 id btn_add_category_budget
@@ -3313,6 +3342,7 @@ id buttonPanel
 id cache_measures
 id callMeasure
 id cancel_button
+id cardSpendingForecast
 id card_export_csv
 id card_export_json
 id card_export_pdf
@@ -3468,6 +3498,10 @@ id jumpToEnd
 id jumpToStart
 id labeled
 id layout
+id layoutContent
+id layoutEmptyState
+id layoutErrorState
+id layoutShimmerLoading
 id layout_about
 id layout_categories
 id layout_clear_data
@@ -3486,6 +3520,7 @@ id layout_similar_warning
 id layout_sms_preview
 id left
 id leftToRight
+id left_to_right
 id legacy
 id line1
 id line3
@@ -3624,6 +3659,7 @@ id position
 id postLayout
 id pressed
 id progressBar
+id progressSpending
 id progressText
 id progress_budget
 id progress_category_budget
@@ -3631,6 +3667,7 @@ id progress_circular
 id progress_confidence
 id progress_horizontal
 id progress_spending
+id radial
 id radio
 id radioButton
 id ratio
@@ -3642,11 +3679,14 @@ id recycler_top_categories
 id recycler_top_merchants
 id recycler_transactions
 id report_drawn
+id restart
+id reverse
 id reverseSawtooth
 id right
 id rightToLeft
 id right_icon
 id right_side
+id right_to_left
 id rounded
 id row_index_key
 id rtl
@@ -3659,6 +3699,7 @@ id scroll
 id scrollIndicatorDown
 id scrollIndicatorUp
 id scrollView
+id scrollViewContent
 id scrollable
 id search_badge
 id search_bar
@@ -3716,6 +3757,7 @@ id stretch
 id submenuarrow
 id submit_area
 id supportScrollUp
+id swipeRefreshLayout
 id switch_50_percent_alert
 id switch_80_percent_alert
 id switch_auto_backup
@@ -3767,6 +3809,7 @@ id toggle
 id toolbar
 id top
 id topPanel
+id top_to_bottom
 id touch_outside
 id transitionToEnd
 id transitionToStart
@@ -3776,6 +3819,17 @@ id transition_position
 id transition_scene_layoutid_cache
 id transition_transform
 id triangle
+id tvErrorMessage
+id tvErrorTitle
+id tvMonthlySavings
+id tvPatternAlert1
+id tvPatternAlert2
+id tvSavingsRecommendation1
+id tvSavingsRecommendation2
+id tvSpendingAdvice
+id tvSpendingAmount
+id tvSpendingProgress
+id tvYearlySavings
 id tv_amount
 id tv_amount_bank
 id tv_auto_categorized
@@ -3989,6 +4043,8 @@ layout dialog_edit_merchant_group
 layout dialog_quick_add_expense
 layout dialog_sms_progress
 layout dropdown_item_category
+layout empty_state_insights
+layout error_state_insights
 layout fragment_budget_goals
 layout fragment_categories
 layout fragment_category_transactions
@@ -4071,6 +4127,7 @@ layout notification_template_part_time
 layout select_dialog_item_material
 layout select_dialog_multichoice_material
 layout select_dialog_singlechoice_material
+layout shimmer_insights_loading
 layout support_simple_spinner_dropdown_item
 menu bottom_nav_menu
 mipmap ic_launcher
@@ -5549,6 +5606,7 @@ styleable SearchBar android_textAppearance android_text android_hint backgroundT
 styleable SearchView android_textAppearance android_focusable android_maxWidth android_text android_hint android_inputType android_imeOptions animateMenuItems animateNavigationIcon autoShowKeyboard backHandlingEnabled backgroundTint closeIcon commitIcon defaultQueryHint goIcon headerLayout hideNavigationIcon iconifiedByDefault layout queryBackground queryHint searchHintIcon searchIcon searchPrefixText submitBackground suggestionRowLayout useDrawerArrowDrawable voiceIcon
 styleable ShapeAppearance cornerFamily cornerFamilyBottomLeft cornerFamilyBottomRight cornerFamilyTopLeft cornerFamilyTopRight cornerSize cornerSizeBottomLeft cornerSizeBottomRight cornerSizeTopLeft cornerSizeTopRight
 styleable ShapeableImageView contentPadding contentPaddingBottom contentPaddingEnd contentPaddingLeft contentPaddingRight contentPaddingStart contentPaddingTop shapeAppearance shapeAppearanceOverlay strokeColor strokeWidth
+styleable ShimmerFrameLayout shimmer_auto_start shimmer_base_alpha shimmer_base_color shimmer_clip_to_children shimmer_colored shimmer_direction shimmer_dropoff shimmer_duration shimmer_fixed_height shimmer_fixed_width shimmer_height_ratio shimmer_highlight_alpha shimmer_highlight_color shimmer_intensity shimmer_repeat_count shimmer_repeat_delay shimmer_repeat_mode shimmer_shape shimmer_tilt shimmer_width_ratio
 styleable SideSheetBehavior_Layout android_maxWidth android_maxHeight android_elevation backgroundTint behavior_draggable coplanarSiblingViewId shapeAppearance shapeAppearanceOverlay
 styleable Slider android_enabled android_value android_stepSize android_valueFrom android_valueTo haloColor haloRadius labelBehavior labelStyle minTouchTargetSize thumbColor thumbElevation thumbRadius thumbStrokeColor thumbStrokeWidth tickColor tickColorActive tickColorInactive tickRadiusActive tickRadiusInactive tickVisible trackColor trackColorActive trackColorInactive trackHeight
 styleable Snackbar snackbarButtonStyle snackbarStyle snackbarTextViewStyle
@@ -5561,6 +5619,7 @@ styleable State android_id constraints
 styleable StateListDrawable android_dither android_visible android_variablePadding android_constantSize android_enterFadeDuration android_exitFadeDuration
 styleable StateListDrawableItem android_drawable
 styleable StateSet defaultState
+styleable SwipeRefreshLayout swipeRefreshLayoutProgressSpinnerBackgroundColor
 styleable SwitchCompat android_textOn android_textOff android_thumb showText splitTrack switchMinWidth switchPadding switchTextAppearance thumbTextPadding thumbTint thumbTintMode track trackTint trackTintMode
 styleable SwitchMaterial useMaterialThemeColors
 styleable TabItem android_icon android_layout android_text

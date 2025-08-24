@@ -42,4 +42,7 @@ interface SyncStateDao {
     
     @Query("UPDATE sync_state SET total_transactions = :count WHERE id = 1")
     suspend fun updateTransactionCount(count: Int)
+    
+    @Query("DELETE FROM sync_state")
+    suspend fun deleteSyncState()
 }

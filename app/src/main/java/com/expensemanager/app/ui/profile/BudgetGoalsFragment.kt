@@ -18,7 +18,7 @@ import com.expensemanager.app.R
 import com.expensemanager.app.MainActivity
 import com.expensemanager.app.databinding.FragmentBudgetGoalsBinding
 import com.expensemanager.app.databinding.ItemCategoryBudgetBinding
-import com.expensemanager.app.utils.SMSHistoryReader
+import com.expensemanager.app.data.repository.ExpenseRepository
 import com.expensemanager.app.utils.CategoryManager
 import com.expensemanager.app.utils.MerchantAliasManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -37,6 +37,7 @@ class BudgetGoalsFragment : Fragment() {
     private lateinit var prefs: SharedPreferences
     private lateinit var categoryManager: CategoryManager
     private lateinit var merchantAliasManager: MerchantAliasManager
+    private lateinit var repository: ExpenseRepository
     
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -52,6 +53,7 @@ class BudgetGoalsFragment : Fragment() {
         prefs = requireContext().getSharedPreferences("budget_settings", Context.MODE_PRIVATE)
         categoryManager = CategoryManager(requireContext())
         merchantAliasManager = MerchantAliasManager(requireContext())
+        repository = ExpenseRepository.getInstance(requireContext())
         setupRecyclerView()
         setupClickListeners()
         loadRealBudgetData()
@@ -121,21 +123,23 @@ class BudgetGoalsFragment : Fragment() {
         lifecycleScope.launch {
             try {
                 val monthlyBudget = prefs.getFloat("monthly_budget", 15000f)
-                val smsReader = SMSHistoryReader(requireContext())
-                val transactions = smsReader.scanHistoricalSMS()
                 
+                // Get current month date range
                 val calendar = Calendar.getInstance()
                 val currentMonth = calendar.get(Calendar.MONTH)
                 val currentYear = calendar.get(Calendar.YEAR)
                 
-                val currentMonthTransactions = transactions.filter { transaction ->
-                    val transactionCalendar = Calendar.getInstance().apply { time = transaction.date }
-                    transactionCalendar.get(Calendar.MONTH) == currentMonth && 
-                    transactionCalendar.get(Calendar.YEAR) == currentYear
-                }
+                // Start of current month
+                calendar.set(currentYear, currentMonth, 1, 0, 0, 0)
+                val startDate = calendar.time
                 
-                val filteredTransactions = filterTransactionsByInclusionState(currentMonthTransactions)
-                val currentSpent = filteredTransactions.sumOf { it.amount }.toFloat()
+                // End of current month
+                calendar.set(currentYear, currentMonth, calendar.getActualMaximum(Calendar.DAY_OF_MONTH), 23, 59, 59)
+                val endDate = calendar.time
+                
+                // Get transactions from repository instead of SMS reader
+                val allTransactions = repository.getTransactionsByDateRange(startDate, endDate)
+                val currentSpent = repository.getTotalSpent(startDate, endDate).toFloat()
                 val budgetProgress = if (monthlyBudget > 0) ((currentSpent / monthlyBudget) * 100).toInt() else 0
                 
                 val validationDetails = buildString {
@@ -146,9 +150,9 @@ class BudgetGoalsFragment : Fragment() {
                     appendLine("📈 Progress: $budgetProgress%")
                     appendLine("💳 Remaining: ₹${String.format("%.0f", monthlyBudget - currentSpent)}")
                     appendLine()
-                    appendLine("📱 Total SMS Transactions: ${transactions.size}")
-                    appendLine("📅 This Month Transactions: ${currentMonthTransactions.size}")
-                    appendLine("✅ Filtered (Included) Transactions: ${filteredTransactions.size}")
+                    appendLine("📅 This Month Transactions: ${allTransactions.size}")
+                    appendLine("✅ Data Source: ExpenseRepository (Database)")
+                    appendLine("📊 Exclusions Applied: Yes (merchant-based)")
                     appendLine()
                     appendLine("🚨 Alert Threshold: ${if (budgetProgress >= 90) "TRIGGERED" else "NOT TRIGGERED"}")
                     appendLine("🔢 Calculation: (${String.format("%.0f", currentSpent)} ÷ ${String.format("%.0f", monthlyBudget)}) × 100 = $budgetProgress%")
@@ -181,24 +185,22 @@ class BudgetGoalsFragment : Fragment() {
                 // Load monthly budget from preferences
                 val monthlyBudget = prefs.getFloat("monthly_budget", 15000f)
                 
-                // Get real transaction data from SMS
-                val smsReader = SMSHistoryReader(requireContext())
-                val transactions = smsReader.scanHistoricalSMS()
-                
-                // Calculate current month spending
+                // Get current month date range
                 val calendar = Calendar.getInstance()
                 val currentMonth = calendar.get(Calendar.MONTH)
                 val currentYear = calendar.get(Calendar.YEAR)
                 
-                val currentMonthTransactions = transactions.filter { transaction ->
-                    val transactionCalendar = Calendar.getInstance().apply { time = transaction.date }
-                    transactionCalendar.get(Calendar.MONTH) == currentMonth && 
-                    transactionCalendar.get(Calendar.YEAR) == currentYear
-                }
+                // Start of current month
+                calendar.set(currentYear, currentMonth, 1, 0, 0, 0)
+                val startDate = calendar.time
                 
-                // Filter by inclusion state
-                val filteredTransactions = filterTransactionsByInclusionState(currentMonthTransactions)
-                val currentSpent = filteredTransactions.sumOf { it.amount }.toFloat()
+                // End of current month  
+                calendar.set(currentYear, currentMonth, calendar.getActualMaximum(Calendar.DAY_OF_MONTH), 23, 59, 59)
+                val endDate = calendar.time
+                
+                // Get transaction data from repository (with exclusions already applied)
+                val currentMonthTransactions = repository.getTransactionsByDateRange(startDate, endDate)
+                val currentSpent = repository.getTotalSpent(startDate, endDate).toFloat()
                 
                 // Update UI with real data
                 binding.tvSpentAmount.text = "Spent: ₹${String.format("%.0f", currentSpent)}"
@@ -216,7 +218,7 @@ class BudgetGoalsFragment : Fragment() {
                 updateBudgetInsights(monthlyBudget, currentSpent, budgetProgress)
                 
                 // Load category budgets with real spending data
-                loadRealCategoryBudgets(currentMonthTransactions)
+                loadRealCategoryBudgets(startDate, endDate)
                 
                 // Budget loaded successfully
                 
@@ -242,41 +244,15 @@ class BudgetGoalsFragment : Fragment() {
         loadCategoryBudgets()
     }
     
-    private fun filterTransactionsByInclusionState(transactions: List<com.expensemanager.app.utils.ParsedTransaction>): List<com.expensemanager.app.utils.ParsedTransaction> {
-        val inclusionPrefs = requireContext().getSharedPreferences("expense_calculations", Context.MODE_PRIVATE)
-        val inclusionStatesJson = inclusionPrefs.getString("group_inclusion_states", null)
-        
-        if (inclusionStatesJson != null) {
-            try {
-                val inclusionStates = JSONObject(inclusionStatesJson)
-                return transactions.filter { transaction ->
-                    val displayMerchant = merchantAliasManager.getDisplayName(transaction.merchant)
-                    if (inclusionStates.has(displayMerchant)) {
-                        inclusionStates.getBoolean(displayMerchant)
-                    } else {
-                        true // Default to included if not found
-                    }
-                }
-            } catch (e: Exception) {
-                Log.w("BudgetGoalsFragment", "Error loading inclusion states", e)
-            }
-        }
-        
-        return transactions
-    }
+    // Removed: filterTransactionsByInclusionState() - now using repository exclusion system
     
-    private fun loadRealCategoryBudgets(currentMonthTransactions: List<com.expensemanager.app.utils.ParsedTransaction>) {
+    private suspend fun loadRealCategoryBudgets(startDate: Date, endDate: Date) {
         val categoryBudgetsJson = prefs.getString("category_budgets", "")
         val categoryBudgets = mutableListOf<CategoryBudgetItem>()
         
-        // Calculate actual spending by category from transactions
-        val categorySpending = mutableMapOf<String, Double>()
-        
-        val filteredTransactions = filterTransactionsByInclusionState(currentMonthTransactions)
-        filteredTransactions.forEach { transaction ->
-            val category = categoryManager.categorizeTransaction(transaction.merchant)
-            categorySpending[category] = (categorySpending[category] ?: 0.0) + transaction.amount
-        }
+        // Get category spending from repository (with exclusions already applied)
+        val categorySpending = repository.getCategorySpending(startDate, endDate)
+        val categorySpendingMap = categorySpending.associate { it.category_name to it.total_amount }
         
         if (categoryBudgetsJson?.isNotEmpty() == true) {
             try {
@@ -284,7 +260,7 @@ class BudgetGoalsFragment : Fragment() {
                 for (i in 0 until jsonArray.length()) {
                     val json = jsonArray.getJSONObject(i)
                     val categoryName = json.getString("category")
-                    val actualSpent = categorySpending[categoryName] ?: 0.0
+                    val actualSpent = categorySpendingMap[categoryName] ?: 0.0
                     
                     categoryBudgets.add(
                         CategoryBudgetItem(
@@ -297,11 +273,11 @@ class BudgetGoalsFragment : Fragment() {
                 }
             } catch (e: Exception) {
                 Log.e("BudgetGoalsFragment", "Error parsing category budgets", e)
-                loadDefaultCategoryBudgetsWithRealSpending(categoryBudgets, categorySpending)
+                loadDefaultCategoryBudgetsWithRealSpending(categoryBudgets, categorySpendingMap)
             }
         } else {
             // Load default budgets with real spending
-            loadDefaultCategoryBudgetsWithRealSpending(categoryBudgets, categorySpending)
+            loadDefaultCategoryBudgetsWithRealSpending(categoryBudgets, categorySpendingMap)
         }
         
         categoryBudgetsAdapter.submitList(categoryBudgets)
@@ -309,7 +285,7 @@ class BudgetGoalsFragment : Fragment() {
     
     private fun loadDefaultCategoryBudgetsWithRealSpending(
         categoryBudgets: MutableList<CategoryBudgetItem>, 
-        categorySpending: Map<String, Double>
+        categorySpendingMap: Map<String, Double>
     ) {
         val defaultCategories = listOf(
             "Food & Dining" to 4000f,
@@ -322,7 +298,7 @@ class BudgetGoalsFragment : Fragment() {
         )
         
         defaultCategories.forEach { (categoryName, budgetAmount) ->
-            val actualSpent = categorySpending[categoryName] ?: 0.0
+            val actualSpent = categorySpendingMap[categoryName] ?: 0.0
             categoryBudgets.add(
                 CategoryBudgetItem(
                     categoryName = categoryName,

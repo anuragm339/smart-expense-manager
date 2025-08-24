@@ -4,25 +4,116 @@ package com.expensemanager.app.databinding;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.ScrollView;
+import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import androidx.viewbinding.ViewBinding;
+import androidx.viewbinding.ViewBindings;
 import com.expensemanager.app.R;
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.card.MaterialCardView;
 import java.lang.NullPointerException;
 import java.lang.Override;
+import java.lang.String;
 
 public final class FragmentInsightsBinding implements ViewBinding {
   @NonNull
-  private final ScrollView rootView;
+  private final ConstraintLayout rootView;
 
-  private FragmentInsightsBinding(@NonNull ScrollView rootView) {
+  @NonNull
+  public final MaterialButton btnCreateSavingsPlan;
+
+  @NonNull
+  public final MaterialCardView cardSpendingForecast;
+
+  @NonNull
+  public final LinearLayout layoutContent;
+
+  @NonNull
+  public final EmptyStateInsightsBinding layoutEmptyState;
+
+  @NonNull
+  public final ErrorStateInsightsBinding layoutErrorState;
+
+  @NonNull
+  public final ShimmerInsightsLoadingBinding layoutShimmerLoading;
+
+  @NonNull
+  public final ProgressBar progressSpending;
+
+  @NonNull
+  public final ScrollView scrollViewContent;
+
+  @NonNull
+  public final SwipeRefreshLayout swipeRefreshLayout;
+
+  @NonNull
+  public final TextView tvMonthlySavings;
+
+  @NonNull
+  public final TextView tvPatternAlert1;
+
+  @NonNull
+  public final TextView tvPatternAlert2;
+
+  @NonNull
+  public final TextView tvSavingsRecommendation1;
+
+  @NonNull
+  public final TextView tvSavingsRecommendation2;
+
+  @NonNull
+  public final TextView tvSpendingAdvice;
+
+  @NonNull
+  public final TextView tvSpendingAmount;
+
+  @NonNull
+  public final TextView tvSpendingProgress;
+
+  @NonNull
+  public final TextView tvYearlySavings;
+
+  private FragmentInsightsBinding(@NonNull ConstraintLayout rootView,
+      @NonNull MaterialButton btnCreateSavingsPlan, @NonNull MaterialCardView cardSpendingForecast,
+      @NonNull LinearLayout layoutContent, @NonNull EmptyStateInsightsBinding layoutEmptyState,
+      @NonNull ErrorStateInsightsBinding layoutErrorState,
+      @NonNull ShimmerInsightsLoadingBinding layoutShimmerLoading,
+      @NonNull ProgressBar progressSpending, @NonNull ScrollView scrollViewContent,
+      @NonNull SwipeRefreshLayout swipeRefreshLayout, @NonNull TextView tvMonthlySavings,
+      @NonNull TextView tvPatternAlert1, @NonNull TextView tvPatternAlert2,
+      @NonNull TextView tvSavingsRecommendation1, @NonNull TextView tvSavingsRecommendation2,
+      @NonNull TextView tvSpendingAdvice, @NonNull TextView tvSpendingAmount,
+      @NonNull TextView tvSpendingProgress, @NonNull TextView tvYearlySavings) {
     this.rootView = rootView;
+    this.btnCreateSavingsPlan = btnCreateSavingsPlan;
+    this.cardSpendingForecast = cardSpendingForecast;
+    this.layoutContent = layoutContent;
+    this.layoutEmptyState = layoutEmptyState;
+    this.layoutErrorState = layoutErrorState;
+    this.layoutShimmerLoading = layoutShimmerLoading;
+    this.progressSpending = progressSpending;
+    this.scrollViewContent = scrollViewContent;
+    this.swipeRefreshLayout = swipeRefreshLayout;
+    this.tvMonthlySavings = tvMonthlySavings;
+    this.tvPatternAlert1 = tvPatternAlert1;
+    this.tvPatternAlert2 = tvPatternAlert2;
+    this.tvSavingsRecommendation1 = tvSavingsRecommendation1;
+    this.tvSavingsRecommendation2 = tvSavingsRecommendation2;
+    this.tvSpendingAdvice = tvSpendingAdvice;
+    this.tvSpendingAmount = tvSpendingAmount;
+    this.tvSpendingProgress = tvSpendingProgress;
+    this.tvYearlySavings = tvYearlySavings;
   }
 
   @Override
   @NonNull
-  public ScrollView getRoot() {
+  public ConstraintLayout getRoot() {
     return rootView;
   }
 
@@ -43,10 +134,129 @@ public final class FragmentInsightsBinding implements ViewBinding {
 
   @NonNull
   public static FragmentInsightsBinding bind(@NonNull View rootView) {
-    if (rootView == null) {
-      throw new NullPointerException("rootView");
-    }
+    // The body of this method is generated in a way you would not otherwise write.
+    // This is done to optimize the compiled bytecode for size and performance.
+    int id;
+    missingId: {
+      id = R.id.btnCreateSavingsPlan;
+      MaterialButton btnCreateSavingsPlan = ViewBindings.findChildViewById(rootView, id);
+      if (btnCreateSavingsPlan == null) {
+        break missingId;
+      }
 
-    return new FragmentInsightsBinding((ScrollView) rootView);
+      id = R.id.cardSpendingForecast;
+      MaterialCardView cardSpendingForecast = ViewBindings.findChildViewById(rootView, id);
+      if (cardSpendingForecast == null) {
+        break missingId;
+      }
+
+      id = R.id.layoutContent;
+      LinearLayout layoutContent = ViewBindings.findChildViewById(rootView, id);
+      if (layoutContent == null) {
+        break missingId;
+      }
+
+      id = R.id.layoutEmptyState;
+      View layoutEmptyState = ViewBindings.findChildViewById(rootView, id);
+      if (layoutEmptyState == null) {
+        break missingId;
+      }
+      EmptyStateInsightsBinding binding_layoutEmptyState = EmptyStateInsightsBinding.bind(layoutEmptyState);
+
+      id = R.id.layoutErrorState;
+      View layoutErrorState = ViewBindings.findChildViewById(rootView, id);
+      if (layoutErrorState == null) {
+        break missingId;
+      }
+      ErrorStateInsightsBinding binding_layoutErrorState = ErrorStateInsightsBinding.bind(layoutErrorState);
+
+      id = R.id.layoutShimmerLoading;
+      View layoutShimmerLoading = ViewBindings.findChildViewById(rootView, id);
+      if (layoutShimmerLoading == null) {
+        break missingId;
+      }
+      ShimmerInsightsLoadingBinding binding_layoutShimmerLoading = ShimmerInsightsLoadingBinding.bind(layoutShimmerLoading);
+
+      id = R.id.progressSpending;
+      ProgressBar progressSpending = ViewBindings.findChildViewById(rootView, id);
+      if (progressSpending == null) {
+        break missingId;
+      }
+
+      id = R.id.scrollViewContent;
+      ScrollView scrollViewContent = ViewBindings.findChildViewById(rootView, id);
+      if (scrollViewContent == null) {
+        break missingId;
+      }
+
+      id = R.id.swipeRefreshLayout;
+      SwipeRefreshLayout swipeRefreshLayout = ViewBindings.findChildViewById(rootView, id);
+      if (swipeRefreshLayout == null) {
+        break missingId;
+      }
+
+      id = R.id.tvMonthlySavings;
+      TextView tvMonthlySavings = ViewBindings.findChildViewById(rootView, id);
+      if (tvMonthlySavings == null) {
+        break missingId;
+      }
+
+      id = R.id.tvPatternAlert1;
+      TextView tvPatternAlert1 = ViewBindings.findChildViewById(rootView, id);
+      if (tvPatternAlert1 == null) {
+        break missingId;
+      }
+
+      id = R.id.tvPatternAlert2;
+      TextView tvPatternAlert2 = ViewBindings.findChildViewById(rootView, id);
+      if (tvPatternAlert2 == null) {
+        break missingId;
+      }
+
+      id = R.id.tvSavingsRecommendation1;
+      TextView tvSavingsRecommendation1 = ViewBindings.findChildViewById(rootView, id);
+      if (tvSavingsRecommendation1 == null) {
+        break missingId;
+      }
+
+      id = R.id.tvSavingsRecommendation2;
+      TextView tvSavingsRecommendation2 = ViewBindings.findChildViewById(rootView, id);
+      if (tvSavingsRecommendation2 == null) {
+        break missingId;
+      }
+
+      id = R.id.tvSpendingAdvice;
+      TextView tvSpendingAdvice = ViewBindings.findChildViewById(rootView, id);
+      if (tvSpendingAdvice == null) {
+        break missingId;
+      }
+
+      id = R.id.tvSpendingAmount;
+      TextView tvSpendingAmount = ViewBindings.findChildViewById(rootView, id);
+      if (tvSpendingAmount == null) {
+        break missingId;
+      }
+
+      id = R.id.tvSpendingProgress;
+      TextView tvSpendingProgress = ViewBindings.findChildViewById(rootView, id);
+      if (tvSpendingProgress == null) {
+        break missingId;
+      }
+
+      id = R.id.tvYearlySavings;
+      TextView tvYearlySavings = ViewBindings.findChildViewById(rootView, id);
+      if (tvYearlySavings == null) {
+        break missingId;
+      }
+
+      return new FragmentInsightsBinding((ConstraintLayout) rootView, btnCreateSavingsPlan,
+          cardSpendingForecast, layoutContent, binding_layoutEmptyState, binding_layoutErrorState,
+          binding_layoutShimmerLoading, progressSpending, scrollViewContent, swipeRefreshLayout,
+          tvMonthlySavings, tvPatternAlert1, tvPatternAlert2, tvSavingsRecommendation1,
+          tvSavingsRecommendation2, tvSpendingAdvice, tvSpendingAmount, tvSpendingProgress,
+          tvYearlySavings);
+    }
+    String missingId = rootView.getResources().getResourceName(id);
+    throw new NullPointerException("Missing required view with ID: ".concat(missingId));
   }
 }
