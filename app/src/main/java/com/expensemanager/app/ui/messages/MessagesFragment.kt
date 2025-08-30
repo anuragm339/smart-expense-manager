@@ -15,7 +15,10 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.expensemanager.app.databinding.FragmentMessagesBinding
@@ -31,24 +34,29 @@ import android.widget.AutoCompleteTextView
 import android.widget.RadioButton
 import android.widget.TextView
 import android.widget.Toast
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 
+@AndroidEntryPoint
 class MessagesFragment : Fragment() {
     
     private var _binding: FragmentMessagesBinding? = null
     private val binding get() = _binding!!
     
+    // ViewModel injection
+    private val messagesViewModel: MessagesViewModel by viewModels()
+    
     private lateinit var groupedMessagesAdapter: GroupedMessagesAdapter
     private lateinit var categoryManager: CategoryManager
     private lateinit var merchantAliasManager: MerchantAliasManager
     
-    // Data management
+    // Legacy data management (kept for parallel approach during migration)
     private var allMessageItems = listOf<MessageItem>()
     private var filteredMessageItems = listOf<MessageItem>()
     private var currentSearchQuery = ""
     
-    // Sorting and filtering state
+    // Legacy sorting and filtering state (kept for backward compatibility)
     data class SortOption(val name: String, val field: String, val ascending: Boolean)
     data class FilterOptions(
         val minAmount: Double? = null,
@@ -73,7 +81,7 @@ class MessagesFragment : Fragment() {
                 // Refresh messages data on the main thread
                 lifecycleScope.launch {
                     try {
-                        Log.d("MessagesFragment", "🔄 Refreshing messages due to new transaction")
+                        Log.d("MessagesFragment", "[REFRESH] Refreshing messages due to new transaction")
                         loadHistoricalTransactions()
                         
                     } catch (e: Exception) {
@@ -97,7 +105,96 @@ class MessagesFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         categoryManager = CategoryManager(requireContext())
         merchantAliasManager = MerchantAliasManager(requireContext())
+        
+        // Setup UI components
+        setupRecyclerView()
+        setupClickListeners()
+        
+        // Observe ViewModel state
+        observeViewModelState()
+        
+        // Check permissions and setup legacy UI (parallel approach)
         checkPermissionsAndSetupUI()
+    }
+    
+    /**
+     * Observe ViewModel state changes
+     */
+    private fun observeViewModelState() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                messagesViewModel.uiState.collect { state ->
+                    updateUI(state)
+                }
+            }
+        }
+    }
+    
+    /**
+     * Update UI based on ViewModel state
+     */
+    private fun updateUI(state: MessagesUIState) {
+        Log.d("MessagesFragment", "Updating UI with ViewModel state: loading=${state.isLoading}, messages=${state.filteredMessages.size}")
+        
+        // Handle loading states
+        if (state.isAnyLoading) {
+            // Show loading indicator if appropriate
+            Log.d("MessagesFragment", "ViewModel is loading data...")
+        }
+        
+        // Update message counts
+        binding.tvTotalMessages.text = state.totalMessagesCount.toString()
+        binding.tvAutoCategorized.text = state.autoCategorizedCount.toString()
+        
+        // Update adapter with grouped messages
+        if (state.groupedMessages.isNotEmpty()) {
+            groupedMessagesAdapter.submitList(state.groupedMessages)
+            binding.recyclerMessages.visibility = View.VISIBLE
+            binding.layoutEmpty.visibility = View.GONE
+        } else if (state.shouldShowEmptyState) {
+            binding.recyclerMessages.visibility = View.GONE
+            binding.layoutEmpty.visibility = View.VISIBLE
+        }
+        
+        // Update sort button
+        binding.btnSort.text = "Sort: ${state.currentSortOption.displayText}"
+        
+        // Update filter button
+        binding.btnFilter.text = if (state.hasActiveFilters) {
+            "Filter (${state.activeFilterCount})"
+        } else {
+            "Filter"
+        }
+        
+        // Handle error states
+        if (state.shouldShowError && state.error != null) {
+            Toast.makeText(requireContext(), state.error, Toast.LENGTH_LONG).show()
+            messagesViewModel.handleEvent(MessagesUIEvent.ClearError)
+        }
+        
+        // Handle success messages
+        state.successMessage?.let { message ->
+            Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
+            messagesViewModel.handleEvent(MessagesUIEvent.ClearError)
+        }
+        
+        // Handle sync messages
+        state.syncMessage?.let { message ->
+            Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
+            messagesViewModel.handleEvent(MessagesUIEvent.ClearError)
+        }
+        
+        // Handle test results
+        state.testResults?.let { results ->
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle("SMS Test Results")
+                .setMessage(results)
+                .setPositiveButton("OK") { dialog, _ ->
+                    dialog.dismiss()
+                    messagesViewModel.handleEvent(MessagesUIEvent.ClearError)
+                }
+                .show()
+        }
     }
     
     private fun checkPermissionsAndSetupUI() {
@@ -140,6 +237,9 @@ class MessagesFragment : Fragment() {
                 navigateToTransactionDetails(messageItem)
             },
             onGroupToggle = { group, isIncluded ->
+                // Use ViewModel event
+                messagesViewModel.handleEvent(MessagesUIEvent.ToggleGroupInclusion(group.merchantName, isIncluded))
+                // Keep legacy method for fallback
                 updateExpenseCalculations()
             },
             onGroupEdit = { group ->
@@ -151,7 +251,7 @@ class MessagesFragment : Fragment() {
             layoutManager = LinearLayoutManager(requireContext())
         }
         
-        // Initialize with empty list - real data will be loaded by loadHistoricalTransactions()
+        // Initialize with empty list - data will be loaded by ViewModel
         groupedMessagesAdapter.submitList(emptyList())
     }
     
@@ -182,7 +282,11 @@ class MessagesFragment : Fragment() {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: android.text.Editable?) {
-                currentSearchQuery = s?.toString() ?: ""
+                val query = s?.toString() ?: ""
+                // Use ViewModel event
+                messagesViewModel.handleEvent(MessagesUIEvent.Search(query))
+                // Keep legacy for fallback
+                currentSearchQuery = query
                 applyFiltersAndSort()
             }
         })
@@ -190,22 +294,32 @@ class MessagesFragment : Fragment() {
     
     private fun showFilterMenu() {
         val options = arrayOf(
-            "🔄 Resync SMS Messages", 
+            "[PROCESS] Resync SMS Messages", 
             "📅 Filter by Date", 
-            "💰 Filter by Amount",
+            "[FINANCIAL] Filter by Amount",
             "🏦 Filter by Bank",
-            "🔍 Test SMS Scanning"
+            "[DEBUG] Test SMS Scanning"
         )
         
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("Filter & Sync Options")
             .setItems(options) { _, which ->
                 when (which) {
-                    0 -> resyncSMSMessages()
+                    0 -> {
+                        // Use ViewModel event
+                        messagesViewModel.handleEvent(MessagesUIEvent.ResyncSMS)
+                        // Keep legacy for fallback
+                        resyncSMSMessages()
+                    }
                     1 -> showDateFilterDialog()
                     2 -> showAmountFilterDialog()
                     3 -> showBankFilterDialog()
-                    4 -> testSMSScanning()
+                    4 -> {
+                        // Use ViewModel event
+                        messagesViewModel.handleEvent(MessagesUIEvent.TestSMSScanning)
+                        // Keep legacy for fallback
+                        testSMSScanning()
+                    }
                 }
             }
             .show()
@@ -242,29 +356,34 @@ class MessagesFragment : Fragment() {
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("Sort Transactions")
             .setSingleChoiceItems(sortOptions, currentIndex) { dialog, which ->
-                Log.d("MessagesFragment", "🔍 User selected sort option: $which (${sortOptions[which]})")
+                Log.d("MessagesFragment", "[DEBUG] User selected sort option: $which (${sortOptions[which]})")
                 
                 val oldSortOption = currentSortOption
-                currentSortOption = when (which) {
-                    0 -> SortOption("Date (Newest First)", "date", false)
-                    1 -> SortOption("Date (Oldest First)", "date", true)
-                    2 -> SortOption("Amount (Highest First)", "amount", false)
-                    3 -> SortOption("Amount (Lowest First)", "amount", true)
-                    4 -> SortOption("Merchant Name (A-Z)", "merchant", true)
-                    5 -> SortOption("Merchant Name (Z-A)", "merchant", false)
-                    6 -> SortOption("Bank Name (A-Z)", "bank", true)
-                    7 -> SortOption("Bank Name (Z-A)", "bank", false)
-                    8 -> SortOption("Confidence (Highest First)", "confidence", false)
-                    9 -> SortOption("Confidence (Lowest First)", "confidence", true)
-                    else -> currentSortOption
+                val newSortOption = when (which) {
+                    0 -> com.expensemanager.app.ui.messages.SortOption("Date (Newest First)", "date", false)
+                    1 -> com.expensemanager.app.ui.messages.SortOption("Date (Oldest First)", "date", true)
+                    2 -> com.expensemanager.app.ui.messages.SortOption("Amount (Highest First)", "amount", false)
+                    3 -> com.expensemanager.app.ui.messages.SortOption("Amount (Lowest First)", "amount", true)
+                    4 -> com.expensemanager.app.ui.messages.SortOption("Merchant Name (A-Z)", "merchant", true)
+                    5 -> com.expensemanager.app.ui.messages.SortOption("Merchant Name (Z-A)", "merchant", false)
+                    6 -> com.expensemanager.app.ui.messages.SortOption("Bank Name (A-Z)", "bank", true)
+                    7 -> com.expensemanager.app.ui.messages.SortOption("Bank Name (Z-A)", "bank", false)
+                    8 -> com.expensemanager.app.ui.messages.SortOption("Confidence (Highest First)", "confidence", false)
+                    9 -> com.expensemanager.app.ui.messages.SortOption("Confidence (Lowest First)", "confidence", true)
+                    else -> return@setSingleChoiceItems
                 }
                 
-                Log.d("MessagesFragment", "🔍 Sort option changed from ${oldSortOption.name} to ${currentSortOption.name}")
+                Log.d("MessagesFragment", "[DEBUG] Sort option changed from ${oldSortOption.name} to ${newSortOption.name}")
                 
+                // Use ViewModel event
+                messagesViewModel.handleEvent(MessagesUIEvent.ApplySort(newSortOption))
+                
+                // Keep legacy for fallback
+                currentSortOption = SortOption(newSortOption.name, newSortOption.field, newSortOption.ascending)
                 binding.btnSort.text = "Sort: ${currentSortOption.name.split(" ")[0]}"
-                Log.d("MessagesFragment", "🔍 Updated sort button text to: ${binding.btnSort.text}")
-                
+                Log.d("MessagesFragment", "[DEBUG] Updated sort button text to: ${binding.btnSort.text}")
                 applyFiltersAndSort()
+                
                 dialog.dismiss()
             }
             .setNegativeButton("Cancel", null)
@@ -349,12 +468,12 @@ class MessagesFragment : Fragment() {
     }
     
     private fun applyFiltersAndSort() {
-        Log.d("MessagesFragment", "🔍 Starting applyFiltersAndSort() with ${allMessageItems.size} total items")
-        Log.d("MessagesFragment", "🔍 Current sort option: ${currentSortOption.name} (field: ${currentSortOption.field}, ascending: ${currentSortOption.ascending})")
+        Log.d("MessagesFragment", "[DEBUG] Starting applyFiltersAndSort() with ${allMessageItems.size} total items")
+        Log.d("MessagesFragment", "[DEBUG] Current sort option: ${currentSortOption.name} (field: ${currentSortOption.field}, ascending: ${currentSortOption.ascending})")
         
         // Start with all message items
         var filtered = allMessageItems.toList()
-        Log.d("MessagesFragment", "🔍 After copying all items: ${filtered.size} items")
+        Log.d("MessagesFragment", "[DEBUG] After copying all items: ${filtered.size} items")
         
         // Apply search filter
         if (currentSearchQuery.isNotEmpty()) {
@@ -365,46 +484,46 @@ class MessagesFragment : Fragment() {
                 item.rawSMS.lowercase().contains(query) ||
                 item.category.lowercase().contains(query)
             }
-            Log.d("MessagesFragment", "🔍 After search filter '$query': ${filtered.size} items")
+            Log.d("MessagesFragment", "[DEBUG] After search filter '$query': ${filtered.size} items")
         }
         
         // Apply amount filter
         currentFilterOptions.minAmount?.let { minAmount ->
             filtered = filtered.filter { it.amount >= minAmount }
-            Log.d("MessagesFragment", "🔍 After min amount filter (≥$minAmount): ${filtered.size} items")
+            Log.d("MessagesFragment", "[DEBUG] After min amount filter (≥$minAmount): ${filtered.size} items")
         }
         currentFilterOptions.maxAmount?.let { maxAmount ->
             filtered = filtered.filter { it.amount <= maxAmount }
-            Log.d("MessagesFragment", "🔍 After max amount filter (≤$maxAmount): ${filtered.size} items")
+            Log.d("MessagesFragment", "[DEBUG] After max amount filter (≤$maxAmount): ${filtered.size} items")
         }
         
         // Apply bank filter
         if (currentFilterOptions.selectedBanks.isNotEmpty()) {
             filtered = filtered.filter { currentFilterOptions.selectedBanks.contains(it.bankName) }
-            Log.d("MessagesFragment", "🔍 After bank filter (${currentFilterOptions.selectedBanks}): ${filtered.size} items")
+            Log.d("MessagesFragment", "[DEBUG] After bank filter (${currentFilterOptions.selectedBanks}): ${filtered.size} items")
         }
         
         // Apply confidence filter
         if (currentFilterOptions.minConfidence > 0) {
             filtered = filtered.filter { it.confidence >= currentFilterOptions.minConfidence }
-            Log.d("MessagesFragment", "🔍 After confidence filter (≥${currentFilterOptions.minConfidence}%): ${filtered.size} items")
+            Log.d("MessagesFragment", "[DEBUG] After confidence filter (≥${currentFilterOptions.minConfidence}%): ${filtered.size} items")
         }
         
         // Apply date filters (simplified - would need proper date parsing in real implementation)
         currentFilterOptions.dateFrom?.let { dateFrom ->
             // In a real implementation, you'd parse the date string and compare properly
             filtered = filtered.filter { it.dateTime >= dateFrom }
-            Log.d("MessagesFragment", "🔍 After date from filter (≥$dateFrom): ${filtered.size} items")
+            Log.d("MessagesFragment", "[DEBUG] After date from filter (≥$dateFrom): ${filtered.size} items")
         }
         currentFilterOptions.dateTo?.let { dateTo ->
             // In a real implementation, you'd parse the date string and compare properly
             filtered = filtered.filter { it.dateTime <= dateTo }
-            Log.d("MessagesFragment", "🔍 After date to filter (≤$dateTo): ${filtered.size} items")
+            Log.d("MessagesFragment", "[DEBUG] After date to filter (≤$dateTo): ${filtered.size} items")
         }
         
-        Log.d("MessagesFragment", "🔍 Before sorting: ${filtered.size} items")
+        Log.d("MessagesFragment", "[DEBUG] Before sorting: ${filtered.size} items")
         if (filtered.isNotEmpty()) {
-            Log.d("MessagesFragment", "🔍 Sample items before sorting:")
+            Log.d("MessagesFragment", "[DEBUG] Sample items before sorting:")
             filtered.take(3).forEach { item ->
                 Log.d("MessagesFragment", "  - ${item.merchant}: ₹${item.amount} (${item.dateTime})")
             }
@@ -448,14 +567,14 @@ class MessagesFragment : Fragment() {
                 }
             }
             else -> {
-                Log.w("MessagesFragment", "🔍 Unknown sort field: ${currentSortOption.field}")
+                Log.w("MessagesFragment", "[DEBUG] Unknown sort field: ${currentSortOption.field}")
                 filtered
             }
         }
         
-        Log.d("MessagesFragment", "🔍 After sorting: ${filtered.size} items")
+        Log.d("MessagesFragment", "[DEBUG] After sorting: ${filtered.size} items")
         if (filtered.isNotEmpty()) {
-            Log.d("MessagesFragment", "🔍 Sample items after sorting:")
+            Log.d("MessagesFragment", "[DEBUG] Sample items after sorting:")
             filtered.take(3).forEach { item ->
                 Log.d("MessagesFragment", "  - ${item.merchant}: ₹${item.amount} (${item.dateTime})")
             }
@@ -467,7 +586,7 @@ class MessagesFragment : Fragment() {
         updateTransactionsList(filteredMessageItems)
         updateSummaryStats(filteredMessageItems)
         
-        Log.d("MessagesFragment", "🔍 applyFiltersAndSort() completed successfully")
+        Log.d("MessagesFragment", "[DEBUG] applyFiltersAndSort() completed successfully")
     }
     
     private fun updateTransactionsList(messageItems: List<MessageItem>) {
@@ -507,7 +626,7 @@ class MessagesFragment : Fragment() {
     private fun performSMSResync() {
         lifecycleScope.launch {
             val progressDialog = MaterialAlertDialogBuilder(requireContext())
-                .setTitle("🔄 Syncing SMS Messages")
+                .setTitle("[PROCESS] Syncing SMS Messages")
                 .setMessage("Scanning your SMS inbox for transaction messages...")
                 .setCancelable(false)
                 .create()
@@ -560,22 +679,18 @@ class MessagesFragment : Fragment() {
                     
                     Toast.makeText(
                         requireContext(),
-                        "✅ Found ${historicalTransactions.size} new transaction SMS messages!",
+                        "[SUCCESS] Found ${historicalTransactions.size} new transaction SMS messages!",
                         Toast.LENGTH_LONG
                     ).show()
                 } else {
-                    // No transactions found - show empty state
-                    groupedMessagesAdapter.submitList(emptyList())
-                    binding.recyclerMessages.visibility = View.GONE
-                    binding.layoutEmpty.visibility = View.VISIBLE
-                    binding.tvTotalMessages.text = "0"
-                    binding.tvAutoCategorized.text = "0"
+                    // FIXED: Proper empty state handling - no transactions found
+                    showEmptyState()
                     
                     progressDialog.dismiss()
                     
                     Toast.makeText(
                         requireContext(),
-                        "📱 No transaction SMS found in your inbox",
+                        "[SMS] No transaction SMS found in your inbox",
                         Toast.LENGTH_LONG
                     ).show()
                 }
@@ -585,7 +700,7 @@ class MessagesFragment : Fragment() {
                 Log.w("MessagesFragment", "SMS permission denied during resync", e)
                 Toast.makeText(
                     requireContext(),
-                    "❌ SMS permission required for resync",
+                    "[ERROR] SMS permission required for resync",
                     Toast.LENGTH_LONG
                 ).show()
                 showNoPermissionState()
@@ -594,7 +709,7 @@ class MessagesFragment : Fragment() {
                 Log.e("MessagesFragment", "Error during SMS resync", e)
                 Toast.makeText(
                     requireContext(),
-                    "❌ Error syncing SMS: ${e.message ?: "Unknown error"}",
+                    "[ERROR] Error syncing SMS: ${e.message ?: "Unknown error"}",
                     Toast.LENGTH_LONG
                 ).show()
                 
@@ -612,12 +727,12 @@ class MessagesFragment : Fragment() {
                 val transactions = smsReader.scanHistoricalSMS()
                 
                 val message = buildString {
-                    appendLine("📊 SMS Scanning Test Results:")
+                    appendLine("[ANALYTICS] SMS Scanning Test Results:")
                     appendLine("Total valid transactions: ${transactions.size}")
                     appendLine()
                     
                     if (transactions.isNotEmpty()) {
-                        appendLine("📱 Found transactions:")
+                        appendLine("[SMS] Found transactions:")
                         transactions.take(5).forEach { transaction ->
                             appendLine("• ${transaction.merchant}: ₹${String.format("%.2f", transaction.amount)}")
                             appendLine("  Bank: ${transaction.bankName}")
@@ -636,7 +751,7 @@ class MessagesFragment : Fragment() {
                         
                         val totalAmount = transactions.sumOf { it.amount }
                         appendLine()
-                        appendLine("💰 Total amount: ₹${String.format("%.2f", totalAmount)}")
+                        appendLine("[FINANCIAL] Total amount: ₹${String.format("%.2f", totalAmount)}")
                     } else {
                         appendLine("ℹ️ No valid transaction SMS found.")
                         appendLine()
@@ -653,7 +768,7 @@ class MessagesFragment : Fragment() {
                 }
                 
                 MaterialAlertDialogBuilder(requireContext())
-                    .setTitle("🔍 SMS Test Results")
+                    .setTitle("[DEBUG] SMS Test Results")
                     .setMessage(message)
                     .setPositiveButton("OK") { dialog, _ ->
                         dialog.dismiss()
@@ -664,7 +779,7 @@ class MessagesFragment : Fragment() {
                 
             } catch (e: SecurityException) {
                 MaterialAlertDialogBuilder(requireContext())
-                    .setTitle("❌ Permission Error")
+                    .setTitle("[ERROR] Permission Error")
                     .setMessage("SMS permission is required to test SMS scanning. Please grant SMS permissions in app settings.")
                     .setPositiveButton("Open Settings") { _, _ ->
                         val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
@@ -678,7 +793,7 @@ class MessagesFragment : Fragment() {
                     .show()
             } catch (e: Exception) {
                 MaterialAlertDialogBuilder(requireContext())
-                    .setTitle("❌ Test Error")
+                    .setTitle("[ERROR] Test Error")
                     .setMessage("Error testing SMS scanning: ${e.message}")
                     .setPositiveButton("OK") { dialog, _ ->
                         dialog.dismiss()
@@ -726,7 +841,7 @@ class MessagesFragment : Fragment() {
     private fun loadHistoricalTransactions() {
         lifecycleScope.launch {
             try {
-                Log.d("MessagesFragment", "🔄 Loading historical transactions...")
+                Log.d("MessagesFragment", "[LOAD] Loading historical transactions...")
                 
                 // Use repository to get transactions from database (faster and more reliable)
                 val repository = com.expensemanager.app.data.repository.ExpenseRepository.getInstance(requireContext())
@@ -749,7 +864,7 @@ class MessagesFragment : Fragment() {
                 
                 // Load transactions from SQLite database
                 val dbTransactions = repository.getTransactionsByDateRange(startDate, endDate)
-                Log.d("MessagesFragment", "📊 Found ${dbTransactions.size} transactions in database")
+                Log.d("MessagesFragment", "[DATA] Found ${dbTransactions.size} transactions in database")
                 
                 if (dbTransactions.isNotEmpty()) {
                     // Convert to MessageItem format with proper deduplication
@@ -759,12 +874,19 @@ class MessagesFragment : Fragment() {
                             val category = merchantWithCategory?.category_name ?: "Other"
                             val categoryColor = merchantWithCategory?.category_color ?: "#888888"
                             
+                            // CRITICAL FIX: Apply merchant aliases when loading from database
+                            val displayName = merchantAliasManager.getDisplayName(transaction.rawMerchant)
+                            val aliasCategory = merchantAliasManager.getMerchantCategory(transaction.rawMerchant)
+                            val aliasCategoryColor = merchantAliasManager.getMerchantCategoryColor(transaction.rawMerchant)
+                            
+                            Log.d("MessagesFragment", "[DEBUG] Database load: rawMerchant='${transaction.rawMerchant}' -> displayName='$displayName', category='$aliasCategory'")
+                            
                             MessageItem(
                                 amount = transaction.amount,
-                                merchant = transaction.rawMerchant, // Use display name
+                                merchant = displayName, // Use alias display name, not raw merchant
                                 bankName = transaction.bankName,
-                                category = category,
-                                categoryColor = categoryColor,
+                                category = aliasCategory, // Use alias category
+                                categoryColor = aliasCategoryColor, // Use alias category color
                                 confidence = (transaction.confidenceScore * 100).toInt(),
                                 dateTime = formatDate(transaction.transactionDate),
                                 rawSMS = transaction.rawSmsBody
@@ -790,11 +912,11 @@ class MessagesFragment : Fragment() {
                     // Update stats with real data
                     updateExpenseCalculations()
                     
-                    Log.d("MessagesFragment", "✅ Successfully loaded ${messageItems.size} unique transactions from database")
+                    Log.d("MessagesFragment", "[SUCCESS] Successfully loaded ${messageItems.size} unique transactions from database")
                     
                 } else {
                     // No database data found - fallback to SMS scanning
-                    Log.d("MessagesFragment", "📱 No database transactions found, falling back to SMS scanning...")
+                    Log.d("MessagesFragment", "[SMS] No database transactions found, falling back to SMS scanning...")
                     loadFromSMSFallback()
                 }
             } catch (e: SecurityException) {
@@ -802,7 +924,7 @@ class MessagesFragment : Fragment() {
                 Log.w("MessagesFragment", "SMS permission denied", e)
                 Toast.makeText(
                     requireContext(),
-                    "❌ SMS permission required to read transaction messages",
+                    "[ERROR] SMS permission required to read transaction messages",
                     Toast.LENGTH_LONG
                 ).show()
                 showNoPermissionState()
@@ -817,7 +939,7 @@ class MessagesFragment : Fragment() {
                 
                 Toast.makeText(
                     requireContext(),
-                    "⚠️ Error reading SMS: ${e.message ?: "Unknown error"}",
+                    "[WARNING] Error reading SMS: ${e.message ?: "Unknown error"}",
                     Toast.LENGTH_LONG
                 ).show()
             }
@@ -830,7 +952,7 @@ class MessagesFragment : Fragment() {
                 val smsReader = SMSHistoryReader(requireContext())
                 val historicalTransactions = smsReader.scanHistoricalSMS()
                 
-                Log.d("MessagesFragment", "📱 SMS Fallback: Found ${historicalTransactions.size} transactions")
+                Log.d("MessagesFragment", "[SMS] SMS Fallback: Found ${historicalTransactions.size} transactions")
                 
                 if (historicalTransactions.isNotEmpty()) {
                     // Convert to MessageItem format
@@ -865,8 +987,10 @@ class MessagesFragment : Fragment() {
                     // Update stats with real data
                     updateExpenseCalculations()
                     
-                    Log.d("MessagesFragment", "✅ SMS Fallback: Loaded ${messageItems.size} unique transactions")
+                    Log.d("MessagesFragment", "[SUCCESS] SMS Fallback: Loaded ${messageItems.size} unique transactions")
                 } else {
+                    // FIXED: Show empty state instead of falling back to old approach
+                    Log.d("MessagesFragment", "Database has no transactions, showing empty state")
                     showEmptyState()
                 }
             } catch (e: Exception) {
@@ -877,13 +1001,26 @@ class MessagesFragment : Fragment() {
     }
     
     private fun showEmptyState() {
+        // FIXED: Clear all message data and show proper empty state
         groupedMessagesAdapter.submitList(emptyList())
         binding.recyclerMessages.visibility = View.GONE
         binding.layoutEmpty.visibility = View.VISIBLE
+        
+        // Reset counters to zero
         binding.tvTotalMessages.text = "0"
         binding.tvAutoCategorized.text = "0"
         
-        Log.d("MessagesFragment", "📭 Showing empty state")
+        // Clear internal data structures
+        allMessageItems = emptyList()
+        filteredMessageItems = emptyList()
+        
+        // Reset search and filters
+        binding.etSearch.setText("")
+        currentSearchQuery = ""
+        currentFilterOptions = FilterOptions()
+        binding.btnFilter.text = "Filter"
+        
+        Log.d("MessagesFragment", "[INFO] Showing proper empty state - all data cleared")
     }
     
     private fun showCategoryEditDialog(messageItem: MessageItem) {
@@ -895,7 +1032,7 @@ class MessagesFragment : Fragment() {
             "${getCategoryEmoji(category)} $category"
         }.toTypedArray()
         
-        Log.d("MessagesFragment", "🎯 Showing custom category dialog for ${messageItem.merchant}")
+        Log.d("MessagesFragment", "[TARGET] Showing custom category dialog for ${messageItem.merchant}")
         
         val dialog = CategorySelectionDialogFragment.newInstance(
             categories = enhancedCategories,
@@ -904,7 +1041,7 @@ class MessagesFragment : Fragment() {
         ) { selectedCategory ->
             // Remove emoji from selected category to get the actual name
             val actualCategory = selectedCategory.replace(Regex("^[\\p{So}\\p{Cn}]\\s+"), "")
-            Log.d("MessagesFragment", "✅ Category selected: $actualCategory for ${messageItem.merchant}")
+            Log.d("MessagesFragment", "[SUCCESS] Category selected: $actualCategory for ${messageItem.merchant}")
             if (actualCategory != messageItem.category) {
                 updateCategoryForMerchant(messageItem, actualCategory)
             }
@@ -922,7 +1059,7 @@ class MessagesFragment : Fragment() {
             "entertainment" -> "🎬"
             "shopping" -> "🛍️"
             "utilities" -> "⚡"
-            "money", "finance" -> "💰"
+            "money", "finance" -> "[FINANCIAL]"
             "education" -> "📚"
             "travel" -> "✈️"
             "bills" -> "💳"
@@ -945,7 +1082,7 @@ class MessagesFragment : Fragment() {
                 
                 // Show feedback
                 MaterialAlertDialogBuilder(requireContext())
-                    .setTitle("Category Updated! ✅")
+                    .setTitle("Category Updated! [SUCCESS]")
                     .setMessage("Updated category for ${messageItem.merchant} to '$newCategory'.")
                     .setPositiveButton("OK") { dialog, _ ->
                         dialog.dismiss()
@@ -1019,8 +1156,8 @@ class MessagesFragment : Fragment() {
     }
     
     private fun groupTransactionsByMerchant(transactions: List<MessageItem>): List<MerchantGroup> {
-        Log.d("MessagesFragment", "🔍 Grouping ${transactions.size} transactions by merchant")
-        Log.d("MessagesFragment", "🔍 Current sort option for grouping: ${currentSortOption.name}")
+        Log.d("MessagesFragment", "[DEBUG] Grouping ${transactions.size} transactions by merchant")
+        Log.d("MessagesFragment", "[DEBUG] Current sort option for grouping: ${currentSortOption.name}")
         
         // Group by the display name (which is already set from the alias manager)
         val groups = transactions
@@ -1111,7 +1248,7 @@ class MessagesFragment : Fragment() {
             }
         }
         
-        Log.d("MessagesFragment", "🔍 Created ${sortedGroups.size} merchant groups, sorted by ${currentSortOption.field}")
+        Log.d("MessagesFragment", "[DEBUG] Created ${sortedGroups.size} merchant groups, sorted by ${currentSortOption.field}")
         
         // Load saved inclusion states
         return loadGroupInclusionStates(sortedGroups)
@@ -1135,6 +1272,12 @@ class MessagesFragment : Fragment() {
         
         // Store the inclusion state in SharedPreferences for other screens to use
         saveGroupInclusionStates(currentGroups)
+        
+        // FIXED: Notify other screens about inclusion state changes
+        val intent = Intent("com.expensemanager.INCLUSION_STATE_CHANGED")
+        intent.putExtra("included_count", totalMessages)
+        intent.putExtra("total_amount", includedGroups.sumOf { it.totalAmount })
+        requireContext().sendBroadcast(intent)
         
         // Log for debugging
         val totalIncludedAmount = includedGroups.sumOf { it.totalAmount }
@@ -1186,7 +1329,7 @@ class MessagesFragment : Fragment() {
             "${getCategoryEmoji(category)} $category"
         }.toTypedArray()
         
-        Log.d("MessagesFragment", "🎯 Showing custom category selection dialog, current: $currentSelection")
+        Log.d("MessagesFragment", "[TARGET] Showing custom category selection dialog, current: $currentSelection")
         
         val dialog = CategorySelectionDialogFragment.newInstance(
             categories = enhancedCategories,
@@ -1195,7 +1338,7 @@ class MessagesFragment : Fragment() {
         ) { selectedCategory ->
             // Remove emoji from selected category to get the actual name
             val actualCategory = selectedCategory.replace(Regex("^[\\p{So}\\p{Cn}]\\s+"), "")
-            Log.d("MessagesFragment", "✅ Category selected from long press: $actualCategory")
+            Log.d("MessagesFragment", "[SUCCESS] Category selected from long press: $actualCategory")
             onCategorySelected(actualCategory)
         }
         
@@ -1298,72 +1441,239 @@ class MessagesFragment : Fragment() {
     private fun updateMerchantGroup(group: MerchantGroup, newDisplayName: String, newCategory: String) {
         lifecycleScope.launch {
             try {
-                Log.d("MessagesFragment", "Updating merchant group: ${group.merchantName} -> $newDisplayName, category: ${group.category} -> $newCategory")
+                Log.d("MessagesFragment", "[PROCESS] Starting merchant group update: ${group.merchantName} -> $newDisplayName, category: ${group.category} -> $newCategory")
+                
+                // Enhanced validation
+                if (newDisplayName.trim().isEmpty()) {
+                    Toast.makeText(requireContext(), "[ERROR] Display name cannot be empty", Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
+                
+                if (newCategory.trim().isEmpty()) {
+                    Toast.makeText(requireContext(), "[ERROR] Category cannot be empty", Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
                 
                 // Find all transactions in this group to get their original merchant names
                 val originalMerchantNames = mutableSetOf<String>()
                 
-                // If this group already has aliases, get all the original names
+                // Enhanced original merchant name detection
+                Log.d("MessagesFragment", "[DEBUG] Finding original merchant names for group: ${group.merchantName}")
+                
+                // METHOD 1: Check if this group already has aliases
                 val existingOriginalNames = merchantAliasManager.getMerchantsByDisplayName(group.merchantName)
-                Log.d("MessagesFragment", "Found existing original names: $existingOriginalNames")
+                Log.d("MessagesFragment", "[LIST] Existing original names from aliases: $existingOriginalNames")
                 
                 if (existingOriginalNames.isNotEmpty()) {
                     originalMerchantNames.addAll(existingOriginalNames)
+                    Log.d("MessagesFragment", "[SUCCESS] Using existing alias mappings")
                 } else {
-                    // This group has no aliases yet, so we need to find the original merchant names
-                    // by looking at the raw SMS data in the transactions
+                    Log.d("MessagesFragment", "[DEBUG] No existing aliases found, extracting from transactions...")
+                    
+                    // METHOD 2: Extract from raw SMS data in transactions
+                    var extractedCount = 0
                     group.transactions.forEach { transaction ->
-                        // Extract original merchant name from raw SMS
-                        val originalName = extractOriginalMerchantFromRawSMS(transaction.rawSMS)
-                        if (originalName.isNotEmpty()) {
-                            originalMerchantNames.add(originalName)
-                            Log.d("MessagesFragment", "Extracted original name from SMS: $originalName")
+                        val extractedName = extractOriginalMerchantFromRawSMS(transaction.rawSMS)
+                        if (extractedName.isNotEmpty() && extractedName.length >= 3) { // Minimum length check
+                            originalMerchantNames.add(extractedName)
+                            extractedCount++
+                            Log.d("MessagesFragment", "📤 Extracted: $extractedName from SMS: ${transaction.rawSMS.take(50)}...")
                         }
                     }
                     
-                    // If we couldn't extract from raw SMS, use the current display name as original
+                    Log.d("MessagesFragment", "[ANALYTICS] Extracted $extractedCount original names from ${group.transactions.size} transactions")
+                    
+                    // METHOD 3: Fallback to current display name if no extraction worked
                     if (originalMerchantNames.isEmpty()) {
                         originalMerchantNames.add(group.merchantName)
-                        Log.d("MessagesFragment", "Using current display name as original: ${group.merchantName}")
+                        Log.w("MessagesFragment", "[WARNING] Fallback: Using current display name as original: ${group.merchantName}")
+                    }
+                    
+                    // METHOD 4: Try alternative extraction using transaction data
+                    if (originalMerchantNames.size == 1 && originalMerchantNames.first() == group.merchantName) {
+                        Log.d("MessagesFragment", "[PROCESS] Attempting alternative merchant name extraction...")
+                        group.transactions.forEach { transaction ->
+                            // Try different patterns for merchant extraction
+                            val alternativeNames = extractAlternativeMerchantNames(transaction.rawSMS)
+                            alternativeNames.forEach { name ->
+                                if (name.isNotEmpty() && name != group.merchantName) {
+                                    originalMerchantNames.add(name)
+                                    Log.d("MessagesFragment", "[TARGET] Alternative extraction: $name")
+                                }
+                            }
+                        }
                     }
                 }
                 
-                Log.d("MessagesFragment", "All original merchant names to update: $originalMerchantNames")
+                Log.d("MessagesFragment", "📝 Final original merchant names to update: $originalMerchantNames")
                 
-                // Validate the new category exists in CategoryManager
+                // Enhanced category validation and creation
                 val allCategories = categoryManager.getAllCategories()
+                Log.d("MessagesFragment", "📂 Available categories: $allCategories")
+                
                 if (!allCategories.contains(newCategory)) {
-                    Log.w("MessagesFragment", "Category '$newCategory' not found in available categories: $allCategories")
-                    // Add the category if it's new
-                    categoryManager.addCustomCategory(newCategory)
-                    Log.d("MessagesFragment", "Added new category '$newCategory' to CategoryManager")
+                    Log.i("MessagesFragment", "➕ Creating new category: $newCategory")
+                    try {
+                        categoryManager.addCustomCategory(newCategory)
+                        Log.d("MessagesFragment", "[SUCCESS] Successfully added new category: $newCategory")
+                    } catch (e: Exception) {
+                        Log.e("MessagesFragment", "[ERROR] Failed to add new category: $newCategory", e)
+                        Toast.makeText(
+                            requireContext(),
+                            "[ERROR] Failed to create category '$newCategory': ${e.message}",
+                            Toast.LENGTH_LONG
+                        ).show()
+                        return@launch
+                    }
                 }
                 
-                // Create/update aliases for all original merchant names
-                originalMerchantNames.forEach { originalName ->
-                    Log.d("MessagesFragment", "Setting alias: $originalName -> $newDisplayName ($newCategory)")
-                    merchantAliasManager.setMerchantAlias(originalName, newDisplayName, newCategory)
+                // STEP 1: Update SharedPreferences (MerchantAliasManager)
+                Log.d("MessagesFragment", "📝 Step 1: Updating SharedPreferences aliases...")
+                var aliasUpdateSuccess = true
+                var aliasUpdateError: String? = null
+                
+                var aliasSetCount = 0
+                var aliasFailCount = 0
+                
+                try {
+                    originalMerchantNames.forEachIndexed { index, originalName ->
+                        Log.d("MessagesFragment", "📝 Setting alias ${index + 1}/${originalMerchantNames.size}: $originalName -> $newDisplayName ($newCategory)")
+                        
+                        val aliasSetSuccess = merchantAliasManager.setMerchantAlias(originalName, newDisplayName, newCategory)
+                        
+                        if (aliasSetSuccess) {
+                            aliasSetCount++
+                            Log.d("MessagesFragment", "[SUCCESS] Successfully set alias for: $originalName")
+                            
+                            // Verify the alias was set correctly
+                            val verifyDisplayName = merchantAliasManager.getDisplayName(originalName)
+                            val verifyCategory = merchantAliasManager.getMerchantCategory(originalName)
+                            Log.d("MessagesFragment", "[DEBUG] Verification: $originalName -> display: $verifyDisplayName, category: $verifyCategory")
+                            
+                            if (verifyDisplayName != newDisplayName || verifyCategory != newCategory) {
+                                Log.w("MessagesFragment", "[WARNING] Alias verification failed for $originalName: expected $newDisplayName/$newCategory, got $verifyDisplayName/$verifyCategory")
+                            }
+                        } else {
+                            aliasFailCount++
+                            Log.e("MessagesFragment", "[ERROR] Failed to set alias for: $originalName")
+                        }
+                    }
+                    
+                    Log.d("MessagesFragment", "[ANALYTICS] SharedPreferences update summary: ${aliasSetCount} success, ${aliasFailCount} failed out of ${originalMerchantNames.size}")
+                    
+                    // Consider successful if majority of aliases were set
+                    if (aliasSetCount > 0 && aliasSetCount >= aliasFailCount) {
+                        Log.d("MessagesFragment", "[SUCCESS] SharedPreferences update completed successfully")
+                    } else {
+                        Log.e("MessagesFragment", "[ERROR] SharedPreferences update failed - too many individual failures")
+                        aliasUpdateSuccess = false
+                        aliasUpdateError = "$aliasFailCount out of ${originalMerchantNames.size} aliases failed to set"
+                    }
+                    
+                } catch (e: Exception) {
+                    Log.e("MessagesFragment", "[ERROR] SharedPreferences update failed", e)
+                    aliasUpdateSuccess = false
+                    aliasUpdateError = e.message
                 }
                 
-                Log.d("MessagesFragment", "All aliases updated, reloading historical transactions...")
+                // STEP 2: Update Database (ExpenseRepository)
+                Log.d("MessagesFragment", "[DATABASE] Step 2: Updating database...")
+                var databaseUpdateSuccess = false
+                var databaseUpdateError: String? = null
                 
-                // Reload data to reflect changes
-                loadHistoricalTransactions()
+                if (aliasUpdateSuccess) {
+                    try {
+                        val repository = com.expensemanager.app.data.repository.ExpenseRepository.getInstance(requireContext())
+                        Log.d("MessagesFragment", "[DATABASE] Calling repository.updateMerchantAliasInDatabase with ${originalMerchantNames.size} merchants")
+                        
+                        databaseUpdateSuccess = repository.updateMerchantAliasInDatabase(
+                            originalMerchantNames.toList(),
+                            newDisplayName,
+                            newCategory
+                        )
+                        
+                        if (databaseUpdateSuccess) {
+                            Log.d("MessagesFragment", "[SUCCESS] Database update completed successfully")
+                            
+                            // Verify database changes
+                            originalMerchantNames.take(3).forEach { originalName ->
+                                try {
+                                    // Use MerchantAliasManager's normalizeMerchantName since repository's is private
+                                    val normalizedName = merchantAliasManager.normalizeMerchantName(originalName)
+                                    val merchantWithCategory = repository.getMerchantWithCategory(normalizedName)
+                                    Log.d("MessagesFragment", "[DEBUG] DB Verification: $originalName -> ${merchantWithCategory?.display_name} (${merchantWithCategory?.category_name})")
+                                } catch (e: Exception) {
+                                    Log.w("MessagesFragment", "Could not verify database changes for $originalName", e)
+                                }
+                            }
+                        } else {
+                            Log.e("MessagesFragment", "[ERROR] Database update failed (returned false)")
+                            databaseUpdateError = "Database update returned false"
+                        }
+                    } catch (e: Exception) {
+                        Log.e("MessagesFragment", "[ERROR] Database update failed with exception", e)
+                        databaseUpdateSuccess = false
+                        databaseUpdateError = e.message
+                    }
+                } else {
+                    Log.w("MessagesFragment", "[SKIP] Skipping database update due to SharedPreferences failure")
+                    databaseUpdateError = "SharedPreferences update failed first"
+                }
                 
-                Toast.makeText(
-                    requireContext(),
-                    "✅ Updated group '$newDisplayName' in category '$newCategory'",
-                    Toast.LENGTH_LONG
-                ).show()
+                // STEP 3: Enhanced result handling and user feedback
+                when {
+                    aliasUpdateSuccess && databaseUpdateSuccess -> {
+                        Log.d("MessagesFragment", "[SUCCESS] COMPLETE SUCCESS: Both SharedPreferences and Database updated")
+                        
+                        // Reload data to reflect changes
+                        loadHistoricalTransactions()
+                        
+                        // Also trigger ViewModel update if available
+                        try {
+                            messagesViewModel.handleEvent(MessagesUIEvent.ResyncSMS)
+                        } catch (e: Exception) {
+                            Log.w("MessagesFragment", "Could not trigger ViewModel resync", e)
+                        }
+                        
+                        Toast.makeText(
+                            requireContext(),
+                            "[SUCCESS] Successfully updated '${group.merchantName}' to '$newDisplayName' in category '$newCategory'",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                    
+                    aliasUpdateSuccess && !databaseUpdateSuccess -> {
+                        Log.w("MessagesFragment", "[WARNING] PARTIAL SUCCESS: SharedPreferences updated but database failed")
+                        
+                        // Still reload data to show UI changes
+                        loadHistoricalTransactions()
+                        
+                        Toast.makeText(
+                            requireContext(),
+                            "[WARNING] Changes saved to app memory but database update failed. Changes may not persist after app restart.\n\nError: ${databaseUpdateError ?: "Unknown database error"}",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                    
+                    !aliasUpdateSuccess -> {
+                        Log.e("MessagesFragment", "[ERROR] COMPLETE FAILURE: SharedPreferences update failed")
+                        
+                        Toast.makeText(
+                            requireContext(),
+                            "[ERROR] Failed to save changes to app memory.\n\nError: ${aliasUpdateError ?: "Unknown error"}\n\nPlease try again or restart the app.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
                 
-                Log.d("MessagesFragment", "Merchant group update completed successfully")
+                Log.d("MessagesFragment", "🏁 Merchant group update process completed - Success: Alias=$aliasUpdateSuccess, DB=$databaseUpdateSuccess")
                 
             } catch (e: Exception) {
-                Log.e("MessagesFragment", "Error updating merchant group", e)
+                Log.e("MessagesFragment", "💥 Critical error during merchant group update", e)
                 Toast.makeText(
                     requireContext(),
-                    "❌ Error updating group: ${e.message}",
-                    Toast.LENGTH_SHORT
+                    "[ERROR] Critical error updating group: ${e.message}\n\nPlease restart the app and try again.",
+                    Toast.LENGTH_LONG
                 ).show()
             }
         }
@@ -1371,24 +1681,95 @@ class MessagesFragment : Fragment() {
     
     private fun extractOriginalMerchantFromRawSMS(rawSMS: String): String {
         // Try to extract the original merchant name from the raw SMS
-        // This uses the same logic as the SMSHistoryReader
+        // This uses enhanced logic for better merchant name detection
         val patterns = listOf(
+            // Standard patterns
             Regex("""at\s+([A-Z][A-Z0-9\s&'-]+?)(?:\s+on\s+|\s+for\s+|\s*\.|,|$)""", RegexOption.IGNORE_CASE),
             Regex("""to\s+([A-Z][A-Z0-9\s&'-]+?)(?:\s+on\s+|\s+for\s+|\s*\.|,|$)""", RegexOption.IGNORE_CASE),
             Regex("""for\s+([A-Z][A-Z0-9\s&'-]+?)(?:\s+on\s+|\s*\.|,|$)""", RegexOption.IGNORE_CASE),
             Regex("""UPI[/-]([A-Z][A-Z0-9\s&'-]+?)(?:\s+|\s*\.|,|$)""", RegexOption.IGNORE_CASE),
-            Regex("""([A-Z]{3,})\*[A-Z0-9]+""", RegexOption.IGNORE_CASE)
+            Regex("""([A-Z]{3,})\*[A-Z0-9]+""", RegexOption.IGNORE_CASE),
+            
+            // Additional enhanced patterns
+            Regex("""merchant\s+([A-Z][A-Z0-9\s&'-]+?)(?:\s+|\s*\.|,|$)""", RegexOption.IGNORE_CASE),
+            Regex("""from\s+([A-Z][A-Z0-9\s&'-]+?)(?:\s+on\s+|\s+for\s+|\s*\.|,|$)""", RegexOption.IGNORE_CASE),
+            Regex("""via\s+([A-Z][A-Z0-9\s&'-]+?)(?:\s+on\s+|\s+for\s+|\s*\.|,|$)""", RegexOption.IGNORE_CASE)
         )
         
         for (pattern in patterns) {
             val match = pattern.find(rawSMS)
-            if (match != null) {
+            if (match != null && match.groupValues.size > 1) {
                 val merchantName = match.groupValues[1].trim()
-                return cleanMerchantName(merchantName)
+                val cleaned = cleanMerchantName(merchantName)
+                if (cleaned.isNotEmpty() && cleaned.length >= 3) {
+                    Log.d("MessagesFragment", "[TARGET] Extracted merchant: '$cleaned' from SMS using pattern: ${pattern.pattern.take(20)}...")
+                    return cleaned
+                }
             }
         }
         
+        Log.d("MessagesFragment", "[ERROR] No merchant extracted from SMS: ${rawSMS.take(100)}...")
         return ""
+    }
+    
+    private fun extractAlternativeMerchantNames(rawSMS: String): List<String> {
+        // Alternative extraction methods for merchant names
+        val names = mutableListOf<String>()
+        
+        try {
+            // Method 1: Extract words that look like merchant names (capitalized sequences)
+            val capitalizedWords = Regex("""([A-Z][A-Za-z0-9&'-]{2,}(?:\s+[A-Z][A-Za-z0-9&'-]{2,})*)""").findAll(rawSMS)
+            capitalizedWords.forEach { match ->
+                val word = match.value.trim()
+                if (word.length >= 3 && !isCommonWord(word)) {
+                    names.add(cleanMerchantName(word))
+                }
+            }
+            
+            // Method 2: Extract from transaction references
+            val transactionRefs = Regex("""([A-Z]{2,}[0-9]{3,})""").findAll(rawSMS)
+            transactionRefs.forEach { match ->
+                val ref = match.value
+                // Extract letters part as potential merchant
+                val merchantPart = ref.replace(Regex("""[0-9]+"""), "")
+                if (merchantPart.length >= 3) {
+                    names.add(merchantPart)
+                }
+            }
+            
+            // Method 3: Extract from payment descriptions
+            val descriptions = listOf(
+                Regex("""payment\s+to\s+([A-Z][A-Za-z0-9\s&'-]{2,})""", RegexOption.IGNORE_CASE),
+                Regex("""paid\s+to\s+([A-Z][A-Za-z0-9\s&'-]{2,})""", RegexOption.IGNORE_CASE),
+                Regex("""transfer\s+to\s+([A-Z][A-Za-z0-9\s&'-]{2,})""", RegexOption.IGNORE_CASE)
+            )
+            
+            descriptions.forEach { pattern ->
+                pattern.findAll(rawSMS).forEach { match ->
+                    if (match.groupValues.size > 1) {
+                        val name = cleanMerchantName(match.groupValues[1])
+                        if (name.isNotEmpty()) {
+                            names.add(name)
+                        }
+                    }
+                }
+            }
+            
+        } catch (e: Exception) {
+            Log.w("MessagesFragment", "Error in alternative merchant name extraction", e)
+        }
+        
+        return names.distinct().filter { it.length >= 3 }
+    }
+    
+    private fun isCommonWord(word: String): Boolean {
+        // Filter out common words that aren't merchant names
+        val commonWords = setOf(
+            "BANK", "CARD", "DEBIT", "CREDIT", "PAYMENT", "TRANSACTION", "TRANSFER",
+            "AMOUNT", "BALANCE", "ACCOUNT", "UPI", "NEFT", "RTGS", "IMPS",
+            "DATE", "TIME", "FROM", "YOUR", "AVAILABLE", "INFO", "DETAILS"
+        )
+        return commonWords.contains(word.uppercase())
     }
     
     private fun cleanMerchantName(merchant: String): String {
@@ -1420,7 +1801,7 @@ class MessagesFragment : Fragment() {
                 
                 Toast.makeText(
                     requireContext(),
-                    "✅ Reset group to original names and categories",
+                    "[SUCCESS] Reset group to original names and categories",
                     Toast.LENGTH_LONG
                 ).show()
                 
@@ -1428,7 +1809,7 @@ class MessagesFragment : Fragment() {
                 Log.e("MessagesFragment", "Error resetting merchant group", e)
                 Toast.makeText(
                     requireContext(),
-                    "❌ Error resetting group: ${e.message}",
+                    "[ERROR] Error resetting group: ${e.message}",
                     Toast.LENGTH_SHORT
                 ).show()
             }
@@ -1486,14 +1867,3 @@ class MessagesFragment : Fragment() {
         _binding = null
     }
 }
-
-data class MessageItem(
-    val amount: Double,
-    val merchant: String,
-    val bankName: String,
-    val category: String,
-    val categoryColor: String,
-    val confidence: Int,
-    val dateTime: String,
-    val rawSMS: String
-)

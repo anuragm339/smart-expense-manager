@@ -21,6 +21,15 @@ data class Transaction(
     fun getDateAsDate(): Date = Date(date)
     fun getCreatedAtAsDate(): Date = Date(createdAt)
     
+    // Extension properties for ViewModel compatibility
+    val timestamp: Long get() = date
+    val categoryId: String get() = category
+    val categoryName: String? get() = if (category.isNotEmpty()) category else null
+    val description: String get() = merchant
+    val smsBody: String? get() = if (rawSMS.isNotEmpty()) rawSMS else null
+    val note: String? get() = if (notes.isNotEmpty()) notes else null
+    val excludeFromBudget: Boolean get() = false // Default to false
+    
     companion object {
         fun fromParsedTransaction(
             parsedTransaction: com.expensemanager.app.utils.ParsedTransaction,

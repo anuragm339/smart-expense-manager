@@ -62,6 +62,21 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE sms_id = :smsId")
     suspend fun getTransactionBySmsId(smsId: String): TransactionEntity?
     
+    @Query("""
+        SELECT * FROM transactions 
+        WHERE normalized_merchant LIKE '%' || :merchant || '%' 
+        AND ABS(amount - :amount) < 0.01 
+        AND DATE(transaction_date) = :dateStr 
+        AND bank_name = :bankName
+        LIMIT 1
+    """)
+    suspend fun findSimilarTransaction(
+        merchant: String, 
+        amount: Double, 
+        dateStr: String, 
+        bankName: String
+    ): TransactionEntity?
+    
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertTransaction(transaction: TransactionEntity): Long
     
@@ -79,6 +94,24 @@ interface TransactionDao {
     
     @Query("DELETE FROM transactions")
     suspend fun deleteAllTransactions()
+    
+    /**
+     * Find transactions that might be duplicates based on business logic
+     * Used for deduplication when SMS IDs might differ but transactions are identical
+     */
+    @Query("""
+        SELECT COUNT(*) FROM transactions 
+        WHERE normalized_merchant = :normalizedMerchant 
+        AND amount = :amount 
+        AND DATE(transaction_date) = :transactionDateStr
+        AND bank_name = :bankName
+    """)
+    suspend fun countSimilarTransactions(
+        normalizedMerchant: String,
+        amount: Double,
+        transactionDateStr: String,
+        bankName: String
+    ): Int
     
     // For dashboard category breakdown - joins with merchants to get categories
     @Query("""

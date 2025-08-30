@@ -7,12 +7,15 @@ import com.expensemanager.app.data.models.InsightPriority
 import com.expensemanager.app.data.repository.AIInsightsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Use case for getting AI insights with business logic
  * Handles filtering, sorting, and transformation of insights
  */
-class GetAIInsightsUseCase(
+@Singleton
+class GetAIInsightsUseCase @Inject constructor(
     private val repository: AIInsightsRepository
 ) {
     

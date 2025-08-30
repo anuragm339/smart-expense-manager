@@ -49,9 +49,16 @@ class SMSReceiver : BroadcastReceiver() {
         
         Log.d(TAG, "Processing SMS from $sender: ${messageBody.take(100)}...")
         
+        // FIXED: Generate consistent SMS ID to prevent duplicates
+        val smsId = com.expensemanager.app.data.entities.TransactionEntity.generateSmsId(
+            address = sender, 
+            body = messageBody, 
+            timestamp = timestamp
+        )
+        
         // Create a HistoricalSMS-like object for the parser
         val smsData = HistoricalSMS(
-            id = timestamp.toString(),
+            id = smsId,
             address = sender,
             body = messageBody,
             date = Date(timestamp),
@@ -72,15 +79,35 @@ class SMSReceiver : BroadcastReceiver() {
                         val repository = ExpenseRepository.getInstance(context)
                         
                         // Convert to TransactionEntity and save to SQLite
-                        val transactionEntity = repository.convertToTransactionEntity(parsedTransaction)
+                        // Convert from utils.ParsedTransaction to services.ParsedTransaction
+                        val servicesParsedTransaction = com.expensemanager.app.services.ParsedTransaction(
+                            id = parsedTransaction.id,
+                            amount = parsedTransaction.amount,
+                            merchant = parsedTransaction.merchant,
+                            bankName = parsedTransaction.bankName,
+                            date = parsedTransaction.date,
+                            rawSMS = parsedTransaction.rawSMS,
+                            confidence = parsedTransaction.confidence
+                        )
+                        val transactionEntity = repository.convertToTransactionEntity(servicesParsedTransaction)
                         
-                        // Check if transaction already exists to avoid duplicates
+                        // FIXED: Enhanced duplicate prevention with both SMS ID and transaction similarity checks
                         val existingTransaction = repository.getTransactionBySmsId(transactionEntity.smsId)
-                        if (existingTransaction == null) {
+                        
+                        // Additional check for transaction similarity (in case SMS ID generation changed)
+                        val deduplicationKey = com.expensemanager.app.data.entities.TransactionEntity.generateDeduplicationKey(
+                            merchant = servicesParsedTransaction.merchant,
+                            amount = servicesParsedTransaction.amount,
+                            date = servicesParsedTransaction.date,
+                            bankName = servicesParsedTransaction.bankName
+                        )
+                        val similarTransaction = repository.findSimilarTransaction(deduplicationKey)
+                        
+                        if (existingTransaction == null && similarTransaction == null) {
                             val insertedId = repository.insertTransaction(transactionEntity)
                             
                             if (insertedId > 0) {
-                                Log.d(TAG, "✅ New transaction saved to SQLite: ${parsedTransaction.merchant} - ₹${parsedTransaction.amount}")
+                                Log.d(TAG, "[SUCCESS] New transaction saved to SQLite: ${parsedTransaction.merchant} - ₹${parsedTransaction.amount}")
                                 
                                 // Show notification
                                 val notificationManager = TransactionNotificationManager(context)
@@ -104,12 +131,13 @@ class SMSReceiver : BroadcastReceiver() {
                                 updateIntent.putExtra("merchant", transactionEntity.rawMerchant)
                                 context.sendBroadcast(updateIntent)
                                 
-                                Log.d(TAG, "📡 Broadcast sent for new transaction: ${transactionEntity.smsId}")
+                                Log.d(TAG, "[BROADCAST] Broadcast sent for new transaction: ${transactionEntity.smsId}")
                             } else {
                                 Log.w(TAG, "Failed to insert transaction into database")
                             }
                         } else {
-                            Log.d(TAG, "Transaction already exists, skipping: ${transactionEntity.smsId}")
+                            val reason = if (existingTransaction != null) "SMS ID already exists" else "Similar transaction found"
+                            Log.d(TAG, "Duplicate transaction detected ($reason), skipping: ${transactionEntity.smsId}")
                         }
                         
                     } catch (e: Exception) {

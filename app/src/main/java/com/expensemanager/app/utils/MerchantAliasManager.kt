@@ -32,7 +32,11 @@ class MerchantAliasManager(private val context: Context) {
      */
     fun getDisplayName(originalMerchantName: String): String {
         val normalizedName = normalizeMerchantName(originalMerchantName)
-        return getAlias(normalizedName)?.displayName ?: originalMerchantName
+        val alias = getAlias(normalizedName)
+        val displayName = alias?.displayName ?: originalMerchantName
+        
+        
+        return displayName
     }
     
     /**
@@ -41,7 +45,10 @@ class MerchantAliasManager(private val context: Context) {
     fun getMerchantCategory(originalMerchantName: String): String {
         val normalizedName = normalizeMerchantName(originalMerchantName)
         val alias = getAlias(normalizedName)
-        return alias?.category ?: categoryManager.categorizeTransaction(originalMerchantName)
+        val category = alias?.category ?: categoryManager.categorizeTransaction(originalMerchantName)
+        
+        
+        return category
     }
     
     /**
@@ -56,25 +63,68 @@ class MerchantAliasManager(private val context: Context) {
     /**
      * Create or update an alias for a merchant
      */
-    fun setMerchantAlias(originalName: String, displayName: String, category: String) {
-        val normalizedName = normalizeMerchantName(originalName)
-        val categoryColor = categoryManager.getCategoryColor(category)
-        
-        val alias = MerchantAlias(
-            originalName = normalizedName,
-            displayName = displayName,
-            category = category,
-            categoryColor = categoryColor
-        )
-        
-        val aliases = getAllAliases().toMutableMap()
-        aliases[normalizedName] = alias
-        saveAliases(aliases)
-        
-        // Update cache
-        aliasCache = aliases
-        
-        Log.d(TAG, "Set alias: $normalizedName -> $displayName ($category)")
+    fun setMerchantAlias(originalName: String, displayName: String, category: String): Boolean {
+        return try {
+            // Enhanced validation
+            if (originalName.trim().isEmpty()) {
+                return false
+            }
+            
+            if (displayName.trim().isEmpty()) {
+                return false
+            }
+            
+            if (category.trim().isEmpty()) {
+                return false
+            }
+            
+            val normalizedName = normalizeMerchantName(originalName)
+            
+            // Get category color with fallback
+            var categoryColor = categoryManager.getCategoryColor(category)
+            if (categoryColor.isEmpty() || categoryColor == "#000000") {
+                categoryColor = "#4CAF50" // Default green
+            }
+            
+            val alias = MerchantAlias(
+                originalName = normalizedName,
+                displayName = displayName.trim(),
+                category = category.trim(),
+                categoryColor = categoryColor
+            )
+            
+            // Get current aliases with error handling
+            val aliases = try {
+                getAllAliases().toMutableMap()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error loading existing aliases, starting fresh", e)
+                mutableMapOf<String, MerchantAlias>()
+            }
+            
+            aliases[normalizedName] = alias
+            
+            // Save aliases with error handling
+            val saveSuccess = try {
+                saveAliases(aliases)
+                true
+            } catch (e: Exception) {
+                Log.e(TAG, "[ERROR] Failed to save aliases", e)
+                false
+            }
+            
+            if (saveSuccess) {
+                // Update cache only if save was successful
+                aliasCache = aliases
+                return true
+            } else {
+                Log.e(TAG, "Failed to save alias for $normalizedName")
+                return false
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Critical error setting merchant alias", e)
+            false
+        }
     }
     
     /**
@@ -89,7 +139,6 @@ class MerchantAliasManager(private val context: Context) {
         // Update cache
         aliasCache = aliases
         
-        Log.d(TAG, "Removed alias for: $normalizedName")
     }
     
     /**
@@ -162,11 +211,36 @@ class MerchantAliasManager(private val context: Context) {
     
     private fun saveAliases(aliases: Map<String, MerchantAlias>) {
         try {
+            Log.d(TAG, "[SAVE] Saving ${aliases.size} merchant aliases to SharedPreferences...")
+            
             val aliasesJson = convertAliasesToJson(aliases)
-            prefs.edit().putString(KEY_ALIASES, aliasesJson).apply()
-            Log.d(TAG, "Saved ${aliases.size} merchant aliases")
+            Log.d(TAG, "📝 Converted aliases to JSON (${aliasesJson.length} chars)")
+            
+            val editor = prefs.edit()
+            val putSuccess = editor.putString(KEY_ALIASES, aliasesJson)
+            Log.d(TAG, "📝 Put string to editor: $putSuccess")
+            
+            val commitSuccess = editor.commit() // Use commit() instead of apply() for immediate error detection
+            
+            if (commitSuccess) {
+                Log.d(TAG, "[SUCCESS] Successfully saved ${aliases.size} merchant aliases")
+                
+                // Verify the save by reading it back
+                val savedJson = prefs.getString(KEY_ALIASES, null)
+                if (savedJson != null && savedJson == aliasesJson) {
+                    Log.d(TAG, "[DEBUG] Save verification successful")
+                } else {
+                    Log.w(TAG, "[WARNING] Save verification failed - data may not have persisted correctly")
+                    throw Exception("Save verification failed")
+                }
+            } else {
+                Log.e(TAG, "[ERROR] SharedPreferences commit() returned false")
+                throw Exception("SharedPreferences commit failed")
+            }
+            
         } catch (e: Exception) {
-            Log.e(TAG, "Error saving aliases", e)
+            Log.e(TAG, "💥 Error saving aliases to SharedPreferences", e)
+            throw e // Re-throw to let caller handle
         }
     }
     
@@ -210,7 +284,7 @@ class MerchantAliasManager(private val context: Context) {
      * Normalize merchant name for consistent mapping
      * Handles variations like "SWIGGY", "Swiggy*Order", "SWIGGY-CHENNAI"
      */
-    private fun normalizeMerchantName(name: String): String {
+    fun normalizeMerchantName(name: String): String {
         return name.uppercase()
             .replace(Regex("[*#@\\-_]+.*"), "") // Remove suffixes after special chars
             .replace(Regex("\\s+"), " ") // Normalize spaces

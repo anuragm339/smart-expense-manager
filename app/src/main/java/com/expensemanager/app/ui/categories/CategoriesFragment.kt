@@ -8,9 +8,12 @@ import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
+import dagger.hilt.android.AndroidEntryPoint
 import com.expensemanager.app.R
 import com.expensemanager.app.databinding.FragmentCategoriesBinding
 import com.google.android.material.button.MaterialButton
@@ -20,7 +23,7 @@ import com.expensemanager.app.data.repository.ExpenseRepository
 import com.expensemanager.app.data.dao.CategorySpendingResult
 import com.expensemanager.app.utils.SMSHistoryReader
 import com.expensemanager.app.utils.MerchantAliasManager
-import com.expensemanager.app.utils.ParsedTransaction
+import com.expensemanager.app.services.ParsedTransaction
 import com.expensemanager.app.utils.CategoryManager
 import com.expensemanager.app.ui.dashboard.ProcessedTransaction
 import kotlinx.coroutines.launch
@@ -28,11 +31,16 @@ import java.util.*
 import android.content.Context
 import android.util.Log
 
+@AndroidEntryPoint
 class CategoriesFragment : Fragment() {
     
     private var _binding: FragmentCategoriesBinding? = null
     private val binding get() = _binding!!
     
+    // ViewModel injection
+    private val viewModel: CategoriesViewModel by viewModels()
+    
+    // Keep repository and managers for fallback compatibility
     private lateinit var repository: ExpenseRepository
     private lateinit var categoriesAdapter: CategoriesAdapter
     private lateinit var merchantAliasManager: MerchantAliasManager
@@ -49,17 +57,23 @@ class CategoriesFragment : Fragment() {
     
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        
+        // Initialize legacy components for fallback compatibility
         repository = ExpenseRepository.getInstance(requireContext())
         merchantAliasManager = MerchantAliasManager(requireContext())
         categoryManager = CategoryManager(requireContext())
+        
         setupRecyclerView()
         setupUI()
         setupClickListeners()
-        loadRealCategoryData()
+        observeViewModel()
     }
     
     private fun setupRecyclerView() {
         categoriesAdapter = CategoriesAdapter { categoryItem ->
+            // Notify ViewModel of category selection for any business logic
+            viewModel.handleEvent(CategoriesUIEvent.CategorySelected(categoryItem.name))
+            
             // Navigate to category transactions
             val bundle = Bundle().apply {
                 putString("categoryName", categoryItem.name)
@@ -73,14 +87,55 @@ class CategoriesFragment : Fragment() {
             adapter = categoriesAdapter
             layoutManager = LinearLayoutManager(requireContext())
         }
-        
-        // Initially show empty list - real data will be loaded by loadRealCategoryData()
-        categoriesAdapter.submitList(emptyList())
     }
     
     private fun setupUI() {
         binding.tvTotalSpending.text = "Loading..."
         binding.tvCategoriesCount.text = "0 Categories"
+    }
+    
+    /**
+     * Observe ViewModel state changes using the proven pattern
+     */
+    private fun observeViewModel() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+                viewModel.uiState.collect { uiState ->
+                    updateUI(uiState)
+                }
+            }
+        }
+    }
+    
+    /**
+     * Update UI based on ViewModel state
+     */
+    private fun updateUI(uiState: CategoriesUIState) {
+        // Update categories list
+        categoriesAdapter.submitList(uiState.categories)
+        
+        // Update summary text
+        binding.tvTotalSpending.text = uiState.formattedTotalSpent
+        binding.tvCategoriesCount.text = uiState.formattedCategoryCount
+        
+        // Handle loading states
+        if (uiState.isInitialLoading) {
+            binding.tvTotalSpending.text = "Loading..."
+            binding.tvCategoriesCount.text = "Loading..."
+        }
+        
+        // Handle error states
+        if (uiState.shouldShowError && uiState.error != null) {
+            Toast.makeText(requireContext(), uiState.error, Toast.LENGTH_SHORT).show()
+            // Clear error after showing
+            viewModel.handleEvent(CategoriesUIEvent.ClearError)
+        }
+        
+        // Handle empty state
+        if (uiState.shouldShowEmptyState) {
+            binding.tvTotalSpending.text = "₹0"
+            binding.tvCategoriesCount.text = "0 Categories"
+        }
     }
     
     private fun loadRealCategoryData() {
@@ -104,8 +159,8 @@ class CategoriesFragment : Fragment() {
                 // Get category spending from repository (same as Dashboard)
                 val categorySpendingResults = repository.getCategorySpending(startDate, endDate)
                 
-                Log.d("CategoriesFragment", "📊 Categories Date Range: ${startDate} to ${endDate}")
-                Log.d("CategoriesFragment", "📊 Categories Raw Transactions Count: ${repository.getTransactionsByDateRange(startDate, endDate).size}")
+                Log.d("CategoriesFragment", "[ANALYTICS] Categories Date Range: ${startDate} to ${endDate}")
+                Log.d("CategoriesFragment", "[ANALYTICS] Categories Raw Transactions Count: ${repository.getTransactionsByDateRange(startDate, endDate).size}")
                 Log.d("CategoriesFragment", "Repository returned ${categorySpendingResults.size} category results")
                 
                 if (categorySpendingResults.isNotEmpty()) {
@@ -149,7 +204,7 @@ class CategoriesFragment : Fragment() {
                     
                     // Calculate percentages and progress
                     val totalSpent = categoryData.sumOf { categoryItem -> categoryItem.amount }
-                    Log.d("CategoriesFragment", "📊 Categories Calculated Total: ₹${String.format("%.0f", totalSpent)}")
+                    Log.d("CategoriesFragment", "[ANALYTICS] Categories Calculated Total: ₹${String.format("%.0f", totalSpent)}")
                     val categoriesWithPercentages = categoryData.map { categoryItem ->
                         val percentage = if (totalSpent > 0) ((categoryItem.amount / totalSpent) * 100).toInt() else 0
                         categoryItem.copy(
@@ -169,16 +224,12 @@ class CategoriesFragment : Fragment() {
                 }
                 
             } catch (e: SecurityException) {
-                // Permission denied - show sample data
-                categoriesAdapter.submitList(getSampleCategories())
-                binding.tvTotalSpending.text = "₹12,540"
-                binding.tvCategoriesCount.text = "5 Categories"
+                // Permission denied - show empty state
+                showEmptyState()
                 Toast.makeText(requireContext(), "SMS permission required for real data", Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
-                // Error loading data - show sample data
-                categoriesAdapter.submitList(getSampleCategories())
-                binding.tvTotalSpending.text = "₹12,540"
-                binding.tvCategoriesCount.text = "5 Categories"
+                // Error loading data - show empty state
+                showEmptyState()
                 Toast.makeText(requireContext(), "Error loading category data", Toast.LENGTH_SHORT).show()
             }
         }
@@ -187,7 +238,7 @@ class CategoriesFragment : Fragment() {
     private fun loadCategoryDataFallback() {
         lifecycleScope.launch {
             try {
-                Log.d("CategoriesFragment", "📱 Loading category data from SMS as fallback...")
+                Log.d("CategoriesFragment", "[SMS] Loading category data from SMS as fallback...")
                 
                 // Trigger SMS sync if no data exists
                 val syncedCount = repository.syncNewSMS()
@@ -268,16 +319,17 @@ class CategoriesFragment : Fragment() {
                 
             } catch (e: SecurityException) {
                 Log.w("CategoriesFragment", "SMS permission denied for fallback loading", e)
-                categoriesAdapter.submitList(getSampleCategories())
+                showEmptyState()
             } catch (e: Exception) {
                 Log.e("CategoriesFragment", "Error in fallback loading", e)
-                categoriesAdapter.submitList(getSampleCategories())
+                showEmptyState()
             }
         }
     }
     
     private fun showEmptyState() {
-        categoriesAdapter.submitList(getSampleCategories())
+        // Show only custom categories with ₹0 amounts - no fake data
+        categoriesAdapter.submitList(getEmptyCategories())
         binding.tvTotalSpending.text = "₹0"
         binding.tvCategoriesCount.text = "0 Categories"
     }
@@ -374,28 +426,8 @@ class CategoriesFragment : Fragment() {
     }
     
     private fun addNewCategory(name: String, emoji: String) {
-        // Add to CategoryManager for persistence
-        categoryManager.addCustomCategory(name)
-        
-        val currentList = categoriesAdapter.currentList.toMutableList()
-        val newCategory = CategoryItem(
-            name = name,
-            emoji = emoji,
-            color = getRandomCategoryColor(),
-            amount = 0.0,
-            transactionCount = 0,
-            lastTransaction = "No transactions yet",
-            percentage = 0,
-            progress = 0
-        )
-        
-        currentList.add(newCategory)
-        categoriesAdapter.submitList(currentList)
-        
-        // Update category count
-        binding.tvCategoriesCount.text = "${currentList.size} Categories"
-        
-        Log.d("CategoriesFragment", "Added new category '$name' to CategoryManager")
+        // Use ViewModel to handle category addition
+        viewModel.handleEvent(CategoriesUIEvent.AddCategory(name, emoji))
         
         Toast.makeText(
             requireContext(),
@@ -414,8 +446,8 @@ class CategoriesFragment : Fragment() {
             Log.d("CategoriesFragment", "Added 'Money' category to CategoryManager")
         }
         
-        // Reload data when returning to this screen to show any new categories
-        loadRealCategoryData()
+        // Trigger ViewModel refresh when returning to this screen
+        viewModel.handleEvent(CategoriesUIEvent.Refresh)
     }
     
     private fun getRandomCategoryColor(): String {
@@ -454,13 +486,24 @@ class CategoriesFragment : Fragment() {
             val category = categorySpinner.text.toString()
             
             if (amount.isNotEmpty() && merchant.isNotEmpty()) {
-                // TODO: Save expense to database
-                Toast.makeText(
-                    requireContext(), 
-                    "Added: ₹$amount at $merchant ($category)", 
-                    Toast.LENGTH_SHORT
-                ).show()
-                dialog.dismiss()
+                try {
+                    val amountValue = amount.toDouble()
+                    // Use ViewModel to handle quick expense addition
+                    viewModel.handleEvent(CategoriesUIEvent.QuickAddExpense(amountValue, merchant, category))
+                    
+                    Toast.makeText(
+                        requireContext(), 
+                        "Added: ₹$amount at $merchant ($category)", 
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    dialog.dismiss()
+                } catch (e: NumberFormatException) {
+                    Toast.makeText(
+                        requireContext(), 
+                        "Please enter a valid amount", 
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
             } else {
                 Toast.makeText(
                     requireContext(), 
@@ -473,78 +516,27 @@ class CategoriesFragment : Fragment() {
         dialog.show()
     }
     
-    private fun getSampleCategories(): List<CategoryItem> {
-        val defaultSampleCategories = listOf(
-            CategoryItem(
-                name = "Food & Dining",
-                emoji = "🍽️",
-                color = "#ff5722",
-                amount = 4250.0,
-                transactionCount = 23,
-                lastTransaction = "2 hours ago",
-                percentage = 34,
-                progress = 65
-            ),
-            CategoryItem(
-                name = "Transportation",
-                emoji = "🚗",
-                color = "#3f51b5",
-                amount = 2150.0,
-                transactionCount = 15,
-                lastTransaction = "Yesterday",
-                percentage = 17,
-                progress = 45
-            ),
-            CategoryItem(
-                name = "Groceries",
-                emoji = "🛒",
-                color = "#4caf50",
-                amount = 3100.0,
-                transactionCount = 8,
-                lastTransaction = "2 days ago",
-                percentage = 25,
-                progress = 55
-            ),
-            CategoryItem(
-                name = "Healthcare",
-                emoji = "🏥",
-                color = "#e91e63",
-                amount = 1840.0,
-                transactionCount = 5,
-                lastTransaction = "5 days ago",
-                percentage = 15,
-                progress = 30
-            ),
-            CategoryItem(
-                name = "Entertainment",
-                emoji = "🎬",
-                color = "#9c27b0",
-                amount = 1200.0,
-                transactionCount = 7,
-                lastTransaction = "1 week ago",
-                percentage = 9,
-                progress = 25
-            )
-        )
+    /**
+     * Get empty categories (only custom categories with ₹0 amounts)
+     */
+    private fun getEmptyCategories(): List<CategoryItem> {
+        Log.d("CategoriesFragment", "Showing empty categories state - no dummy data")
         
-        // Add custom categories with no transactions
+        // Only show custom categories with ₹0 amounts - no fake data
         val customCategories = categoryManager.getAllCategories()
-        val defaultCategoryNames = defaultSampleCategories.map { it.name }
-        val additionalCustomCategories: List<CategoryItem> = customCategories.filter { !defaultCategoryNames.contains(it) }
-            .map { categoryName: String ->
-                CategoryItem(
-                    name = categoryName,
-                    emoji = getCategoryEmoji(categoryName),
-                    color = getRandomCategoryColor(),
-                    amount = 0.0,
-                    transactionCount = 0,
-                    lastTransaction = "No transactions yet",
-                    percentage = 0,
-                    progress = 0
-                )
-            }
         
-        return (defaultSampleCategories + additionalCustomCategories)
+        return customCategories.map { categoryName ->
+            CategoryItem(
+                name = categoryName,
+                emoji = getCategoryEmoji(categoryName),
+                color = getRandomCategoryColor(),
+                amount = 0.0,
+                transactionCount = 0,
+                lastTransaction = "No transactions yet",
+                percentage = 0,
+                progress = 0
+            )
+        }
     }
     
     private fun filterTransactionsByInclusionState(transactions: List<ProcessedTransaction>): List<ProcessedTransaction> {
@@ -578,13 +570,3 @@ class CategoriesFragment : Fragment() {
     }
 }
 
-data class CategoryItem(
-    val name: String,
-    val emoji: String,
-    val color: String,
-    val amount: Double,
-    val transactionCount: Int,
-    val lastTransaction: String,
-    val percentage: Int,
-    val progress: Int
-)

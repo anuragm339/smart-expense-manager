@@ -46,7 +46,7 @@ class CategorySelectionDialogFragment : DialogFragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        Log.d(TAG, "🔧 Creating custom dialog view")
+        Log.d(TAG, "[FIX] Creating custom dialog view")
         
         val view = inflater.inflate(R.layout.dialog_category_selection_custom, container, false)
         
@@ -56,7 +56,7 @@ class CategorySelectionDialogFragment : DialogFragment() {
         
         selectedIndex = currentIndex
         
-        Log.d(TAG, "📊 Setting up dialog with ${categories.size} categories, current: $currentIndex")
+        Log.d(TAG, "[ANALYTICS] Setting up dialog with ${categories.size} categories, current: $currentIndex")
         
         // Set title and message
         view.findViewById<MaterialTextView>(R.id.dialogTitle).text = "📝 Change Category"
@@ -79,25 +79,25 @@ class CategorySelectionDialogFragment : DialogFragment() {
         
         listView.setOnItemClickListener { _, _, position, _ ->
             selectedIndex = position
-            Log.d(TAG, "✅ Category selected: ${categories[position]} at position $position")
+            Log.d(TAG, "[SUCCESS] Category selected: ${categories[position]} at position $position")
         }
         
         // Set up buttons
         view.findViewById<MaterialButton>(R.id.btnCancel).setOnClickListener {
-            Log.d(TAG, "❌ Dialog cancelled")
+            Log.d(TAG, "[ERROR] Dialog cancelled")
             dismiss()
         }
         
         view.findViewById<MaterialButton>(R.id.btnUpdate).setOnClickListener {
             if (selectedIndex >= 0 && selectedIndex < categories.size) {
                 val selectedCategory = categories[selectedIndex]
-                Log.d(TAG, "✅ Updating to category: $selectedCategory")
+                Log.d(TAG, "[SUCCESS] Updating to category: $selectedCategory")
                 onCategorySelected?.invoke(selectedCategory)
             }
             dismiss()
         }
         
-        Log.d(TAG, "📱 Custom dialog view created successfully")
+        Log.d(TAG, "[SMS] Custom dialog view created successfully")
         return view
     }
     

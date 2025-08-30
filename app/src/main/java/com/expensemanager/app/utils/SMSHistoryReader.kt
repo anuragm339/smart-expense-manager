@@ -37,32 +37,65 @@ class SMSHistoryReader(
         private const val MONTHS_TO_SCAN = 6 // Scan last 6 months
         private const val MAX_SMS_TO_PROCESS = 5000 // Limit SMS processing to prevent ANR
         
-        // Verified bank sender patterns (more specific)
+        // Enhanced bank sender patterns (more comprehensive)
         private val BANK_SENDERS = listOf(
-            "HDFCBK", "ICICI", "SBIINB", "AXISBK", "KOTAK", "CANBNK", "BOBCRD", "PNBSMS",
-            "UNIONBK", "INDIANBK", "CENBK", "SYNBK", "VIJBK", "DENABNK",
-            "ALLBK", "CORPBK", "UCOBK", "OBVBK", "ANDHRABK", "IOBCHN",
-            "IDBIBN", "FEDBNK", "KRVYSB", "LAKBNK", "NAINBK", "DHANBK",
+            // Major private banks
+            "HDFCBK", "HDFC", "ICICI", "AXISBK", "AXIS", "KOTAK", "KOTAKB",
+            
+            // State Bank variants
+            "SBIINB", "SBI", "SBIPSG", "SBYONO", "CBSSBI", "SBIUPI",
+            
+            // Public sector banks
+            "CANBNK", "BOBCRD", "BOB", "PNBSMS", "PNB", "UNIONBK", "INDIANBK",
+            "CENBK", "SYNBK", "VIJBK", "DENABNK", "ALLBK", "CORPBK",
+            "UCOBK", "OBVBK", "ANDHRABK", "IOBCHN", "IDBIBN", 
+            
+            // Regional banks
+            "FEDBNK", "KRVYSB", "LAKBNK", "NAINBK", "DHANBK",
             "CUBNK", "CATHBK", "TMBNET", "KERBK", "JKBNET",
-            "HSBCIN", "SCBIND", "CITIINDIA", "DEUTCH", "BARCLY",
-            "PAYTM", "PHONEPE", "GPAY", "AMAZONPAY", "MOBIKWIK"
+            
+            // International banks
+            "HSBCIN", "HSBC", "SCBIND", "CITIINDIA", "CITI", "DEUTCH", "BARCLY",
+            
+            // Digital payment platforms
+            "PAYTM", "PYTMPB", "PHONEPE", "GPAY", "AMAZONPAY", "MOBIKWIK",
+            
+            // Additional common bank codes
+            "YESBNK", "YES", "RBLBNK", "RBL", "DCBBNK", "DCB", "INDBNK"
         )
         
-        // Specific transaction debit/credit keywords
+        // Enhanced transaction debit/credit keywords
         private val DEBIT_KEYWORDS = listOf(
-            "debited", "deducted", "spent", "withdrawn", "paid", "purchase", "charged"
+            "debited", "deducted", "spent", "withdrawn", "paid", "purchase", "charged",
+            "sent", "transferred", "remitted", "upi", "imps", "neft", "rtgs",
+            "atm", "pos", "online", "payment", "transaction", "txn"
         )
         
         private val CREDIT_KEYWORDS = listOf(
-            "credited", "received", "deposited", "refund", "cashback"
+            "credited", "received", "deposited", "refund", "cashback",
+            "salary", "bonus", "interest", "dividend", "transfer received",
+            "amount received", "money received"
         )
         
-        // Amount patterns
+        // Enhanced amount patterns for various bank SMS formats
         private val AMOUNT_PATTERNS = listOf(
+            // Standard RS/INR patterns
             Regex("""(?:rs\.?|inr)\s*([\d,]+(?:\.\d{2})?)""", RegexOption.IGNORE_CASE),
             Regex("""([\d,]+(?:\.\d{2})?)\s*(?:rs\.?|inr)""", RegexOption.IGNORE_CASE),
+            
+            // Rupee symbol and dash patterns
             Regex("""([\d,]+(?:\.\d{2})?)\s*/-"""),
-            Regex("""amount[:\s]*([\d,]+(?:\.\d{2})?)""", RegexOption.IGNORE_CASE)
+            Regex("""₹\s*([\d,]+(?:\.\d{2})?)"""),
+            
+            // Amount keyword patterns
+            Regex("""amount[:\s]*([\d,]+(?:\.\d{2})?)""", RegexOption.IGNORE_CASE),
+            Regex("""amt[:\s]*([\d,]+(?:\.\d{2})?)""", RegexOption.IGNORE_CASE),
+            
+            // Bank-specific patterns
+            Regex("""(?:debited|credited|sent|received)[^0-9]*?([\d,]+(?:\.\d{2})?)""", RegexOption.IGNORE_CASE),
+            
+            // Simple number patterns (be more cautious with these)
+            Regex("""\b([\d,]+(?:\.\d{2})?)\s*(?:has been|was|is)""", RegexOption.IGNORE_CASE)
         )
         
         // Spam keywords to exclude
@@ -94,11 +127,11 @@ class SMSHistoryReader(
         var processedCount = 0
         
         try {
-            Log.d(TAG, "🔍 Starting SMS scan...")
+            Log.d(TAG, "[PROCESS] Starting SMS scan...")
             progressCallback?.invoke(0, 100, "Reading SMS history...")
             
             val historicalSMS = readSMSHistory()
-            Log.d(TAG, "📱 Found ${historicalSMS.size} historical SMS messages (limited to $MAX_SMS_TO_PROCESS)")
+            Log.d(TAG, "[SMS] Found ${historicalSMS.size} historical SMS messages (limited to $MAX_SMS_TO_PROCESS)")
             
             val totalSMS = historicalSMS.size
             progressCallback?.invoke(0, totalSMS, "Found $totalSMS messages, analyzing...")
@@ -106,11 +139,10 @@ class SMSHistoryReader(
             for (sms in historicalSMS) {
                 processedCount++
                 
-                // Update progress callback every 50 messages for smooth progress
-                if (processedCount % 50 == 0) {
+                // Update progress callback every 100 messages for performance
+                if (processedCount % 100 == 0) {
                     val status = "Processed $processedCount/$totalSMS messages • Found $acceptedCount transactions"
                     progressCallback?.invoke(processedCount, totalSMS, status)
-                    Log.d(TAG, "📊 Progress: $processedCount/$totalSMS SMS processed, $acceptedCount transactions found")
                 }
                 
                 if (isBankTransaction(sms)) {
@@ -118,13 +150,6 @@ class SMSHistoryReader(
                     if (transaction != null) {
                         transactions.add(transaction)
                         acceptedCount++
-                        Log.v(TAG, "✅ TRANSACTION: ${sms.address} - ₹${transaction.amount} at ${transaction.merchant}")
-                        
-                        // Update progress immediately when we find a transaction
-                        if (acceptedCount % 10 == 0) {
-                            val status = "Processing messages... • Found $acceptedCount transactions"
-                            progressCallback?.invoke(processedCount, totalSMS, status)
-                        }
                     }
                 } else {
                     rejectedCount++
@@ -179,7 +204,7 @@ class SMSHistoryReader(
         
         var cursor: Cursor? = null
         try {
-            Log.d(TAG, "📱 Querying SMS from last $MONTHS_TO_SCAN months (max $MAX_SMS_TO_PROCESS messages)")
+            Log.d(TAG, "[SMS] Querying SMS from last $MONTHS_TO_SCAN months (max $MAX_SMS_TO_PROCESS messages)")
             cursor = context.contentResolver.query(
                 uri, projection, selection, selectionArgs, sortOrder
             )
@@ -223,48 +248,37 @@ class SMSHistoryReader(
         val senderUpper = sms.address.uppercase()
         val bodyLower = sms.body.lowercase()
         
-//        Log.d(TAG, "Checking SMS from ${sms.address}: ${sms.body.take(80)}...")
-        
-        // ALL transaction SMS must have a reference number
+        // Check 1: Reference number requirement - make it more flexible
         val hasRefNumber = bodyLower.contains("ref ") || 
                           bodyLower.contains("ref-") || 
                           bodyLower.contains("ref no") ||
-                          bodyLower.contains("reference")
+                          bodyLower.contains("reference") ||
+                          bodyLower.contains("txn") ||
+                          bodyLower.contains("transaction") ||
+                          bodyLower.contains("utr") ||
+                          bodyLower.contains("rrn")
         
         if (!hasRefNumber) {
-//            Log.d(TAG, "Rejected: No reference number found")
             return false
         }
         
-        // HDFC Bank transaction patterns (very specific)
-        val isHDFCTransaction = senderUpper.contains("HDFCBK") && (
-            bodyLower.contains("sent rs.") ||
-            bodyLower.contains("money received - inr") ||
-            bodyLower.contains("imps inr") ||
-            bodyLower.contains("salary credited") ||
-            bodyLower.contains("debited from hdfc bank")
-        )
+        // Check 2: Bank sender validation - more flexible patterns
+        val isFromKnownBank = BANK_SENDERS.any { bankCode -> senderUpper.contains(bankCode) }
         
-        // SBI Bank transaction patterns
-        val isSBITransaction = (senderUpper.contains("SBYONO") || senderUpper.contains("SBIINB") || senderUpper.contains("CBSSBI")) && (
-            bodyLower.contains("imps from ac") ||
-            bodyLower.contains("debited inr") ||
-            bodyLower.contains("credited by rs") ||
-            bodyLower.contains("your a/c") ||
-            bodyLower.contains("debited from")
-        )
-
-        // Other bank transaction patterns (very specific)
-        val isOtherBankTransaction = false // Disable for now to test HDFC/SBI only
-        
-        val isActualTransaction = isHDFCTransaction || isSBITransaction || isOtherBankTransaction
-        
-        if (!isActualTransaction) {
-           // Log.d(TAG, "Rejected: Not a bank transaction pattern")
+        if (!isFromKnownBank) {
             return false
         }
         
-        // Exclude promotional/marketing SMS even from banks
+        // Check 3: Transaction keywords - make more flexible
+        val hasDebitKeywords = DEBIT_KEYWORDS.any { keyword -> bodyLower.contains(keyword) }
+        val hasCreditKeywords = CREDIT_KEYWORDS.any { keyword -> bodyLower.contains(keyword) }
+        val hasTransactionKeywords = hasDebitKeywords || hasCreditKeywords
+        
+        if (!hasTransactionKeywords) {
+            return false
+        }
+        
+        // Check 4: Exclude promotional/marketing SMS even from banks
         val isPromotional = bodyLower.contains("offer") ||
             bodyLower.contains("apply") ||
             bodyLower.contains("check emi") ||
@@ -282,33 +296,30 @@ class SMSHistoryReader(
             bodyLower.contains("terms")
         
         if (isPromotional) {
-           // Log.d(TAG, "Rejected: Promotional/marketing SMS")
             return false
         }
         
-        // Exclude OTP/verification messages
+        // Check 5: Exclude OTP/verification messages
         val isOTPMessage = bodyLower.contains("otp") ||
             bodyLower.contains("verification") ||
             bodyLower.contains("do not share") ||
             bodyLower.contains("valid for")
         
         if (isOTPMessage) {
-            //Log.d(TAG, "Rejected: OTP/verification message")
             return false
         }
         
-        // Exclude EMI reminders and notifications
+        // Check 6: Exclude EMI reminders and notifications
         val isEMINotification = bodyLower.contains("emi reminder") ||
             bodyLower.contains("emi of rs") ||
             bodyLower.contains("e-mandate") ||
             bodyLower.contains("will be deducted")
         
         if (isEMINotification) {
-            //Log.d(TAG, "Rejected: EMI/mandate notification")
             return false
         }
         
-        // Must have valid amount ≥ 1 rupee
+        // Check 7: Must have valid amount ≥ 1 rupee
         val hasValidAmount = AMOUNT_PATTERNS.any { pattern ->
             val match = pattern.find(sms.body)
             if (match != null) {
@@ -319,13 +330,10 @@ class SMSHistoryReader(
         }
         
         if (!hasValidAmount) {
-            //Log.d(TAG, "Rejected: No valid amount ≥ ₹1")
             return false
         }
         
-        // Reference number already checked above, so this is redundant
-        
-       // Log.d(TAG, "Accepted: Valid transaction SMS")
+        // All validation checks passed
         return true
     }
     

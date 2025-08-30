@@ -83,6 +83,19 @@ interface MerchantDao {
     
     @Query("UPDATE merchants SET is_excluded_from_expense_tracking = :isExcluded WHERE id = :merchantId")
     suspend fun updateMerchantExclusionById(merchantId: Long, isExcluded: Boolean)
+
+    // Methods for updating merchant category and display name
+    @Query("UPDATE merchants SET category_id = :categoryId WHERE normalized_name = :normalizedName")
+    suspend fun updateMerchantCategory(normalizedName: String, categoryId: Long)
+
+    @Query("UPDATE merchants SET display_name = :displayName WHERE normalized_name = :normalizedName")
+    suspend fun updateMerchantDisplayName(normalizedName: String, displayName: String)
+
+    @Query("UPDATE merchants SET display_name = :displayName, category_id = :categoryId WHERE normalized_name = :normalizedName")
+    suspend fun updateMerchantDisplayNameAndCategory(normalizedName: String, displayName: String, categoryId: Long)
+
+    @Query("SELECT COUNT(*) FROM merchants WHERE normalized_name = :normalizedName")
+    suspend fun merchantExists(normalizedName: String): Int
 }
 
 // Data classes for query results

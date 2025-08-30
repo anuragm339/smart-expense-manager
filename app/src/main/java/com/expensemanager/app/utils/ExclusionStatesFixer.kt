@@ -13,7 +13,7 @@ object ExclusionStatesFixer {
     
     fun fixLargeTransactionExclusions(context: Context) {
         try {
-            Log.d(TAG, "🔧 Fixing exclusion states for large transactions...")
+            Log.d(TAG, "[FIX] Fixing exclusion states for large transactions...")
             
             val prefs = context.getSharedPreferences("expense_calculations", Context.MODE_PRIVATE)
             val inclusionStatesJson = prefs.getString("group_inclusion_states", null)
@@ -58,13 +58,13 @@ object ExclusionStatesFixer {
                     .putString("group_inclusion_states", inclusionStates.toString())
                     .apply()
                 
-                Log.d(TAG, "✅ Fixed $changesCount exclusion states")
+                Log.d(TAG, "[SUCCESS] Fixed $changesCount exclusion states")
             } else {
-                Log.d(TAG, "✅ All large transactions already excluded")
+                Log.d(TAG, "[SUCCESS] All large transactions already excluded")
             }
             
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Error fixing exclusion states", e)
+            Log.e(TAG, "[ERROR] Error fixing exclusion states", e)
         }
     }
 }

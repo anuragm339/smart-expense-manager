@@ -13,6 +13,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.expensemanager.app.databinding.FragmentExportDataBinding
 import com.expensemanager.app.utils.CategoryManager
+import com.expensemanager.app.utils.MerchantAliasManager
 import com.expensemanager.app.data.repository.ExpenseRepository
 import android.graphics.Canvas
 import android.graphics.Color
@@ -37,6 +38,7 @@ class ExportDataFragment : Fragment() {
     
     private lateinit var prefs: SharedPreferences
     private lateinit var categoryManager: CategoryManager
+    private lateinit var merchantAliasManager: MerchantAliasManager
     private lateinit var repository: ExpenseRepository
     
     override fun onCreateView(
@@ -52,6 +54,7 @@ class ExportDataFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         prefs = requireContext().getSharedPreferences("export_settings", Context.MODE_PRIVATE)
         categoryManager = CategoryManager(requireContext())
+        merchantAliasManager = MerchantAliasManager(requireContext())
         repository = ExpenseRepository.getInstance(requireContext())
         setupClickListeners()
         loadSettings()
@@ -540,7 +543,7 @@ class ExportDataFragment : Fragment() {
             TransactionData(
                 date = formatDate(transaction.transactionDate),
                 amount = transaction.amount,
-                merchant = transaction.rawMerchant,
+                merchant = merchantAliasManager.getDisplayName(transaction.rawMerchant), // Use display name for export
                 normalizedMerchant = transaction.normalizedMerchant,
                 bankName = transaction.bankName,
                 category = merchantWithCategory?.category_name ?: "Other",

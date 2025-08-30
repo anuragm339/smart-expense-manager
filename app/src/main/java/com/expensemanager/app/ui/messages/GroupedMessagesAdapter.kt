@@ -10,19 +10,6 @@ import com.expensemanager.app.databinding.ItemMerchantGroupBinding
 import java.text.SimpleDateFormat
 import java.util.*
 
-data class MerchantGroup(
-    val merchantName: String,
-    val transactions: List<MessageItem>,
-    val totalAmount: Double,
-    val categoryColor: String,
-    val category: String,
-    var isExpanded: Boolean = false,
-    var isIncludedInCalculations: Boolean = true,
-    val latestTransactionDate: Long = 0L,
-    val primaryBankName: String = "",
-    val averageConfidence: Double = 0.0
-)
-
 class GroupedMessagesAdapter(
     private val onTransactionClick: (MessageItem) -> Unit,
     private val onGroupToggle: (MerchantGroup, Boolean) -> Unit,

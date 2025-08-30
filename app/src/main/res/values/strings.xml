@@ -44,10 +44,14 @@
     <!-- Permissions -->
     <string name="permission_sms_title">SMS Permissions Required</string>
     <string name="permission_sms_message">Smart Expense Manager needs SMS permissions to automatically read and categorize your bank transaction messages. This helps you track expenses without manual entry.\n\nYour SMS data stays private and is only processed locally on your device.</string>
+    <string name="permission_notification_title">Enable Notifications</string>
+    <string name="permission_notification_message">Allow Smart Expense Manager to send you notifications when new transactions are detected. You can quickly categorize expenses directly from the notification.\n\nThis helps you stay on top of your spending in real-time.</string>
     <string name="permission_granted_title">Permissions Granted! 🎉</string>
     <string name="permission_granted_message">Great! Smart Expense Manager can now automatically track your bank transactions from SMS messages. You\'ll see them appear in the Messages tab.</string>
     <string name="permission_denied_title">Limited Functionality</string>
     <string name="permission_denied_message">Without SMS permissions, you\'ll need to manually add expenses using the Quick Add button. You can grant permissions later in Settings > Apps > Smart Expense Manager > Permissions.</string>
+    <string name="permission_notification_denied_title">Notifications Disabled</string>
+    <string name="permission_notification_denied_message">You won\'t receive push notifications for new transactions. You can enable them later in Settings > Apps > Smart Expense Manager > Permissions.</string>
     
     <!-- Common -->
     <string name="currency_symbol">₹</string>
@@ -58,4 +62,21 @@
     <string name="get_started">Get Started</string>
     <string name="i_understand">I Understand</string>
     <string name="try_again">Try Again</string>
+    
+    <!-- Error Messages -->
+    <string name="error_generic">An unexpected error occurred. Please try again.</string>
+    <string name="error_no_internet">No internet connection. Please check your network.</string>
+    <string name="error_timeout">Request timed out. Please try again.</string>
+    <string name="error_server">Server error. Please try again later.</string>
+    <string name="error_unauthorized">Access denied. Please check your credentials.</string>
+    <string name="error_database_read">Error reading from database.</string>
+    <string name="error_database_write">Error writing to database.</string>
+    <string name="error_database_corruption">Database corruption detected. Please contact support.</string>
+    <string name="error_invalid_amount">Invalid amount format.</string>
+    <string name="error_invalid_merchant">Invalid merchant name.</string>
+    <string name="error_ai_service_unavailable">AI service is currently unavailable.</string>
+    <string name="error_sms_permission">SMS permission is required to read transaction messages.</string>
+    <string name="error_bad_request">Bad request. Please check your input.</string>
+    <string name="error_not_found">Requested resource not found.</string>
+    <string name="error_network">Network error occurred. Please try again.</string>
 </resources>

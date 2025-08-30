@@ -16,7 +16,7 @@ object ExclusionMigrationHelper {
     
     suspend fun migrateExclusionStatesToDatabase(context: Context, repository: ExpenseRepository) = withContext(Dispatchers.IO) {
         try {
-            Log.d(TAG, "🔄 Starting migration of exclusion states from SharedPreferences to database...")
+            Log.d(TAG, "[PROCESS] Starting migration of exclusion states from SharedPreferences to database...")
             
             // Read existing exclusion states from SharedPreferences
             val prefs = context.getSharedPreferences("expense_calculations", Context.MODE_PRIVATE)
@@ -50,14 +50,14 @@ object ExclusionMigrationHelper {
                                 Log.d(TAG, "🚫 Migrated exclusion: $merchantDisplayName -> $normalizedName")
                             }
                         } else {
-                            Log.w(TAG, "⚠️ Merchant not found in database: $merchantDisplayName -> $normalizedName")
+                            Log.w(TAG, "[WARNING] Merchant not found in database: $merchantDisplayName -> $normalizedName")
                         }
                     } catch (e: Exception) {
-                        Log.e(TAG, "❌ Error migrating merchant: $merchantDisplayName", e)
+                        Log.e(TAG, "[ERROR] Error migrating merchant: $merchantDisplayName", e)
                     }
                 }
                 
-                Log.d(TAG, "✅ Migration completed: $migratedCount merchants migrated")
+                Log.d(TAG, "[SUCCESS] Migration completed: $migratedCount merchants migrated")
                 
                 // Optionally clear SharedPreferences after successful migration
                 // prefs.edit().remove("group_inclusion_states").apply()
@@ -67,7 +67,7 @@ object ExclusionMigrationHelper {
             }
             
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Error during exclusion states migration", e)
+            Log.e(TAG, "[ERROR] Error during exclusion states migration", e)
         }
     }
     
