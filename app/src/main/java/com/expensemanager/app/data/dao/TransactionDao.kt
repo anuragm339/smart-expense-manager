@@ -40,8 +40,48 @@ interface TransactionDao {
     @Query("SELECT COUNT(*) FROM transactions WHERE transaction_date >= :startDate AND transaction_date <= :endDate")
     suspend fun getTransactionCountByDateRange(startDate: Date, endDate: Date): Int
     
+    // EXPENSE-SPECIFIC QUERIES (Only debit transactions)
+    @Query("SELECT * FROM transactions WHERE is_debit = 1 AND transaction_date >= :startDate AND transaction_date <= :endDate ORDER BY transaction_date DESC")
+    suspend fun getExpenseTransactionsByDateRange(startDate: Date, endDate: Date): List<TransactionEntity>
+    
+    @Query("SELECT COUNT(*) FROM transactions WHERE is_debit = 1 AND transaction_date >= :startDate AND transaction_date <= :endDate")
+    suspend fun getExpenseTransactionCount(startDate: Date, endDate: Date): Int
+    
     @Query("SELECT SUM(amount) FROM transactions WHERE transaction_date >= :startDate AND transaction_date <= :endDate AND is_debit = 1")
     suspend fun getTotalSpentByDateRange(startDate: Date, endDate: Date): Double?
+    
+    // Credit transaction queries for balance calculation
+    @Query("SELECT SUM(amount) FROM transactions WHERE transaction_date >= :startDate AND transaction_date <= :endDate AND is_debit = 0")
+    suspend fun getTotalCreditsOrIncomeByDateRange(startDate: Date, endDate: Date): Double?
+    
+    @Query("SELECT COUNT(*) FROM transactions WHERE is_debit = 0 AND transaction_date >= :startDate AND transaction_date <= :endDate")
+    suspend fun getCreditTransactionCount(startDate: Date, endDate: Date): Int
+    
+    // Salary-specific queries for monthly balance calculation
+    @Query("""
+        SELECT * FROM transactions 
+        WHERE is_debit = 0 
+        AND (raw_sms_body LIKE '%salary%' OR raw_merchant LIKE '%SALARY%' 
+             OR raw_sms_body LIKE '%sal %' OR raw_merchant LIKE '%SAL%'
+             OR raw_sms_body LIKE '%wages%' OR raw_merchant LIKE '%WAGE%'
+             OR raw_sms_body LIKE '%payroll%' OR raw_merchant LIKE '%PAYROLL%')
+        ORDER BY transaction_date DESC 
+        LIMIT 1
+    """)
+    suspend fun getLastSalaryTransaction(): TransactionEntity?
+    
+    @Query("""
+        SELECT * FROM transactions 
+        WHERE is_debit = 0 
+        AND amount >= :minAmount
+        AND (raw_sms_body LIKE '%salary%' OR raw_merchant LIKE '%SALARY%' 
+             OR raw_sms_body LIKE '%sal %' OR raw_merchant LIKE '%SAL%'
+             OR raw_sms_body LIKE '%wages%' OR raw_merchant LIKE '%WAGE%'
+             OR raw_sms_body LIKE '%payroll%' OR raw_merchant LIKE '%PAYROLL%')
+        ORDER BY transaction_date DESC 
+        LIMIT :limit
+    """)
+    suspend fun getSalaryTransactions(minAmount: Double = 10000.0, limit: Int = 10): List<TransactionEntity>
     
     @Query("""
         SELECT normalized_merchant, SUM(amount) as total_amount, COUNT(*) as transaction_count

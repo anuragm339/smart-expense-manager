@@ -50,12 +50,21 @@ data class DashboardUIState(
         get() = dashboardData?.totalSpent ?: 0.0
     
     val totalBalance: Double
-        get() = 0.0 - totalSpent // FIXED: Shows actual balance (0 - expenses) instead of hardcoded ₹45280
-        // This reflects the reality: without income tracking or initial balance, 
-        // total balance = 0 (starting point) - all expenses = negative amount or zero
+        get() = dashboardData?.actualBalance ?: 0.0 // BALANCE FIX: Use actual balance from Credits - Debits calculation
+        // This properly shows: Total Credits (income) - Total Debits (expenses) = Actual Balance
     
     val transactionCount: Int
         get() = dashboardData?.transactionCount ?: 0
+    
+    // Monthly Balance: Last Salary - Current Period Expenses
+    val monthlyBalance: Double
+        get() = dashboardData?.monthlyBalance?.remainingBalance ?: 0.0
+    
+    val lastSalaryAmount: Double
+        get() = dashboardData?.monthlyBalance?.lastSalaryAmount ?: 0.0
+    
+    val hasSalaryData: Boolean
+        get() = dashboardData?.monthlyBalance?.hasSalaryData ?: false
     
     val isCustomPeriod: Boolean
         get() = dashboardPeriod == "Custom Months" && customFirstMonth != null && customSecondMonth != null

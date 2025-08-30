@@ -239,7 +239,8 @@ class CategoryTransactionsFragment : Fragment() {
                             categoryColor = merchantWithCategory?.category_color ?: "#888888",
                             confidence = (transaction.confidenceScore * 100).toInt(),
                             dateTime = formatDate(transaction.transactionDate),
-                            rawSMS = transaction.rawSmsBody
+                            rawSMS = transaction.rawSmsBody,
+                            isDebit = transaction.isDebit
                         )
                     } else null
                 }

@@ -81,7 +81,8 @@ data class MessageItem(
     val categoryColor: String,
     val confidence: Int,
     val dateTime: String,
-    val rawSMS: String
+    val rawSMS: String,
+    val isDebit: Boolean = true
 )
 
 /**

@@ -127,7 +127,8 @@ class MessagesViewModel @Inject constructor(
                                 categoryColor = aliasCategoryColor, // Use alias category color
                                 confidence = (transaction.confidenceScore * 100).toInt(),
                                 dateTime = formatDate(transaction.transactionDate),
-                                rawSMS = transaction.rawSmsBody
+                                rawSMS = transaction.rawSmsBody,
+                                isDebit = transaction.isDebit
                             )
                         } catch (e: Exception) {
                             Log.w(TAG, "Error converting transaction: ${e.message}")
@@ -178,7 +179,8 @@ class MessagesViewModel @Inject constructor(
                             categoryColor = categoryColor,
                             confidence = (transaction.confidence * 100).toInt(),
                             dateTime = formatDate(transaction.date),
-                            rawSMS = transaction.rawSMS
+                            rawSMS = transaction.rawSMS,
+                            isDebit = transaction.isDebit
                         )
                     }.distinctBy { 
                         "${it.merchant}_${it.amount}_${it.dateTime}_${it.bankName}"
@@ -285,7 +287,8 @@ class MessagesViewModel @Inject constructor(
                             categoryColor = categoryColor,
                             confidence = (transaction.confidence * 100).toInt(),
                             dateTime = formatDate(transaction.date),
-                            rawSMS = transaction.rawSMS
+                            rawSMS = transaction.rawSMS,
+                            isDebit = transaction.isDebit
                         )
                     }.distinctBy { 
                         "${it.merchant}_${it.amount}_${it.dateTime}_${it.bankName}"
@@ -473,48 +476,12 @@ class MessagesViewModel @Inject constructor(
             filtered = filtered.filter { it.dateTime <= dateTo }
         }
         
-        // Apply sorting
+        // Skip individual transaction sorting - let groupTransactionsByMerchant handle the sorting
+        // This ensures that the final merchant group sorting is what determines the display order
         val sortOption = currentState.currentSortOption
-        filtered = when (sortOption.field) {
-            "date" -> {
-                if (sortOption.ascending) {
-                    filtered.sortedBy { getDateSortOrderReverse(it.dateTime) }
-                } else {
-                    filtered.sortedByDescending { getDateSortOrderReverse(it.dateTime) }
-                }
-            }
-            "amount" -> {
-                if (sortOption.ascending) {
-                    filtered.sortedBy { it.amount }
-                } else {
-                    filtered.sortedByDescending { it.amount }
-                }
-            }
-            "merchant" -> {
-                if (sortOption.ascending) {
-                    filtered.sortedBy { it.merchant.lowercase() }
-                } else {
-                    filtered.sortedByDescending { it.merchant.lowercase() }
-                }
-            }
-            "bank" -> {
-                if (sortOption.ascending) {
-                    filtered.sortedBy { it.bankName.lowercase() }
-                } else {
-                    filtered.sortedByDescending { it.bankName.lowercase() }
-                }
-            }
-            "confidence" -> {
-                if (sortOption.ascending) {
-                    filtered.sortedBy { it.confidence }
-                } else {
-                    filtered.sortedByDescending { it.confidence }
-                }
-            }
-            else -> filtered
-        }
+        Log.d(TAG, "[DEBUG] Skipping individual transaction sorting - groups will be sorted by ${sortOption.field}")
         
-        // Group by merchant
+        // Group by merchant - this will handle the proper sorting
         val groupedMessages = groupTransactionsByMerchant(filtered, sortOption)
         
         // Update state
@@ -798,7 +765,50 @@ class MessagesViewModel @Inject constructor(
                 val days = dateTimeString.split(" ")[0].toIntOrNull() ?: 0
                 System.currentTimeMillis() - (days * 24 * 60 * 60 * 1000L)
             }
-            else -> 0L
+            else -> {
+                // Handle absolute dates like "Aug 29", "Dec 15", "2024-08-29", etc.
+                parseAbsoluteDateToTimestamp(dateTimeString)
+            }
+        }
+    }
+    
+    private fun parseAbsoluteDateToTimestamp(dateString: String): Long {
+        try {
+            // Try different date formats commonly used in the app
+            val formats = listOf(
+                java.text.SimpleDateFormat("MMM dd", java.util.Locale.getDefault()), // Aug 29
+                java.text.SimpleDateFormat("MMM d", java.util.Locale.getDefault()),  // Aug 9  
+                java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()), // 2024-08-29
+                java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault()), // 29/08/2024
+                java.text.SimpleDateFormat("MM/dd/yyyy", java.util.Locale.getDefault())  // 08/29/2024
+            )
+            
+            for (format in formats) {
+                try {
+                    val parsedDate = format.parse(dateString)
+                    if (parsedDate != null) {
+                        // If no year specified (like "Aug 29"), assume current year
+                        val calendar = java.util.Calendar.getInstance()
+                        calendar.time = parsedDate
+                        if (calendar.get(java.util.Calendar.YEAR) == 1970) {
+                            calendar.set(java.util.Calendar.YEAR, java.util.Calendar.getInstance().get(java.util.Calendar.YEAR))
+                        }
+                        Log.d(TAG, "[DATE] Parsed absolute date '$dateString' to timestamp: ${calendar.timeInMillis}")
+                        return calendar.timeInMillis
+                    }
+                } catch (e: Exception) {
+                    // Try next format
+                    continue
+                }
+            }
+            
+            Log.w(TAG, "[DATE] Could not parse absolute date: '$dateString', using default")
+            // Fallback to a reasonable old timestamp instead of 0L
+            return System.currentTimeMillis() - (365 * 24 * 60 * 60 * 1000L) // 1 year ago
+            
+        } catch (e: Exception) {
+            Log.w(TAG, "[DATE] Error parsing date '$dateString'", e)
+            return System.currentTimeMillis() - (365 * 24 * 60 * 60 * 1000L) // 1 year ago
         }
     }
     

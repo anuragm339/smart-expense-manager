@@ -529,52 +529,12 @@ class MessagesFragment : Fragment() {
             }
         }
         
-        // Apply sorting
-        filtered = when (currentSortOption.field) {
-            "date" -> {
-                if (currentSortOption.ascending) {
-                    filtered.sortedBy { getDateSortOrderReverse(it.dateTime) }
-                } else {
-                    filtered.sortedByDescending { getDateSortOrderReverse(it.dateTime) }
-                }
-            }
-            "amount" -> {
-                if (currentSortOption.ascending) {
-                    filtered.sortedBy { it.amount }
-                } else {
-                    filtered.sortedByDescending { it.amount }
-                }
-            }
-            "merchant" -> {
-                if (currentSortOption.ascending) {
-                    filtered.sortedBy { it.merchant.lowercase() }
-                } else {
-                    filtered.sortedByDescending { it.merchant.lowercase() }
-                }
-            }
-            "bank" -> {
-                if (currentSortOption.ascending) {
-                    filtered.sortedBy { it.bankName.lowercase() }
-                } else {
-                    filtered.sortedByDescending { it.bankName.lowercase() }
-                }
-            }
-            "confidence" -> {
-                if (currentSortOption.ascending) {
-                    filtered.sortedBy { it.confidence }
-                } else {
-                    filtered.sortedByDescending { it.confidence }
-                }
-            }
-            else -> {
-                Log.w("MessagesFragment", "[DEBUG] Unknown sort field: ${currentSortOption.field}")
-                filtered
-            }
-        }
+        // Skip individual transaction sorting - let groupTransactionsByMerchant handle the sorting
+        // This ensures that the final merchant group sorting is what determines the display order
+        Log.d("MessagesFragment", "[DEBUG] Skipping individual transaction sorting - groups will be sorted instead")
         
-        Log.d("MessagesFragment", "[DEBUG] After sorting: ${filtered.size} items")
         if (filtered.isNotEmpty()) {
-            Log.d("MessagesFragment", "[DEBUG] Sample items after sorting:")
+            Log.d("MessagesFragment", "[DEBUG] Sample items before grouping:")
             filtered.take(3).forEach { item ->
                 Log.d("MessagesFragment", "  - ${item.merchant}: ₹${item.amount} (${item.dateTime})")
             }
@@ -582,11 +542,11 @@ class MessagesFragment : Fragment() {
         
         filteredMessageItems = filtered
         
-        // Update UI
+        // Update UI - this will call groupTransactionsByMerchant which handles the sorting
         updateTransactionsList(filteredMessageItems)
         updateSummaryStats(filteredMessageItems)
         
-        Log.d("MessagesFragment", "[DEBUG] applyFiltersAndSort() completed successfully")
+        Log.d("MessagesFragment", "[DEBUG] applyFiltersAndSort() completed - merchant groups will be sorted by ${currentSortOption.field}")
     }
     
     private fun updateTransactionsList(messageItems: List<MessageItem>) {
@@ -659,7 +619,8 @@ class MessagesFragment : Fragment() {
                             categoryColor = categoryColor,
                             confidence = (transaction.confidence * 100).toInt(),
                             dateTime = formatDate(transaction.date),
-                            rawSMS = transaction.rawSMS
+                            rawSMS = transaction.rawSMS,
+                            isDebit = transaction.isDebit
                         )
                     }
                     
@@ -889,7 +850,8 @@ class MessagesFragment : Fragment() {
                                 categoryColor = aliasCategoryColor, // Use alias category color
                                 confidence = (transaction.confidenceScore * 100).toInt(),
                                 dateTime = formatDate(transaction.transactionDate),
-                                rawSMS = transaction.rawSmsBody
+                                rawSMS = transaction.rawSmsBody,
+                                isDebit = transaction.isDebit
                             )
                         } catch (e: Exception) {
                             Log.w("MessagesFragment", "Error converting transaction: ${e.message}")
@@ -968,7 +930,8 @@ class MessagesFragment : Fragment() {
                             categoryColor = categoryColor,
                             confidence = (transaction.confidence * 100).toInt(),
                             dateTime = formatDate(transaction.date),
-                            rawSMS = transaction.rawSMS
+                            rawSMS = transaction.rawSMS,
+                            isDebit = transaction.isDebit
                         )
                     }.distinctBy { 
                         // Remove duplicates
@@ -1151,7 +1114,50 @@ class MessagesFragment : Fragment() {
                 val days = dateTimeString.split(" ")[0].toIntOrNull() ?: 0
                 System.currentTimeMillis() - (days * 24 * 60 * 60 * 1000L)
             }
-            else -> 0L // Very old
+            else -> {
+                // Handle absolute dates like "Aug 29", "Dec 15", "2024-08-29", etc.
+                parseAbsoluteDateToTimestamp(dateTimeString)
+            }
+        }
+    }
+    
+    private fun parseAbsoluteDateToTimestamp(dateString: String): Long {
+        try {
+            // Try different date formats commonly used in the app
+            val formats = listOf(
+                java.text.SimpleDateFormat("MMM dd", java.util.Locale.getDefault()), // Aug 29
+                java.text.SimpleDateFormat("MMM d", java.util.Locale.getDefault()),  // Aug 9  
+                java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()), // 2024-08-29
+                java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault()), // 29/08/2024
+                java.text.SimpleDateFormat("MM/dd/yyyy", java.util.Locale.getDefault())  // 08/29/2024
+            )
+            
+            for (format in formats) {
+                try {
+                    val parsedDate = format.parse(dateString)
+                    if (parsedDate != null) {
+                        // If no year specified (like "Aug 29"), assume current year
+                        val calendar = java.util.Calendar.getInstance()
+                        calendar.time = parsedDate
+                        if (calendar.get(java.util.Calendar.YEAR) == 1970) {
+                            calendar.set(java.util.Calendar.YEAR, java.util.Calendar.getInstance().get(java.util.Calendar.YEAR))
+                        }
+                        Log.d("MessagesFragment", "[DATE] Parsed absolute date '$dateString' to timestamp: ${calendar.timeInMillis}")
+                        return calendar.timeInMillis
+                    }
+                } catch (e: Exception) {
+                    // Try next format
+                    continue
+                }
+            }
+            
+            Log.w("MessagesFragment", "[DATE] Could not parse absolute date: '$dateString', using default")
+            // Fallback to a reasonable old timestamp instead of 0L
+            return System.currentTimeMillis() - (365 * 24 * 60 * 60 * 1000L) // 1 year ago
+            
+        } catch (e: Exception) {
+            Log.w("MessagesFragment", "[DATE] Error parsing date '$dateString'", e)
+            return System.currentTimeMillis() - (365 * 24 * 60 * 60 * 1000L) // 1 year ago
         }
     }
     
@@ -1249,6 +1255,24 @@ class MessagesFragment : Fragment() {
         }
         
         Log.d("MessagesFragment", "[DEBUG] Created ${sortedGroups.size} merchant groups, sorted by ${currentSortOption.field}")
+        
+        // Enhanced debug logging for group sorting results
+        if (sortedGroups.isNotEmpty()) {
+            Log.d("MessagesFragment", "[DEBUG] Top 3 groups after sorting by ${currentSortOption.field}:")
+            sortedGroups.take(3).forEach { group ->
+                when (currentSortOption.field) {
+                    "amount" -> Log.d("MessagesFragment", "  - ${group.merchantName}: ₹${String.format("%.2f", group.totalAmount)} (${group.transactions.size} transactions)")
+                    "merchant" -> Log.d("MessagesFragment", "  - ${group.merchantName}: ${group.transactions.size} transactions")
+                    "bank" -> Log.d("MessagesFragment", "  - ${group.merchantName}: ${group.primaryBankName} (${group.transactions.size} transactions)")
+                    "confidence" -> Log.d("MessagesFragment", "  - ${group.merchantName}: ${String.format("%.1f", group.averageConfidence)}% confidence")
+                    "date" -> {
+                        val dateStr = group.transactions.firstOrNull()?.dateTime ?: "N/A"
+                        Log.d("MessagesFragment", "  - ${group.merchantName}: $dateStr (${group.transactions.size} transactions)")
+                    }
+                    else -> Log.d("MessagesFragment", "  - ${group.merchantName}: ${group.transactions.size} transactions")
+                }
+            }
+        }
         
         // Load saved inclusion states
         return loadGroupInclusionStates(sortedGroups)

@@ -44,6 +44,10 @@
     <color name="category_utilities">#607d8b</color>
     <color name="category_other">#795548</color>
     
+    <!-- Transaction Type Colors -->
+    <color name="debit_red">#e53e3e</color>
+    <color name="credit_green">#4caf50</color>
+    
     <!-- Standard Colors -->
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>

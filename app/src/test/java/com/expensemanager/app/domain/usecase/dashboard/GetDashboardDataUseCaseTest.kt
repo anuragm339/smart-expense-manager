@@ -25,6 +25,8 @@ class GetDashboardDataUseCaseTest {
     // Test data
     private val testDashboardData = DashboardData(
         totalSpent = 1500.0,
+        totalCredits = 5000.0,
+        actualBalance = 3500.0, // 5000 - 1500
         transactionCount = 25,
         topCategories = emptyList(),
         topMerchants = emptyList()
@@ -390,6 +392,8 @@ class GetDashboardDataUseCaseTest {
         // Given
         val emptyData = DashboardData(
             totalSpent = 0.0,
+            totalCredits = 0.0,
+            actualBalance = 0.0,
             transactionCount = 0,
             topCategories = emptyList(),
             topMerchants = emptyList()

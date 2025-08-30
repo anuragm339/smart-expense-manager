@@ -215,8 +215,19 @@ class TransactionItemAdapter(
             val amountBankText = itemView.findViewById<android.widget.TextView>(com.expensemanager.app.R.id.tv_amount_bank)
             val dateConfidenceText = itemView.findViewById<android.widget.TextView>(com.expensemanager.app.R.id.tv_date_confidence)
             
-            amountBankText.text = "₹${String.format("%.0f", transaction.amount)} • ${transaction.bankName}"
+            // Add debit/credit indicator
+            val transactionType = if (transaction.isDebit) "DEBIT" else "CREDIT"
+            val typeIndicator = if (transaction.isDebit) "−" else "+"
+            
+            amountBankText.text = "$typeIndicator₹${String.format("%.0f", transaction.amount)} • ${transaction.bankName} • $transactionType"
             dateConfidenceText.text = "${transaction.dateTime} • ${transaction.confidence}% confidence"
+            
+            // Color coding for debit/credit
+            if (transaction.isDebit) {
+                amountBankText.setTextColor(itemView.context.getColor(com.expensemanager.app.R.color.debit_red))
+            } else {
+                amountBankText.setTextColor(itemView.context.getColor(com.expensemanager.app.R.color.credit_green))
+            }
             
             itemView.setOnClickListener {
                 try {

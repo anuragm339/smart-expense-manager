@@ -245,7 +245,25 @@ class DashboardFragment : Fragment() {
         
         // Update spending summary from ViewModel
         binding.tvTotalSpent.text = "₹${String.format("%.0f", state.totalSpent)}"
-        binding.tvTotalBalance.text = "₹${String.format("%.0f", state.totalBalance)}"
+        
+        // MONTHLY BALANCE FEATURE: Show salary-based balance for "This Month", regular balance for other periods
+        val balanceToShow = if (state.dashboardPeriod == "This Month" && state.hasSalaryData) {
+            state.monthlyBalance
+        } else {
+            state.totalBalance
+        }
+        
+        binding.tvTotalBalance.text = if (balanceToShow >= 0) {
+            "₹${String.format("%.0f", balanceToShow)}"
+        } else {
+            "-₹${String.format("%.0f", kotlin.math.abs(balanceToShow))}"
+        }
+        
+        // Add salary info logging for debugging
+        if (state.dashboardPeriod == "This Month" && state.hasSalaryData) {
+            Log.d("DashboardFragment", "💰 [MONTHLY BALANCE] Showing salary-based balance: ₹${balanceToShow} (Last Salary: ₹${state.lastSalaryAmount})")
+        }
+        
         binding.tvTransactionCount.text = "${state.transactionCount}"
         
         // Update top categories from ViewModel data
@@ -295,10 +313,15 @@ class DashboardFragment : Fragment() {
      * Update top merchants from ViewModel data
      */
     private fun updateTopMerchantsFromViewModel(dashboardData: DashboardData) {
+        val totalSpent = dashboardData.totalSpent
         val allMerchantItems = dashboardData.topMerchants.map { merchantResult ->
             // FIXED: Use merchantAliasManager for consistent merchant name display like Messages screen
             val displayName = merchantAliasManager.getDisplayName(merchantResult.normalized_merchant)
             Log.d("DashboardFragment", "[MERCHANT] Top Merchant Display Name: '${merchantResult.normalized_merchant}' -> '$displayName'")
+            
+            // FIXED: Calculate proper percentage instead of hardcoded 0.0
+            val percentage = if (totalSpent > 0) (merchantResult.total_amount / totalSpent) * 100 else 0.0
+            Log.d("DashboardFragment", "[PERCENTAGE] ViewModel: ${displayName} = ${String.format("%.1f", percentage)}% (₹${merchantResult.total_amount} / ₹${totalSpent})")
             
             MerchantSpending(
                 merchantName = displayName,
@@ -306,7 +329,7 @@ class DashboardFragment : Fragment() {
                 transactionCount = merchantResult.transaction_count,
                 category = "Unknown", // Enhanced later
                 categoryColor = "#9e9e9e",
-                percentage = 0.0
+                percentage = percentage
             )
         }
         
@@ -1040,14 +1063,26 @@ class DashboardFragment : Fragment() {
         binding.tvTotalSpent.text = "₹${String.format("%.0f", totalSpent)}"
         binding.tvTransactionCount.text = "${dashboardData.transactionCount}"
         
-        // Calculate actual balance based on expenses only (no income tracking yet)
-        // Since we only track expenses without initial balance, show the actual financial position
-        val currentBalance = 0.0 - totalSpent // Starting from 0, subtracting all expenses
-        binding.tvTotalBalance.text = if (currentBalance >= 0) {
-            "₹${String.format("%.0f", currentBalance)}"
+        // MONTHLY BALANCE FEATURE: Use salary-based balance for "This Month", regular balance for other periods
+        val balanceToShow = if (currentDashboardPeriod == "This Month" && dashboardData.monthlyBalance.hasSalaryData) {
+            dashboardData.monthlyBalance.remainingBalance
         } else {
-            "-₹${String.format("%.0f", kotlin.math.abs(currentBalance))}"
+            dashboardData.actualBalance
         }
+        
+        binding.tvTotalBalance.text = if (balanceToShow >= 0) {
+            "₹${String.format("%.0f", balanceToShow)}"
+        } else {
+            "-₹${String.format("%.0f", kotlin.math.abs(balanceToShow))}"
+        }
+        
+        // Add salary info logging for debugging
+        if (currentDashboardPeriod == "This Month" && dashboardData.monthlyBalance.hasSalaryData) {
+            Log.d("DashboardFragment", "💰 [REPOSITORY MONTHLY BALANCE] Showing salary-based balance: ₹${balanceToShow} (Last Salary: ₹${dashboardData.monthlyBalance.lastSalaryAmount})")
+        }
+        
+        // Debug logging for balance calculation
+        Log.d("DashboardFragment", "💰 [BALANCE UPDATE] Credits: ₹${dashboardData.totalCredits}, Debits: ₹${dashboardData.totalSpent}, Displayed Balance: ₹$balanceToShow")
         
         // Update top categories with repository data
         val categorySpendingItems = dashboardData.topCategories.map { categoryResult ->
@@ -1070,13 +1105,17 @@ class DashboardFragment : Fragment() {
             val displayName = merchantAliasManager.getDisplayName(merchantResult.normalized_merchant)
             Log.d("DashboardFragment", "[MERCHANT] Legacy Top Merchant Display Name: '${merchantResult.normalized_merchant}' -> '$displayName'")
             
+            // FIXED: Calculate proper percentage instead of hardcoded 0.0
+            val percentage = if (totalSpent > 0) (merchantResult.total_amount / totalSpent) * 100 else 0.0
+            Log.d("DashboardFragment", "[PERCENTAGE] Legacy: ${displayName} = ${String.format("%.1f", percentage)}% (₹${merchantResult.total_amount} / ₹${totalSpent})")
+            
             MerchantSpending(
                 merchantName = displayName,
                 totalAmount = merchantResult.total_amount,
                 transactionCount = merchantResult.transaction_count,
                 category = "Unknown", // We'll need to enhance this later
                 categoryColor = "#9e9e9e", // Default color
-                percentage = 0.0 // Will be calculated by adapter if needed
+                percentage = percentage
             )
         }
         
@@ -1372,7 +1411,8 @@ class DashboardFragment : Fragment() {
         binding.tvTotalSpent.text = "₹${String.format("%.0f", currentMonthSpent)}"
         binding.tvTransactionCount.text = currentMonthCount.toString()
         
-        // Calculate actual balance based on expenses only (no income tracking yet)
+        // LEGACY BALANCE CALCULATION - TODO: Update to use ViewModel balance calculation
+        // This method might be deprecated as we now use ViewModel for balance calculations
         val currentBalance = 0.0 - currentMonthSpent // Starting from 0, subtracting all expenses
         binding.tvTotalBalance.text = if (currentBalance >= 0) {
             "₹${String.format("%.0f", currentBalance)}"

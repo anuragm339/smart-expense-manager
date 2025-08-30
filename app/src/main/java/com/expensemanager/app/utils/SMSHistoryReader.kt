@@ -24,7 +24,8 @@ data class ParsedTransaction(
     val bankName: String,
     val date: Date,
     val rawSMS: String,
-    val confidence: Float
+    val confidence: Float,
+    val isDebit: Boolean = true
 )
 
 class SMSHistoryReader(

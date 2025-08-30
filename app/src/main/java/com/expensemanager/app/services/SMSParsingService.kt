@@ -343,6 +343,7 @@ class SMSParsingService @Inject constructor(
             val amount = extractAmount(sms.body)
             val merchant = extractMerchant(sms.body)
             val bankName = extractBankName(sms.address)
+            val isDebit = determineTransactionType(sms.body)
             
             if (amount > 0 && merchant.isNotEmpty()) {
                 ParsedTransaction(
@@ -352,7 +353,8 @@ class SMSParsingService @Inject constructor(
                     bankName = bankName,
                     date = sms.date,
                     rawSMS = sms.body,
-                    confidence = calculateConfidence(sms.body)
+                    confidence = calculateConfidence(sms.body),
+                    isDebit = isDebit
                 )
             } else {
                 null
@@ -360,6 +362,53 @@ class SMSParsingService @Inject constructor(
         } catch (e: Exception) {
             Log.e(TAG, "[UNIFIED] Error parsing transaction: ${sms.body}", e)
             null
+        }
+    }
+    
+    /**
+     * Determine if the transaction is debit (money going out) or credit (money coming in)
+     */
+    private fun determineTransactionType(messageBody: String): Boolean {
+        val bodyLower = messageBody.lowercase()
+        
+        // Check for credit keywords first (money received)
+        val hasCreditKeywords = CREDIT_KEYWORDS.any { keyword -> 
+            bodyLower.contains(keyword) 
+        }
+        
+        // Check for additional credit patterns
+        val hasCreditPatterns = bodyLower.contains("money received") ||
+                               bodyLower.contains("amount received") ||
+                               bodyLower.contains("balance updated") ||
+                               bodyLower.contains("amount added") ||
+                               bodyLower.contains("has been added") ||
+                               bodyLower.contains("transfer in") ||
+                               bodyLower.contains("incoming transfer") ||
+                               bodyLower.contains("received from") ||
+                               bodyLower.contains("refunded") ||
+                               bodyLower.contains("cashback earned")
+        
+        // Check for debit keywords (money going out)
+        val hasDebitKeywords = DEBIT_KEYWORDS.any { keyword -> 
+            bodyLower.contains(keyword) 
+        }
+        
+        // If we have both types of keywords, prioritize credit keywords
+        // as they are typically more explicit
+        return when {
+            hasCreditKeywords || hasCreditPatterns -> {
+                Log.d(TAG, "[CREDIT] Detected credit transaction: ${messageBody.take(50)}...")
+                false // false means credit (money coming in)
+            }
+            hasDebitKeywords -> {
+                Log.d(TAG, "[DEBIT] Detected debit transaction: ${messageBody.take(50)}...")
+                true // true means debit (money going out)
+            }
+            else -> {
+                // Default to debit if we can't determine
+                Log.w(TAG, "[DEFAULT] Cannot determine transaction type, defaulting to debit: ${messageBody.take(50)}...")
+                true
+            }
         }
     }
     
@@ -620,7 +669,8 @@ data class ParsedTransaction(
     val bankName: String,
     val date: Date,
     val rawSMS: String,
-    val confidence: Float
+    val confidence: Float,
+    val isDebit: Boolean = true
 )
 
 data class RejectedSMS(

@@ -67,11 +67,15 @@ class ExpenseRepository @Inject constructor(
         return transactionDao.getTransactionsByDateRange(startDate, endDate)
     }
     
+    // New method for expense-specific transactions (debit only)
+    suspend fun getExpenseTransactionsByDateRange(startDate: Date, endDate: Date): List<TransactionEntity> {
+        return transactionDao.getExpenseTransactionsByDateRange(startDate, endDate)
+    }
+    
     override suspend fun getCategorySpending(startDate: Date, endDate: Date): List<CategorySpendingResult> {
-        // Instead of using the database query that doesn't handle exclusions properly,
-        // let's rebuild category spending from filtered transactions
-        val allTransactions = getTransactionsByDateRange(startDate, endDate)
-        val filteredTransactions = filterTransactionsByExclusions(allTransactions)
+        // FIXED: Use expense-specific transactions (debit only) instead of all transactions
+        val expenseTransactions = getExpenseTransactionsByDateRange(startDate, endDate)
+        val filteredTransactions = filterTransactionsByExclusions(expenseTransactions)
         
         // Group transactions by category and calculate totals
         val categoryTotals = mutableMapOf<String, Triple<Double, Int, Date?>>()
@@ -114,14 +118,86 @@ class ExpenseRepository @Inject constructor(
     }
     
     override suspend fun getTotalSpent(startDate: Date, endDate: Date): Double {
-        val transactions = getTransactionsByDateRange(startDate, endDate)
-        val filteredTransactions = filterTransactionsByExclusions(transactions)
+        // FIXED: Use expense-specific transactions (debit only) instead of all transactions
+        val expenseTransactions = getExpenseTransactionsByDateRange(startDate, endDate)
+        val filteredTransactions = filterTransactionsByExclusions(expenseTransactions)
         return filteredTransactions.sumOf { it.amount }
     }
     
+    /**
+     * Get total credits/income for balance calculation
+     */
+    suspend fun getTotalCredits(startDate: Date, endDate: Date): Double {
+        return transactionDao.getTotalCreditsOrIncomeByDateRange(startDate, endDate) ?: 0.0
+    }
+    
+    /**
+     * Calculate actual balance: Credits - Debits
+     */
+    suspend fun getActualBalance(startDate: Date, endDate: Date): Double {
+        val totalCredits = getTotalCredits(startDate, endDate)
+        val totalDebits = getTotalSpent(startDate, endDate)
+        return totalCredits - totalDebits
+    }
+    
+    /**
+     * Get the most recent salary transaction
+     */
+    suspend fun getLastSalaryTransaction(): TransactionEntity? {
+        return transactionDao.getLastSalaryTransaction()
+    }
+    
+    /**
+     * Get salary transactions with optional minimum amount filter
+     */
+    suspend fun getSalaryTransactions(minAmount: Double = 10000.0, limit: Int = 10): List<TransactionEntity> {
+        return transactionDao.getSalaryTransactions(minAmount, limit)
+    }
+    
+    /**
+     * Calculate monthly balance: Last Salary - Current Month's Expenses
+     * This provides a meaningful monthly budget view
+     */
+    suspend fun getMonthlyBudgetBalance(currentMonthStartDate: Date, currentMonthEndDate: Date): MonthlyBalanceInfo {
+        // Debug: Check all credit transactions first
+        val allCredits = transactionDao.getTransactionsByDateRange(Date(0), Date())
+            .filter { !it.isDebit }
+        Log.d(TAG, "💰 [SALARY DEBUG] Found ${allCredits.size} credit transactions:")
+        allCredits.take(5).forEach { credit ->
+            Log.d(TAG, "💰 [SALARY DEBUG] Credit: ₹${credit.amount} from '${credit.rawMerchant}' - SMS: '${credit.rawSmsBody.take(100)}...'")
+        }
+        
+        // Get the most recent salary transaction (could be from any month)
+        var lastSalary = getLastSalaryTransaction()
+        
+        // Fallback: If no explicit salary found, try to use the largest credit transaction as potential salary
+        if (lastSalary == null && allCredits.isNotEmpty()) {
+            lastSalary = allCredits.maxByOrNull { it.amount }
+            Log.d(TAG, "💰 [SALARY DEBUG] No explicit salary found, using largest credit: ₹${lastSalary?.amount} from '${lastSalary?.rawMerchant}'")
+        }
+        
+        // Get current month's expenses (debits only)
+        val currentMonthExpenses = getTotalSpent(currentMonthStartDate, currentMonthEndDate)
+        
+        // Calculate balance
+        val salaryAmount = lastSalary?.amount ?: 0.0
+        val remainingBalance = salaryAmount - currentMonthExpenses
+        
+        Log.d(TAG, "💰 [MONTHLY BALANCE] Last Salary: ₹${salaryAmount}, Month Expenses: ₹${currentMonthExpenses}, Remaining: ₹${remainingBalance}")
+        
+        return MonthlyBalanceInfo(
+            lastSalaryAmount = salaryAmount,
+            lastSalaryDate = lastSalary?.transactionDate,
+            currentMonthExpenses = currentMonthExpenses,
+            remainingBalance = remainingBalance,
+            hasSalaryData = lastSalary != null
+        )
+    }
+    
     override suspend fun getTransactionCount(startDate: Date, endDate: Date): Int {
-        val transactions = getTransactionsByDateRange(startDate, endDate)
-        return filterTransactionsByExclusions(transactions).size
+        // FIXED: Use expense-specific transactions (debit only) instead of all transactions
+        val expenseTransactions = getExpenseTransactionsByDateRange(startDate, endDate)
+        return filterTransactionsByExclusions(expenseTransactions).size
     }
     
     override suspend fun getTransactionCount(): Int {
@@ -505,28 +581,47 @@ class ExpenseRepository @Inject constructor(
     // =======================
     
     override suspend fun getDashboardData(startDate: Date, endDate: Date): DashboardData {
-        // Get raw data counts from database
+        // Get raw data counts from database (all transactions including credits)
         val allTransactions = getTransactionsByDateRange(startDate, endDate)
         val rawTransactionCount = allTransactions.size
+        val rawCreditCount = allTransactions.count { !it.isDebit }
+        val rawDebitCount = allTransactions.count { it.isDebit }
         
+        // Get expense-specific data (debits only)
         val totalSpent = getTotalSpent(startDate, endDate)
-        val transactionCount = getTransactionCount(startDate, endDate)  // This applies filtering
+        val transactionCount = getTransactionCount(startDate, endDate)  // This applies filtering to debits only
         val categorySpending = getCategorySpending(startDate, endDate)
         
-        Log.d(TAG, "📊 [DASHBOARD] $transactionCount transactions, ₹$totalSpent total (filtered from $rawTransactionCount raw)")
+        // BALANCE FIX: Calculate credits and actual balance
+        val totalCredits = getTotalCredits(startDate, endDate)
+        val actualBalance = getActualBalance(startDate, endDate)
         
-        if (rawTransactionCount > 0 && transactionCount == 0) {
-            Log.w(TAG, "⚠️ All $rawTransactionCount transactions were filtered out - check exclusion settings")
+        Log.d(TAG, "📊 [DASHBOARD] Raw SMS data: $rawTransactionCount total ($rawDebitCount debits, $rawCreditCount credits)")
+        Log.d(TAG, "📊 [DASHBOARD] Dashboard display: $transactionCount expense transactions, ₹$totalSpent total spent")
+        Log.d(TAG, "💰 [BALANCE] Credits: ₹$totalCredits, Debits: ₹$totalSpent, Balance: ₹$actualBalance")
+        
+        if (rawDebitCount > 0 && transactionCount == 0) {
+            Log.w(TAG, "⚠️ All $rawDebitCount debit transactions were filtered out - check exclusion settings")
+        }
+        
+        if (rawCreditCount > 0) {
+            Log.i(TAG, "💰 [CREDIT INFO] Found $rawCreditCount credit transactions totaling ₹$totalCredits")
         }
         
         // FIXED: Request more merchants to ensure consistent display after exclusion filtering
         val topMerchants = getTopMerchants(startDate, endDate, 8) // Request 8 to get at least 5 after filtering
         
+        // Calculate monthly balance (Last Salary - Current Period Expenses)
+        val monthlyBalance = getMonthlyBudgetBalance(startDate, endDate)
+        
         return DashboardData(
             totalSpent = totalSpent,
+            totalCredits = totalCredits,
+            actualBalance = actualBalance,
             transactionCount = transactionCount,
             topCategories = categorySpending.take(6),
-            topMerchants = topMerchants.take(5) // Always take exactly 5 for consistent display
+            topMerchants = topMerchants.take(5), // Always take exactly 5 for consistent display
+            monthlyBalance = monthlyBalance
         )
     }
     
@@ -549,10 +644,12 @@ class ExpenseRepository @Inject constructor(
             transactionDate = parsedTransaction.date, // CRITICAL: Using SMS timestamp, not current time
             rawSmsBody = parsedTransaction.rawSMS,
             confidenceScore = parsedTransaction.confidence,
-            isDebit = true, // Assuming debit transactions for now
+            isDebit = parsedTransaction.isDebit, // Use classification from SMS parsing
             createdAt = Date(), // Record creation time (for debugging)
             updatedAt = Date()
         )
+        
+        Log.d(TAG, "[CONVERSION] ${if (parsedTransaction.isDebit) "DEBIT" else "CREDIT"}: ${parsedTransaction.merchant} - ₹${parsedTransaction.amount}")
         
         return transactionEntity
     }
@@ -907,7 +1004,18 @@ class ExpenseRepository @Inject constructor(
 // Data classes for repository responses
 data class DashboardData(
     val totalSpent: Double,
+    val totalCredits: Double,
+    val actualBalance: Double,
     val transactionCount: Int,
     val topCategories: List<CategorySpendingResult>,
-    val topMerchants: List<MerchantSpending>
+    val topMerchants: List<MerchantSpending>,
+    val monthlyBalance: MonthlyBalanceInfo
+)
+
+data class MonthlyBalanceInfo(
+    val lastSalaryAmount: Double,
+    val lastSalaryDate: Date?,
+    val currentMonthExpenses: Double,
+    val remainingBalance: Double,
+    val hasSalaryData: Boolean
 )

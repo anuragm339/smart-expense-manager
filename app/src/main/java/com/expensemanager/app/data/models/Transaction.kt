@@ -44,7 +44,7 @@ data class Transaction(
                 rawSMS = parsedTransaction.rawSMS,
                 confidence = parsedTransaction.confidence,
                 bankName = parsedTransaction.bankName,
-                transactionType = TransactionType.DEBIT,
+                transactionType = if (parsedTransaction.isDebit) TransactionType.DEBIT else TransactionType.CREDIT,
                 isProcessed = false // New transactions start as unprocessed
             )
         }
