@@ -1,5 +1,6 @@
 package com.expensemanager.app.data.models
 
+import com.expensemanager.app.models.ParsedTransaction
 import java.util.Date
 
 data class Transaction(
@@ -32,7 +33,7 @@ data class Transaction(
     
     companion object {
         fun fromParsedTransaction(
-            parsedTransaction: com.expensemanager.app.utils.ParsedTransaction,
+            parsedTransaction: ParsedTransaction,
             id: String = generateId(parsedTransaction)
         ): Transaction {
             return Transaction(
@@ -49,7 +50,7 @@ data class Transaction(
             )
         }
         
-        private fun generateId(parsedTransaction: com.expensemanager.app.utils.ParsedTransaction): String {
+        private fun generateId(parsedTransaction: ParsedTransaction): String {
             // Generate a unique ID based on transaction data
             val content = "${parsedTransaction.amount}_${parsedTransaction.merchant}_${parsedTransaction.date.time}_${parsedTransaction.bankName}"
             return content.hashCode().toString()

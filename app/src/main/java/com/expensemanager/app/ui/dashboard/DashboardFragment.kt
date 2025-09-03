@@ -31,8 +31,10 @@ import com.expensemanager.app.data.repository.DashboardData
 import com.expensemanager.app.ui.dashboard.MerchantSpending
 import com.expensemanager.app.utils.CategoryManager
 import com.expensemanager.app.utils.MerchantAliasManager
-// REMOVED: SMSHistoryReader import - no more direct SMS reading
-import com.expensemanager.app.services.ParsedTransaction
+// UPDATED: Import unified services for consistent SMS parsing and filtering
+import com.expensemanager.app.models.ParsedTransaction
+import com.expensemanager.app.services.TransactionParsingService
+import com.expensemanager.app.services.TransactionFilterService
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
@@ -56,6 +58,13 @@ class DashboardFragment : Fragment() {
     // Hilt-injected use case for adding manual transactions
     @Inject
     lateinit var addTransactionUseCase: AddTransactionUseCase
+    
+    // Hilt-injected unified services for consistent parsing and filtering
+    @Inject
+    lateinit var transactionParsingService: TransactionParsingService
+    
+    @Inject
+    lateinit var transactionFilterService: TransactionFilterService
     
     // Keep existing repository for parallel approach during migration
     private lateinit var repository: ExpenseRepository

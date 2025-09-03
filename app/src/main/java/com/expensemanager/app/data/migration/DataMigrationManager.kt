@@ -8,7 +8,7 @@ import com.expensemanager.app.domain.repository.*
 import com.expensemanager.app.utils.CategoryManager
 import com.expensemanager.app.utils.MerchantAliasManager
 import com.expensemanager.app.utils.SMSHistoryReader
-import com.expensemanager.app.services.ParsedTransaction
+import com.expensemanager.app.models.ParsedTransaction
 import com.expensemanager.app.data.storage.TransactionStorage
 import com.expensemanager.app.data.models.Transaction
 import kotlinx.coroutines.Dispatchers

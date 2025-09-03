@@ -23,7 +23,7 @@ import com.expensemanager.app.data.repository.ExpenseRepository
 import com.expensemanager.app.data.dao.CategorySpendingResult
 import com.expensemanager.app.utils.SMSHistoryReader
 import com.expensemanager.app.utils.MerchantAliasManager
-import com.expensemanager.app.services.ParsedTransaction
+import com.expensemanager.app.models.ParsedTransaction
 import com.expensemanager.app.utils.CategoryManager
 import com.expensemanager.app.ui.dashboard.ProcessedTransaction
 import kotlinx.coroutines.launch

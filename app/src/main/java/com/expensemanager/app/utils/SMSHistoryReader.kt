@@ -5,28 +5,12 @@ import android.database.Cursor
 import android.net.Uri
 import android.provider.Telephony
 import android.util.Log
+import com.expensemanager.app.models.HistoricalSMS
+import com.expensemanager.app.models.ParsedTransaction
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.*
 
-data class HistoricalSMS(
-    val id: String,
-    val address: String,
-    val body: String,
-    val date: Date,
-    val type: Int
-)
-
-data class ParsedTransaction(
-    val id: String,
-    val amount: Double,
-    val merchant: String,
-    val bankName: String,
-    val date: Date,
-    val rawSMS: String,
-    val confidence: Float,
-    val isDebit: Boolean = true
-)
 
 class SMSHistoryReader(
     private val context: Context,

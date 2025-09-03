@@ -48,6 +48,15 @@
     <string name="permission_notification_message">Allow Smart Expense Manager to send you notifications when new transactions are detected. You can quickly categorize expenses directly from the notification.\n\nThis helps you stay on top of your spending in real-time.</string>
     <string name="permission_granted_title">Permissions Granted! 🎉</string>
     <string name="permission_granted_message">Great! Smart Expense Manager can now automatically track your bank transactions from SMS messages. You\'ll see them appear in the Messages tab.</string>
+    
+    <!-- Logging Settings -->
+    <string name="log_file_info">Log Files: %1$d files, %2$s total</string>
+    <string name="logging_settings_title">Logging Settings</string>
+    <string name="log_level_error">Error</string>
+    <string name="log_level_warn">Warning</string>
+    <string name="log_level_info">Info</string>
+    <string name="log_level_debug">Debug</string>
+    <string name="log_level_trace">Trace</string>
     <string name="permission_denied_title">Limited Functionality</string>
     <string name="permission_denied_message">Without SMS permissions, you\'ll need to manually add expenses using the Quick Add button. You can grant permissions later in Settings > Apps > Smart Expense Manager > Permissions.</string>
     <string name="permission_notification_denied_title">Notifications Disabled</string>

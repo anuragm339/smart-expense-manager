@@ -27,6 +27,9 @@ import com.expensemanager.app.utils.SMSHistoryReader
 import com.expensemanager.app.utils.CategoryManager
 import com.expensemanager.app.utils.MerchantAliasManager
 import com.expensemanager.app.ui.categories.CategorySelectionDialogFragment
+// UPDATED: Import unified services for consistent SMS parsing and filtering
+import com.expensemanager.app.services.TransactionParsingService
+import com.expensemanager.app.services.TransactionFilterService
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
 import android.widget.ArrayAdapter
@@ -37,6 +40,7 @@ import android.widget.Toast
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MessagesFragment : Fragment() {
@@ -46,6 +50,13 @@ class MessagesFragment : Fragment() {
     
     // ViewModel injection
     private val messagesViewModel: MessagesViewModel by viewModels()
+    
+    // Hilt-injected unified services for consistent parsing and filtering
+    @Inject
+    lateinit var transactionParsingService: TransactionParsingService
+    
+    @Inject
+    lateinit var transactionFilterService: TransactionFilterService
     
     private lateinit var groupedMessagesAdapter: GroupedMessagesAdapter
     private lateinit var categoryManager: CategoryManager
@@ -237,10 +248,20 @@ class MessagesFragment : Fragment() {
                 navigateToTransactionDetails(messageItem)
             },
             onGroupToggle = { group, isIncluded ->
-                // Use ViewModel event
-                messagesViewModel.handleEvent(MessagesUIEvent.ToggleGroupInclusion(group.merchantName, isIncluded))
-                // Keep legacy method for fallback
-                updateExpenseCalculations()
+                try {
+                    Log.d("MessagesFragment", "Group toggle requested: '${group.merchantName}' -> $isIncluded")
+                    // Use ViewModel event
+                    messagesViewModel.handleEvent(MessagesUIEvent.ToggleGroupInclusion(group.merchantName, isIncluded))
+                    // Keep legacy method for fallback
+                    updateExpenseCalculations()
+                } catch (e: Exception) {
+                    Log.e("MessagesFragment", "Error handling group toggle", e)
+                    Toast.makeText(
+                        requireContext(),
+                        "Failed to update merchant exclusion. Please try again.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
             },
             onGroupEdit = { group ->
                 showMerchantGroupEditDialog(group)
@@ -471,82 +492,51 @@ class MessagesFragment : Fragment() {
         Log.d("MessagesFragment", "[DEBUG] Starting applyFiltersAndSort() with ${allMessageItems.size} total items")
         Log.d("MessagesFragment", "[DEBUG] Current sort option: ${currentSortOption.name} (field: ${currentSortOption.field}, ascending: ${currentSortOption.ascending})")
         
-        // Start with all message items
-        var filtered = allMessageItems.toList()
-        Log.d("MessagesFragment", "[DEBUG] After copying all items: ${filtered.size} items")
-        
-        // Apply search filter
-        if (currentSearchQuery.isNotEmpty()) {
-            val query = currentSearchQuery.lowercase()
-            filtered = filtered.filter { item ->
-                item.merchant.lowercase().contains(query) ||
-                item.bankName.lowercase().contains(query) ||
-                item.rawSMS.lowercase().contains(query) ||
-                item.category.lowercase().contains(query)
-            }
-            Log.d("MessagesFragment", "[DEBUG] After search filter '$query': ${filtered.size} items")
-        }
-        
-        // Apply amount filter
-        currentFilterOptions.minAmount?.let { minAmount ->
-            filtered = filtered.filter { it.amount >= minAmount }
-            Log.d("MessagesFragment", "[DEBUG] After min amount filter (≥$minAmount): ${filtered.size} items")
-        }
-        currentFilterOptions.maxAmount?.let { maxAmount ->
-            filtered = filtered.filter { it.amount <= maxAmount }
-            Log.d("MessagesFragment", "[DEBUG] After max amount filter (≤$maxAmount): ${filtered.size} items")
-        }
-        
-        // Apply bank filter
-        if (currentFilterOptions.selectedBanks.isNotEmpty()) {
-            filtered = filtered.filter { currentFilterOptions.selectedBanks.contains(it.bankName) }
-            Log.d("MessagesFragment", "[DEBUG] After bank filter (${currentFilterOptions.selectedBanks}): ${filtered.size} items")
-        }
-        
-        // Apply confidence filter
-        if (currentFilterOptions.minConfidence > 0) {
-            filtered = filtered.filter { it.confidence >= currentFilterOptions.minConfidence }
-            Log.d("MessagesFragment", "[DEBUG] After confidence filter (≥${currentFilterOptions.minConfidence}%): ${filtered.size} items")
-        }
-        
-        // Apply date filters (simplified - would need proper date parsing in real implementation)
-        currentFilterOptions.dateFrom?.let { dateFrom ->
-            // In a real implementation, you'd parse the date string and compare properly
-            filtered = filtered.filter { it.dateTime >= dateFrom }
-            Log.d("MessagesFragment", "[DEBUG] After date from filter (≥$dateFrom): ${filtered.size} items")
-        }
-        currentFilterOptions.dateTo?.let { dateTo ->
-            // In a real implementation, you'd parse the date string and compare properly
-            filtered = filtered.filter { it.dateTime <= dateTo }
-            Log.d("MessagesFragment", "[DEBUG] After date to filter (≤$dateTo): ${filtered.size} items")
-        }
-        
-        Log.d("MessagesFragment", "[DEBUG] Before sorting: ${filtered.size} items")
-        if (filtered.isNotEmpty()) {
-            Log.d("MessagesFragment", "[DEBUG] Sample items before sorting:")
-            filtered.take(3).forEach { item ->
-                Log.d("MessagesFragment", "  - ${item.merchant}: ₹${item.amount} (${item.dateTime})")
+        // UPDATED: Use unified TransactionFilterService for consistent filtering across screens
+        lifecycleScope.launch {
+            try {
+                // Step 1: Apply exclusion filtering first (unified logic)
+                val excludedFiltered = transactionFilterService.filterMessageItemsByExclusions(allMessageItems)
+                Log.d("MessagesFragment", "[UNIFIED] After exclusion filtering: ${excludedFiltered.size} items (excluded ${allMessageItems.size - excludedFiltered.size})")
+                
+                // Step 2: Apply generic filters using unified service
+                val filtered = transactionFilterService.applyGenericFilters(
+                    transactions = excludedFiltered,
+                    minAmount = currentFilterOptions.minAmount,
+                    maxAmount = currentFilterOptions.maxAmount,
+                    selectedBanks = currentFilterOptions.selectedBanks,
+                    minConfidence = currentFilterOptions.minConfidence,
+                    dateFrom = currentFilterOptions.dateFrom,
+                    dateTo = currentFilterOptions.dateTo,
+                    searchQuery = currentSearchQuery
+                )
+                
+                Log.d("MessagesFragment", "[UNIFIED] Final filtering result: ${filtered.size} items")
+                
+                if (filtered.isNotEmpty()) {
+                    Log.d("MessagesFragment", "[DEBUG] Sample items after unified filtering:")
+                    filtered.take(3).forEach { item ->
+                        Log.d("MessagesFragment", "  - ${item.merchant}: ₹${item.amount} (${item.dateTime})")
+                    }
+                }
+                
+                // Update UI state with unified filtering results
+                filteredMessageItems = filtered
+                
+                // Update UI - this will call groupTransactionsByMerchant which handles the sorting
+                updateTransactionsList(filteredMessageItems)
+                updateSummaryStats(filteredMessageItems)
+                
+                Log.d("MessagesFragment", "[UNIFIED] applyFiltersAndSort() completed using unified services - ${filtered.size} transactions displayed")
+                
+            } catch (e: Exception) {
+                Log.e("MessagesFragment", "Error applying unified filters", e)
+                // Fallback to original data on error
+                filteredMessageItems = allMessageItems
+                updateTransactionsList(filteredMessageItems)
+                updateSummaryStats(filteredMessageItems)
             }
         }
-        
-        // Skip individual transaction sorting - let groupTransactionsByMerchant handle the sorting
-        // This ensures that the final merchant group sorting is what determines the display order
-        Log.d("MessagesFragment", "[DEBUG] Skipping individual transaction sorting - groups will be sorted instead")
-        
-        if (filtered.isNotEmpty()) {
-            Log.d("MessagesFragment", "[DEBUG] Sample items before grouping:")
-            filtered.take(3).forEach { item ->
-                Log.d("MessagesFragment", "  - ${item.merchant}: ₹${item.amount} (${item.dateTime})")
-            }
-        }
-        
-        filteredMessageItems = filtered
-        
-        // Update UI - this will call groupTransactionsByMerchant which handles the sorting
-        updateTransactionsList(filteredMessageItems)
-        updateSummaryStats(filteredMessageItems)
-        
-        Log.d("MessagesFragment", "[DEBUG] applyFiltersAndSort() completed - merchant groups will be sorted by ${currentSortOption.field}")
     }
     
     private fun updateTransactionsList(messageItems: List<MessageItem>) {
@@ -661,7 +651,7 @@ class MessagesFragment : Fragment() {
                 Log.w("MessagesFragment", "SMS permission denied during resync", e)
                 Toast.makeText(
                     requireContext(),
-                    "[ERROR] SMS permission required for resync",
+                    "📱 SMS permission is required to sync transaction messages",
                     Toast.LENGTH_LONG
                 ).show()
                 showNoPermissionState()
@@ -670,7 +660,7 @@ class MessagesFragment : Fragment() {
                 Log.e("MessagesFragment", "Error during SMS resync", e)
                 Toast.makeText(
                     requireContext(),
-                    "[ERROR] Error syncing SMS: ${e.message ?: "Unknown error"}",
+                    "⚠️ Unable to sync SMS messages: ${e.message ?: "Please try again"}",
                     Toast.LENGTH_LONG
                 ).show()
                 
@@ -740,7 +730,7 @@ class MessagesFragment : Fragment() {
                 
             } catch (e: SecurityException) {
                 MaterialAlertDialogBuilder(requireContext())
-                    .setTitle("[ERROR] Permission Error")
+                    .setTitle("📱 SMS Permission Required")
                     .setMessage("SMS permission is required to test SMS scanning. Please grant SMS permissions in app settings.")
                     .setPositiveButton("Open Settings") { _, _ ->
                         val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
@@ -754,7 +744,7 @@ class MessagesFragment : Fragment() {
                     .show()
             } catch (e: Exception) {
                 MaterialAlertDialogBuilder(requireContext())
-                    .setTitle("[ERROR] Test Error")
+                    .setTitle("⚠️ Test Failed")
                     .setMessage("Error testing SMS scanning: ${e.message}")
                     .setPositiveButton("OK") { dialog, _ ->
                         dialog.dismiss()
@@ -825,7 +815,13 @@ class MessagesFragment : Fragment() {
                 
                 // Load transactions from SQLite database
                 val dbTransactions = repository.getTransactionsByDateRange(startDate, endDate)
-                Log.d("MessagesFragment", "[DATA] Found ${dbTransactions.size} transactions in database")
+                val dbDebitCount = dbTransactions.count { it.isDebit }
+                val dbCreditCount = dbTransactions.count { !it.isDebit }
+                Log.d("MessagesFragment", "[DATA] Found ${dbTransactions.size} transactions in database ($dbDebitCount debits, $dbCreditCount credits)")
+                
+                // DEBUG: Also check what the Dashboard method would return
+                val expenseTransactions = repository.getExpenseTransactionsByDateRange(startDate, endDate)
+                Log.d("MessagesFragment", "[DEBUG] Dashboard would get ${expenseTransactions.size} debit-only transactions vs Messages gets ${dbTransactions.size} total")
                 
                 if (dbTransactions.isNotEmpty()) {
                     // Convert to MessageItem format with proper deduplication
@@ -862,6 +858,12 @@ class MessagesFragment : Fragment() {
                         "${it.merchant}_${it.amount}_${it.dateTime}_${it.bankName}"
                     }
                     
+                    Log.d("MessagesFragment", "[DEBUG] Before filtering: ${messageItems.size} message items")
+                    
+                    // IMPORTANT: For debugging only - show what would be excluded
+                    // Note: Messages screen shows ALL transactions but Dashboard should apply filtering
+                    // This difference is intentional - Messages shows everything, Dashboard shows filtered results
+                    
                     // Store for filtering/sorting
                     allMessageItems = messageItems
                     filteredMessageItems = messageItems
@@ -886,7 +888,7 @@ class MessagesFragment : Fragment() {
                 Log.w("MessagesFragment", "SMS permission denied", e)
                 Toast.makeText(
                     requireContext(),
-                    "[ERROR] SMS permission required to read transaction messages",
+                    "📱 SMS permission is required to read transaction messages",
                     Toast.LENGTH_LONG
                 ).show()
                 showNoPermissionState()
@@ -1280,69 +1282,126 @@ class MessagesFragment : Fragment() {
     
     
     private fun updateExpenseCalculations() {
-        // Get current groups from adapter
-        val currentGroups = groupedMessagesAdapter.merchantGroups
-        
-        // Calculate totals only for included groups
-        val includedGroups = currentGroups.filter { it.isIncludedInCalculations }
-        val totalMessages = includedGroups.sumOf { it.transactions.size }
-        val autoCategorized = includedGroups.sumOf { group -> 
-            group.transactions.count { it.confidence >= 85 } 
+        try {
+            Log.d("MessagesFragment", "Updating expense calculations...")
+            
+            // Get current groups from adapter
+            val currentGroups = groupedMessagesAdapter.merchantGroups
+            
+            // Calculate totals only for included groups
+            val includedGroups = currentGroups.filter { it.isIncludedInCalculations }
+            val totalMessages = includedGroups.sumOf { it.transactions.size }
+            val autoCategorized = includedGroups.sumOf { group -> 
+                group.transactions.count { it.confidence >= 85 } 
+            }
+            
+            // Update Messages UI
+            binding.tvTotalMessages.text = totalMessages.toString()
+            binding.tvAutoCategorized.text = autoCategorized.toString()
+            
+            // Store the inclusion state in SharedPreferences for other screens to use
+            saveGroupInclusionStates(currentGroups)
+            
+            // FIXED: Notify other screens about inclusion state changes
+            val intent = Intent("com.expensemanager.INCLUSION_STATE_CHANGED")
+            intent.putExtra("included_count", totalMessages)
+            intent.putExtra("total_amount", includedGroups.sumOf { it.totalAmount })
+            requireContext().sendBroadcast(intent)
+            
+            // Log for debugging
+            val totalIncludedAmount = includedGroups.sumOf { it.totalAmount }
+            Log.d("MessagesFragment", "Successfully updated calculations: $totalMessages messages, ₹${String.format("%.0f", totalIncludedAmount)} total from included groups")
+            
+        } catch (e: Exception) {
+            Log.e("MessagesFragment", "Error updating expense calculations", e)
+            Toast.makeText(
+                requireContext(),
+                "Error updating calculations. Some data may not be saved.",
+                Toast.LENGTH_SHORT
+            ).show()
         }
-        
-        // Update Messages UI
-        binding.tvTotalMessages.text = totalMessages.toString()
-        binding.tvAutoCategorized.text = autoCategorized.toString()
-        
-        // Store the inclusion state in SharedPreferences for other screens to use
-        saveGroupInclusionStates(currentGroups)
-        
-        // FIXED: Notify other screens about inclusion state changes
-        val intent = Intent("com.expensemanager.INCLUSION_STATE_CHANGED")
-        intent.putExtra("included_count", totalMessages)
-        intent.putExtra("total_amount", includedGroups.sumOf { it.totalAmount })
-        requireContext().sendBroadcast(intent)
-        
-        // Log for debugging
-        val totalIncludedAmount = includedGroups.sumOf { it.totalAmount }
-        android.util.Log.d("MessagesFragment", "Updated calculations: $totalMessages messages, ₹${String.format("%.0f", totalIncludedAmount)} total from included groups")
     }
     
     private fun saveGroupInclusionStates(groups: List<MerchantGroup>) {
-        val prefs = requireContext().getSharedPreferences("expense_calculations", android.content.Context.MODE_PRIVATE)
-        val editor = prefs.edit()
-        
-        // Save inclusion states as JSON
-        val inclusionStates = org.json.JSONObject()
-        groups.forEach { group ->
-            inclusionStates.put(group.merchantName, group.isIncludedInCalculations)
+        try {
+            Log.d("MessagesFragment", "Saving inclusion states for ${groups.size} groups")
+            
+            val prefs = requireContext().getSharedPreferences("expense_calculations", android.content.Context.MODE_PRIVATE)
+            val editor = prefs.edit()
+            
+            // Save inclusion states as JSON
+            val inclusionStates = org.json.JSONObject()
+            var savedCount = 0
+            
+            groups.forEach { group ->
+                try {
+                    inclusionStates.put(group.merchantName, group.isIncludedInCalculations)
+                    savedCount++
+                } catch (e: Exception) {
+                    Log.w("MessagesFragment", "Failed to save inclusion state for '${group.merchantName}'", e)
+                }
+            }
+            
+            editor.putString("group_inclusion_states", inclusionStates.toString())
+            val success = editor.commit()
+            
+            if (success) {
+                Log.d("MessagesFragment", "Successfully saved $savedCount inclusion states")
+            } else {
+                Log.e("MessagesFragment", "Failed to commit inclusion states to SharedPreferences")
+            }
+            
+        } catch (e: Exception) {
+            Log.e("MessagesFragment", "Error saving group inclusion states", e)
+            // Don't show error to user for this - it's not critical for immediate functionality
         }
-        
-        editor.putString("group_inclusion_states", inclusionStates.toString())
-        editor.apply()
     }
     
     private fun loadGroupInclusionStates(groups: List<MerchantGroup>): List<MerchantGroup> {
-        val prefs = requireContext().getSharedPreferences("expense_calculations", android.content.Context.MODE_PRIVATE)
-        val inclusionStatesJson = prefs.getString("group_inclusion_states", null)
-        
-        if (inclusionStatesJson != null) {
-            try {
-                val inclusionStates = org.json.JSONObject(inclusionStatesJson)
-                return groups.map { group ->
-                    val isIncluded = if (inclusionStates.has(group.merchantName)) {
-                        inclusionStates.getBoolean(group.merchantName)
-                    } else {
-                        true // Default to included
+        return try {
+            Log.d("MessagesFragment", "Loading inclusion states for ${groups.size} groups")
+            
+            val prefs = requireContext().getSharedPreferences("expense_calculations", android.content.Context.MODE_PRIVATE)
+            val inclusionStatesJson = prefs.getString("group_inclusion_states", null)
+            
+            if (inclusionStatesJson != null && inclusionStatesJson.isNotBlank()) {
+                try {
+                    val inclusionStates = org.json.JSONObject(inclusionStatesJson)
+                    var loadedCount = 0
+                    
+                    val updatedGroups = groups.map { group ->
+                        val isIncluded = try {
+                            if (inclusionStates.has(group.merchantName)) {
+                                loadedCount++
+                                inclusionStates.getBoolean(group.merchantName)
+                            } else {
+                                true // Default to included
+                            }
+                        } catch (e: Exception) {
+                            Log.w("MessagesFragment", "Error loading inclusion state for '${group.merchantName}'", e)
+                            true // Default to included on error
+                        }
+                        group.copy(isIncludedInCalculations = isIncluded)
                     }
-                    group.copy(isIncludedInCalculations = isIncluded)
+                    
+                    Log.d("MessagesFragment", "Successfully loaded $loadedCount inclusion states")
+                    return updatedGroups
+                    
+                } catch (e: Exception) {
+                    Log.w("MessagesFragment", "Error parsing inclusion states JSON", e)
                 }
-            } catch (e: Exception) {
-                android.util.Log.w("MessagesFragment", "Error loading inclusion states", e)
+            } else {
+                Log.d("MessagesFragment", "No inclusion states found, using defaults")
             }
+            
+            // Return original groups with default inclusion states
+            groups
+            
+        } catch (e: Exception) {
+            Log.e("MessagesFragment", "Critical error loading inclusion states", e)
+            // Return original groups as fallback
+            groups
         }
-        
-        return groups
     }
     
     private fun showCategorySelectionDialog(categories: List<String>, currentSelection: String, onCategorySelected: (String) -> Unit) {
@@ -1469,12 +1528,12 @@ class MessagesFragment : Fragment() {
                 
                 // Enhanced validation
                 if (newDisplayName.trim().isEmpty()) {
-                    Toast.makeText(requireContext(), "[ERROR] Display name cannot be empty", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), "⚠️ Please enter a display name", Toast.LENGTH_SHORT).show()
                     return@launch
                 }
                 
                 if (newCategory.trim().isEmpty()) {
-                    Toast.makeText(requireContext(), "[ERROR] Category cannot be empty", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), "⚠️ Please select a category", Toast.LENGTH_SHORT).show()
                     return@launch
                 }
                 
@@ -1544,7 +1603,7 @@ class MessagesFragment : Fragment() {
                         Log.e("MessagesFragment", "[ERROR] Failed to add new category: $newCategory", e)
                         Toast.makeText(
                             requireContext(),
-                            "[ERROR] Failed to create category '$newCategory': ${e.message}",
+                            "⚠️ Unable to create category '$newCategory': ${e.message ?: "Please try again"}",
                             Toast.LENGTH_LONG
                         ).show()
                         return@launch
@@ -1684,7 +1743,7 @@ class MessagesFragment : Fragment() {
                         
                         Toast.makeText(
                             requireContext(),
-                            "[ERROR] Failed to save changes to app memory.\n\nError: ${aliasUpdateError ?: "Unknown error"}\n\nPlease try again or restart the app.",
+                            "⚠️ Unable to save changes to app memory.\n\nError: ${aliasUpdateError ?: "Unknown error"}\n\nPlease try again or restart the app.",
                             Toast.LENGTH_LONG
                         ).show()
                     }
@@ -1696,7 +1755,7 @@ class MessagesFragment : Fragment() {
                 Log.e("MessagesFragment", "💥 Critical error during merchant group update", e)
                 Toast.makeText(
                     requireContext(),
-                    "[ERROR] Critical error updating group: ${e.message}\n\nPlease restart the app and try again.",
+                    "💥 Critical error updating group: ${e.message ?: "Unknown error"}\n\nPlease restart the app and try again.",
                     Toast.LENGTH_LONG
                 ).show()
             }
@@ -1833,7 +1892,7 @@ class MessagesFragment : Fragment() {
                 Log.e("MessagesFragment", "Error resetting merchant group", e)
                 Toast.makeText(
                     requireContext(),
-                    "[ERROR] Error resetting group: ${e.message}",
+                    "⚠️ Unable to reset group: ${e.message ?: "Please try again"}",
                     Toast.LENGTH_SHORT
                 ).show()
             }

@@ -5,6 +5,9 @@ import android.database.Cursor
 import android.net.Uri
 import android.provider.Telephony
 import android.util.Log
+import com.expensemanager.app.models.HistoricalSMS
+import com.expensemanager.app.models.ParsedTransaction
+import com.expensemanager.app.models.RejectedSMS
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -651,31 +654,3 @@ class SMSParsingService @Inject constructor(
     }
 }
 
-/**
- * Data classes for SMS parsing results
- */
-data class HistoricalSMS(
-    val id: String,
-    val address: String,
-    val body: String,
-    val date: Date,
-    val type: Int
-)
-
-data class ParsedTransaction(
-    val id: String,
-    val amount: Double,
-    val merchant: String,
-    val bankName: String,
-    val date: Date,
-    val rawSMS: String,
-    val confidence: Float,
-    val isDebit: Boolean = true
-)
-
-data class RejectedSMS(
-    val sender: String,
-    val body: String,
-    val date: Date,
-    val reason: String
-)

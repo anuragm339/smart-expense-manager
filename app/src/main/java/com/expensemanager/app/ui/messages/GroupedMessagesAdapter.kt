@@ -78,9 +78,25 @@ class GroupedMessagesAdapter(
                 // Setup include/exclude switch
                 switchIncludeGroup.isChecked = group.isIncludedInCalculations
                 switchIncludeGroup.setOnCheckedChangeListener { _, isChecked ->
-                    group.isIncludedInCalculations = isChecked
-                    tvTotalAmount.alpha = if (isChecked) 1.0f else 0.5f
-                    onGroupToggle(group, isChecked)
+                    try {
+                        android.util.Log.d("GroupedMessagesAdapter", "Toggle switch for '${group.merchantName}': $isChecked")
+                        group.isIncludedInCalculations = isChecked
+                        tvTotalAmount.alpha = if (isChecked) 1.0f else 0.5f
+                        onGroupToggle(group, isChecked)
+                    } catch (e: Exception) {
+                        android.util.Log.e("GroupedMessagesAdapter", "Error handling toggle switch for '${group.merchantName}'", e)
+                        // Revert switch state on error
+                        switchIncludeGroup.isChecked = !isChecked
+                        group.isIncludedInCalculations = !isChecked
+                        tvTotalAmount.alpha = if (!isChecked) 1.0f else 0.5f
+                        
+                        // Show error toast
+                        android.widget.Toast.makeText(
+                            binding.root.context,
+                            "Failed to update exclusion settings. Please try again.",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    }
                 }
                 
                 // Update card appearance based on inclusion state

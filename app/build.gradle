@@ -44,7 +44,7 @@ android {
 dependencies {
     implementation 'androidx.core:core-ktx:1.12.0'
     implementation 'androidx.appcompat:appcompat:1.6.1'
-    implementation 'com.google.android.material:material:1.10.0'
+    implementation 'com.google.android.material:material:1.12.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     
     // Navigation
@@ -86,7 +86,11 @@ dependencies {
     implementation 'com.google.dagger:hilt-android:2.48'
     ksp 'com.google.dagger:hilt-compiler:2.48'
     
-    // Timber Logging
+    // Logback for Android - Professional logging framework
+    implementation 'com.github.tony19:logback-android:3.0.0'
+    implementation 'org.slf4j:slf4j-api:2.0.9'
+    
+    // Keep Timber for now during migration (will be removed later)
     implementation 'com.jakewharton.timber:timber:5.0.1'
     
     // Testing

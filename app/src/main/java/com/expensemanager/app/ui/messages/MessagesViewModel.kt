@@ -581,21 +581,31 @@ class MessagesViewModel @Inject constructor(
      * Toggle group inclusion in calculations
      */
     private fun toggleGroupInclusion(merchantName: String, isIncluded: Boolean) {
-        val currentGroups = _uiState.value.groupedMessages
-        val updatedGroups = currentGroups.map { group ->
-            if (group.merchantName == merchantName) {
-                group.copy(isIncludedInCalculations = isIncluded)
-            } else {
-                group
+        try {
+            Log.d(TAG, "Toggling group inclusion for '$merchantName': $isIncluded")
+            
+            val currentGroups = _uiState.value.groupedMessages
+            val updatedGroups = currentGroups.map { group ->
+                if (group.merchantName == merchantName) {
+                    group.copy(isIncludedInCalculations = isIncluded)
+                } else {
+                    group
+                }
             }
+            
+            _uiState.value = _uiState.value.copy(
+                groupedMessages = updatedGroups
+            )
+            
+            // Save inclusion states with error handling
+            saveGroupInclusionStates(updatedGroups)
+            
+            Log.d(TAG, "Successfully toggled group inclusion for '$merchantName'")
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error toggling group inclusion for '$merchantName'", e)
+            handleError("Failed to update merchant exclusion settings. Please try again.")
         }
-        
-        _uiState.value = _uiState.value.copy(
-            groupedMessages = updatedGroups
-        )
-        
-        // Save inclusion states
-        saveGroupInclusionStates(updatedGroups)
     }
     
     /**
@@ -837,15 +847,38 @@ class MessagesViewModel @Inject constructor(
     }
     
     private fun saveGroupInclusionStates(groups: List<MerchantGroup>) {
-        val prefs = context.getSharedPreferences("expense_calculations", Context.MODE_PRIVATE)
-        val editor = prefs.edit()
-        
-        val inclusionStates = org.json.JSONObject()
-        groups.forEach { group ->
-            inclusionStates.put(group.merchantName, group.isIncludedInCalculations)
+        try {
+            Log.d(TAG, "Saving inclusion states for ${groups.size} groups")
+            
+            val prefs = context.getSharedPreferences("expense_calculations", Context.MODE_PRIVATE)
+            val editor = prefs.edit()
+            
+            val inclusionStates = org.json.JSONObject()
+            var savedCount = 0
+            
+            groups.forEach { group ->
+                try {
+                    inclusionStates.put(group.merchantName, group.isIncludedInCalculations)
+                    savedCount++
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to save inclusion state for '${group.merchantName}'", e)
+                }
+            }
+            
+            editor.putString("group_inclusion_states", inclusionStates.toString())
+            val success = editor.commit()
+            
+            if (success) {
+                Log.d(TAG, "Successfully saved $savedCount inclusion states")
+            } else {
+                Log.e(TAG, "Failed to commit inclusion states to SharedPreferences")
+                throw Exception("SharedPreferences commit failed")
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving group inclusion states", e)
+            // Don't show error to user for this - it's not critical
+            // The UI state is already updated, this is just persistence
         }
-        
-        editor.putString("group_inclusion_states", inclusionStates.toString())
-        editor.apply()
     }
 }

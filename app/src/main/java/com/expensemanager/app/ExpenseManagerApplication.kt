@@ -3,6 +3,7 @@ package com.expensemanager.app
 import android.app.Application
 import android.util.Log
 import com.expensemanager.app.data.migration.DataMigrationManager
+import com.expensemanager.app.utils.AppLogger
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -17,6 +18,9 @@ class ExpenseManagerApplication : Application() {
     @Inject
     lateinit var dataMigrationManager: DataMigrationManager
     
+    @Inject
+    lateinit var appLogger: AppLogger
+    
     // Application-wide coroutine scope
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     
@@ -27,37 +31,52 @@ class ExpenseManagerApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         
-        // Initialize Timber for structured logging
-        initializeTimber()
+        // Initialize both logging systems during transition period
+        initializeLogging()
         
-        Timber.tag(TAG).d("Application starting up...")
+        appLogger.info(TAG, "Application starting up with Logback logging...")
         
         // Perform data migration in background
         applicationScope.launch {
             try {
-                Timber.tag(TAG).d("Starting data migration check...")
+                appLogger.debug(TAG, "Starting data migration check...")
                 
                 // FIXED: Remove debug code that was resetting migration state on every app start
                 // This was causing fresh installs to appear empty because migration would run repeatedly
-                Timber.tag(TAG).d("Checking if migration is needed...")
+                appLogger.debug(TAG, "Checking if migration is needed...")
                 
                 val success = dataMigrationManager.performMigrationIfNeeded()
                 
                 if (success) {
-                    Timber.tag(TAG).i("App initialization completed successfully")
+                    appLogger.info(TAG, "App initialization completed successfully")
                 } else {
-                    Timber.tag(TAG).w("App initialization completed with warnings")
+                    appLogger.warn(TAG, "App initialization completed with warnings")
                 }
                 
             } catch (e: Exception) {
-                Timber.tag(TAG).e(e, "App initialization failed")
+                appLogger.error(TAG, "App initialization failed", e)
                 // App can still continue to work, just with degraded functionality
             }
         }
     }
     
     /**
-     * Initialize Timber logging framework with production-grade configuration
+     * Initialize logging systems - both Logback (primary) and Timber (temporary during transition)
+     */
+    private fun initializeLogging() {
+        // Initialize Logback (primary logging system)
+        // AppLogger automatically initializes Logback when instantiated
+        
+        // Keep Timber for backward compatibility during transition
+        // TODO: Remove Timber after all components are migrated to Logback
+        initializeTimber()
+        
+        appLogger.info(TAG, "Logging systems initialized - Logback (primary), Timber (legacy)")
+    }
+    
+    /**
+     * Initialize legacy Timber logging framework (temporary during transition)
+     * TODO: Remove this method once migration to Logback is complete
      */
     private fun initializeTimber() {
         // For Phase 1, always initialize Timber in debug mode
@@ -68,6 +87,6 @@ class ExpenseManagerApplication : Application() {
                 return "[${element.className.substringAfterLast('.')}][${element.methodName}]"
             }
         })
-        Timber.tag(TAG).d("Timber initialized for development")
+        Timber.tag(TAG).d("Timber initialized for legacy compatibility")
     }
 }

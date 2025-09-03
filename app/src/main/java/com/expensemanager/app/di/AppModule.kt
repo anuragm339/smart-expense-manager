@@ -3,6 +3,8 @@ package com.expensemanager.app.di
 import android.content.Context
 import android.content.SharedPreferences
 import com.expensemanager.app.services.SMSParsingService
+import com.expensemanager.app.utils.AppLogger
+import com.expensemanager.app.utils.MerchantAliasManager
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -81,5 +83,29 @@ object AppModule {
         @ApplicationContext context: Context
     ): SMSParsingService {
         return SMSParsingService(context)
+    }
+    
+    /**
+     * Provides centralized application logger using Logback
+     * Used for professional logging throughout the application
+     */
+    @Provides
+    @Singleton
+    fun provideAppLogger(
+        @ApplicationContext context: Context
+    ): AppLogger {
+        return AppLogger(context)
+    }
+    
+    /**
+     * Provides merchant alias manager for merchant name normalization
+     * Used for consistent merchant categorization and aliasing
+     */
+    @Provides
+    @Singleton
+    fun provideMerchantAliasManager(
+        @ApplicationContext context: Context
+    ): MerchantAliasManager {
+        return MerchantAliasManager(context)
     }
 }

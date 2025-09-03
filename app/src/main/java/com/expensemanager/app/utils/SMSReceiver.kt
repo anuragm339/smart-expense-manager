@@ -8,7 +8,10 @@ import android.provider.Telephony
 import android.telephony.SmsMessage
 import android.util.Log
 import com.expensemanager.app.data.repository.ExpenseRepository
+import com.expensemanager.app.models.HistoricalSMS
+import com.expensemanager.app.models.ParsedTransaction
 import com.expensemanager.app.notifications.TransactionNotificationManager
+import com.expensemanager.app.utils.AppLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -47,7 +50,15 @@ class SMSReceiver : BroadcastReceiver() {
     private fun processBankSMS(context: Context, messageBody: String?, sender: String?, timestamp: Long) {
         if (messageBody == null || sender == null) return
         
-        Log.d(TAG, "Processing SMS from $sender: ${messageBody.take(100)}...")
+        // Use AppLogger instance - will be injected once this class is converted to injectable
+        // For now, create instance directly (TODO: Convert to injectable class)
+        val logger = AppLogger(context)
+        logger.logSMSProcessing(
+            sender = sender, 
+            message = messageBody, 
+            success = true, 
+            details = "Processing incoming SMS for transaction parsing"
+        )
         
         // FIXED: Generate consistent SMS ID to prevent duplicates
         val smsId = com.expensemanager.app.data.entities.TransactionEntity.generateSmsId(
@@ -71,7 +82,12 @@ class SMSReceiver : BroadcastReceiver() {
             val parsedTransaction = smsHistoryReader.parseTransactionFromSMS(smsData)
             
             if (parsedTransaction != null) {
-                Log.d(TAG, "Parsed new transaction: ${parsedTransaction.merchant} - ₹${parsedTransaction.amount}")
+                logger.logTransaction(
+                    action = "PARSED_FROM_SMS",
+                    transactionId = parsedTransaction.id,
+                    amount = parsedTransaction.amount,
+                    merchant = parsedTransaction.merchant
+                )
                 
                 // Save to SQLite database via ExpenseRepository  
                 CoroutineScope(Dispatchers.IO).launch {
@@ -79,27 +95,17 @@ class SMSReceiver : BroadcastReceiver() {
                         val repository = ExpenseRepository.getInstance(context)
                         
                         // Convert to TransactionEntity and save to SQLite
-                        // Convert from utils.ParsedTransaction to services.ParsedTransaction
-                        val servicesParsedTransaction = com.expensemanager.app.services.ParsedTransaction(
-                            id = parsedTransaction.id,
-                            amount = parsedTransaction.amount,
-                            merchant = parsedTransaction.merchant,
-                            bankName = parsedTransaction.bankName,
-                            date = parsedTransaction.date,
-                            rawSMS = parsedTransaction.rawSMS,
-                            confidence = parsedTransaction.confidence
-                        )
-                        val transactionEntity = repository.convertToTransactionEntity(servicesParsedTransaction)
+                        val transactionEntity = repository.convertToTransactionEntity(parsedTransaction)
                         
                         // FIXED: Enhanced duplicate prevention with both SMS ID and transaction similarity checks
                         val existingTransaction = repository.getTransactionBySmsId(transactionEntity.smsId)
                         
                         // Additional check for transaction similarity (in case SMS ID generation changed)
                         val deduplicationKey = com.expensemanager.app.data.entities.TransactionEntity.generateDeduplicationKey(
-                            merchant = servicesParsedTransaction.merchant,
-                            amount = servicesParsedTransaction.amount,
-                            date = servicesParsedTransaction.date,
-                            bankName = servicesParsedTransaction.bankName
+                            merchant = parsedTransaction.merchant,
+                            amount = parsedTransaction.amount,
+                            date = parsedTransaction.date,
+                            bankName = parsedTransaction.bankName
                         )
                         val similarTransaction = repository.findSimilarTransaction(deduplicationKey)
                         
@@ -107,7 +113,13 @@ class SMSReceiver : BroadcastReceiver() {
                             val insertedId = repository.insertTransaction(transactionEntity)
                             
                             if (insertedId > 0) {
-                                Log.d(TAG, "[SUCCESS] New transaction saved to SQLite: ${parsedTransaction.merchant} - ₹${parsedTransaction.amount}")
+                                logger.logDatabaseOperation(
+                                operation = "INSERT_TRANSACTION",
+                                table = "transactions",
+                                success = true,
+                                recordsAffected = 1
+                            )
+                            logger.info(TAG, "[SUCCESS] New transaction saved: ${parsedTransaction.merchant} - ₹${parsedTransaction.amount}")
                                 
                                 // Show notification
                                 val notificationManager = TransactionNotificationManager(context)
@@ -131,24 +143,29 @@ class SMSReceiver : BroadcastReceiver() {
                                 updateIntent.putExtra("merchant", transactionEntity.rawMerchant)
                                 context.sendBroadcast(updateIntent)
                                 
-                                Log.d(TAG, "[BROADCAST] Broadcast sent for new transaction: ${transactionEntity.smsId}")
+                                logger.debug(TAG, "[BROADCAST] Broadcast sent for new transaction: ${transactionEntity.smsId}")
                             } else {
-                                Log.w(TAG, "Failed to insert transaction into database")
+                                logger.warn(TAG, "Failed to insert transaction into database")
                             }
                         } else {
                             val reason = if (existingTransaction != null) "SMS ID already exists" else "Similar transaction found"
-                            Log.d(TAG, "Duplicate transaction detected ($reason), skipping: ${transactionEntity.smsId}")
+                            logger.debug(TAG, "Duplicate transaction detected ($reason), skipping: ${transactionEntity.smsId}")
                         }
                         
                     } catch (e: Exception) {
-                        Log.e(TAG, "Error saving transaction to SQLite database", e)
+                        logger.error(TAG, "Error saving transaction to SQLite database", e)
                     }
                 }
             } else {
-                Log.d(TAG, "Failed to parse transaction from SMS")
+                logger.logSMSProcessing(
+                    sender = sender,
+                    message = messageBody,
+                    success = false,
+                    details = "Failed to parse transaction data from SMS content"
+                )
             }
         } else {
-            Log.d(TAG, "SMS is not a valid bank transaction: $sender")
+            logger.debug(TAG, "SMS is not a valid bank transaction: $sender")
         }
     }
 }

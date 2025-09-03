@@ -7,7 +7,9 @@ import com.expensemanager.app.data.entities.*
 import com.expensemanager.app.data.dao.*
 import com.expensemanager.app.domain.repository.*
 import com.expensemanager.app.services.SMSParsingService
-import com.expensemanager.app.services.ParsedTransaction
+import com.expensemanager.app.models.ParsedTransaction
+import com.expensemanager.app.services.TransactionFilterService
+import com.expensemanager.app.utils.AppLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.Flow
@@ -24,7 +26,9 @@ class ExpenseRepository @Inject constructor(
     private val categoryDao: CategoryDao,
     private val merchantDao: MerchantDao,
     private val syncStateDao: SyncStateDao,
-    private val smsParsingService: SMSParsingService
+    private val smsParsingService: SMSParsingService,
+    private val transactionFilterService: TransactionFilterService? = null,
+    private val appLogger: AppLogger
 ) : TransactionRepositoryInterface, 
     CategoryRepositoryInterface, 
     MerchantRepositoryInterface, 
@@ -41,13 +45,16 @@ class ExpenseRepository @Inject constructor(
             return INSTANCE ?: synchronized(this) {
                 val database = ExpenseDatabase.getDatabase(context)
                 val smsParsingService = SMSParsingService(context.applicationContext)
+                val appLogger = AppLogger(context.applicationContext)
                 val instance = ExpenseRepository(
                     context.applicationContext,
                     database.transactionDao(),
                     database.categoryDao(),
                     database.merchantDao(),
                     database.syncStateDao(),
-                    smsParsingService
+                    smsParsingService,
+                    null, // transactionFilterService (optional)
+                    appLogger
                 )
                 INSTANCE = instance
                 instance
@@ -120,7 +127,9 @@ class ExpenseRepository @Inject constructor(
     override suspend fun getTotalSpent(startDate: Date, endDate: Date): Double {
         // FIXED: Use expense-specific transactions (debit only) instead of all transactions
         val expenseTransactions = getExpenseTransactionsByDateRange(startDate, endDate)
+        Log.d(TAG, "🔍 [getTotalSpent] Before filtering: ${expenseTransactions.size} debit transactions")
         val filteredTransactions = filterTransactionsByExclusions(expenseTransactions)
+        Log.d(TAG, "🔍 [getTotalSpent] After filtering: ${filteredTransactions.size} debit transactions (${expenseTransactions.size - filteredTransactions.size} excluded)")
         return filteredTransactions.sumOf { it.amount }
     }
     
@@ -197,7 +206,10 @@ class ExpenseRepository @Inject constructor(
     override suspend fun getTransactionCount(startDate: Date, endDate: Date): Int {
         // FIXED: Use expense-specific transactions (debit only) instead of all transactions
         val expenseTransactions = getExpenseTransactionsByDateRange(startDate, endDate)
-        return filterTransactionsByExclusions(expenseTransactions).size
+        Log.d(TAG, "🔍 [getTransactionCount] Before filtering: ${expenseTransactions.size} debit transactions")
+        val filteredTransactions = filterTransactionsByExclusions(expenseTransactions)
+        Log.d(TAG, "🔍 [getTransactionCount] After filtering: ${filteredTransactions.size} debit transactions (${expenseTransactions.size - filteredTransactions.size} excluded)")
+        return filteredTransactions.size
     }
     
     override suspend fun getTransactionCount(): Int {
@@ -587,6 +599,13 @@ class ExpenseRepository @Inject constructor(
         val rawCreditCount = allTransactions.count { !it.isDebit }
         val rawDebitCount = allTransactions.count { it.isDebit }
         
+        // DEBUG: Get expense transactions BEFORE filtering 
+        val expenseTransactionsBeforeFilter = getExpenseTransactionsByDateRange(startDate, endDate)
+        Log.d(TAG, "🔍 [DEBUG] Raw debit transactions (before filtering): ${expenseTransactionsBeforeFilter.size}")
+        expenseTransactionsBeforeFilter.take(3).forEach { transaction ->
+            Log.d(TAG, "🔍 [DEBUG] Debit example: ${transaction.rawMerchant} - ₹${transaction.amount} - isDebit: ${transaction.isDebit}")
+        }
+        
         // Get expense-specific data (debits only)
         val totalSpent = getTotalSpent(startDate, endDate)
         val transactionCount = getTransactionCount(startDate, endDate)  // This applies filtering to debits only
@@ -599,9 +618,21 @@ class ExpenseRepository @Inject constructor(
         Log.d(TAG, "📊 [DASHBOARD] Raw SMS data: $rawTransactionCount total ($rawDebitCount debits, $rawCreditCount credits)")
         Log.d(TAG, "📊 [DASHBOARD] Dashboard display: $transactionCount expense transactions, ₹$totalSpent total spent")
         Log.d(TAG, "💰 [BALANCE] Credits: ₹$totalCredits, Debits: ₹$totalSpent, Balance: ₹$actualBalance")
+        Log.d(TAG, "🔍 [DEBUG] Debit transactions: ${expenseTransactionsBeforeFilter.size} -> filtered to: $transactionCount (${expenseTransactionsBeforeFilter.size - transactionCount} excluded)")
         
         if (rawDebitCount > 0 && transactionCount == 0) {
             Log.w(TAG, "⚠️ All $rawDebitCount debit transactions were filtered out - check exclusion settings")
+            
+            // DEBUG: Show examples of excluded transactions
+            expenseTransactionsBeforeFilter.take(3).forEach { transaction ->
+                Log.w(TAG, "⚠️ [EXCLUDED EXAMPLE] ${transaction.rawMerchant} (normalized: ${transaction.normalizedMerchant}) - ₹${transaction.amount}")
+            }
+            
+            // DEBUG: Get exclusion states
+            if (transactionFilterService != null) {
+                val exclusionDebugInfo = transactionFilterService.getExclusionStatesDebugInfo()
+                Log.w(TAG, "⚠️ [EXCLUSION INFO] $exclusionDebugInfo")
+            }
         }
         
         if (rawCreditCount > 0) {
@@ -761,7 +792,31 @@ class ExpenseRepository @Inject constructor(
     
     private suspend fun filterTransactionsByExclusions(transactions: List<TransactionEntity>): List<TransactionEntity> {
         return try {
-            // FIXED: Unified filtering system - check both database exclusions AND SharedPreferences inclusion states
+            if (transactionFilterService != null) {
+                // UPDATED: Use unified TransactionFilterService for consistent exclusion logic
+                Log.d(TAG, "[UNIFIED] Using TransactionFilterService for exclusion filtering")
+                val filteredTransactions = transactionFilterService.filterTransactionsByExclusions(transactions)
+                
+                Log.d(TAG, "[SUCCESS] UNIFIED FILTERING result: ${filteredTransactions.size}/${transactions.size} transactions included")
+                
+                filteredTransactions
+            } else {
+                // Fallback to legacy filtering if service not available
+                Log.d(TAG, "[FALLBACK] TransactionFilterService not available, using legacy filtering")
+                filterTransactionsByExclusionsLegacy(transactions)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in unified filtering", e)
+            transactions // Return all transactions on error
+        }
+    }
+    
+    /**
+     * Legacy filtering method for backwards compatibility
+     */
+    private suspend fun filterTransactionsByExclusionsLegacy(transactions: List<TransactionEntity>): List<TransactionEntity> {
+        return try {
+            // Legacy filtering system - check both database exclusions AND SharedPreferences inclusion states
             
             // 1. Get database exclusions
             val excludedMerchants = merchantDao.getExcludedMerchants()
@@ -790,10 +845,6 @@ class ExpenseRepository @Inject constructor(
                 }
             }
             
-            Log.d(TAG, "[DEBUG] UNIFIED FILTERING: ${transactions.size} transactions")
-            Log.d(TAG, "[DEBUG]   - Database exclusions: ${excludedNormalizedNames.size}")
-            Log.d(TAG, "[DEBUG]   - SharedPrefs exclusions: ${sharedPrefsExclusions.size}")
-            
             // 3. Filter transactions using BOTH exclusion systems
             val filteredTransactions = transactions.filter { transaction ->
                 val isExcludedInDatabase = excludedNormalizedNames.contains(transaction.normalizedMerchant)
@@ -804,12 +855,13 @@ class ExpenseRepository @Inject constructor(
                 isIncluded
             }
             
-            Log.d(TAG, "[SUCCESS] UNIFIED FILTERING result: ${filteredTransactions.size}/${transactions.size} transactions included")
+            Log.d(TAG, "[LEGACY] Filtering result: ${filteredTransactions.size}/${transactions.size} transactions included")
             
             filteredTransactions
+            
         } catch (e: Exception) {
-            Log.e(TAG, "Error in unified filtering", e)
-            transactions // Return all transactions on error
+            Log.e(TAG, "Error in legacy filtering", e)
+            transactions
         }
     }
     
@@ -824,42 +876,17 @@ class ExpenseRepository @Inject constructor(
     }
 
     /**
-     * Debug helper to get current exclusion states from BOTH systems
+     * Debug helper to get current exclusion states from unified service
      */
     override suspend fun getExclusionStatesDebugInfo(): String {
         return try {
-            // 1. Database exclusions
-            val databaseExcluded = getExcludedMerchants()
-            val dbExcludedNames = databaseExcluded.map { "'${it.displayName}'" }
-            
-            // 2. SharedPreferences exclusions
-            val prefs = context.getSharedPreferences("expense_calculations", android.content.Context.MODE_PRIVATE)
-            val inclusionStatesJson = prefs.getString("group_inclusion_states", null)
-            val sharedPrefsExcluded = mutableListOf<String>()
-            
-            if (inclusionStatesJson != null) {
-                try {
-                    val inclusionStates = org.json.JSONObject(inclusionStatesJson)
-                    val keys = inclusionStates.keys()
-                    while (keys.hasNext()) {
-                        val merchantName = keys.next()
-                        val isIncluded = inclusionStates.getBoolean(merchantName)
-                        if (!isIncluded) {
-                            sharedPrefsExcluded.add("'$merchantName'")
-                        }
-                    }
-                } catch (e: Exception) {
-                    // Ignore JSON parsing errors
-                }
+            if (transactionFilterService != null) {
+                // UPDATED: Use unified TransactionFilterService for exclusion states debug info
+                transactionFilterService.getExclusionStatesDebugInfo()
+            } else {
+                // Fallback to legacy debug info
+                "TransactionFilterService not available - using legacy repository"
             }
-            
-            val result = buildString {
-                appendLine("UNIFIED EXCLUSION SYSTEM STATUS:")
-                appendLine("[STATS] Database exclusions (${dbExcludedNames.size}): ${if (dbExcludedNames.isEmpty()) "None" else dbExcludedNames.joinToString(", ")}")
-                append("[STATS] SharedPrefs exclusions (${sharedPrefsExcluded.size}): ${if (sharedPrefsExcluded.isEmpty()) "None" else sharedPrefsExcluded.joinToString(", ")}")
-            }
-            
-            result
         } catch (e: Exception) {
             "Error loading unified exclusion states: ${e.message}"
         }
