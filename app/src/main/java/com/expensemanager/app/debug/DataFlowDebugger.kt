@@ -1,8 +1,9 @@
 package com.expensemanager.app.debug
 
 import android.content.Context
-import android.util.Log
 import com.expensemanager.app.data.repository.ExpenseRepository
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import com.expensemanager.app.data.storage.TransactionStorage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -16,6 +17,7 @@ class DataFlowDebugger(private val context: Context) {
     
     companion object {
         private const val TAG = "DataFlowDebugger"
+        private val logger: Logger = LoggerFactory.getLogger(TAG)
     }
     
     /**
@@ -51,7 +53,7 @@ class DataFlowDebugger(private val context: Context) {
             report.toString()
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error during diagnosis", e)
+            logger.error("Error during diagnosis", e)
             "❌ Diagnosis failed: ${e.message}"
         }
     }
@@ -88,7 +90,7 @@ class DataFlowDebugger(private val context: Context) {
             
         } catch (e: Exception) {
             report.appendLine("❌ Error checking legacy storage: ${e.message}")
-            Log.e(TAG, "Error checking legacy storage", e)
+            logger.error("Error checking legacy storage", e)
         }
     }
     
@@ -129,7 +131,7 @@ class DataFlowDebugger(private val context: Context) {
             
         } catch (e: Exception) {
             report.appendLine("❌ Error checking Room database: ${e.message}")
-            Log.e(TAG, "Error checking Room database", e)
+            logger.error("Error checking Room database", e)
         }
     }
     

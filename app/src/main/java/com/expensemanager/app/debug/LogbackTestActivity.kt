@@ -2,6 +2,8 @@ package com.expensemanager.app.debug
 
 import android.os.Bundle
 import android.widget.Toast
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -11,6 +13,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.logging.Logger
 import javax.inject.Inject
 
 /**
@@ -28,6 +31,7 @@ class LogbackTestActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "LogbackTest"
+        private val logger: Logger = LoggerFactory.getLogger(TAG)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -38,8 +42,15 @@ class LogbackTestActivity : AppCompatActivity() {
         
         setupUI()
         
-        // Test basic logging on startup
+        // Test basic logging on startup and show initialization status
         appLogger.info(TAG, "LogbackTestActivity started")
+        
+        // Display initialization status
+        binding.textLogStatus.text = appLogger.getInitializationStatus()
+        
+        // Run a quick test
+        val testResult = appLogger.testLogging()
+        logger.debug("Quick logging test: $testResult")
     }
 
     private fun setupUI() {

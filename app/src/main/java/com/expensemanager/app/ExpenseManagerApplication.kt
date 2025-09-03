@@ -31,10 +31,20 @@ class ExpenseManagerApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         
+        Log.d(TAG, "Application onCreate() starting...")
+        
         // Initialize both logging systems during transition period
         initializeLogging()
         
-        appLogger.info(TAG, "Application starting up with Logback logging...")
+        // Give Logback a moment to finish initialization
+        try {
+            Thread.sleep(100) // Small delay to ensure Logback is ready
+        } catch (e: InterruptedException) {
+            Log.w(TAG, "Interrupted during logging initialization delay")
+        }
+        
+        // Test that logging is working and log startup
+        appLogger.info(TAG, "Application starting up with Logback logging system...")
         
         // Perform data migration in background
         applicationScope.launch {
@@ -55,6 +65,7 @@ class ExpenseManagerApplication : Application() {
                 
             } catch (e: Exception) {
                 appLogger.error(TAG, "App initialization failed", e)
+                Log.e(TAG, "App initialization failed (fallback)", e)
                 // App can still continue to work, just with degraded functionality
             }
         }
@@ -64,14 +75,22 @@ class ExpenseManagerApplication : Application() {
      * Initialize logging systems - both Logback (primary) and Timber (temporary during transition)
      */
     private fun initializeLogging() {
-        // Initialize Logback (primary logging system)
-        // AppLogger automatically initializes Logback when instantiated
+        Log.d(TAG, "Initializing logging systems...")
         
-        // Keep Timber for backward compatibility during transition
-        // TODO: Remove Timber after all components are migrated to Logback
-        initializeTimber()
-        
-        appLogger.info(TAG, "Logging systems initialized - Logback (primary), Timber (legacy)")
+        try {
+            // Initialize Logback (primary logging system)
+            // AppLogger automatically initializes Logback when instantiated via Hilt
+            Log.d(TAG, "AppLogger instance will be initialized by Hilt dependency injection")
+            
+            // Keep Timber for backward compatibility during transition
+            // TODO: Remove Timber after all components are migrated to Logback
+            initializeTimber()
+            
+            Log.d(TAG, "Logging systems initialized - Logback (primary), Timber (legacy)")
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error during logging initialization", e)
+        }
     }
     
     /**

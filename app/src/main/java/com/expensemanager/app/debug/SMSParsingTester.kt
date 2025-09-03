@@ -1,8 +1,9 @@
 package com.expensemanager.app.debug
 
-import android.util.Log
 import java.util.*
 import java.util.regex.Pattern
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 
 /**
  * SMS Parsing Test Utility
@@ -12,6 +13,7 @@ class SMSParsingTester {
     
     companion object {
         private const val TAG = "SMSParsingTester"
+        private val logger: Logger = LoggerFactory.getLogger(TAG)
     }
     
     data class SMSTestResult(
@@ -29,9 +31,9 @@ class SMSParsingTester {
      * Test a single SMS to see if it should be parsed as a transaction
      */
     fun testSMSParsing(smsText: String, senderAddress: String = ""): SMSTestResult {
-        Log.d(TAG, "=== TESTING SMS ===")
-        Log.d(TAG, "SMS: ${smsText.take(100)}...")
-        Log.d(TAG, "Sender: $senderAddress")
+        logger.debug("=== TESTING SMS ===")
+        logger.debug("SMS: ${smsText.take(100)}...")
+        logger.debug("Sender: $senderAddress")
         
         val failureReasons = mutableListOf<String>()
         val detectionFlags = mutableMapOf<String, Boolean>()
@@ -112,7 +114,7 @@ class SMSParsingTester {
      * Test multiple SMS samples
      */
     fun testMultipleSMS(smsTexts: List<Pair<String, String>>): List<SMSTestResult> {
-        Log.d(TAG, "\n=== TESTING ${smsTexts.size} SMS MESSAGES ===")
+        logger.debug("\n=== TESTING ${smsTexts.size} SMS MESSAGES ===")
         
         val results = smsTexts.map { (sms, sender) ->
             testSMSParsing(sms, sender)
@@ -122,18 +124,18 @@ class SMSParsingTester {
         val validCount = results.count { it.isValidTransaction }
         val invalidCount = results.size - validCount
         
-        Log.d(TAG, "\n=== TEST SUMMARY ===")
-        Log.d(TAG, "Total SMS tested: ${results.size}")
-        Log.d(TAG, "Valid transactions: $validCount")
-        Log.d(TAG, "Invalid/promotional: $invalidCount")
-        Log.d(TAG, "Success rate: ${(validCount.toFloat() / results.size * 100).toInt()}%")
+        logger.debug("\n=== TEST SUMMARY ===")
+        logger.debug("Total SMS tested: ${results.size}")
+        logger.debug("Valid transactions: $validCount")
+        logger.debug("Invalid/promotional: $invalidCount")
+        logger.debug("Success rate: ${(validCount.toFloat() / results.size * 100).toInt()}%")
         
         // Show problematic SMS
-        Log.d(TAG, "\n=== PROBLEMATIC SMS ===")
+        logger.debug("\n=== PROBLEMATIC SMS ===")
         results.filter { !it.isValidTransaction }.forEach { result ->
-            Log.d(TAG, "SMS: ${result.smsText.take(50)}...")
-            Log.d(TAG, "Issues: ${result.failureReasons.joinToString(", ")}")
-            Log.d(TAG, "---")
+            logger.debug("SMS: ${result.smsText.take(50)}...")
+            logger.debug("Issues: ${result.failureReasons.joinToString(", ")}")
+            logger.debug("---")
         }
         
         return results
@@ -236,16 +238,16 @@ class SMSParsingTester {
                     val amountStr = match.groupValues[1].replace(",", "")
                     val amount = amountStr.toDoubleOrNull()
                     if (amount != null && amount > 0) { // Reasonable limits
-                        Log.d(TAG, "Extracted amount: ₹$amount from: ${match.value}")
+                        logger.debug("Extracted amount: ₹$amount from: ${match.value}")
                         return amount
                     }
                 } catch (e: Exception) {
-                    Log.w(TAG, "Error parsing amount: ${match.value}")
+                    logger.warn("Error parsing amount: ${match.value}")
                 }
             }
         }
         
-        Log.w(TAG, "No valid amount found in SMS")
+        logger.warn("No valid amount found in SMS")
         return null
     }
     
@@ -271,7 +273,7 @@ class SMSParsingTester {
         val isPromotional = promotionalCount >= 2
         
         if (isPromotional) {
-            Log.d(TAG, "Promotional SMS detected. Keywords found: $promotionalCount")
+            logger.debug("Promotional SMS detected. Keywords found: $promotionalCount")
         }
         
         return isPromotional
@@ -309,7 +311,7 @@ class SMSParsingTester {
             if (match != null) {
                 val merchant = match.groupValues[1].trim()
                 if (merchant.length >= 3) {
-                    Log.d(TAG, "Extracted merchant: '$merchant'")
+                    logger.debug("Extracted merchant: '$merchant'")
                     return merchant
                 }
             }
@@ -364,15 +366,15 @@ class SMSParsingTester {
     }
     
     private fun logTestResult(result: SMSTestResult) {
-        Log.d(TAG, "\n--- TEST RESULT ---")
-        Log.d(TAG, "Valid Transaction: ${result.isValidTransaction}")
-        Log.d(TAG, "Confidence: ${(result.confidence * 100).toInt()}%")
-        Log.d(TAG, "Amount: ₹${result.extractedAmount ?: "Not found"}")
-        Log.d(TAG, "Merchant: ${result.extractedMerchant ?: "Not found"}")
-        Log.d(TAG, "Bank: ${result.extractedBank}")
-        Log.d(TAG, "Issues: ${result.failureReasons.joinToString(", ")}")
-        Log.d(TAG, "Flags: ${result.detectionFlags}")
-        Log.d(TAG, "-------------------\n")
+        logger.debug("\n--- TEST RESULT ---")
+        logger.debug("Valid Transaction: ${result.isValidTransaction}")
+        logger.debug("Confidence: ${(result.confidence * 100).toInt()}%")
+        logger.debug("Amount: ₹${result.extractedAmount ?: "Not found"}")
+        logger.debug("Merchant: ${result.extractedMerchant ?: "Not found"}")
+        logger.debug("Bank: ${result.extractedBank}")
+        logger.debug("Issues: ${result.failureReasons.joinToString(", ")}")
+        logger.debug("Flags: ${result.detectionFlags}")
+        logger.debug("-------------------\n")
     }
 }
 

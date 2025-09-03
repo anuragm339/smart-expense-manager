@@ -3,9 +3,11 @@ package com.expensemanager.app.utils
 import android.content.Context
 import android.content.SharedPreferences
 import android.os.Environment
+import android.util.Log
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import ch.qos.logback.classic.LoggerContext
+import ch.qos.logback.classic.joran.JoranConfigurator
 import ch.qos.logback.core.util.StatusPrinter
 import java.io.File
 import javax.inject.Inject
@@ -73,19 +75,72 @@ class AppLogger @Inject constructor(
             synchronized(this) {
                 if (!initialized) {
                     try {
-                        // Ensure log directories exist
-                        createLogDirectories()
+                        Log.d(TAG, "Starting Logback initialization...")
                         
-                        // Print Logback configuration status for debugging
-                        val context = LoggerFactory.getILoggerFactory() as LoggerContext
-                        StatusPrinter.print(context)
+                        // Step 1: Check if Logback classes are available
+                        try {
+                            val loggerContextClass = LoggerContext::class.java
+                            Log.d(TAG, "✅ Logback classes available: ${loggerContextClass.name}")
+                        } catch (e: Exception) {
+                            Log.e(TAG, "❌ Logback classes not found", e)
+                            throw e
+                        }
+                        
+                        // Step 2: Create log directories FIRST
+                        val logDirs = createLogDirectories()
+                        Log.d(TAG, "Created log directories: internal=${logDirs.first.exists()}, external=${logDirs.second?.exists()}")
+                        
+                        // Step 3: Set system properties for Logback to use
+                        setLogbackSystemProperties(logDirs.first, logDirs.second)
+                        
+                        // Step 4: Check if assets/logback.xml is accessible
+                        try {
+                            val inputStream = context.assets.open("logback.xml")
+                            val content = inputStream.bufferedReader().readText()
+                            inputStream.close()
+                            Log.d(TAG, "✅ logback.xml found in assets (${content.length} chars)")
+                        } catch (e: Exception) {
+                            Log.e(TAG, "❌ logback.xml not accessible in assets", e)
+                            throw e
+                        }
+                        
+                        // Step 5: Reset Logback context to pick up new properties
+                        val loggerContext = LoggerFactory.getILoggerFactory() as LoggerContext
+                        Log.d(TAG, "LoggerContext class: ${loggerContext::class.java.name}")
+                        loggerContext.reset()
+                        
+                        // Step 6: Configure Logback from assets
+                        try {
+                            val configurator = ch.qos.logback.classic.joran.JoranConfigurator()
+                            configurator.context = loggerContext
+                            val inputStream = context.assets.open("logback.xml")
+                            configurator.doConfigure(inputStream)
+                            inputStream.close()
+                            Log.d(TAG, "✅ Logback configured from assets/logback.xml")
+                        } catch (e: Exception) {
+                            Log.e(TAG, "❌ Failed to configure Logback from assets", e)
+                            throw e
+                        }
+                        
+                        // Step 7: Print configuration status for debugging
+                        StatusPrinter.print(loggerContext)
                         
                         initialized = true
-                        rootLogger.info("Logback initialized successfully")
+                        Log.d(TAG, "✅ Logback initialized successfully")
+                        
+                        // Step 8: Test that logging is working
+                        rootLogger.info("Enhanced logging system initialized - Logback is active")
+                        Log.d(TAG, "✅ Test log message sent to Logback")
+                        
+                        // Step 9: Test file appender functionality
+                        testFileAppenders()
+                        
+                        // Step 10: Verify file appender status
+                        verifyFileAppenderStatus()
                         
                     } catch (e: Exception) {
                         // Fallback to system logging if Logback fails
-                        android.util.Log.e(TAG, "Failed to initialize Logback", e)
+                        Log.e(TAG, "❌ Failed to initialize Logback, falling back to Timber", e)
                         initialized = false
                     }
                 }
@@ -95,26 +150,43 @@ class AppLogger @Inject constructor(
     
     /**
      * Create necessary log directories
+     * @return Pair of (internal directory, external directory or null)
      */
-    private fun createLogDirectories() {
+    private fun createLogDirectories(): Pair<File, File?> {
+        var internalLogDir: File
+        var externalLogDir: File? = null
+        
         try {
-            // Internal storage log directory
-            val internalLogDir = File(context.cacheDir, "logs")
+            // Internal storage log directory (cache directory - always available)
+            internalLogDir = File(context.cacheDir, "logs")
             if (!internalLogDir.exists()) {
-                internalLogDir.mkdirs()
+                val created = internalLogDir.mkdirs()
+                Log.d(TAG, "Internal log directory created: $created at ${internalLogDir.absolutePath}")
+            } else {
+                Log.d(TAG, "Internal log directory exists at ${internalLogDir.absolutePath}")
             }
             
             // External storage log directory (if available and permission granted)
             if (isExternalStorageWritable() && isExternalLoggingEnabled()) {
-                val externalLogDir = File(context.getExternalFilesDir(null), "logs")
+                externalLogDir = File(context.getExternalFilesDir(null), "logs")
                 if (!externalLogDir.exists()) {
-                    externalLogDir.mkdirs()
+                    val created = externalLogDir.mkdirs()
+                    Log.d(TAG, "External log directory created: $created at ${externalLogDir.absolutePath}")
+                } else {
+                    Log.d(TAG, "External log directory exists at ${externalLogDir.absolutePath}")
                 }
+            } else {
+                Log.d(TAG, "External logging disabled or storage not writable")
             }
             
         } catch (e: Exception) {
-            android.util.Log.w(TAG, "Could not create all log directories", e)
+            Log.w(TAG, "Could not create all log directories", e)
+            // Fallback to cache directory only
+            internalLogDir = File(context.cacheDir, "logs")
+            internalLogDir.mkdirs()
         }
+        
+        return Pair(internalLogDir, externalLogDir)
     }
     
     /**
@@ -122,6 +194,30 @@ class AppLogger @Inject constructor(
      */
     private fun isExternalStorageWritable(): Boolean {
         return Environment.getExternalStorageState() == Environment.MEDIA_MOUNTED
+    }
+    
+    /**
+     * Set system properties for Logback to use the correct file paths
+     */
+    private fun setLogbackSystemProperties(internalDir: File, externalDir: File?) {
+        try {
+            // Set internal log directory property
+            System.setProperty("LOG_DIR", internalDir.absolutePath)
+            Log.d(TAG, "Set LOG_DIR system property to: ${internalDir.absolutePath}")
+            
+            // FIXED: Only set EXTERNAL_LOG_DIR if external logging is enabled and external dir exists
+            if (isExternalLoggingEnabled() && externalDir != null) {
+                System.setProperty("EXTERNAL_LOG_DIR", externalDir.absolutePath)
+                Log.d(TAG, "Set EXTERNAL_LOG_DIR system property to: ${externalDir.absolutePath}")
+            } else {
+                // Fallback to internal directory to prevent misconfigurations
+                System.setProperty("EXTERNAL_LOG_DIR", internalDir.absolutePath)
+                Log.d(TAG, "External logging disabled - EXTERNAL_LOG_DIR set to internal: ${internalDir.absolutePath}")
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to set Logback system properties", e)
+        }
     }
     
     // ===========================================
@@ -315,7 +411,8 @@ class AppLogger @Inject constructor(
      * Check if external storage logging is enabled
      */
     fun isExternalLoggingEnabled(): Boolean {
-        return preferences.getBoolean(KEY_EXTERNAL_LOGGING_ENABLED, false)
+        // DEVELOPMENT: Enable by default for easier debugging
+        return preferences.getBoolean(KEY_EXTERNAL_LOGGING_ENABLED, true)
     }
     
     /**
@@ -399,6 +496,101 @@ class AppLogger @Inject constructor(
             LEVEL_WARN -> "WARN"
             LEVEL_ERROR -> "ERROR"
             else -> "UNKNOWN"
+        }
+    }
+    
+    /**
+     * Get initialization status for debugging
+     */
+    fun getInitializationStatus(): String {
+        return "Logback initialized: $initialized, Log level: ${getLevelName(getLogLevel())}, File logging: ${isFileLoggingEnabled()}, External logging: ${isExternalLoggingEnabled()}"
+    }
+    
+    /**
+     * Test that logging is working by writing test messages
+     */
+    fun testLogging(): String {
+        return try {
+            val testTag = "LOGGING_TEST"
+            debug(testTag, "Debug test message")
+            info(testTag, "Info test message") 
+            warn(testTag, "Warning test message")
+            error(testTag, "Error test message")
+            "Logging test completed successfully"
+        } catch (e: Exception) {
+            "Logging test failed: ${e.message}"
+        }
+    }
+    
+    /**
+     * Test file appenders specifically to ensure they're working
+     */
+    private fun testFileAppenders() {
+        try {
+            Log.d(TAG, "Testing file appenders...")
+            
+            // Test each log level to all appenders
+            val testLogger = LoggerFactory.getLogger("FILE_APPENDER_TEST")
+            testLogger.debug("FILE APPENDER TEST: Debug message to file appenders")
+            testLogger.info("FILE APPENDER TEST: Info message to file appenders")
+            testLogger.warn("FILE APPENDER TEST: Warning message to file appenders")
+            testLogger.error("FILE APPENDER TEST: Error message to file appenders")
+            
+            Log.d(TAG, "✅ File appender test messages sent")
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ File appender test failed", e)
+        }
+    }
+    
+    /**
+     * Verify file appender status and report any issues
+     */
+    private fun verifyFileAppenderStatus() {
+        try {
+            Log.d(TAG, "Verifying file appender status...")
+            
+            val loggerContext = LoggerFactory.getILoggerFactory() as LoggerContext
+            val rootLogger = loggerContext.getLogger(ch.qos.logback.classic.Logger.ROOT_LOGGER_NAME)
+            val appenderIterator = rootLogger.iteratorForAppenders()
+            
+            var fileAppenderCount = 0
+            while (appenderIterator.hasNext()) {
+                val appender = appenderIterator.next()
+                Log.d(TAG, "Found appender: ${appender.name} (${appender::class.java.simpleName})")
+                
+                if (appender is ch.qos.logback.core.rolling.RollingFileAppender<*>) {
+                    fileAppenderCount++
+                    val fileName = appender.file
+                    val isStarted = appender.isStarted
+                    
+                    Log.d(TAG, "File appender '${appender.name}': file=$fileName, started=$isStarted")
+                    
+                    // Check if file exists and is writable
+                    if (fileName != null) {
+                        val file = File(fileName)
+                        val parentDir = file.parentFile
+                        
+                        Log.d(TAG, "  - Parent directory: ${parentDir?.absolutePath}")
+                        Log.d(TAG, "  - Parent exists: ${parentDir?.exists()}")
+                        Log.d(TAG, "  - Parent writable: ${parentDir?.canWrite()}")
+                        Log.d(TAG, "  - File exists: ${file.exists()}")
+                        Log.d(TAG, "  - File size: ${file.length()} bytes")
+                        
+                        if (parentDir != null && !parentDir.exists()) {
+                            Log.w(TAG, "  ⚠️ Parent directory does not exist for ${appender.name}")
+                            // Try to create it
+                            val created = parentDir.mkdirs()
+                            Log.d(TAG, "  - Attempted to create parent directory: $created")
+                        }
+                    }
+                }
+            }
+            
+            Log.d(TAG, "✅ Found $fileAppenderCount file appenders")
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to verify file appender status", e)
         }
     }
 }

@@ -4,8 +4,9 @@ import android.content.Context
 import android.database.Cursor
 import android.net.Uri
 import android.provider.Telephony
-import android.util.Log
 import com.expensemanager.app.models.HistoricalSMS
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import com.expensemanager.app.models.ParsedTransaction
 import com.expensemanager.app.utils.MerchantAliasManager
 import kotlinx.coroutines.Dispatchers
@@ -36,6 +37,7 @@ class TransactionParsingService @Inject constructor(
         private const val TAG = "TransactionParsingService"
         private const val MONTHS_TO_SCAN = 6 // Scan last 6 months
         private const val MAX_SMS_TO_PROCESS = 5000 // Limit SMS processing to prevent ANR
+        private val logger: Logger = LoggerFactory.getLogger(TAG)
         
         // Enhanced bank sender patterns (unified from proven logic)
         private val BANK_SENDERS = listOf(
@@ -127,7 +129,7 @@ class TransactionParsingService @Inject constructor(
         val transactions = mutableListOf<ParsedTransaction>()
         
         try {
-            Log.d(TAG, "[SCAN] Starting unified SMS scan for transaction parsing")
+            logger.debug("[SCAN] Starting unified SMS scan for transaction parsing")
             
             // Calculate date range for scanning
             val cutoffDate = Calendar.getInstance().apply {
@@ -150,7 +152,7 @@ class TransactionParsingService @Inject constructor(
             
             context.contentResolver.query(uri, projection, selection, selectionArgs, sortOrder)?.use { cursor ->
                 val totalMessages = cursor.count
-                Log.d(TAG, "[SCAN] Found $totalMessages SMS messages to process")
+                logger.debug("[SCAN] Found $totalMessages SMS messages to process")
                 
                 progressCallback?.invoke(0, totalMessages, "Scanning SMS messages...")
                 
@@ -162,7 +164,7 @@ class TransactionParsingService @Inject constructor(
                             val transaction = parseTransaction(sms)
                             if (transaction != null) {
                                 transactions.add(transaction)
-                                Log.d(TAG, "[PARSE] Valid transaction: ${transaction.merchant} - ₹${transaction.amount}")
+                                logger.debug("[PARSE] Valid transaction: ${transaction.merchant} - ₹${transaction.amount}")
                             }
                         }
                         
@@ -176,15 +178,15 @@ class TransactionParsingService @Inject constructor(
                         }
                         
                     } catch (e: Exception) {
-                        Log.w(TAG, "Error processing SMS at position $processedCount: ${e.message}")
+                        logger.warn("Error processing SMS at position $processedCount: ${e.message}")
                     }
                 }
             }
             
-            Log.d(TAG, "[RESULT] SMS scan completed: ${transactions.size} valid transactions found")
+            logger.info("[RESULT] SMS scan completed: ${transactions.size} valid transactions found")
             
         } catch (e: Exception) {
-            Log.e(TAG, "[ERROR] Failed to scan SMS", e)
+            logger.error("[ERROR] Failed to scan SMS", e)
         }
         
         return@withContext transactions
@@ -244,7 +246,7 @@ class TransactionParsingService @Inject constructor(
             )
             
         } catch (e: Exception) {
-            Log.w(TAG, "Error parsing SMS transaction: ${e.message}")
+            logger.warn("Error parsing SMS transaction: ${e.message}")
             return null
         }
     }
@@ -267,7 +269,7 @@ class TransactionParsingService @Inject constructor(
                 type = 0 // SMS type
             )
         } catch (e: Exception) {
-            Log.w(TAG, "Error extracting SMS from cursor: ${e.message}")
+            logger.warn("Error extracting SMS from cursor: ${e.message}")
             null
         }
     }

@@ -1,14 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
-    <!-- Property definitions for log file paths and patterns -->
-    <property name="LOG_DIR" value="/data/data/com.expensemanager.app/cache/logs" />
-    <property name="EXTERNAL_LOG_DIR" value="/storage/emulated/0/Android/data/com.expensemanager.app/files/logs" />
+    <!-- 
+    NOTE: File paths are now set dynamically by AppLogger.
+    These property values will be replaced at runtime with actual device paths.
+    -->
+    <property name="LOG_DIR" value="${LOG_DIR:-/data/data/com.expensemanager.app/cache/logs}" />
+    <property name="EXTERNAL_LOG_DIR" value="${EXTERNAL_LOG_DIR:-/storage/emulated/0/Android/data/com.expensemanager.app/files/logs}" />
     
-    <!-- Console pattern with colors for debug builds -->
-    <property name="CONSOLE_PATTERN" value="%d{HH:mm:ss.SSS} %highlight(%5level) %cyan([%thread]) %magenta(%logger{36}) - %msg%n" />
+    <!-- Console pattern for Android logcat (no colors - not supported) -->
+    <property name="CONSOLE_PATTERN" value="%d{HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n" />
     
     <!-- File pattern with detailed information -->
     <property name="FILE_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%logger{50}] %method:%line - %msg%n" />
+    
+    <!-- Simplified file pattern for smaller logs -->
+    <property name="SIMPLE_FILE_PATTERN" value="%d{HH:mm:ss.SSS} %-5level %logger{20} - %msg%n" />
     
     <!-- Console Appender - for development/debug -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
@@ -28,14 +34,19 @@
         </encoder>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
             <fileNamePattern>${LOG_DIR}/expense-manager.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
-            <maxFileSize>5MB</maxFileSize>
-            <maxHistory>7</maxHistory>
-            <totalSizeCap>50MB</totalSizeCap>
+            <maxFileSize>2MB</maxFileSize>
+            <maxHistory>5</maxHistory>
+            <totalSizeCap>10MB</totalSizeCap>
             <cleanHistoryOnStart>false</cleanHistoryOnStart>
         </rollingPolicy>
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
             <level>DEBUG</level>
         </filter>
+        <!-- Enable immediate flushing to ensure logs are written -->
+        <immediateFlush>true</immediateFlush>
+        <!-- Graceful handling if directory doesn't exist -->
+        <prudent>false</prudent>
+        <append>true</append>
     </appender>
     
     <!-- Error File Appender - Separate file for errors -->
@@ -46,32 +57,48 @@
         </encoder>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
             <fileNamePattern>${LOG_DIR}/expense-manager-errors.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
-            <maxFileSize>2MB</maxFileSize>
-            <maxHistory>14</maxHistory>
-            <totalSizeCap>20MB</totalSizeCap>
+            <maxFileSize>1MB</maxFileSize>
+            <maxHistory>10</maxHistory>
+            <totalSizeCap>5MB</totalSizeCap>
         </rollingPolicy>
-        <filter class="ch.qos.logback.classic.filter.LevelFilter">
-            <level>ERROR</level>
-            <onMatch>ACCEPT</onMatch>
-            <onMismatch>DENY</onMismatch>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>WARN</level>
         </filter>
+        <!-- Enable immediate flushing to ensure logs are written -->
+        <immediateFlush>true</immediateFlush>
+        <!-- Graceful handling if directory doesn't exist -->
+        <prudent>false</prudent>
+        <append>true</append>
     </appender>
     
     <!-- External Storage File Appender (for debugging/export) -->
+    <!-- This appender will be enabled/disabled dynamically by AppLogger -->
     <appender name="EXTERNAL_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${EXTERNAL_LOG_DIR}/expense-manager-debug.log</file>
         <encoder>
-            <pattern>${FILE_PATTERN}</pattern>
+            <pattern>${SIMPLE_FILE_PATTERN}</pattern>
         </encoder>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
             <fileNamePattern>${EXTERNAL_LOG_DIR}/expense-manager-debug.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
-            <maxFileSize>10MB</maxFileSize>
-            <maxHistory>3</maxHistory>
-            <totalSizeCap>30MB</totalSizeCap>
+            <maxFileSize>5MB</maxFileSize>
+            <maxHistory>2</maxHistory>
+            <totalSizeCap>15MB</totalSizeCap>
         </rollingPolicy>
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
             <level>DEBUG</level>
         </filter>
+        <!-- Enable immediate flushing to ensure logs are written -->
+        <immediateFlush>true</immediateFlush>
+        <!-- More graceful handling for external storage -->
+        <prudent>false</prudent>
+        <append>true</append>
+    </appender>
+    
+    <!-- Fallback Console Appender - Simple text output if files fail -->
+    <appender name="FALLBACK_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss} %-5level %logger{20} - %msg%n</pattern>
+        </encoder>
     </appender>
     
     <!-- SMS Processing Logger - Separate detailed logging for SMS parsing -->
@@ -117,9 +144,13 @@
     </logger>
     
     <!-- Root logger configuration -->
-    <root level="INFO">
+    <root level="DEBUG">
         <appender-ref ref="CONSOLE" />
         <appender-ref ref="FILE" />
         <appender-ref ref="ERROR_FILE" />
+        <!-- Enable external file appender for debugging -->
+        <appender-ref ref="EXTERNAL_FILE" />
+        <!-- Fallback appender in case file appenders fail -->
+        <appender-ref ref="FALLBACK_CONSOLE" />
     </root>
 </configuration>

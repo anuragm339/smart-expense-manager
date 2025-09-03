@@ -1,8 +1,9 @@
 package com.expensemanager.app.data.repository
 
 import android.content.Context
-import android.util.Log
 import com.expensemanager.app.data.database.ExpenseDatabase
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import com.expensemanager.app.data.entities.*
 import com.expensemanager.app.data.dao.*
 import com.expensemanager.app.domain.repository.*
@@ -36,6 +37,7 @@ class ExpenseRepository @Inject constructor(
     
     companion object {
         private const val TAG = "ExpenseRepository"
+        private val logger: Logger = LoggerFactory.getLogger(TAG)
         
         @Volatile
         private var INSTANCE: ExpenseRepository? = null
@@ -127,9 +129,9 @@ class ExpenseRepository @Inject constructor(
     override suspend fun getTotalSpent(startDate: Date, endDate: Date): Double {
         // FIXED: Use expense-specific transactions (debit only) instead of all transactions
         val expenseTransactions = getExpenseTransactionsByDateRange(startDate, endDate)
-        Log.d(TAG, "🔍 [getTotalSpent] Before filtering: ${expenseTransactions.size} debit transactions")
+        logger.debug("🔍 [getTotalSpent] Before filtering: ${expenseTransactions.size} debit transactions")
         val filteredTransactions = filterTransactionsByExclusions(expenseTransactions)
-        Log.d(TAG, "🔍 [getTotalSpent] After filtering: ${filteredTransactions.size} debit transactions (${expenseTransactions.size - filteredTransactions.size} excluded)")
+        logger.debug("🔍 [getTotalSpent] After filtering: ${filteredTransactions.size} debit transactions (${expenseTransactions.size - filteredTransactions.size} excluded)")
         return filteredTransactions.sumOf { it.amount }
     }
     
@@ -171,9 +173,9 @@ class ExpenseRepository @Inject constructor(
         // Debug: Check all credit transactions first
         val allCredits = transactionDao.getTransactionsByDateRange(Date(0), Date())
             .filter { !it.isDebit }
-        Log.d(TAG, "💰 [SALARY DEBUG] Found ${allCredits.size} credit transactions:")
+        logger.debug("💰 [SALARY DEBUG] Found ${allCredits.size} credit transactions:")
         allCredits.take(5).forEach { credit ->
-            Log.d(TAG, "💰 [SALARY DEBUG] Credit: ₹${credit.amount} from '${credit.rawMerchant}' - SMS: '${credit.rawSmsBody.take(100)}...'")
+            logger.debug("💰 [SALARY DEBUG] Credit: ₹${credit.amount} from '${credit.rawMerchant}' - SMS: '${credit.rawSmsBody.take(100)}...'")
         }
         
         // Get the most recent salary transaction (could be from any month)
@@ -182,7 +184,7 @@ class ExpenseRepository @Inject constructor(
         // Fallback: If no explicit salary found, try to use the largest credit transaction as potential salary
         if (lastSalary == null && allCredits.isNotEmpty()) {
             lastSalary = allCredits.maxByOrNull { it.amount }
-            Log.d(TAG, "💰 [SALARY DEBUG] No explicit salary found, using largest credit: ₹${lastSalary?.amount} from '${lastSalary?.rawMerchant}'")
+            logger.debug("💰 [SALARY DEBUG] No explicit salary found, using largest credit: ₹${lastSalary?.amount} from '${lastSalary?.rawMerchant}'")
         }
         
         // Get current month's expenses (debits only)
@@ -192,7 +194,7 @@ class ExpenseRepository @Inject constructor(
         val salaryAmount = lastSalary?.amount ?: 0.0
         val remainingBalance = salaryAmount - currentMonthExpenses
         
-        Log.d(TAG, "💰 [MONTHLY BALANCE] Last Salary: ₹${salaryAmount}, Month Expenses: ₹${currentMonthExpenses}, Remaining: ₹${remainingBalance}")
+        logger.info("💰 [MONTHLY BALANCE] Last Salary: ₹${salaryAmount}, Month Expenses: ₹${currentMonthExpenses}, Remaining: ₹${remainingBalance}")
         
         return MonthlyBalanceInfo(
             lastSalaryAmount = salaryAmount,
@@ -206,9 +208,9 @@ class ExpenseRepository @Inject constructor(
     override suspend fun getTransactionCount(startDate: Date, endDate: Date): Int {
         // FIXED: Use expense-specific transactions (debit only) instead of all transactions
         val expenseTransactions = getExpenseTransactionsByDateRange(startDate, endDate)
-        Log.d(TAG, "🔍 [getTransactionCount] Before filtering: ${expenseTransactions.size} debit transactions")
+        logger.debug("🔍 [getTransactionCount] Before filtering: ${expenseTransactions.size} debit transactions")
         val filteredTransactions = filterTransactionsByExclusions(expenseTransactions)
-        Log.d(TAG, "🔍 [getTransactionCount] After filtering: ${filteredTransactions.size} debit transactions (${expenseTransactions.size - filteredTransactions.size} excluded)")
+        logger.debug("🔍 [getTransactionCount] After filtering: ${filteredTransactions.size} debit transactions (${expenseTransactions.size - filteredTransactions.size} excluded)")
         return filteredTransactions.size
     }
     
@@ -360,7 +362,7 @@ class ExpenseRepository @Inject constructor(
                     )
                     val newCategoryId = insertCategory(newCategory)
                 } catch (e: Exception) {
-                    Log.e(TAG, "Failed to create category: $newCategoryName", e)
+                    logger.error("Failed to create category: $newCategoryName", e)
                     return false
                 }
                 
@@ -410,7 +412,7 @@ class ExpenseRepository @Inject constructor(
                     }
                     
                 } catch (e: Exception) {
-                    Log.e(TAG, "Failed to process merchant '$originalName'", e)
+                    logger.error("Failed to process merchant '$originalName'", e)
                     failedUpdates.add(originalName)
                 }
             }
@@ -418,10 +420,10 @@ class ExpenseRepository @Inject constructor(
             // Final status report
             val totalProcessed = updatedCount + createdCount
             
-            Log.d(TAG, "Merchant alias update: $totalProcessed/${originalMerchantNames.size} processed ($updatedCount updated, $createdCount created)")
+            logger.info("Merchant alias update: $totalProcessed/${originalMerchantNames.size} processed ($updatedCount updated, $createdCount created)")
             
             if (failedUpdates.isNotEmpty()) {
-                Log.w(TAG, "Failed to update ${failedUpdates.size} merchants: $failedUpdates")
+                logger.warn("Failed to update ${failedUpdates.size} merchants: $failedUpdates")
             }
             
             // Consider it successful if we updated at least some merchants
@@ -430,7 +432,7 @@ class ExpenseRepository @Inject constructor(
             return isSuccessful
             
         } catch (e: Exception) {
-            Log.e(TAG, "Critical error during database update", e)
+            logger.error("Critical error during database update", e)
             false
         }
     }
@@ -465,26 +467,26 @@ class ExpenseRepository @Inject constructor(
     
     override suspend fun syncNewSMS(): Int = withContext(Dispatchers.IO) {
         try {
-            Log.d(TAG, "🔍 [UNIFIED] Starting SMS sync using unified SMSParsingService...")
+            logger.debug("🔍 [UNIFIED] Starting SMS sync using unified SMSParsingService...")
             
             val syncState = syncStateDao.getSyncState()
             val lastSyncTimestamp = syncState?.lastSmsSyncTimestamp ?: Date(0)
             
-            Log.d(TAG, "Last sync timestamp: $lastSyncTimestamp")
+            logger.debug("Last sync timestamp: $lastSyncTimestamp")
             
             syncStateDao.updateSyncStatus("IN_PROGRESS")
             
             // UNIFIED: Use SMSParsingService instead of duplicate parsing logic
             val allTransactions = smsParsingService.scanHistoricalSMS { current, total, status ->
-                Log.d(TAG, "[UNIFIED PROGRESS] $status ($current/$total)")
+                logger.debug("[UNIFIED PROGRESS] $status ($current/$total)")
             }
-            Log.d(TAG, "📊 [UNIFIED] SMS scanning completed: ${allTransactions.size} valid transactions extracted from SMS")
+            logger.info("📊 [UNIFIED] SMS scanning completed: ${allTransactions.size} valid transactions extracted from SMS")
             
             val newTransactions = allTransactions.filter { 
                 it.date.after(lastSyncTimestamp) 
             }
             
-            Log.d(TAG, "📊 [UNIFIED] SMS validation completed: ${newTransactions.size} new transactions to sync (filtered from ${allTransactions.size} total)")
+            logger.info("📊 [UNIFIED] SMS validation completed: ${newTransactions.size} new transactions to sync (filtered from ${allTransactions.size} total)")
             
             var insertedCount = 0
             var duplicateCount = 0
@@ -528,18 +530,18 @@ class ExpenseRepository @Inject constructor(
                 )
             }
             
-            Log.d(TAG, "📊 [UNIFIED] Database storage completed: $insertedCount transactions inserted into Room database")
-            Log.d(TAG, "📊 [UNIFIED FINAL STATS] Complete SMS-to-Database pipeline summary:")
-            Log.d(TAG, "  - 📱 SMS messages scanned: ${allTransactions.size}")
-            Log.d(TAG, "  - ✅ Valid bank transactions found: ${newTransactions.size}")
-            Log.d(TAG, "  - 💾 New transactions stored in database: $insertedCount")
-            Log.d(TAG, "  - 🔄 Duplicates skipped: $duplicateCount")
-            Log.d(TAG, "  - 🏪 Distinct merchants found: ${distinctMerchants.size}")
-            Log.d(TAG, "  - 📋 Merchants: ${distinctMerchants.joinToString(", ")}")
+            logger.info("📊 [UNIFIED] Database storage completed: $insertedCount transactions inserted into Room database")
+            logger.info("📊 [UNIFIED FINAL STATS] Complete SMS-to-Database pipeline summary:")
+            logger.info("  - 📱 SMS messages scanned: ${allTransactions.size}")
+            logger.info("  - ✅ Valid bank transactions found: ${newTransactions.size}")
+            logger.info("  - 💾 New transactions stored in database: $insertedCount")
+            logger.info("  - 🔄 Duplicates skipped: $duplicateCount")
+            logger.debug("  - 🏪 Distinct merchants found: ${distinctMerchants.size}")
+            logger.debug("  - 📋 Merchants: ${distinctMerchants.joinToString(", ")}")
             insertedCount
             
         } catch (e: Exception) {
-            Log.e(TAG, "[UNIFIED] Repository-based SMS sync failed", e)
+            logger.error("[UNIFIED] Repository-based SMS sync failed", e)
             syncStateDao.updateSyncStatus("FAILED")
             throw e
         }
@@ -583,7 +585,7 @@ class ExpenseRepository @Inject constructor(
             return@withContext isEmpty
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error checking if database is empty", e)
+            logger.error("Error checking if database is empty", e)
             return@withContext true // Assume empty on error
         }
     }
@@ -601,9 +603,9 @@ class ExpenseRepository @Inject constructor(
         
         // DEBUG: Get expense transactions BEFORE filtering 
         val expenseTransactionsBeforeFilter = getExpenseTransactionsByDateRange(startDate, endDate)
-        Log.d(TAG, "🔍 [DEBUG] Raw debit transactions (before filtering): ${expenseTransactionsBeforeFilter.size}")
+        logger.debug("🔍 [DEBUG] Raw debit transactions (before filtering): ${expenseTransactionsBeforeFilter.size}")
         expenseTransactionsBeforeFilter.take(3).forEach { transaction ->
-            Log.d(TAG, "🔍 [DEBUG] Debit example: ${transaction.rawMerchant} - ₹${transaction.amount} - isDebit: ${transaction.isDebit}")
+            logger.debug("🔍 [DEBUG] Debit example: ${transaction.rawMerchant} - ₹${transaction.amount} - isDebit: ${transaction.isDebit}")
         }
         
         // Get expense-specific data (debits only)
@@ -615,28 +617,28 @@ class ExpenseRepository @Inject constructor(
         val totalCredits = getTotalCredits(startDate, endDate)
         val actualBalance = getActualBalance(startDate, endDate)
         
-        Log.d(TAG, "📊 [DASHBOARD] Raw SMS data: $rawTransactionCount total ($rawDebitCount debits, $rawCreditCount credits)")
-        Log.d(TAG, "📊 [DASHBOARD] Dashboard display: $transactionCount expense transactions, ₹$totalSpent total spent")
-        Log.d(TAG, "💰 [BALANCE] Credits: ₹$totalCredits, Debits: ₹$totalSpent, Balance: ₹$actualBalance")
-        Log.d(TAG, "🔍 [DEBUG] Debit transactions: ${expenseTransactionsBeforeFilter.size} -> filtered to: $transactionCount (${expenseTransactionsBeforeFilter.size - transactionCount} excluded)")
+        logger.debug("📊 [DASHBOARD] Raw SMS data: $rawTransactionCount total ($rawDebitCount debits, $rawCreditCount credits)")
+        logger.debug("📊 [DASHBOARD] Dashboard display: $transactionCount expense transactions, ₹$totalSpent total spent")
+        logger.debug("💰 [BALANCE] Credits: ₹$totalCredits, Debits: ₹$totalSpent, Balance: ₹$actualBalance")
+        logger.debug("🔍 [DEBUG] Debit transactions: ${expenseTransactionsBeforeFilter.size} -> filtered to: $transactionCount (${expenseTransactionsBeforeFilter.size - transactionCount} excluded)")
         
         if (rawDebitCount > 0 && transactionCount == 0) {
-            Log.w(TAG, "⚠️ All $rawDebitCount debit transactions were filtered out - check exclusion settings")
+            logger.warn("⚠️ All $rawDebitCount debit transactions were filtered out - check exclusion settings")
             
             // DEBUG: Show examples of excluded transactions
             expenseTransactionsBeforeFilter.take(3).forEach { transaction ->
-                Log.w(TAG, "⚠️ [EXCLUDED EXAMPLE] ${transaction.rawMerchant} (normalized: ${transaction.normalizedMerchant}) - ₹${transaction.amount}")
+                logger.warn("⚠️ [EXCLUDED EXAMPLE] ${transaction.rawMerchant} (normalized: ${transaction.normalizedMerchant}) - ₹${transaction.amount}")
             }
             
             // DEBUG: Get exclusion states
             if (transactionFilterService != null) {
                 val exclusionDebugInfo = transactionFilterService.getExclusionStatesDebugInfo()
-                Log.w(TAG, "⚠️ [EXCLUSION INFO] $exclusionDebugInfo")
+                logger.warn("⚠️ [EXCLUSION INFO] $exclusionDebugInfo")
             }
         }
         
         if (rawCreditCount > 0) {
-            Log.i(TAG, "💰 [CREDIT INFO] Found $rawCreditCount credit transactions totaling ₹$totalCredits")
+            logger.info("💰 [CREDIT INFO] Found $rawCreditCount credit transactions totaling ₹$totalCredits")
         }
         
         // FIXED: Request more merchants to ensure consistent display after exclusion filtering
@@ -680,7 +682,7 @@ class ExpenseRepository @Inject constructor(
             updatedAt = Date()
         )
         
-        Log.d(TAG, "[CONVERSION] ${if (parsedTransaction.isDebit) "DEBIT" else "CREDIT"}: ${parsedTransaction.merchant} - ₹${parsedTransaction.amount}")
+        logger.debug("[CONVERSION] ${if (parsedTransaction.isDebit) "DEBIT" else "CREDIT"}: ${parsedTransaction.merchant} - ₹${parsedTransaction.amount}")
         
         return transactionEntity
     }
@@ -794,19 +796,19 @@ class ExpenseRepository @Inject constructor(
         return try {
             if (transactionFilterService != null) {
                 // UPDATED: Use unified TransactionFilterService for consistent exclusion logic
-                Log.d(TAG, "[UNIFIED] Using TransactionFilterService for exclusion filtering")
+                logger.debug("[UNIFIED] Using TransactionFilterService for exclusion filtering")
                 val filteredTransactions = transactionFilterService.filterTransactionsByExclusions(transactions)
                 
-                Log.d(TAG, "[SUCCESS] UNIFIED FILTERING result: ${filteredTransactions.size}/${transactions.size} transactions included")
+                logger.debug("[SUCCESS] UNIFIED FILTERING result: ${filteredTransactions.size}/${transactions.size} transactions included")
                 
                 filteredTransactions
             } else {
                 // Fallback to legacy filtering if service not available
-                Log.d(TAG, "[FALLBACK] TransactionFilterService not available, using legacy filtering")
+                logger.debug("[FALLBACK] TransactionFilterService not available, using legacy filtering")
                 filterTransactionsByExclusionsLegacy(transactions)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error in unified filtering", e)
+            logger.error("Error in unified filtering", e)
             transactions // Return all transactions on error
         }
     }
@@ -841,7 +843,7 @@ class ExpenseRepository @Inject constructor(
                         }
                     }
                 } catch (e: Exception) {
-                    Log.w(TAG, "Error parsing SharedPreferences inclusion states", e)
+                    logger.warn("Error parsing SharedPreferences inclusion states", e)
                 }
             }
             
@@ -855,12 +857,12 @@ class ExpenseRepository @Inject constructor(
                 isIncluded
             }
             
-            Log.d(TAG, "[LEGACY] Filtering result: ${filteredTransactions.size}/${transactions.size} transactions included")
+            logger.debug("[LEGACY] Filtering result: ${filteredTransactions.size}/${transactions.size} transactions included")
             
             filteredTransactions
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error in legacy filtering", e)
+            logger.error("Error in legacy filtering", e)
             transactions
         }
     }
@@ -918,13 +920,13 @@ class ExpenseRepository @Inject constructor(
                         }
                     }
                 } catch (e: Exception) {
-                    Log.w(TAG, "Error parsing SharedPreferences for merchants", e)
+                    logger.warn("Error parsing SharedPreferences for merchants", e)
                 }
             }
             
-            Log.d(TAG, "[DEBUG] UNIFIED MERCHANT FILTERING: ${merchants.size} merchants")
-            Log.d(TAG, "[DEBUG]   - Database exclusions: ${excludedNormalizedNames.size}")
-            Log.d(TAG, "[DEBUG]   - SharedPrefs exclusions: ${sharedPrefsExclusions.size}")
+            logger.debug("[DEBUG] UNIFIED MERCHANT FILTERING: ${merchants.size} merchants")
+            logger.debug("[DEBUG]   - Database exclusions: ${excludedNormalizedNames.size}")
+            logger.debug("[DEBUG]   - SharedPrefs exclusions: ${sharedPrefsExclusions.size}")
             
             // 3. Filter merchants using unified system
             val filteredMerchants = merchants.filter { merchant ->
@@ -935,10 +937,10 @@ class ExpenseRepository @Inject constructor(
                 isIncluded
             }
             
-            Log.d(TAG, "[SUCCESS] UNIFIED MERCHANT FILTERING result: ${filteredMerchants.size}/${merchants.size} merchants included")
+            logger.debug("[SUCCESS] UNIFIED MERCHANT FILTERING result: ${filteredMerchants.size}/${merchants.size} merchants included")
             filteredMerchants
         } catch (e: Exception) {
-            Log.e(TAG, "Error in unified merchant filtering", e)
+            logger.error("Error in unified merchant filtering", e)
             merchants // Return all merchants on error
         }
     }
@@ -949,7 +951,7 @@ class ExpenseRepository @Inject constructor(
     
     override suspend fun cleanupDuplicateTransactions(): Int = withContext(Dispatchers.IO) {
         try {
-            Log.d(TAG, "🧹 Starting enhanced database cleanup for duplicate transactions...")
+            logger.debug("🧹 Starting enhanced database cleanup for duplicate transactions...")
             
             // Get all transactions grouped by potential duplicate key
             val allTransactions = transactionDao.getAllTransactionsSync()
@@ -966,7 +968,7 @@ class ExpenseRepository @Inject constructor(
             var removedCount = 0
             
             for ((key, duplicates) in duplicateGroups) {
-                Log.d(TAG, "[DEBUG] Found ${duplicates.size} potential duplicates for key: $key")
+                logger.debug("[DEBUG] Found ${duplicates.size} potential duplicates for key: $key")
                 
                 // Keep the one with the highest confidence score, or most recent if tied
                 val toKeep = duplicates.maxWithOrNull { a, b ->
@@ -980,22 +982,22 @@ class ExpenseRepository @Inject constructor(
                 for (duplicate in toRemove) {
                     transactionDao.deleteTransaction(duplicate)
                     removedCount++
-                    Log.d(TAG, "[DELETE] Removed duplicate transaction: ${duplicate.rawMerchant} - ₹${duplicate.amount} (SMS: ${duplicate.smsId})")
+                    logger.debug("[DELETE] Removed duplicate transaction: ${duplicate.rawMerchant} - ₹${duplicate.amount} (SMS: ${duplicate.smsId})")
                 }
             }
             
-            Log.d(TAG, "[SUCCESS] Enhanced database cleanup completed. Removed $removedCount duplicate transactions")
+            logger.debug("[SUCCESS] Enhanced database cleanup completed. Removed $removedCount duplicate transactions")
             removedCount
             
         } catch (e: Exception) {
-            Log.e(TAG, "[ERROR] Database cleanup failed", e)
+            logger.error("[ERROR] Database cleanup failed", e)
             0
         }
     }
     
     override suspend fun removeObviousTestData(): Int = withContext(Dispatchers.IO) {
         try {
-            Log.d(TAG, "🧹 Starting cleanup of obvious test data...")
+            logger.debug("🧹 Starting cleanup of obvious test data...")
             
             val testMerchants = listOf(
                 "test", "example", "demo", "sample", "dummy",
@@ -1014,15 +1016,15 @@ class ExpenseRepository @Inject constructor(
                 for (transaction in transactions) {
                     transactionDao.deleteTransaction(transaction)
                     removedCount++
-                    Log.d(TAG, "[DELETE] Removed test transaction: ${transaction.rawMerchant} - ₹${transaction.amount}")
+                    logger.debug("[DELETE] Removed test transaction: ${transaction.rawMerchant} - ₹${transaction.amount}")
                 }
             }
             
-            Log.d(TAG, "[SUCCESS] Test data cleanup completed. Removed $removedCount test transactions")
+            logger.debug("[SUCCESS] Test data cleanup completed. Removed $removedCount test transactions")
             removedCount
             
         } catch (e: Exception) {
-            Log.e(TAG, "[ERROR] Test data cleanup failed", e)
+            logger.error("[ERROR] Test data cleanup failed", e)
             0
         }
     }

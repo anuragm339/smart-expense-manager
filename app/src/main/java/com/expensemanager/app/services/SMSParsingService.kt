@@ -4,8 +4,9 @@ import android.content.Context
 import android.database.Cursor
 import android.net.Uri
 import android.provider.Telephony
-import android.util.Log
 import com.expensemanager.app.models.HistoricalSMS
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import com.expensemanager.app.models.ParsedTransaction
 import com.expensemanager.app.models.RejectedSMS
 import kotlinx.coroutines.Dispatchers
@@ -31,6 +32,7 @@ class SMSParsingService @Inject constructor(
         private const val TAG = "SMSParsingService"
         private const val MONTHS_TO_SCAN = 6 // Scan last 6 months
         private const val MAX_SMS_TO_PROCESS = 5000 // Limit SMS processing to prevent ANR
+        private val logger: Logger = LoggerFactory.getLogger(TAG)
         
         // Enhanced bank sender patterns (from proven SMSHistoryReader logic)
         private val BANK_SENDERS = listOf(
@@ -108,11 +110,11 @@ class SMSParsingService @Inject constructor(
         var processedCount = 0
         
         try {
-            Log.d(TAG, "[UNIFIED] Starting SMS scan using unified parsing service...")
+            logger.debug("[UNIFIED] Starting SMS scan using unified parsing service...")
             progressCallback?.invoke(0, 100, "Reading SMS history...")
             
             val historicalSMS = readSMSHistory()
-            Log.d(TAG, "[UNIFIED] Found ${historicalSMS.size} historical SMS messages (limited to $MAX_SMS_TO_PROCESS)")
+            logger.debug("[UNIFIED] Found ${historicalSMS.size} historical SMS messages (limited to $MAX_SMS_TO_PROCESS)")
             
             val totalSMS = historicalSMS.size
             progressCallback?.invoke(0, totalSMS, "Found $totalSMS messages, analyzing...")
@@ -166,15 +168,15 @@ class SMSParsingService @Inject constructor(
             // Final progress update
             progressCallback?.invoke(totalSMS, totalSMS, "Scan complete! Found $acceptedCount transactions")
             
-            Log.d(TAG, "[UNIFIED] SMS Processing Summary:")
-            Log.d(TAG, "Total SMS scanned: $totalSMS")
-            Log.d(TAG, "Accepted transactions: $acceptedCount")
-            Log.d(TAG, "Rejected SMS: $rejectedCount")
-            Log.d(TAG, "Final parsed transactions: ${transactions.size}")
-            Log.d(TAG, "[UNIFIED] Rejected SMS saved to CSV file for verification")
+            logger.info("[UNIFIED] SMS Processing Summary:")
+            logger.info("Total SMS scanned: $totalSMS")
+            logger.info("Accepted transactions: $acceptedCount")
+            logger.info("Rejected SMS: $rejectedCount")
+            logger.info("Final parsed transactions: ${transactions.size}")
+            logger.info("[UNIFIED] Rejected SMS saved to CSV file for verification")
             
         } catch (e: Exception) {
-            Log.e(TAG, "[UNIFIED] Error scanning historical SMS", e)
+            logger.error("[UNIFIED] Error scanning historical SMS", e)
             progressCallback?.invoke(0, 100, "Error: ${e.message}")
         }
         
@@ -210,7 +212,7 @@ class SMSParsingService @Inject constructor(
         
         var cursor: Cursor? = null
         try {
-            Log.d(TAG, "[UNIFIED] Querying SMS from last $MONTHS_TO_SCAN months (max $MAX_SMS_TO_PROCESS messages)")
+            logger.debug("[UNIFIED] Querying SMS from last $MONTHS_TO_SCAN months (max $MAX_SMS_TO_PROCESS messages)")
             cursor = context.contentResolver.query(
                 uri, projection, selection, selectionArgs, sortOrder
             )
@@ -234,7 +236,7 @@ class SMSParsingService @Inject constructor(
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "[UNIFIED] Error reading SMS history", e)
+            logger.error("[UNIFIED] Error reading SMS history", e)
         } finally {
             cursor?.close()
         }
@@ -363,7 +365,7 @@ class SMSParsingService @Inject constructor(
                 null
             }
         } catch (e: Exception) {
-            Log.e(TAG, "[UNIFIED] Error parsing transaction: ${sms.body}", e)
+            logger.error("[UNIFIED] Error parsing transaction: ${sms.body}", e)
             null
         }
     }
@@ -400,16 +402,16 @@ class SMSParsingService @Inject constructor(
         // as they are typically more explicit
         return when {
             hasCreditKeywords || hasCreditPatterns -> {
-                Log.d(TAG, "[CREDIT] Detected credit transaction: ${messageBody.take(50)}...")
+                logger.debug("[CREDIT] Detected credit transaction: ${messageBody.take(50)}...")
                 false // false means credit (money coming in)
             }
             hasDebitKeywords -> {
-                Log.d(TAG, "[DEBIT] Detected debit transaction: ${messageBody.take(50)}...")
+                logger.debug("[DEBIT] Detected debit transaction: ${messageBody.take(50)}...")
                 true // true means debit (money going out)
             }
             else -> {
                 // Default to debit if we can't determine
-                Log.w(TAG, "[DEFAULT] Cannot determine transaction type, defaulting to debit: ${messageBody.take(50)}...")
+                logger.warn("[DEFAULT] Cannot determine transaction type, defaulting to debit: ${messageBody.take(50)}...")
                 true
             }
         }
@@ -622,7 +624,7 @@ class SMSParsingService @Inject constructor(
         try {
             val externalDir = context.getExternalFilesDir(null)
             if (externalDir == null) {
-                Log.w(TAG, "External storage not available for CSV export")
+                logger.warn("External storage not available for CSV export")
                 return
             }
             
@@ -644,12 +646,12 @@ class SMSParsingService @Inject constructor(
                 }
             }
             
-            Log.i(TAG, "[CSV] Rejected SMS saved to: ${csvFile.absolutePath}")
-            Log.i(TAG, "[CSV] File contains ${rejectedSMSList.size} rejected SMS messages")
-            Log.i(TAG, "[CSV] You can find this file at: /Android/data/com.expensemanager.app/files/rejected_sms_*.csv")
+            logger.info("[CSV] Rejected SMS saved to: ${csvFile.absolutePath}")
+            logger.info("[CSV] File contains ${rejectedSMSList.size} rejected SMS messages")
+            logger.info("[CSV] You can find this file at: /Android/data/com.expensemanager.app/files/rejected_sms_*.csv")
             
         } catch (e: Exception) {
-            Log.e(TAG, "[CSV] Error saving rejected SMS to CSV", e)
+            logger.error("[CSV] Error saving rejected SMS to CSV", e)
         }
     }
 }
