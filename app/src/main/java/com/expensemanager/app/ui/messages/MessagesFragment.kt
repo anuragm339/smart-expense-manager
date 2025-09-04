@@ -1791,6 +1791,14 @@ class MessagesFragment : Fragment() {
                             "[SUCCESS] Successfully updated '${group.merchantName}' to '$newDisplayName' in category '$newCategory'",
                             Toast.LENGTH_LONG
                         ).show()
+                        
+                        // Notify Dashboard and other screens about merchant category change
+                        val intent = Intent("com.expensemanager.MERCHANT_CATEGORY_CHANGED")
+                        intent.putExtra("merchant_name", group.merchantName)
+                        intent.putExtra("display_name", newDisplayName)
+                        intent.putExtra("new_category", newCategory)
+                        requireContext().sendBroadcast(intent)
+                        Log.d("MessagesFragment", "[BROADCAST] Sent merchant category change broadcast for '${group.merchantName}' -> '$newCategory'")
                     }
                     
                     aliasUpdateSuccess && !databaseUpdateSuccess -> {

@@ -36,9 +36,19 @@ class DashboardViewModelTest {
     // Test data
     private val testDashboardData = DashboardData(
         totalSpent = 1500.0,
+        totalCredits = 5000.0,
+        actualBalance = 3500.0,
         transactionCount = 25,
         topCategories = emptyList(),
-        topMerchants = emptyList()
+        topMerchants = emptyList(),
+        topMerchantsWithCategory = emptyList(),
+        monthlyBalance = com.expensemanager.app.data.repository.MonthlyBalanceInfo(
+            lastSalaryAmount = 0.0,
+            lastSalaryDate = null,
+            currentMonthExpenses = 0.0,
+            remainingBalance = 0.0,
+            hasSalaryData = false
+        )
     )
 
     @Before

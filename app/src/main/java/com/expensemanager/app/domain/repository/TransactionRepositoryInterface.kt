@@ -57,6 +57,11 @@ interface TransactionRepositoryInterface {
     suspend fun getTopMerchants(startDate: Date, endDate: Date, limit: Int = 10): List<MerchantSpending>
     
     /**
+     * Get top merchants by spending with category information
+     */
+    suspend fun getTopMerchantsWithCategory(startDate: Date, endDate: Date, limit: Int = 10): List<com.expensemanager.app.data.dao.MerchantSpendingWithCategory>
+    
+    /**
      * Get transaction by SMS ID
      */
     suspend fun getTransactionBySmsId(smsId: String): TransactionEntity?

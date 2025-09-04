@@ -84,14 +84,21 @@ interface TransactionDao {
     suspend fun getSalaryTransactions(minAmount: Double = 10000.0, limit: Int = 10): List<TransactionEntity>
     
     @Query("""
-        SELECT normalized_merchant, SUM(amount) as total_amount, COUNT(*) as transaction_count
-        FROM transactions 
-        WHERE transaction_date >= :startDate AND transaction_date <= :endDate AND is_debit = 1
-        GROUP BY normalized_merchant 
+        SELECT 
+            t.normalized_merchant, 
+            SUM(t.amount) as total_amount, 
+            COUNT(*) as transaction_count,
+            COALESCE(c.name, 'Unknown') as category_name,
+            COALESCE(c.color, '#9e9e9e') as category_color
+        FROM transactions t
+        LEFT JOIN merchants m ON t.normalized_merchant = m.normalized_name
+        LEFT JOIN categories c ON m.category_id = c.id
+        WHERE t.transaction_date >= :startDate AND t.transaction_date <= :endDate AND t.is_debit = 1
+        GROUP BY t.normalized_merchant, c.name, c.color
         ORDER BY total_amount DESC 
         LIMIT :limit
     """)
-    suspend fun getTopMerchantsBySpending(startDate: Date, endDate: Date, limit: Int = 10): List<MerchantSpending>
+    suspend fun getTopMerchantsBySpending(startDate: Date, endDate: Date, limit: Int = 10): List<MerchantSpendingWithCategory>
     
     @Query("""
         SELECT MAX(transaction_date) as last_sync_date, MAX(sms_id) as last_sms_id 
@@ -178,6 +185,14 @@ data class MerchantSpending(
 data class SyncInfo(
     val last_sync_date: Date?,
     val last_sms_id: String?
+)
+
+data class MerchantSpendingWithCategory(
+    val normalized_merchant: String,
+    val total_amount: Double,
+    val transaction_count: Int,
+    val category_name: String,
+    val category_color: String
 )
 
 data class CategorySpendingResult(

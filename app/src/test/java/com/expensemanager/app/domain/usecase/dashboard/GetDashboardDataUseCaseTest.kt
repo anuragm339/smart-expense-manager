@@ -29,7 +29,15 @@ class GetDashboardDataUseCaseTest {
         actualBalance = 3500.0, // 5000 - 1500
         transactionCount = 25,
         topCategories = emptyList(),
-        topMerchants = emptyList()
+        topMerchants = emptyList(),
+        topMerchantsWithCategory = emptyList(),
+        monthlyBalance = com.expensemanager.app.data.repository.MonthlyBalanceInfo(
+            lastSalaryAmount = 0.0,
+            lastSalaryDate = null,
+            currentMonthExpenses = 0.0,
+            remainingBalance = 0.0,
+            hasSalaryData = false
+        )
     )
 
     @Before
@@ -396,7 +404,15 @@ class GetDashboardDataUseCaseTest {
             actualBalance = 0.0,
             transactionCount = 0,
             topCategories = emptyList(),
-            topMerchants = emptyList()
+            topMerchants = emptyList(),
+            topMerchantsWithCategory = emptyList(),
+            monthlyBalance = com.expensemanager.app.data.repository.MonthlyBalanceInfo(
+                lastSalaryAmount = 0.0,
+                lastSalaryDate = null,
+                currentMonthExpenses = 0.0,
+                remainingBalance = 0.0,
+                hasSalaryData = false
+            )
         )
         coEvery { mockRepository.getDashboardData(any(), any()) } returns emptyData
 

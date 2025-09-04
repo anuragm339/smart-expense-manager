@@ -122,8 +122,22 @@ class ExpenseRepository @Inject constructor(
     }
     
     override suspend fun getTopMerchants(startDate: Date, endDate: Date, limit: Int): List<MerchantSpending> {
-        val allMerchants = transactionDao.getTopMerchantsBySpending(startDate, endDate, limit * 2) // Get more to account for filtering
-        return filterMerchantsByExclusions(allMerchants).take(limit)
+        val allMerchantsWithCategory = transactionDao.getTopMerchantsBySpending(startDate, endDate, limit * 2) // Get more to account for filtering
+        val filteredMerchantsWithCategory = filterMerchantsByExclusionsWithCategory(allMerchantsWithCategory)
+        
+        // Convert to old MerchantSpending format for backward compatibility
+        return filteredMerchantsWithCategory.take(limit).map { merchantWithCategory ->
+            com.expensemanager.app.data.dao.MerchantSpending(
+                normalized_merchant = merchantWithCategory.normalized_merchant,
+                total_amount = merchantWithCategory.total_amount,
+                transaction_count = merchantWithCategory.transaction_count
+            )
+        }
+    }
+    
+    override suspend fun getTopMerchantsWithCategory(startDate: Date, endDate: Date, limit: Int): List<com.expensemanager.app.data.dao.MerchantSpendingWithCategory> {
+        val allMerchantsWithCategory = transactionDao.getTopMerchantsBySpending(startDate, endDate, limit * 2) // Get more to account for filtering
+        return filterMerchantsByExclusionsWithCategory(allMerchantsWithCategory).take(limit)
     }
     
     override suspend fun getTotalSpent(startDate: Date, endDate: Date): Double {
@@ -643,6 +657,7 @@ class ExpenseRepository @Inject constructor(
         
         // FIXED: Request more merchants to ensure consistent display after exclusion filtering
         val topMerchants = getTopMerchants(startDate, endDate, 8) // Request 8 to get at least 5 after filtering
+        val topMerchantsWithCategory = getTopMerchantsWithCategory(startDate, endDate, 8) // Get merchants with category info
         
         // Calculate monthly balance (Last Salary - Current Period Expenses)
         val monthlyBalance = getMonthlyBudgetBalance(startDate, endDate)
@@ -653,7 +668,8 @@ class ExpenseRepository @Inject constructor(
             actualBalance = actualBalance,
             transactionCount = transactionCount,
             topCategories = categorySpending.take(6),
-            topMerchants = topMerchants.take(5), // Always take exactly 5 for consistent display
+            topMerchants = topMerchants.take(5), // Always take exactly 5 for consistent display (backward compatibility)
+            topMerchantsWithCategory = topMerchantsWithCategory.take(5), // New field with category information
             monthlyBalance = monthlyBalance
         )
     }
@@ -944,6 +960,57 @@ class ExpenseRepository @Inject constructor(
             merchants // Return all merchants on error
         }
     }
+
+    private suspend fun filterMerchantsByExclusionsWithCategory(merchants: List<com.expensemanager.app.data.dao.MerchantSpendingWithCategory>): List<com.expensemanager.app.data.dao.MerchantSpendingWithCategory> {
+        return try {
+            // Apply same unified filtering to merchant results with category information
+            
+            // 1. Get database exclusions
+            val excludedMerchants = getExcludedMerchants()
+            val excludedNormalizedNames = excludedMerchants.map { it.normalizedName }.toSet()
+            
+            // 2. Get SharedPreferences exclusions
+            val prefs = context.getSharedPreferences("expense_calculations", android.content.Context.MODE_PRIVATE)
+            val inclusionStatesJson = prefs.getString("group_inclusion_states", null)
+            val sharedPrefsExclusions = mutableSetOf<String>()
+            
+            if (inclusionStatesJson != null) {
+                try {
+                    val inclusionStates = org.json.JSONObject(inclusionStatesJson)
+                    val keys = inclusionStates.keys()
+                    while (keys.hasNext()) {
+                        val merchantName = keys.next()
+                        val isIncluded = inclusionStates.getBoolean(merchantName)
+                        if (!isIncluded) {
+                            val normalizedName = normalizeMerchantName(merchantName)
+                            sharedPrefsExclusions.add(normalizedName)
+                        }
+                    }
+                } catch (e: Exception) {
+                    logger.warn("Error parsing SharedPreferences for merchants with category", e)
+                }
+            }
+            
+            logger.debug("[DEBUG] UNIFIED MERCHANT WITH CATEGORY FILTERING: ${merchants.size} merchants")
+            logger.debug("[DEBUG]   - Database exclusions: ${excludedNormalizedNames.size}")
+            logger.debug("[DEBUG]   - SharedPrefs exclusions: ${sharedPrefsExclusions.size}")
+            
+            // 3. Filter merchants using unified system
+            val filteredMerchants = merchants.filter { merchant ->
+                val isExcludedInDatabase = excludedNormalizedNames.contains(merchant.normalized_merchant)
+                val isExcludedInSharedPrefs = sharedPrefsExclusions.contains(merchant.normalized_merchant)
+                
+                val isIncluded = !isExcludedInDatabase && !isExcludedInSharedPrefs
+                isIncluded
+            }
+            
+            logger.debug("[SUCCESS] UNIFIED MERCHANT WITH CATEGORY FILTERING result: ${filteredMerchants.size}/${merchants.size} merchants included")
+            filteredMerchants
+        } catch (e: Exception) {
+            logger.error("Error in unified merchant with category filtering", e)
+            merchants // Return all merchants on error
+        }
+    }
     
     // =======================
     // DATABASE MAINTENANCE
@@ -1037,7 +1104,8 @@ data class DashboardData(
     val actualBalance: Double,
     val transactionCount: Int,
     val topCategories: List<CategorySpendingResult>,
-    val topMerchants: List<MerchantSpending>,
+    val topMerchants: List<MerchantSpending>, // Kept for backward compatibility
+    val topMerchantsWithCategory: List<com.expensemanager.app.data.dao.MerchantSpendingWithCategory>, // New field with category info
     val monthlyBalance: MonthlyBalanceInfo
 )
 

@@ -22,19 +22,16 @@ class GroupedMessagesAdapter(
     
     fun submitList(groups: List<MerchantGroup>) {
         val oldList = _merchantGroups
-        _merchantGroups = groups
         
-        // Use post() to defer the update until after layout computation
-        if (oldList.isEmpty() && groups.isEmpty()) {
-            return // No change needed
-        }
-        
-        // Calculate diff on background thread if lists are large
-        if (groups.size > 20) {
-            android.os.Handler(android.os.Looper.getMainLooper()).post {
-                updateWithDiff(oldList, groups)
+        // Use post() to defer ALL updates until after current layout computation
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            _merchantGroups = groups
+            
+            if (oldList.isEmpty() && groups.isEmpty()) {
+                return@post // No change needed
             }
-        } else {
+            
+            // Always use diff for safer updates
             updateWithDiff(oldList, groups)
         }
     }
@@ -43,12 +40,23 @@ class GroupedMessagesAdapter(
         try {
             val diffCallback = MerchantGroupDiffCallback(oldList, newList)
             val diffResult = DiffUtil.calculateDiff(diffCallback, false)
-            diffResult.dispatchUpdatesTo(this)
+            
+            // Make sure we're still on the main thread and data hasn't changed again
+            if (android.os.Looper.getMainLooper() == android.os.Looper.myLooper() && 
+                _merchantGroups == newList) {
+                diffResult.dispatchUpdatesTo(this)
+            }
         } catch (e: Exception) {
-            // Fallback to notifyDataSetChanged with delay if diff fails
+            // Fallback to notifyDataSetChanged with additional safety delay
             android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                notifyDataSetChanged()
-            }, 100)
+                try {
+                    if (_merchantGroups == newList) {
+                        notifyDataSetChanged()
+                    }
+                } catch (ex: Exception) {
+                    // Last resort - ignore the update
+                }
+            }, 150)
         }
     }
     
@@ -60,6 +68,10 @@ class GroupedMessagesAdapter(
     }
     
     override fun onBindViewHolder(holder: MerchantGroupViewHolder, position: Int) {
+        // Safety check to prevent IndexOutOfBoundsException
+        if (position < 0 || position >= _merchantGroups.size) {
+            return
+        }
         holder.bind(_merchantGroups[position])
     }
     

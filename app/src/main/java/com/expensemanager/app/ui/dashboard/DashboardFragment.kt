@@ -140,6 +140,31 @@ class DashboardFragment : Fragment() {
                         }
                     }
                 }
+                
+                "com.expensemanager.MERCHANT_CATEGORY_CHANGED" -> {
+                    val merchantName = intent.getStringExtra("merchant_name") ?: "Unknown"
+                    val displayName = intent.getStringExtra("display_name") ?: "Unknown"
+                    val newCategory = intent.getStringExtra("new_category") ?: "Unknown"
+                    Log.d("DashboardFragment", "📡 Received merchant category change: '$merchantName' -> '$newCategory'")
+                    
+                    // Refresh dashboard to reflect category changes in Top Merchants section
+                    lifecycleScope.launch {
+                        try {
+                            Log.d("DashboardFragment", "[REFRESH] Refreshing dashboard due to merchant category change")
+                            loadDashboardData()
+                            
+                            // Show a brief toast to indicate refresh
+                            android.widget.Toast.makeText(
+                                requireContext(),
+                                "🏷️ Category updated for '$displayName' - Dashboard refreshed",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                            
+                        } catch (e: Exception) {
+                            Log.e("DashboardFragment", "Error refreshing dashboard after merchant category change", e)
+                        }
+                    }
+                }
             }
         }
     }
@@ -323,7 +348,7 @@ class DashboardFragment : Fragment() {
      */
     private fun updateTopMerchantsFromViewModel(dashboardData: DashboardData) {
         val totalSpent = dashboardData.totalSpent
-        val allMerchantItems = dashboardData.topMerchants.map { merchantResult ->
+        val allMerchantItems = dashboardData.topMerchantsWithCategory.map { merchantResult ->
             // FIXED: Use merchantAliasManager for consistent merchant name display like Messages screen
             val displayName = merchantAliasManager.getDisplayName(merchantResult.normalized_merchant)
             Log.d("DashboardFragment", "[MERCHANT] Top Merchant Display Name: '${merchantResult.normalized_merchant}' -> '$displayName'")
@@ -331,13 +356,14 @@ class DashboardFragment : Fragment() {
             // FIXED: Calculate proper percentage instead of hardcoded 0.0
             val percentage = if (totalSpent > 0) (merchantResult.total_amount / totalSpent) * 100 else 0.0
             Log.d("DashboardFragment", "[PERCENTAGE] ViewModel: ${displayName} = ${String.format("%.1f", percentage)}% (₹${merchantResult.total_amount} / ₹${totalSpent})")
+            Log.d("DashboardFragment", "[CATEGORY] ViewModel: ${displayName} category: '${merchantResult.category_name}' color: '${merchantResult.category_color}'")
             
             MerchantSpending(
                 merchantName = displayName,
                 totalAmount = merchantResult.total_amount,
                 transactionCount = merchantResult.transaction_count,
-                category = "Unknown", // Enhanced later
-                categoryColor = "#9e9e9e",
+                category = merchantResult.category_name, // Now using actual category from database
+                categoryColor = merchantResult.category_color, // Now using actual category color
                 percentage = percentage
             )
         }
@@ -1108,29 +1134,30 @@ class DashboardFragment : Fragment() {
         Log.d("DashboardFragment", "Updating top categories: ${finalCategoryItems.map { "${it.categoryName}=₹${String.format("%.0f", it.amount)}" }}")
         topCategoriesAdapter.submitList(finalCategoryItems)
         
-        // Update top merchants with repository data  
-        val allMerchantItems = dashboardData.topMerchants.map { merchantResult ->
+        // Update top merchants with repository data using NEW category information
+        val allMerchantItems = dashboardData.topMerchantsWithCategory.map { merchantResult ->
             // FIXED: Use merchantAliasManager for consistent merchant name display like Messages screen
             val displayName = merchantAliasManager.getDisplayName(merchantResult.normalized_merchant)
-            Log.d("DashboardFragment", "[MERCHANT] Legacy Top Merchant Display Name: '${merchantResult.normalized_merchant}' -> '$displayName'")
+            Log.d("DashboardFragment", "[MERCHANT] Repository Top Merchant Display Name: '${merchantResult.normalized_merchant}' -> '$displayName'")
+            Log.d("DashboardFragment", "[CATEGORY] Repository: ${displayName} category: '${merchantResult.category_name}' color: '${merchantResult.category_color}'")
             
             // FIXED: Calculate proper percentage instead of hardcoded 0.0
             val percentage = if (totalSpent > 0) (merchantResult.total_amount / totalSpent) * 100 else 0.0
-            Log.d("DashboardFragment", "[PERCENTAGE] Legacy: ${displayName} = ${String.format("%.1f", percentage)}% (₹${merchantResult.total_amount} / ₹${totalSpent})")
+            Log.d("DashboardFragment", "[PERCENTAGE] Repository: ${displayName} = ${String.format("%.1f", percentage)}% (₹${merchantResult.total_amount} / ₹${totalSpent})")
             
             MerchantSpending(
                 merchantName = displayName,
                 totalAmount = merchantResult.total_amount,
                 transactionCount = merchantResult.transaction_count,
-                category = "Unknown", // We'll need to enhance this later
-                categoryColor = "#9e9e9e", // Default color
+                category = merchantResult.category_name, // Now using actual category from database
+                categoryColor = merchantResult.category_color, // Now using actual category color
                 percentage = percentage
             )
         }
         
         // FIXED: Filter merchants by inclusion state to respect user toggle preferences  
         val filteredMerchantItems = filterMerchantsByInclusionState(allMerchantItems)
-        Log.d("DashboardFragment", "🔽 Legacy filtered merchants from ${allMerchantItems.size} to ${filteredMerchantItems.size} based on inclusion states")
+        Log.d("DashboardFragment", "🔽 Repository filtered merchants from ${allMerchantItems.size} to ${filteredMerchantItems.size} based on inclusion states")
         
         // FIXED: Ensure consistent display - always show at least 3 merchants (but only from included ones)
         val finalMerchantItems = ensureMinimumMerchants(filteredMerchantItems, 3)
@@ -2096,21 +2123,24 @@ class DashboardFragment : Fragment() {
     override fun onResume() {
         super.onResume()
         
-        // FIXED: Register broadcast receiver for new transactions, category updates, AND inclusion state changes
+        // FIXED: Register broadcast receiver for new transactions, category updates, merchant category changes, AND inclusion state changes
         val newTransactionFilter = IntentFilter("com.expensemanager.NEW_TRANSACTION_ADDED")
         val categoryUpdateFilter = IntentFilter("com.expensemanager.CATEGORY_UPDATED")
         val inclusionStateFilter = IntentFilter("com.expensemanager.INCLUSION_STATE_CHANGED")
+        val merchantCategoryFilter = IntentFilter("com.expensemanager.MERCHANT_CATEGORY_CHANGED")
         
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
             requireContext().registerReceiver(newTransactionReceiver, newTransactionFilter, android.content.Context.RECEIVER_NOT_EXPORTED)
             requireContext().registerReceiver(newTransactionReceiver, categoryUpdateFilter, android.content.Context.RECEIVER_NOT_EXPORTED)
             requireContext().registerReceiver(newTransactionReceiver, inclusionStateFilter, android.content.Context.RECEIVER_NOT_EXPORTED)
+            requireContext().registerReceiver(newTransactionReceiver, merchantCategoryFilter, android.content.Context.RECEIVER_NOT_EXPORTED)
         } else {
             requireContext().registerReceiver(newTransactionReceiver, newTransactionFilter)
             requireContext().registerReceiver(newTransactionReceiver, categoryUpdateFilter)
             requireContext().registerReceiver(newTransactionReceiver, inclusionStateFilter)
+            requireContext().registerReceiver(newTransactionReceiver, merchantCategoryFilter)
         }
-        Log.d("DashboardFragment", "📡 Registered broadcast receiver for transactions, categories, and inclusion states")
+        Log.d("DashboardFragment", "📡 Registered broadcast receiver for transactions, categories, merchant category changes, and inclusion states")
         
         // Refresh dashboard data when returning to this fragment
         // This ensures the dashboard reflects any changes made in the Messages screen
