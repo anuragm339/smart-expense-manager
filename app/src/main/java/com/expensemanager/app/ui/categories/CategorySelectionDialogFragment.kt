@@ -8,6 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.ListView
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.DialogFragment
 import com.expensemanager.app.R
 import com.google.android.material.button.MaterialButton
@@ -62,16 +63,19 @@ class CategorySelectionDialogFragment : DialogFragment() {
         view.findViewById<MaterialTextView>(R.id.dialogTitle).text = "📝 Change Category"
         view.findViewById<MaterialTextView>(R.id.dialogMessage).text = "Select a new category for $merchantName"
         
-        // Set up ListView
+        // Set up ListView with custom layout for better visibility
         val listView = view.findViewById<ListView>(R.id.categoryListView)
         val adapter = ArrayAdapter(
             requireContext(),
-            android.R.layout.simple_list_item_single_choice,
+            R.layout.dialog_category_list_item,
             categories
         )
         
         listView.adapter = adapter
         listView.choiceMode = ListView.CHOICE_MODE_SINGLE
+        
+        // Apply dialog styling programmatically
+        listView.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.dialog_input_background))
         
         if (currentIndex >= 0 && currentIndex < categories.size) {
             listView.setItemChecked(currentIndex, true)
@@ -79,6 +83,9 @@ class CategorySelectionDialogFragment : DialogFragment() {
         
         listView.setOnItemClickListener { _, _, position, _ ->
             selectedIndex = position
+            // Update the checked state immediately for visual feedback
+            listView.clearChoices()
+            listView.setItemChecked(position, true)
             Log.d(TAG, "[SUCCESS] Category selected: ${categories[position]} at position $position")
         }
         
@@ -113,5 +120,26 @@ class CategorySelectionDialogFragment : DialogFragment() {
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
         )
+        
+        // Apply additional programmatic styling for high contrast
+        view?.let { dialogView ->
+            dialogView.findViewById<MaterialButton>(R.id.btnCancel)?.apply {
+                setTextColor(ContextCompat.getColor(requireContext(), R.color.primary))
+                setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.transparent))
+            }
+            
+            dialogView.findViewById<MaterialButton>(R.id.btnUpdate)?.apply {
+                setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
+                backgroundTintList = ContextCompat.getColorStateList(requireContext(), R.color.primary)
+            }
+            
+            dialogView.findViewById<MaterialTextView>(R.id.dialogTitle)?.apply {
+                setTextColor(ContextCompat.getColor(requireContext(), R.color.dialog_text_primary))
+            }
+            
+            dialogView.findViewById<MaterialTextView>(R.id.dialogMessage)?.apply {
+                setTextColor(ContextCompat.getColor(requireContext(), R.color.dialog_text_secondary))
+            }
+        }
     }
 }

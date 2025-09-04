@@ -59,4 +59,39 @@
         <item name="android:fontFamily">sans-serif-medium</item>
     </style>
     
+    <!-- Dialog-Specific Styles for High Contrast -->
+    <style name="DialogTextInputStyle" parent="Widget.Material3.TextInputLayout.OutlinedBox">
+        <item name="android:textColorHint">@color/dialog_text_hint</item>
+        <item name="boxStrokeColor">@color/primary</item>
+        <item name="hintTextColor">@color/primary</item>
+        <item name="android:textColor">@color/dialog_input_text</item>
+    </style>
+    
+    <style name="DialogTextInputEditTextStyle" parent="Widget.Material3.TextInputEditText.OutlinedBox">
+        <item name="android:textColor">@color/dialog_input_text</item>
+        <item name="android:textColorHint">@color/dialog_text_hint</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:background">@color/dialog_input_background</item>
+        <item name="android:padding">12dp</item>
+    </style>
+    
+    <style name="DialogTheme" parent="Theme.Material3.Light.Dialog.Alert">
+        <item name="colorPrimary">@color/primary</item>
+        <item name="colorOnSurface">@color/dialog_text_primary</item>
+        <item name="colorSurface">@color/dialog_background</item>
+        <item name="android:textColorPrimary">@color/dialog_text_primary</item>
+        <item name="android:textColorSecondary">@color/dialog_text_secondary</item>
+        <item name="android:colorBackground">@color/dialog_background</item>
+        <item name="android:windowBackground">@color/dialog_background</item>
+        <!-- Force light theme for dialog buttons -->
+        <item name="buttonBarButtonStyle">@style/DialogButtonStyle</item>
+        <item name="android:buttonBarButtonStyle">@style/DialogButtonStyle</item>
+    </style>
+    
+    <style name="DialogButtonStyle" parent="Widget.Material3.Button.TextButton">
+        <item name="android:textColor">@color/primary</item>
+        <item name="android:background">@color/transparent</item>
+        <item name="backgroundTint">@color/transparent</item>
+    </style>
+    
 </resources>

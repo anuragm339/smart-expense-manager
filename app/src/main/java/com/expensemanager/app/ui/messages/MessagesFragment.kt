@@ -3,9 +3,11 @@ package com.expensemanager.app.ui.messages
 import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.DialogInterface
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.view.ContextThemeWrapper
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
@@ -26,6 +28,7 @@ import com.expensemanager.app.R
 import com.expensemanager.app.utils.SMSHistoryReader
 import com.expensemanager.app.utils.CategoryManager
 import com.expensemanager.app.utils.MerchantAliasManager
+import com.expensemanager.app.utils.AppLogger
 import com.expensemanager.app.ui.categories.CategorySelectionDialogFragment
 // UPDATED: Import unified services for consistent SMS parsing and filtering
 import com.expensemanager.app.services.TransactionParsingService
@@ -40,6 +43,12 @@ import android.widget.Toast
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
+import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
+import android.os.Environment
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -57,6 +66,9 @@ class MessagesFragment : Fragment() {
     
     @Inject
     lateinit var transactionFilterService: TransactionFilterService
+    
+    @Inject
+    lateinit var appLogger: AppLogger
     
     private lateinit var groupedMessagesAdapter: GroupedMessagesAdapter
     private lateinit var categoryManager: CategoryManager
@@ -157,11 +169,28 @@ class MessagesFragment : Fragment() {
         binding.tvTotalMessages.text = state.totalMessagesCount.toString()
         binding.tvAutoCategorized.text = state.autoCategorizedCount.toString()
         
-        // Update adapter with grouped messages
+        // Update adapter with grouped messages using post to avoid layout conflicts
         if (state.groupedMessages.isNotEmpty()) {
-            groupedMessagesAdapter.submitList(state.groupedMessages)
-            binding.recyclerMessages.visibility = View.VISIBLE
-            binding.layoutEmpty.visibility = View.GONE
+            // Use post to defer adapter update until after current layout computation
+            binding.recyclerMessages.post {
+                try {
+                    groupedMessagesAdapter.submitList(state.groupedMessages)
+                    binding.recyclerMessages.visibility = View.VISIBLE
+                    binding.layoutEmpty.visibility = View.GONE
+                } catch (e: Exception) {
+                    android.util.Log.e("MessagesFragment", "Error updating adapter", e)
+                    // Retry with delay if initial update fails
+                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                        try {
+                            groupedMessagesAdapter.submitList(state.groupedMessages)
+                            binding.recyclerMessages.visibility = View.VISIBLE
+                            binding.layoutEmpty.visibility = View.GONE
+                        } catch (retryError: Exception) {
+                            android.util.Log.e("MessagesFragment", "Retry adapter update failed", retryError)
+                        }
+                    }, 200)
+                }
+            }
         } else if (state.shouldShowEmptyState) {
             binding.recyclerMessages.visibility = View.GONE
             binding.layoutEmpty.visibility = View.VISIBLE
@@ -288,6 +317,23 @@ class MessagesFragment : Fragment() {
         
         binding.btnFilter.setOnClickListener {
             showFilterDialog()
+        }
+        
+        binding.btnDownloadLogs.setOnClickListener {
+            // Disable button temporarily to prevent rapid clicks
+            it.isEnabled = false
+            
+            // Use post to avoid any potential layout conflicts
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                try {
+                    downloadLogs()
+                } finally {
+                    // Re-enable button after a delay
+                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                        it.isEnabled = true
+                    }, 2000)
+                }
+            }
         }
         
         binding.btnGrantPermissions.setOnClickListener {
@@ -1438,6 +1484,11 @@ class MessagesFragment : Fragment() {
         val categorySelectorCard = dialogView.findViewById<com.google.android.material.card.MaterialCardView>(R.id.category_selector_card)
         val tvSelectedCategory = dialogView.findViewById<TextView>(R.id.tv_selected_category)
         
+        // Enforce text colors programmatically for high contrast
+        etGroupName.setTextColor(ContextCompat.getColor(requireContext(), R.color.dialog_input_text))
+        etGroupName.setHintTextColor(ContextCompat.getColor(requireContext(), R.color.dialog_text_hint))
+        tvSelectedCategory.setTextColor(ContextCompat.getColor(requireContext(), R.color.dialog_text_primary))
+        
         // Pre-fill current values
         etGroupName.setText(group.merchantName)
         
@@ -1467,7 +1518,9 @@ class MessagesFragment : Fragment() {
             }
         }
         
-        val dialog = MaterialAlertDialogBuilder(requireContext())
+        // Apply high contrast dialog theme
+        val themedContext = ContextThemeWrapper(requireContext(), R.style.DialogTheme)
+        val dialog = MaterialAlertDialogBuilder(themedContext)
             .setTitle("Edit Merchant Group")
             .setView(dialogView)
             .setPositiveButton("Save") { _, _ ->
@@ -1513,11 +1566,26 @@ class MessagesFragment : Fragment() {
         // Show dialog and adjust dropdown position after it's displayed
         dialog.show()
         
-        // Adjust dropdown to appear near the center of the dialog
+        // Force light background and button colors
         dialog.window?.let { window ->
+            window.setBackgroundDrawableResource(R.color.dialog_background)
             val params = window.attributes
             params.y = 0 // Center vertically
             window.attributes = params
+        }
+        
+        // Ensure action buttons are visible
+        dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE)?.apply {
+            setTextColor(ContextCompat.getColor(requireContext(), R.color.primary))
+            setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.transparent))
+        }
+        dialog.getButton(android.content.DialogInterface.BUTTON_NEGATIVE)?.apply {
+            setTextColor(ContextCompat.getColor(requireContext(), R.color.primary))
+            setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.transparent))
+        }
+        dialog.getButton(android.content.DialogInterface.BUTTON_NEUTRAL)?.apply {
+            setTextColor(ContextCompat.getColor(requireContext(), R.color.primary))
+            setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.transparent))
         }
     }
     
@@ -1914,6 +1982,75 @@ class MessagesFragment : Fragment() {
             R.id.action_navigation_messages_to_transaction_details,
             bundle
         )
+    }
+    
+    /**
+     * Download and export log files to the Downloads directory
+     */
+    private fun downloadLogs() {
+        lifecycleScope.launch {
+            try {
+                val logFiles = appLogger.getLogFiles()
+                
+                if (logFiles.isEmpty()) {
+                    Toast.makeText(requireContext(), "No log files found", Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
+                
+                // Create Downloads directory file
+                val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(java.util.Date())
+                val zipFile = File(downloadsDir, "ExpenseManager_logs_$timestamp.zip")
+                
+                // Create zip file with all logs
+                ZipOutputStream(FileOutputStream(zipFile)).use { zipOut ->
+                    logFiles.forEach { logFile ->
+                        if (logFile.exists() && logFile.length() > 0) {
+                            val entry = ZipEntry(logFile.name)
+                            zipOut.putNextEntry(entry)
+                            
+                            FileInputStream(logFile).use { fileInput ->
+                                fileInput.copyTo(zipOut)
+                            }
+                            zipOut.closeEntry()
+                        }
+                    }
+                    
+                    // Add a summary file with app info
+                    val summaryEntry = ZipEntry("log_summary.txt")
+                    zipOut.putNextEntry(summaryEntry)
+                    val summary = """
+                        Smart Expense Manager - Log Export
+                        Generated: ${SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())}
+                        
+                        Log Files Included:
+                        ${logFiles.joinToString("\n") { "- ${it.name} (${it.length()} bytes)" }}
+                        
+                        Logging Configuration:
+                        ${appLogger.getInitializationStatus()}
+                        
+                        App Version: ${requireContext().packageManager.getPackageInfo(requireContext().packageName, 0).versionName}
+                    """.trimIndent()
+                    
+                    zipOut.write(summary.toByteArray())
+                    zipOut.closeEntry()
+                }
+                
+                // Show success message with file location
+                Toast.makeText(
+                    requireContext(), 
+                    "Logs exported to Downloads/ExpenseManager_logs_$timestamp.zip", 
+                    Toast.LENGTH_LONG
+                ).show()
+                
+                // Log the export activity
+                appLogger.info("LOG_EXPORT", "Log files exported to ${zipFile.absolutePath}")
+                
+            } catch (e: Exception) {
+                appLogger.error("LOG_EXPORT", "Failed to export logs", e)
+                Toast.makeText(requireContext(), "Failed to export logs: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
     }
     
     override fun onResume() {

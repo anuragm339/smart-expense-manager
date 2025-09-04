@@ -1,9 +1,8 @@
 package com.expensemanager.app.debug
 
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -13,7 +12,8 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.util.logging.Logger
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import javax.inject.Inject
 
 /**

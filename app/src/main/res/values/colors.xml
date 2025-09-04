@@ -34,6 +34,14 @@
     <color name="text_hint">#bdbdbd</color>
     <color name="text_on_primary">#ffffff</color>
     
+    <!-- Dialog-Specific Colors for High Contrast -->
+    <color name="dialog_text_primary">#000000</color>
+    <color name="dialog_text_secondary">#424242</color>
+    <color name="dialog_text_hint">#757575</color>
+    <color name="dialog_background">#ffffff</color>
+    <color name="dialog_input_text">#000000</color>
+    <color name="dialog_input_background">#f8f9fa</color>
+    
     <!-- Category Colors -->
     <color name="category_food">#ff5722</color>
     <color name="category_transport">#3f51b5</color>

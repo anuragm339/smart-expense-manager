@@ -12,6 +12,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.Job
 import java.text.SimpleDateFormat
 import java.util.*
 import javax.inject.Inject
@@ -41,6 +43,9 @@ class MessagesViewModel @Inject constructor(
     
     // Public immutable state
     val uiState: StateFlow<MessagesUIState> = _uiState.asStateFlow()
+    
+    // Debouncing for toggle operations to prevent rapid state changes
+    private var toggleDebounceJob: Job? = null
     
     init {
         Log.d(TAG, "ViewModel initialized, loading messages data...")
@@ -578,12 +583,16 @@ class MessagesViewModel @Inject constructor(
     }
     
     /**
-     * Toggle group inclusion in calculations
+     * Toggle group inclusion in calculations with debouncing to prevent crashes
      */
     private fun toggleGroupInclusion(merchantName: String, isIncluded: Boolean) {
         try {
             Log.d(TAG, "Toggling group inclusion for '$merchantName': $isIncluded")
             
+            // Cancel any pending toggle operations
+            toggleDebounceJob?.cancel()
+            
+            // Update state immediately for responsive UI
             val currentGroups = _uiState.value.groupedMessages
             val updatedGroups = currentGroups.map { group ->
                 if (group.merchantName == merchantName) {
@@ -593,14 +602,29 @@ class MessagesViewModel @Inject constructor(
                 }
             }
             
-            _uiState.value = _uiState.value.copy(
-                groupedMessages = updatedGroups
-            )
-            
-            // Save inclusion states with error handling
-            saveGroupInclusionStates(updatedGroups)
-            
-            Log.d(TAG, "Successfully toggled group inclusion for '$merchantName'")
+            // Debounce the state update to prevent RecyclerView layout conflicts
+            toggleDebounceJob = viewModelScope.launch {
+                try {
+                    // Small delay to let RecyclerView finish any ongoing layout operations
+                    delay(100)
+                    
+                    _uiState.value = _uiState.value.copy(
+                        groupedMessages = updatedGroups
+                    )
+                    
+                    // Save inclusion states with error handling (background operation)
+                    launch {
+                        delay(200) // Additional delay for persistence operations
+                        saveGroupInclusionStates(updatedGroups)
+                    }
+                    
+                    Log.d(TAG, "Successfully toggled group inclusion for '$merchantName'")
+                    
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error in debounced toggle for '$merchantName'", e)
+                    handleError("Failed to update merchant exclusion settings. Please try again.")
+                }
+            }
             
         } catch (e: Exception) {
             Log.e(TAG, "Error toggling group inclusion for '$merchantName'", e)
