@@ -8,6 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -15,22 +16,25 @@ import com.expensemanager.app.R
 import com.expensemanager.app.databinding.FragmentMerchantTransactionsBinding
 import com.expensemanager.app.data.repository.ExpenseRepository
 import com.expensemanager.app.data.entities.TransactionEntity
+import com.expensemanager.app.utils.MerchantAliasManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.switchmaterial.SwitchMaterial
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
+@AndroidEntryPoint
 class MerchantTransactionsFragment : Fragment() {
     
     private var _binding: FragmentMerchantTransactionsBinding? = null
     private val binding get() = _binding!!
     
-    private lateinit var repository: ExpenseRepository
+    private val viewModel: MerchantTransactionsViewModel by viewModels()
     private lateinit var transactionsAdapter: MerchantTransactionsAdapter
+    private lateinit var merchantAliasManager: MerchantAliasManager
     
     private var merchantName: String = ""
-    private var isIncludedInExpense: Boolean = true
     
     companion object {
         private const val TAG = "MerchantTransactions"
@@ -54,14 +58,16 @@ class MerchantTransactionsFragment : Fragment() {
     
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        
-        repository = ExpenseRepository.getInstance(requireContext())
+        merchantAliasManager = MerchantAliasManager(requireContext())
         
         setupUI()
         setupRecyclerView()
         setupClickListeners()
-        loadMerchantTransactions()
-        loadInclusionState()
+        setupObservers()
+        
+        // Load data
+        viewModel.loadMerchantTransactions(merchantName)
+        viewModel.loadInclusionState(merchantName)
     }
     
     private fun setupUI() {
@@ -74,7 +80,7 @@ class MerchantTransactionsFragment : Fragment() {
             // Navigate to transaction details
             val bundle = Bundle().apply {
                 putFloat("amount", transaction.amount.toFloat())
-                putString("merchant", transaction.rawMerchant)
+                putString("merchant", merchantAliasManager.getDisplayName(transaction.rawMerchant))
                 putString("bankName", transaction.bankName)
                 putString("category", "Other") // Will be populated properly
                 putString("dateTime", SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault()).format(transaction.transactionDate))
@@ -99,7 +105,7 @@ class MerchantTransactionsFragment : Fragment() {
         }
         
         binding.switchIncludeInExpense.setOnCheckedChangeListener { _, isChecked ->
-            updateInclusionState(isChecked)
+            viewModel.updateInclusionState(merchantName, isChecked)
         }
         
         binding.btnBulkActions.setOnClickListener {
@@ -107,125 +113,70 @@ class MerchantTransactionsFragment : Fragment() {
         }
     }
     
-    private fun loadMerchantTransactions() {
-        lifecycleScope.launch {
-            try {
-                Log.d(TAG, "Loading transactions for merchant: $merchantName")
-                
-                // Get all transactions for this merchant
-                val transactions = repository.searchTransactions(merchantName.lowercase(), 1000)
-                    .filter { it.normalizedMerchant.contains(merchantName.lowercase()) || 
-                             it.rawMerchant.contains(merchantName, ignoreCase = true) }
-                
-                Log.d(TAG, "Found ${transactions.size} transactions for $merchantName")
-                
-                // Calculate totals
-                val totalAmount = transactions.sumOf { it.amount }
-                val totalCount = transactions.size
-                
-                // Update UI
-                binding.tvTotalAmount.text = "₹${String.format("%.0f", totalAmount)}"
-                binding.tvTransactionCount.text = "$totalCount transactions"
-                
-                // Update adapter
-                transactionsAdapter.submitList(transactions.sortedByDescending { it.transactionDate })
-                
-                // Show empty state if no transactions
-                if (transactions.isEmpty()) {
-                    binding.layoutEmptyState.visibility = View.VISIBLE
-                    binding.recyclerTransactions.visibility = View.GONE
-                } else {
-                    binding.layoutEmptyState.visibility = View.GONE
-                    binding.recyclerTransactions.visibility = View.VISIBLE
+    private fun setupObservers() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.uiState.collect { state ->
+                updateUI(state)
+            }
+        }
+        
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.events.collect { event ->
+                event?.let {
+                    handleEvent(it)
+                    viewModel.clearEvent()
                 }
-                
-            } catch (e: Exception) {
-                Log.e(TAG, "Error loading merchant transactions", e)
-                Toast.makeText(requireContext(), "Error loading transactions", Toast.LENGTH_SHORT).show()
             }
         }
     }
     
-    private fun loadInclusionState() {
-        val prefs = requireContext().getSharedPreferences("expense_calculations", Context.MODE_PRIVATE)
-        val inclusionStatesJson = prefs.getString("group_inclusion_states", null)
+    private fun updateUI(state: MerchantTransactionsUiState) {
+        if (state.isLoading) {
+            // Show loading state if needed
+        }
         
-        Log.d(TAG, "🔍 Loading inclusion state for '$merchantName'")
-        Log.d(TAG, "🔍 Inclusion states JSON: $inclusionStatesJson")
+        state.error?.let { error ->
+            Toast.makeText(requireContext(), error, Toast.LENGTH_SHORT).show()
+        }
         
-        isIncludedInExpense = true // Default to included
+        // Update totals
+        binding.tvTotalAmount.text = "₹${String.format("%.0f", state.totalAmount)}"
+        binding.tvTransactionCount.text = "${state.totalCount} transactions"
         
-        if (inclusionStatesJson != null) {
-            try {
-                val inclusionStates = org.json.JSONObject(inclusionStatesJson)
-                
-                // Debug: Log all keys in the inclusion states
-                val keys = mutableListOf<String>()
-                inclusionStates.keys().forEach { key -> keys.add(key) }
-                Log.d(TAG, "🔍 All keys in preferences: $keys")
-                
-                if (inclusionStates.has(merchantName)) {
-                    isIncludedInExpense = inclusionStates.getBoolean(merchantName)
-                    Log.d(TAG, "🔍 Found '$merchantName' in preferences: $isIncludedInExpense")
-                } else {
-                    Log.d(TAG, "🔍 '$merchantName' NOT found in preferences, defaulting to included")
-                }
-            } catch (e: Exception) {
-                Log.w(TAG, "Error loading inclusion state", e)
-            }
+        // Update adapter
+        transactionsAdapter.submitList(state.transactions)
+        
+        // Show empty state if no transactions
+        if (state.transactions.isEmpty()) {
+            binding.layoutEmptyState.visibility = View.VISIBLE
+            binding.recyclerTransactions.visibility = View.GONE
         } else {
-            Log.d(TAG, "🔍 No inclusion states JSON found, defaulting to included")
+            binding.layoutEmptyState.visibility = View.GONE
+            binding.recyclerTransactions.visibility = View.VISIBLE
         }
         
-        binding.switchIncludeInExpense.isChecked = isIncludedInExpense
-        updateInclusionUI()
+        // Update inclusion switch and status
+        binding.switchIncludeInExpense.isChecked = state.isIncludedInExpense
+        updateInclusionUI(state.isIncludedInExpense)
     }
     
-    private fun updateInclusionState(isIncluded: Boolean) {
-        isIncludedInExpense = isIncluded
-        
-        // Save to SharedPreferences
-        val prefs = requireContext().getSharedPreferences("expense_calculations", Context.MODE_PRIVATE)
-        val inclusionStatesJson = prefs.getString("group_inclusion_states", null)
-        
-        try {
-            val inclusionStates = if (inclusionStatesJson != null) {
-                org.json.JSONObject(inclusionStatesJson)
-            } else {
-                org.json.JSONObject()
+    private fun handleEvent(event: MerchantTransactionsEvent) {
+        when (event) {
+            is MerchantTransactionsEvent.ShowMessage -> {
+                Toast.makeText(requireContext(), event.message, Toast.LENGTH_SHORT).show()
             }
-            
-            inclusionStates.put(merchantName, isIncluded)
-            
-            prefs.edit()
-                .putString("group_inclusion_states", inclusionStates.toString())
-                .apply()
-            
-            Log.d(TAG, "🔍 Updated inclusion state for '$merchantName': $isIncluded")
-            Log.d(TAG, "🔍 Full inclusion states JSON: ${inclusionStates.toString()}")
-            
-            // Debug: Log all keys in the inclusion states
-            val keys = mutableListOf<String>()
-            inclusionStates.keys().forEach { key -> keys.add(key) }
-            Log.d(TAG, "🔍 All merchant keys in preferences: $keys")
-            
-            updateInclusionUI()
-            
-            Toast.makeText(
-                requireContext(),
-                if (isIncluded) "✅ $merchantName included in expense calculations"
-                else "❌ $merchantName excluded from expense calculations",
-                Toast.LENGTH_SHORT
-            ).show()
-            
-        } catch (e: Exception) {
-            Log.e(TAG, "Error updating inclusion state", e)
-            Toast.makeText(requireContext(), "Error updating inclusion state", Toast.LENGTH_SHORT).show()
+            is MerchantTransactionsEvent.ShowError -> {
+                Toast.makeText(requireContext(), event.error, Toast.LENGTH_SHORT).show()
+            }
         }
     }
     
-    private fun updateInclusionUI() {
-        if (isIncludedInExpense) {
+    // Removed: loadInclusionState() - now handled by ViewModel
+    
+    // Removed: updateInclusionState() - now handled by ViewModel
+    
+    private fun updateInclusionUI(isIncluded: Boolean) {
+        if (isIncluded) {
             binding.tvInclusionStatus.text = "✅ Included in expense calculations"
             binding.tvInclusionStatus.setTextColor(resources.getColor(R.color.success_green, null))
         } else {

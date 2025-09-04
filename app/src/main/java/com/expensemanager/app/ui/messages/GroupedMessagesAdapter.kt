@@ -4,24 +4,12 @@ import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.expensemanager.app.databinding.ItemMerchantGroupBinding
 import java.text.SimpleDateFormat
 import java.util.*
-
-data class MerchantGroup(
-    val merchantName: String,
-    val transactions: List<MessageItem>,
-    val totalAmount: Double,
-    val categoryColor: String,
-    val category: String,
-    var isExpanded: Boolean = false,
-    var isIncludedInCalculations: Boolean = true,
-    val latestTransactionDate: Long = 0L,
-    val primaryBankName: String = "",
-    val averageConfidence: Double = 0.0
-)
 
 class GroupedMessagesAdapter(
     private val onTransactionClick: (MessageItem) -> Unit,
@@ -33,8 +21,43 @@ class GroupedMessagesAdapter(
     val merchantGroups: List<MerchantGroup> get() = _merchantGroups
     
     fun submitList(groups: List<MerchantGroup>) {
-        _merchantGroups = groups
-        notifyDataSetChanged()
+        val oldList = _merchantGroups
+        
+        // Use post() to defer ALL updates until after current layout computation
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            _merchantGroups = groups
+            
+            if (oldList.isEmpty() && groups.isEmpty()) {
+                return@post // No change needed
+            }
+            
+            // Always use diff for safer updates
+            updateWithDiff(oldList, groups)
+        }
+    }
+    
+    private fun updateWithDiff(oldList: List<MerchantGroup>, newList: List<MerchantGroup>) {
+        try {
+            val diffCallback = MerchantGroupDiffCallback(oldList, newList)
+            val diffResult = DiffUtil.calculateDiff(diffCallback, false)
+            
+            // Make sure we're still on the main thread and data hasn't changed again
+            if (android.os.Looper.getMainLooper() == android.os.Looper.myLooper() && 
+                _merchantGroups == newList) {
+                diffResult.dispatchUpdatesTo(this)
+            }
+        } catch (e: Exception) {
+            // Fallback to notifyDataSetChanged with additional safety delay
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                try {
+                    if (_merchantGroups == newList) {
+                        notifyDataSetChanged()
+                    }
+                } catch (ex: Exception) {
+                    // Last resort - ignore the update
+                }
+            }, 150)
+        }
     }
     
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MerchantGroupViewHolder {
@@ -45,6 +68,10 @@ class GroupedMessagesAdapter(
     }
     
     override fun onBindViewHolder(holder: MerchantGroupViewHolder, position: Int) {
+        // Safety check to prevent IndexOutOfBoundsException
+        if (position < 0 || position >= _merchantGroups.size) {
+            return
+        }
         holder.bind(_merchantGroups[position])
     }
     
@@ -88,31 +115,88 @@ class GroupedMessagesAdapter(
                     }
                 }
                 
-                // Setup include/exclude switch
+                // Setup include/exclude switch with crash prevention
+                switchIncludeGroup.setOnCheckedChangeListener(null) // Clear previous listener
                 switchIncludeGroup.isChecked = group.isIncludedInCalculations
                 switchIncludeGroup.setOnCheckedChangeListener { _, isChecked ->
-                    group.isIncludedInCalculations = isChecked
-                    tvTotalAmount.alpha = if (isChecked) 1.0f else 0.5f
-                    onGroupToggle(group, isChecked)
+                    try {
+                        android.util.Log.d("GroupedMessagesAdapter", "Toggle switch for '${group.merchantName}': $isChecked")
+                        
+                        // Update UI immediately for responsive feedback
+                        group.isIncludedInCalculations = isChecked
+                        tvTotalAmount.alpha = if (isChecked) 1.0f else 0.5f
+                        root.alpha = if (isChecked) 1.0f else 0.7f
+                        
+                        // Disable switch temporarily to prevent rapid toggling
+                        switchIncludeGroup.isEnabled = false
+                        
+                        // Post the callback to avoid RecyclerView layout computation conflicts
+                        android.os.Handler(android.os.Looper.getMainLooper()).post {
+                            try {
+                                onGroupToggle(group, isChecked)
+                                // Re-enable switch after successful callback
+                                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                                    switchIncludeGroup.isEnabled = true
+                                }, 500)
+                            } catch (callbackError: Exception) {
+                                android.util.Log.e("GroupedMessagesAdapter", "Error in toggle callback for '${group.merchantName}'", callbackError)
+                                // Revert state on callback error
+                                group.isIncludedInCalculations = !isChecked
+                                switchIncludeGroup.isChecked = !isChecked
+                                tvTotalAmount.alpha = if (!isChecked) 1.0f else 0.5f
+                                root.alpha = if (!isChecked) 1.0f else 0.7f
+                                switchIncludeGroup.isEnabled = true
+                                
+                                android.widget.Toast.makeText(
+                                    binding.root.context,
+                                    "Failed to update exclusion settings. Please try again.",
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
+                        
+                    } catch (e: Exception) {
+                        android.util.Log.e("GroupedMessagesAdapter", "Critical error handling toggle switch for '${group.merchantName}'", e)
+                        switchIncludeGroup.isEnabled = true
+                        android.widget.Toast.makeText(
+                            binding.root.context,
+                            "Critical error updating settings. Please restart the app.",
+                            android.widget.Toast.LENGTH_LONG
+                        ).show()
+                    }
                 }
                 
                 // Update card appearance based on inclusion state
                 root.alpha = if (group.isIncludedInCalculations) 1.0f else 0.7f
                 
-                // Setup expand/collapse
+                // Setup expand/collapse with safe state handling
                 ivExpandCollapse.rotation = if (group.isExpanded) 180f else 0f
                 recyclerTransactions.visibility = if (group.isExpanded) View.VISIBLE else View.GONE
                 
-                // Setup click listener for expand/collapse (only on the expand icon area)
+                // Setup click listener for expand/collapse with debouncing
+                var lastClickTime = 0L
                 ivExpandCollapse.setOnClickListener {
-                    group.isExpanded = !group.isExpanded
-                    ivExpandCollapse.animate().rotation(if (group.isExpanded) 180f else 0f).setDuration(200).start()
+                    val currentTime = System.currentTimeMillis()
+                    if (currentTime - lastClickTime < 300) {
+                        return@setOnClickListener // Debounce rapid clicks
+                    }
+                    lastClickTime = currentTime
                     
-                    if (group.isExpanded) {
-                        setupTransactionsRecyclerView(group)
-                        recyclerTransactions.visibility = View.VISIBLE
-                    } else {
-                        recyclerTransactions.visibility = View.GONE
+                    try {
+                        group.isExpanded = !group.isExpanded
+                        ivExpandCollapse.animate()
+                            .rotation(if (group.isExpanded) 180f else 0f)
+                            .setDuration(200)
+                            .start()
+                        
+                        if (group.isExpanded) {
+                            setupTransactionsRecyclerView(group)
+                            recyclerTransactions.visibility = View.VISIBLE
+                        } else {
+                            recyclerTransactions.visibility = View.GONE
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("GroupedMessagesAdapter", "Error expanding/collapsing group", e)
                     }
                 }
                 
@@ -205,8 +289,16 @@ class TransactionItemAdapter(
     private var transactions = listOf<MessageItem>()
     
     fun submitList(items: List<MessageItem>) {
+        val oldSize = transactions.size
         transactions = items
-        notifyDataSetChanged()
+        
+        // Use more granular updates for better performance
+        when {
+            oldSize == 0 && items.isNotEmpty() -> notifyItemRangeInserted(0, items.size)
+            oldSize > 0 && items.isEmpty() -> notifyItemRangeRemoved(0, oldSize)
+            oldSize != items.size -> notifyDataSetChanged() // Size changed
+            else -> notifyItemRangeChanged(0, items.size) // Content may have changed
+        }
     }
     
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TransactionViewHolder {
@@ -228,8 +320,19 @@ class TransactionItemAdapter(
             val amountBankText = itemView.findViewById<android.widget.TextView>(com.expensemanager.app.R.id.tv_amount_bank)
             val dateConfidenceText = itemView.findViewById<android.widget.TextView>(com.expensemanager.app.R.id.tv_date_confidence)
             
-            amountBankText.text = "₹${String.format("%.0f", transaction.amount)} • ${transaction.bankName}"
+            // Add debit/credit indicator
+            val transactionType = if (transaction.isDebit) "DEBIT" else "CREDIT"
+            val typeIndicator = if (transaction.isDebit) "−" else "+"
+            
+            amountBankText.text = "$typeIndicator₹${String.format("%.0f", transaction.amount)} • ${transaction.bankName} • $transactionType"
             dateConfidenceText.text = "${transaction.dateTime} • ${transaction.confidence}% confidence"
+            
+            // Color coding for debit/credit
+            if (transaction.isDebit) {
+                amountBankText.setTextColor(itemView.context.getColor(com.expensemanager.app.R.color.debit_red))
+            } else {
+                amountBankText.setTextColor(itemView.context.getColor(com.expensemanager.app.R.color.credit_green))
+            }
             
             itemView.setOnClickListener {
                 try {
@@ -240,5 +343,34 @@ class TransactionItemAdapter(
                 }
             }
         }
+    }
+}
+
+/**
+ * DiffUtil callback for efficient RecyclerView updates
+ */
+private class MerchantGroupDiffCallback(
+    private val oldList: List<MerchantGroup>,
+    private val newList: List<MerchantGroup>
+) : DiffUtil.Callback() {
+    
+    override fun getOldListSize(): Int = oldList.size
+    override fun getNewListSize(): Int = newList.size
+    
+    override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
+        return oldList[oldItemPosition].merchantName == newList[newItemPosition].merchantName
+    }
+    
+    override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
+        val oldItem = oldList[oldItemPosition]
+        val newItem = newList[newItemPosition]
+        
+        return oldItem.merchantName == newItem.merchantName &&
+                oldItem.totalAmount == newItem.totalAmount &&
+                oldItem.category == newItem.category &&
+                oldItem.categoryColor == newItem.categoryColor &&
+                oldItem.isIncludedInCalculations == newItem.isIncludedInCalculations &&
+                oldItem.isExpanded == newItem.isExpanded &&
+                oldItem.transactions.size == newItem.transactions.size
     }
 }

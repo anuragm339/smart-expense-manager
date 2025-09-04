@@ -10,6 +10,7 @@ import android.view.ViewGroup
 import android.widget.Toast
 import android.util.Log
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -23,21 +24,20 @@ import com.expensemanager.app.utils.CategoryManager
 import com.expensemanager.app.utils.MerchantAliasManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.*
 
+@AndroidEntryPoint
 class BudgetGoalsFragment : Fragment() {
     
     private var _binding: FragmentBudgetGoalsBinding? = null
     private val binding get() = _binding!!
     
+    private val viewModel: BudgetGoalsViewModel by viewModels()
     private lateinit var categoryBudgetsAdapter: CategoryBudgetsAdapter
-    private lateinit var prefs: SharedPreferences
-    private lateinit var categoryManager: CategoryManager
-    private lateinit var merchantAliasManager: MerchantAliasManager
-    private lateinit var repository: ExpenseRepository
     
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -50,13 +50,13 @@ class BudgetGoalsFragment : Fragment() {
     
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        prefs = requireContext().getSharedPreferences("budget_settings", Context.MODE_PRIVATE)
-        categoryManager = CategoryManager(requireContext())
-        merchantAliasManager = MerchantAliasManager(requireContext())
-        repository = ExpenseRepository.getInstance(requireContext())
+        
         setupRecyclerView()
         setupClickListeners()
-        loadRealBudgetData()
+        setupObservers()
+        
+        // Load data
+        viewModel.loadBudgetData()
     }
     
     private fun setupRecyclerView() {
@@ -91,6 +91,63 @@ class BudgetGoalsFragment : Fragment() {
         }
     }
     
+    private fun setupObservers() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.uiState.collect { state ->
+                updateUI(state)
+            }
+        }
+        
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.events.collect { event ->
+                event?.let {
+                    handleEvent(it)
+                    viewModel.clearEvent()
+                }
+            }
+        }
+    }
+    
+    private fun updateUI(state: BudgetGoalsUiState) {
+        if (state.isLoading) {
+            // Show loading state if needed
+        }
+        
+        state.error?.let { error ->
+            Toast.makeText(requireContext(), error, Toast.LENGTH_SHORT).show()
+        }
+        
+        // Update budget display
+        binding.tvSpentAmount.text = "Spent: ₹${String.format("%.0f", state.currentSpent)}"
+        binding.tvRemaining.text = "₹${String.format("%.0f", state.monthlyBudget - state.currentSpent)} remaining"
+        binding.progressBudget.progress = state.budgetProgress
+        binding.tvBudgetAmount.text = "Budget: ₹${String.format("%.0f", state.monthlyBudget)}"
+        
+        // Update insights
+        binding.tvBudgetStatus.text = state.insights.statusText
+        binding.tvBudgetTip.text = state.insights.tipText
+        
+        // Update category budgets
+        categoryBudgetsAdapter.submitList(state.categoryBudgets)
+    }
+    
+    private fun handleEvent(event: BudgetGoalsEvent) {
+        when (event) {
+            is BudgetGoalsEvent.ShowMessage -> {
+                Toast.makeText(requireContext(), event.message, Toast.LENGTH_SHORT).show()
+            }
+            is BudgetGoalsEvent.ShowError -> {
+                Toast.makeText(requireContext(), event.error, Toast.LENGTH_SHORT).show()
+            }
+            is BudgetGoalsEvent.ShowBudgetAlert -> {
+                showBudgetAlert(event.budgetProgress, event.currentSpent, event.monthlyBudget)
+            }
+            is BudgetGoalsEvent.NavigateToCategories -> {
+                navigateToBottomTab(R.id.navigation_categories)
+            }
+        }
+    }
+    
     private fun showBudgetTestingDialog() {
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("🧪 Budget Testing")
@@ -106,306 +163,44 @@ class BudgetGoalsFragment : Fragment() {
     }
     
     private fun testBudgetAlert(progressPercentage: Int) {
-        val monthlyBudget = prefs.getFloat("monthly_budget", 15000f)
-        val testSpent = (monthlyBudget * progressPercentage / 100f)
+        val currentState = viewModel.uiState.value
+        val testSpent = (currentState.monthlyBudget * progressPercentage / 100f)
         
         // Show test info (only for debug testing)
         Toast.makeText(requireContext(), "Testing ${progressPercentage}% scenario", Toast.LENGTH_SHORT).show()
         
         // Force show alert by calling the alert method directly
-        showBudgetAlert(progressPercentage, testSpent, monthlyBudget)
-        
-        // Also update the insights to show the test scenario
-        updateBudgetInsights(monthlyBudget, testSpent, progressPercentage)
+        showBudgetAlert(progressPercentage, testSpent, currentState.monthlyBudget)
     }
     
     private fun showCurrentBudgetValidation() {
-        lifecycleScope.launch {
-            try {
-                val monthlyBudget = prefs.getFloat("monthly_budget", 15000f)
-                
-                // Get current month date range
-                val calendar = Calendar.getInstance()
-                val currentMonth = calendar.get(Calendar.MONTH)
-                val currentYear = calendar.get(Calendar.YEAR)
-                
-                // Start of current month
-                calendar.set(currentYear, currentMonth, 1, 0, 0, 0)
-                val startDate = calendar.time
-                
-                // End of current month
-                calendar.set(currentYear, currentMonth, calendar.getActualMaximum(Calendar.DAY_OF_MONTH), 23, 59, 59)
-                val endDate = calendar.time
-                
-                // Get transactions from repository instead of SMS reader
-                val allTransactions = repository.getTransactionsByDateRange(startDate, endDate)
-                val currentSpent = repository.getTotalSpent(startDate, endDate).toFloat()
-                val budgetProgress = if (monthlyBudget > 0) ((currentSpent / monthlyBudget) * 100).toInt() else 0
-                
-                val validationDetails = buildString {
-                    appendLine("📊 CURRENT BUDGET VALIDATION")
-                    appendLine()
-                    appendLine("💰 Monthly Budget: ₹${String.format("%.0f", monthlyBudget)}")
-                    appendLine("💸 Current Spent: ₹${String.format("%.0f", currentSpent)}")
-                    appendLine("📈 Progress: $budgetProgress%")
-                    appendLine("💳 Remaining: ₹${String.format("%.0f", monthlyBudget - currentSpent)}")
-                    appendLine()
-                    appendLine("📅 This Month Transactions: ${allTransactions.size}")
-                    appendLine("✅ Data Source: ExpenseRepository (Database)")
-                    appendLine("📊 Exclusions Applied: Yes (merchant-based)")
-                    appendLine()
-                    appendLine("🚨 Alert Threshold: ${if (budgetProgress >= 90) "TRIGGERED" else "NOT TRIGGERED"}")
-                    appendLine("🔢 Calculation: (${String.format("%.0f", currentSpent)} ÷ ${String.format("%.0f", monthlyBudget)}) × 100 = $budgetProgress%")
-                    
-                    if (budgetProgress >= 100) {
-                        appendLine()
-                        appendLine("🆘 OVER BUDGET by ₹${String.format("%.0f", currentSpent - monthlyBudget)}!")
-                    }
-                }
-                
-                MaterialAlertDialogBuilder(requireContext())
-                    .setTitle("🧮 Budget Validation")
-                    .setMessage(validationDetails)
-                    .setPositiveButton("Recalculate") { _, _ ->
-                        loadRealBudgetData()
-                    }
-                    .setNegativeButton("Close", null)
-                    .show()
-                    
-            } catch (e: Exception) {
-                Toast.makeText(requireContext(), "Error validating budget: ${e.message}", Toast.LENGTH_LONG).show()
-                Log.e("BudgetValidation", "Error validating budget", e)
+        val validationDetails = viewModel.generateBudgetValidationDetails()
+        
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("🧮 Budget Validation")
+            .setMessage(validationDetails)
+            .setPositiveButton("Recalculate") { _, _ ->
+                viewModel.loadBudgetData()
             }
-        }
+            .setNegativeButton("Close", null)
+            .show()
     }
     
-    private fun loadRealBudgetData() {
-        lifecycleScope.launch {
-            try {
-                // Load monthly budget from preferences
-                val monthlyBudget = prefs.getFloat("monthly_budget", 15000f)
-                
-                // Get current month date range
-                val calendar = Calendar.getInstance()
-                val currentMonth = calendar.get(Calendar.MONTH)
-                val currentYear = calendar.get(Calendar.YEAR)
-                
-                // Start of current month
-                calendar.set(currentYear, currentMonth, 1, 0, 0, 0)
-                val startDate = calendar.time
-                
-                // End of current month  
-                calendar.set(currentYear, currentMonth, calendar.getActualMaximum(Calendar.DAY_OF_MONTH), 23, 59, 59)
-                val endDate = calendar.time
-                
-                // Get transaction data from repository (with exclusions already applied)
-                val currentMonthTransactions = repository.getTransactionsByDateRange(startDate, endDate)
-                val currentSpent = repository.getTotalSpent(startDate, endDate).toFloat()
-                
-                // Update UI with real data
-                binding.tvSpentAmount.text = "Spent: ₹${String.format("%.0f", currentSpent)}"
-                binding.tvRemaining.text = "₹${String.format("%.0f", monthlyBudget - currentSpent)} remaining"
-                
-                val budgetProgress = if (monthlyBudget > 0) ((currentSpent / monthlyBudget) * 100).toInt() else 0
-                binding.progressBudget.progress = budgetProgress
-                
-                // Update budget label with actual budget amount
-                binding.tvBudgetAmount.text = "Budget: ₹${String.format("%.0f", monthlyBudget)}"
-                
-                // Only log critical errors, remove debug logging for performance
-                
-                // Update insights
-                updateBudgetInsights(monthlyBudget, currentSpent, budgetProgress)
-                
-                // Load category budgets with real spending data
-                loadRealCategoryBudgets(startDate, endDate)
-                
-                // Budget loaded successfully
-                
-            } catch (e: Exception) {
-                Log.e("BudgetGoalsFragment", "Error loading budget data", e)
-                Toast.makeText(requireContext(), "Error loading budget data", Toast.LENGTH_SHORT).show()
-                
-                // Fallback to default data
-                loadBudgetDataFallback()
-            }
-        }
-    }
+    // Removed: loadRealBudgetData() - now handled by ViewModel
     
-    private fun loadBudgetDataFallback() {
-        val monthlyBudget = prefs.getFloat("monthly_budget", 15000f)
-        val currentSpent = 0f
-        
-        binding.tvSpentAmount.text = "Spent: ₹0"
-        binding.tvRemaining.text = "₹${String.format("%.0f", monthlyBudget)} remaining"
-        binding.progressBudget.progress = 0
-        
-        updateBudgetInsights(monthlyBudget, currentSpent, 0)
-        loadCategoryBudgets()
-    }
+    // Removed: loadBudgetDataFallback() - now handled by ViewModel
     
-    // Removed: filterTransactionsByInclusionState() - now using repository exclusion system
+    // Removed: loadRealCategoryBudgets() - now handled by ViewModel
     
-    private suspend fun loadRealCategoryBudgets(startDate: Date, endDate: Date) {
-        val categoryBudgetsJson = prefs.getString("category_budgets", "")
-        val categoryBudgets = mutableListOf<CategoryBudgetItem>()
-        
-        // Get category spending from repository (with exclusions already applied)
-        val categorySpending = repository.getCategorySpending(startDate, endDate)
-        val categorySpendingMap = categorySpending.associate { it.category_name to it.total_amount }
-        
-        if (categoryBudgetsJson?.isNotEmpty() == true) {
-            try {
-                val jsonArray = JSONArray(categoryBudgetsJson)
-                for (i in 0 until jsonArray.length()) {
-                    val json = jsonArray.getJSONObject(i)
-                    val categoryName = json.getString("category")
-                    val actualSpent = categorySpendingMap[categoryName] ?: 0.0
-                    
-                    categoryBudgets.add(
-                        CategoryBudgetItem(
-                            categoryName = categoryName,
-                            budgetAmount = json.getDouble("budget").toFloat(),
-                            spentAmount = actualSpent.toFloat(),
-                            categoryColor = json.getString("color")
-                        )
-                    )
-                }
-            } catch (e: Exception) {
-                Log.e("BudgetGoalsFragment", "Error parsing category budgets", e)
-                loadDefaultCategoryBudgetsWithRealSpending(categoryBudgets, categorySpendingMap)
-            }
-        } else {
-            // Load default budgets with real spending
-            loadDefaultCategoryBudgetsWithRealSpending(categoryBudgets, categorySpendingMap)
-        }
-        
-        categoryBudgetsAdapter.submitList(categoryBudgets)
-    }
+    // Removed: loadDefaultCategoryBudgetsWithRealSpending() - now handled by ViewModel
     
-    private fun loadDefaultCategoryBudgetsWithRealSpending(
-        categoryBudgets: MutableList<CategoryBudgetItem>, 
-        categorySpendingMap: Map<String, Double>
-    ) {
-        val defaultCategories = listOf(
-            "Food & Dining" to 4000f,
-            "Transportation" to 2000f,
-            "Groceries" to 3000f,
-            "Healthcare" to 1500f,
-            "Entertainment" to 1000f,
-            "Shopping" to 2000f,
-            "Utilities" to 1500f
-        )
-        
-        defaultCategories.forEach { (categoryName, budgetAmount) ->
-            val actualSpent = categorySpendingMap[categoryName] ?: 0.0
-            categoryBudgets.add(
-                CategoryBudgetItem(
-                    categoryName = categoryName,
-                    budgetAmount = budgetAmount,
-                    spentAmount = actualSpent.toFloat(),
-                    categoryColor = getCategoryColor(categoryName)
-                )
-            )
-        }
-        
-        saveCategoryBudgets(categoryBudgets)
-    }
+    // Removed: loadCategoryBudgets() - now handled by ViewModel
     
-    private fun loadCategoryBudgets() {
-        // Fallback method for when real data isn't available
-        val categoryBudgetsJson = prefs.getString("category_budgets", "")
-        val categoryBudgets = mutableListOf<CategoryBudgetItem>()
-        
-        if (categoryBudgetsJson?.isNotEmpty() == true) {
-            try {
-                val jsonArray = JSONArray(categoryBudgetsJson)
-                for (i in 0 until jsonArray.length()) {
-                    val json = jsonArray.getJSONObject(i)
-                    categoryBudgets.add(
-                        CategoryBudgetItem(
-                            categoryName = json.getString("category"),
-                            budgetAmount = json.getDouble("budget").toFloat(),
-                            spentAmount = json.getDouble("spent").toFloat(),
-                            categoryColor = json.getString("color")
-                        )
-                    )
-                }
-            } catch (e: Exception) {
-                loadDefaultCategoryBudgets(categoryBudgets)
-            }
-        } else {
-            loadDefaultCategoryBudgets(categoryBudgets)
-        }
-        
-        categoryBudgetsAdapter.submitList(categoryBudgets)
-    }
+    // Removed: loadDefaultCategoryBudgets() - now handled by ViewModel
     
-    private fun loadDefaultCategoryBudgets(categoryBudgets: MutableList<CategoryBudgetItem>) {
-        categoryBudgets.addAll(
-            listOf(
-                CategoryBudgetItem("Food & Dining", 4000f, 3200f, "#ff5722"),
-                CategoryBudgetItem("Transportation", 2000f, 1650f, "#3f51b5"),
-                CategoryBudgetItem("Groceries", 3000f, 2850f, "#4caf50"),
-                CategoryBudgetItem("Healthcare", 1500f, 950f, "#e91e63"),
-                CategoryBudgetItem("Entertainment", 1000f, 750f, "#9c27b0")
-            )
-        )
-        saveCategoryBudgets(categoryBudgets)
-    }
+    // Removed: saveCategoryBudgets() - now handled by ViewModel
     
-    private fun saveCategoryBudgets(categoryBudgets: List<CategoryBudgetItem>) {
-        val jsonArray = JSONArray()
-        categoryBudgets.forEach { budget ->
-            val json = JSONObject().apply {
-                put("category", budget.categoryName)
-                put("budget", budget.budgetAmount.toDouble())
-                put("spent", budget.spentAmount.toDouble())
-                put("color", budget.categoryColor)
-            }
-            jsonArray.put(json)
-        }
-        prefs.edit().putString("category_budgets", jsonArray.toString()).apply()
-    }
-    
-    private fun updateBudgetInsights(monthlyBudget: Float, currentSpent: Float, budgetProgress: Int) {
-        val calendar = Calendar.getInstance()
-        val daysInMonth = calendar.getActualMaximum(Calendar.DAY_OF_MONTH)
-        val currentDay = calendar.get(Calendar.DAY_OF_MONTH)
-        val daysRemaining = daysInMonth - currentDay
-        val monthProgress = (currentDay.toFloat() / daysInMonth.toFloat()) * 100
-        
-        // Calculate projected spending
-        val projectedSpending = if (currentDay > 0) (currentSpent / currentDay) * daysInMonth else currentSpent
-        
-        binding.tvBudgetStatus.text = "📊 You're $budgetProgress% through your monthly budget with $daysRemaining days remaining (${monthProgress.toInt()}% of month elapsed)."
-        
-        val tip = when {
-            budgetProgress >= 100 -> {
-                val overBudget = currentSpent - monthlyBudget
-                "🚨 ALERT: You're ₹${String.format("%.0f", overBudget)} over budget! Consider immediate expense reduction."
-            }
-            budgetProgress > monthProgress + 20 -> {
-                "⚠️ WARNING: You're spending ${(budgetProgress - monthProgress).toInt()}% faster than expected! Projected monthly spend: ₹${String.format("%.0f", projectedSpending)}"
-            }
-            budgetProgress > monthProgress + 10 -> {
-                "💡 CAUTION: Spending slightly ahead of pace. Monitor expenses to stay on track."
-            }
-            budgetProgress > monthProgress - 10 -> {
-                "✅ ON TRACK: Your spending pace matches the month progress. Keep it up!"
-            }
-            else -> {
-                val savedAmount = monthlyBudget - projectedSpending
-                "🎯 EXCELLENT: You're spending below budget pace! Potential savings: ₹${String.format("%.0f", savedAmount)}"
-            }
-        }
-        binding.tvBudgetTip.text = tip
-        
-        // Show budget alert if needed
-        if (budgetProgress >= 90) {
-            showBudgetAlert(budgetProgress, currentSpent, monthlyBudget)
-        }
-    }
+    // Removed: updateBudgetInsights() - now handled by ViewModel
     
     private fun showBudgetAlert(budgetProgress: Int, currentSpent: Float, monthlyBudget: Float) {
         if (budgetProgress >= 100) {
@@ -419,7 +214,7 @@ class BudgetGoalsFragment : Fragment() {
                     navigateToBottomTab(R.id.navigation_categories)
                 }
                 .setNeutralButton("AI Help") { _, _ ->
-                    showAIBudgetRecommendations(currentSpent, monthlyBudget)
+                    showAIBudgetRecommendations()
                 }
                 .setNegativeButton("Dismiss", null)
                 .show()
@@ -437,9 +232,8 @@ class BudgetGoalsFragment : Fragment() {
         }
     }
     
-    private fun showAIBudgetRecommendations(currentSpent: Float, monthlyBudget: Float) {
-        // This will be enhanced later with actual AI integration
-        val recommendations = generateBasicRecommendations(currentSpent, monthlyBudget)
+    private fun showAIBudgetRecommendations() {
+        val recommendations = viewModel.generateAIRecommendations()
         
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("💡 Budget Recommendations")
@@ -452,28 +246,13 @@ class BudgetGoalsFragment : Fragment() {
             .show()
     }
     
-    private fun generateBasicRecommendations(currentSpent: Float, monthlyBudget: Float): String {
-        val overAmount = currentSpent - monthlyBudget
-        return buildString {
-            appendLine("Based on your spending patterns:")
-            appendLine()
-            appendLine("🎯 You're ₹${String.format("%.0f", overAmount)} over budget")
-            appendLine()
-            appendLine("💡 Recommendations:")
-            appendLine("• Reduce dining out by 30% (save ~₹800)")
-            appendLine("• Use public transport more (save ~₹400)")
-            appendLine("• Limit shopping to essentials (save ~₹600)")
-            appendLine("• Review subscription services")
-            appendLine()
-            append("These changes could save ~₹1,800/month")
-        }
-    }
+    // Removed: generateBasicRecommendations() - now handled by ViewModel
     
     private fun showEditMonthlyBudgetDialog() {
         val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_edit_budget, null)
         val budgetInput = dialogView.findViewById<TextInputEditText>(R.id.et_budget_amount)
         
-        val currentBudget = prefs.getFloat("monthly_budget", 15000f)
+        val currentBudget = viewModel.uiState.value.monthlyBudget
         budgetInput.setText(currentBudget.toInt().toString())
         
         MaterialAlertDialogBuilder(requireContext())
@@ -482,9 +261,7 @@ class BudgetGoalsFragment : Fragment() {
             .setPositiveButton("Save") { _, _ ->
                 val newBudget = budgetInput.text.toString().toFloatOrNull()
                 if (newBudget != null && newBudget > 0) {
-                    prefs.edit().putFloat("monthly_budget", newBudget).apply()
-                    loadRealBudgetData()
-                    Toast.makeText(requireContext(), "Monthly budget updated to ₹${String.format("%.0f", newBudget)}", Toast.LENGTH_SHORT).show()
+                    viewModel.updateMonthlyBudget(newBudget)
                 } else {
                     Toast.makeText(requireContext(), "Please enter a valid budget amount", Toast.LENGTH_SHORT).show()
                 }
@@ -517,8 +294,9 @@ class BudgetGoalsFragment : Fragment() {
             .setPositiveButton("Save") { _, _ ->
                 val budget = budgetInput.text.toString().toFloatOrNull()
                 if (budget != null && budget > 0) {
-                    addCategoryBudget(categoryName, budget)
-                    Toast.makeText(requireContext(), "Budget set for $categoryName", Toast.LENGTH_SHORT).show()
+                    viewModel.addCategoryBudget(categoryName, budget)
+                } else {
+                    Toast.makeText(requireContext(), "Please enter a valid budget amount", Toast.LENGTH_SHORT).show()
                 }
             }
             .setNegativeButton("Cancel") { dialog, _ ->
@@ -539,8 +317,9 @@ class BudgetGoalsFragment : Fragment() {
             .setPositiveButton("Save") { _, _ ->
                 val newBudget = budgetInput.text.toString().toFloatOrNull()
                 if (newBudget != null && newBudget > 0) {
-                    updateCategoryBudget(budgetItem.categoryName, newBudget)
-                    Toast.makeText(requireContext(), "Budget updated", Toast.LENGTH_SHORT).show()
+                    viewModel.updateCategoryBudget(budgetItem.categoryName, newBudget)
+                } else {
+                    Toast.makeText(requireContext(), "Please enter a valid budget amount", Toast.LENGTH_SHORT).show()
                 }
             }
             .setNegativeButton("Cancel") { dialog, _ ->
@@ -549,38 +328,11 @@ class BudgetGoalsFragment : Fragment() {
             .show()
     }
     
-    private fun addCategoryBudget(categoryName: String, budget: Float) {
-        val currentList = categoryBudgetsAdapter.currentList.toMutableList()
-        val categoryColor = getCategoryColor(categoryName)
-        
-        currentList.add(CategoryBudgetItem(categoryName, budget, 0f, categoryColor))
-        categoryBudgetsAdapter.submitList(currentList)
-        saveCategoryBudgets(currentList)
-    }
+    // Removed: addCategoryBudget() - now handled by ViewModel
     
-    private fun updateCategoryBudget(categoryName: String, newBudget: Float) {
-        val currentList = categoryBudgetsAdapter.currentList.toMutableList()
-        val index = currentList.indexOfFirst { it.categoryName == categoryName }
-        
-        if (index != -1) {
-            currentList[index] = currentList[index].copy(budgetAmount = newBudget)
-            categoryBudgetsAdapter.submitList(currentList)
-            saveCategoryBudgets(currentList)
-        }
-    }
+    // Removed: updateCategoryBudget() - now handled by ViewModel
     
-    private fun getCategoryColor(categoryName: String): String {
-        return when (categoryName) {
-            "Food & Dining" -> "#ff5722"
-            "Transportation" -> "#3f51b5"
-            "Healthcare" -> "#e91e63"
-            "Groceries" -> "#4caf50"
-            "Shopping" -> "#ff9800"
-            "Entertainment" -> "#9c27b0"
-            "Utilities" -> "#607d8b"
-            else -> "#795548"
-        }
-    }
+    // Removed: getCategoryColor() - now handled by ViewModel
     
     /**
      * Helper method to navigate to bottom navigation tabs properly
@@ -591,17 +343,17 @@ class BudgetGoalsFragment : Fragment() {
             if (mainActivity != null) {
                 val bottomNavigation = mainActivity.findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.bottom_navigation)
                 bottomNavigation?.selectedItemId = tabId
-                Log.d("BudgetGoalsFragment", "✅ Successfully navigated to tab: $tabId")
+                Log.d("BudgetGoalsFragment", "[SUCCESS] Successfully navigated to tab: $tabId")
             } else {
-                Log.w("BudgetGoalsFragment", "⚠️ MainActivity not available, using fallback navigation")
+                Log.w("BudgetGoalsFragment", "[WARNING] MainActivity not available, using fallback navigation")
                 findNavController().navigate(tabId)
             }
         } catch (e: Exception) {
-            Log.e("BudgetGoalsFragment", "❌ Error navigating to tab $tabId, using fallback", e)
+            Log.e("BudgetGoalsFragment", "[ERROR] Error navigating to tab $tabId, using fallback", e)
             try {
                 findNavController().navigate(tabId)
             } catch (fallbackError: Exception) {
-                Log.e("BudgetGoalsFragment", "❌ Fallback navigation also failed", fallbackError)
+                Log.e("BudgetGoalsFragment", "[ERROR] Fallback navigation also failed", fallbackError)
                 Toast.makeText(requireContext(), "Navigation error. Please use bottom navigation.", Toast.LENGTH_SHORT).show()
             }
         }
@@ -610,7 +362,7 @@ class BudgetGoalsFragment : Fragment() {
     override fun onResume() {
         super.onResume()
         // Refresh budget data when returning to this fragment
-        loadRealBudgetData()
+        viewModel.loadBudgetData()
     }
     
     override fun onDestroyView() {

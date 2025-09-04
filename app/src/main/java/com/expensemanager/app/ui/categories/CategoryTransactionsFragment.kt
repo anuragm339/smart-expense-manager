@@ -10,12 +10,16 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
+import dagger.hilt.android.AndroidEntryPoint
 import com.expensemanager.app.databinding.FragmentCategoryTransactionsBinding
 import com.expensemanager.app.ui.messages.MessageItem
 import com.expensemanager.app.ui.messages.MessagesAdapter
 import com.expensemanager.app.utils.CategoryManager
+import com.expensemanager.app.utils.MerchantAliasManager
 import com.expensemanager.app.utils.SMSHistoryReader
 import com.expensemanager.app.data.repository.ExpenseRepository
 import com.expensemanager.app.R
@@ -24,17 +28,23 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
+@AndroidEntryPoint
 class CategoryTransactionsFragment : Fragment() {
     
     private var _binding: FragmentCategoryTransactionsBinding? = null
     private val binding get() = _binding!!
     
+    // ViewModel injection
+    private val viewModel: CategoryTransactionsViewModel by viewModels()
+    
+    // Keep legacy components for fallback compatibility
     private lateinit var categoryName: String
     private lateinit var transactionsAdapter: MessagesAdapter
     private lateinit var categoryManager: CategoryManager
+    private lateinit var merchantAliasManager: MerchantAliasManager
     private lateinit var repository: ExpenseRepository
     
-    // Filter and sort state
+    // Legacy filter and sort state (now handled by ViewModel)
     private var currentSortOption = "Newest First"
     private var currentFilterOption = "This Month"
     private var allTransactions = mutableListOf<MessageItem>()
@@ -47,11 +57,11 @@ class CategoryTransactionsFragment : Fragment() {
                 val amount = intent.getDoubleExtra("amount", 0.0)
                 android.util.Log.d("CategoryTransactions", "📡 Received new transaction broadcast: $merchant - ₹${String.format("%.0f", amount)}")
                 
-                // Refresh category transactions data on the main thread
+                // Refresh category transactions data on the main thread using ViewModel
                 lifecycleScope.launch {
                     try {
-                        android.util.Log.d("CategoryTransactions", "🔄 Refreshing category transactions due to new transaction")
-                        loadCategoryTransactions()
+                        android.util.Log.d("CategoryTransactions", "[PROCESS] Refreshing category transactions due to new transaction")
+                        viewModel.handleEvent(CategoryTransactionsUIEvent.Refresh)
                         
                     } catch (e: Exception) {
                         android.util.Log.e("CategoryTransactions", "Error refreshing category transactions after new transaction", e)
@@ -72,13 +82,20 @@ class CategoryTransactionsFragment : Fragment() {
     
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        
+        // Initialize legacy components for fallback compatibility
         categoryName = arguments?.getString("categoryName") ?: "Unknown"
         categoryManager = CategoryManager(requireContext())
+        merchantAliasManager = MerchantAliasManager(requireContext())
         repository = ExpenseRepository.getInstance(requireContext())
+        
         setupUI()
         setupRecyclerView()
         setupClickListeners()
-        loadCategoryTransactions()
+        observeViewModel()
+        
+        // Set category name in ViewModel and start loading data
+        viewModel.handleEvent(CategoryTransactionsUIEvent.SetCategoryName(categoryName))
     }
     
     private fun setupUI() {
@@ -99,6 +116,7 @@ class CategoryTransactionsFragment : Fragment() {
     
     private fun setupRecyclerView() {
         transactionsAdapter = MessagesAdapter { messageItem ->
+            viewModel.handleEvent(CategoryTransactionsUIEvent.ShowCategoryEditDialog(messageItem))
             showCategoryEditDialog(messageItem)
         }
         binding.recyclerTransactions.apply {
@@ -107,14 +125,77 @@ class CategoryTransactionsFragment : Fragment() {
         }
     }
     
+    /**
+     * Observe ViewModel state changes using the proven pattern
+     */
+    private fun observeViewModel() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+                viewModel.uiState.collect { uiState ->
+                    updateUI(uiState)
+                }
+            }
+        }
+    }
+    
+    /**
+     * Update UI based on ViewModel state
+     */
+    private fun updateUI(uiState: CategoryTransactionsUIState) {
+        // Update category name and color
+        binding.tvCategoryName.text = uiState.categoryName
+        try {
+            binding.viewCategoryColor.setBackgroundColor(Color.parseColor(uiState.categoryColor))
+        } catch (e: Exception) {
+            // Fallback to default color
+        }
+        
+        // Update filter and sort buttons
+        binding.btnFilterDate.text = uiState.currentFilterOption
+        binding.btnSort.text = uiState.currentSortOption
+        
+        // Update transactions list
+        transactionsAdapter.submitList(uiState.transactions)
+        
+        // Update summary
+        binding.tvCategoryTotal.text = uiState.formattedTotalAmount
+        binding.tvCategorySummary.text = uiState.formattedSummary
+        
+        // Show/hide content based on state
+        when {
+            uiState.shouldShowContent -> {
+                binding.recyclerTransactions.visibility = View.VISIBLE
+                binding.layoutEmpty.visibility = View.GONE
+            }
+            uiState.shouldShowEmptyState -> {
+                binding.recyclerTransactions.visibility = View.GONE
+                binding.layoutEmpty.visibility = View.VISIBLE
+            }
+        }
+        
+        // Handle loading states
+        if (uiState.isInitialLoading) {
+            binding.tvCategoryTotal.text = "Loading..."
+            binding.tvCategorySummary.text = "Loading..."
+        }
+        
+        // Handle error states
+        if (uiState.shouldShowError && uiState.error != null) {
+            android.widget.Toast.makeText(requireContext(), uiState.error, android.widget.Toast.LENGTH_LONG).show()
+            viewModel.handleEvent(CategoryTransactionsUIEvent.ClearError)
+        }
+        
+        // Update legacy state for backwards compatibility
+        currentSortOption = uiState.currentSortOption
+        currentFilterOption = uiState.currentFilterOption
+    }
+
     private fun setupClickListeners() {
         binding.btnFilterDate.setOnClickListener {
-            // TODO: Implement date filter
             showDateFilterDialog()
         }
         
         binding.btnSort.setOnClickListener {
-            // TODO: Implement sort options
             showSortDialog()
         }
     }
@@ -122,7 +203,7 @@ class CategoryTransactionsFragment : Fragment() {
     private fun loadCategoryTransactions() {
         lifecycleScope.launch {
             try {
-                android.util.Log.d("CategoryTransactions", "🔍 Loading transactions for category: $categoryName")
+                android.util.Log.d("CategoryTransactions", "[DEBUG] Loading transactions for category: $categoryName")
                 
                 // Get current date range (this month)
                 val calendar = Calendar.getInstance()
@@ -142,7 +223,7 @@ class CategoryTransactionsFragment : Fragment() {
                 
                 // Load transactions from repository (SQLite database)
                 val allDbTransactions = repository.getTransactionsByDateRange(startDate, endDate)
-                android.util.Log.d("CategoryTransactions", "📊 Found ${allDbTransactions.size} total transactions")
+                android.util.Log.d("CategoryTransactions", "[ANALYTICS] Found ${allDbTransactions.size} total transactions")
                 
                 // Filter transactions by category using the merchant-category mapping
                 val categoryTransactions = allDbTransactions.mapNotNull { transaction ->
@@ -152,13 +233,14 @@ class CategoryTransactionsFragment : Fragment() {
                     if (transactionCategory == categoryName) {
                         MessageItem(
                             amount = transaction.amount,
-                            merchant = transaction.rawMerchant, // Use display name
+                            merchant = merchantAliasManager.getDisplayName(transaction.rawMerchant), // Apply alias lookup
                             bankName = transaction.bankName,
                             category = transactionCategory,
                             categoryColor = merchantWithCategory?.category_color ?: "#888888",
                             confidence = (transaction.confidenceScore * 100).toInt(),
                             dateTime = formatDate(transaction.transactionDate),
-                            rawSMS = transaction.rawSmsBody
+                            rawSMS = transaction.rawSmsBody,
+                            isDebit = transaction.isDebit
                         )
                     } else null
                 }
@@ -182,18 +264,18 @@ class CategoryTransactionsFragment : Fragment() {
                     binding.tvCategoryTotal.text = "₹${String.format("%.0f", totalAmount)}"
                     binding.tvCategorySummary.text = "${filteredAndSortedTransactions.size} transactions • $currentFilterOption"
                     
-                    android.util.Log.d("CategoryTransactions", "💰 Category total: ₹${String.format("%.0f", totalAmount)}")
+                    android.util.Log.d("CategoryTransactions", "[FINANCIAL] Category total: ₹${String.format("%.0f", totalAmount)}")
                 } else {
                     binding.recyclerTransactions.visibility = View.GONE
                     binding.layoutEmpty.visibility = View.VISIBLE
                     binding.tvCategoryTotal.text = "₹0"
                     binding.tvCategorySummary.text = "0 transactions • $currentFilterOption"
                     
-                    android.util.Log.d("CategoryTransactions", "📭 No transactions found for $categoryName")
+                    android.util.Log.d("CategoryTransactions", "[INFO] No transactions found for $categoryName")
                 }
                 
             } catch (e: Exception) {
-                android.util.Log.e("CategoryTransactions", "❌ Error loading transactions", e)
+                android.util.Log.e("CategoryTransactions", "[ERROR] Error loading transactions", e)
                 // Show empty state on error
                 binding.recyclerTransactions.visibility = View.GONE
                 binding.layoutEmpty.visibility = View.VISIBLE
@@ -207,76 +289,40 @@ class CategoryTransactionsFragment : Fragment() {
     private fun showCategoryEditDialog(messageItem: MessageItem) {
         lifecycleScope.launch {
             try {
-                // Always ensure we have categories - first try database, then ensure defaults exist
-                val dbCategories = repository.getAllCategoriesSync()
-                android.util.Log.d("CategoryDialog", "🏗️ Loaded ${dbCategories.size} categories from database")
+                // Get categories from ViewModel (which handles database and fallbacks)
+                val categoryNames = viewModel.getAllCategories()
+                android.util.Log.d("CategoryDialog", "[ANALYTICS] Using ViewModel categories: ${categoryNames.joinToString(", ")}")
                 
-                val categoryNames = if (dbCategories.isNotEmpty()) {
-                    dbCategories.map { it.name }.also {
-                        android.util.Log.d("CategoryDialog", "📊 Using database categories: ${it.joinToString(", ")}")
-                    }
-                } else {
-                    // If database is empty, create default categories first
-                    android.util.Log.d("CategoryDialog", "🔧 Database empty, creating default categories...")
-                    val defaultCategories = listOf(
-                        "Food & Dining" to "🍽️",
-                        "Transportation" to "🚗", 
-                        "Groceries" to "🛒",
-                        "Healthcare" to "🏥",
-                        "Entertainment" to "🎬",
-                        "Shopping" to "🛍️",
-                        "Utilities" to "⚡",
-                        "Other" to "📂"
-                    )
+                // ViewModel already handles database and fallbacks
+                if (categoryNames.isNotEmpty()) {
+                    val currentCategoryIndex = categoryNames.indexOf(messageItem.category)
+                    android.util.Log.d("CategoryDialog", "[TARGET] Current category: ${messageItem.category}, Index: $currentCategoryIndex")
                     
-                    // Insert default categories into database
-                    defaultCategories.forEachIndexed { index, (name, emoji) ->
-                        try {
-                            val categoryEntity = com.expensemanager.app.data.entities.CategoryEntity(
-                                name = name,
-                                emoji = emoji,
-                                color = getRandomCategoryColor(),
-                                isSystem = true,
-                                displayOrder = index + 1,
-                                createdAt = java.util.Date()
-                            )
-                            repository.insertCategory(categoryEntity)
-                            android.util.Log.d("CategoryDialog", "✅ Created default category: $name")
-                        } catch (e: Exception) {
-                            android.util.Log.w("CategoryDialog", "Failed to create category $name", e)
-                        }
+                    // Create enhanced category list with emojis for better visibility
+                    val enhancedCategories = categoryNames.map { category ->
+                        "${getCategoryEmoji(category)} $category"
+                    }.toTypedArray()
+                    
+                    android.util.Log.d("CategoryDialog", "✨ Enhanced categories: ${enhancedCategories.joinToString(", ")}")
+                    
+                    // Use custom DialogFragment for guaranteed visibility
+                    android.util.Log.d("CategoryDialog", "[TARGET] Creating custom DialogFragment...")
+                    
+                    val dialog = CategorySelectionDialogFragment.newInstance(
+                        categories = enhancedCategories,
+                        currentIndex = currentCategoryIndex,
+                        merchantName = messageItem.merchant
+                    ) { selectedCategory ->
+                        android.util.Log.d("CategoryDialog", "[SUCCESS] Custom dialog selected: $selectedCategory")
+                        updateCategoryForMerchant(messageItem, selectedCategory)
                     }
                     
-                    defaultCategories.map { it.first }
+                    dialog.show(parentFragmentManager, "CategorySelectionDialog")
+                    android.util.Log.d("CategoryDialog", "[SMS] Custom DialogFragment shown")
                 }
-                
-                val currentCategoryIndex = categoryNames.indexOf(messageItem.category)
-                android.util.Log.d("CategoryDialog", "🎯 Current category: ${messageItem.category}, Index: $currentCategoryIndex")
-                
-                // Create enhanced category list with emojis for better visibility
-                val enhancedCategories = categoryNames.map { category ->
-                    "${getCategoryEmoji(category)} $category"
-                }.toTypedArray()
-                
-                android.util.Log.d("CategoryDialog", "✨ Enhanced categories: ${enhancedCategories.joinToString(", ")}")
-                
-                // Use custom DialogFragment for guaranteed visibility
-                android.util.Log.d("CategoryDialog", "🎯 Creating custom DialogFragment...")
-                
-                val dialog = CategorySelectionDialogFragment.newInstance(
-                    categories = enhancedCategories,
-                    currentIndex = currentCategoryIndex,
-                    merchantName = messageItem.merchant
-                ) { selectedCategory ->
-                    android.util.Log.d("CategoryDialog", "✅ Custom dialog selected: $selectedCategory")
-                    updateCategoryForMerchant(messageItem, selectedCategory)
-                }
-                
-                dialog.show(parentFragmentManager, "CategorySelectionDialog")
-                android.util.Log.d("CategoryDialog", "📱 Custom DialogFragment shown")
                     
             } catch (e: Exception) {
-                android.util.Log.e("CategoryDialog", "❌ Error loading categories for dialog", e)
+                android.util.Log.e("CategoryDialog", "[ERROR] Error loading categories for dialog", e)
                 
                 // Multiple fallback approaches
                 val fallbackCategoryNames = listOf(
@@ -291,7 +337,7 @@ class CategoryTransactionsFragment : Fragment() {
                 )
                 val currentIndex = fallbackCategoryNames.indexOf(messageItem.category)
                 
-                android.util.Log.d("CategoryDialog", "🔧 Using fallback categories, current index: $currentIndex")
+                android.util.Log.d("CategoryDialog", "[FIX] Using fallback categories, current index: $currentIndex")
                 
                 try {
                     // Try enhanced fallback first
@@ -300,7 +346,7 @@ class CategoryTransactionsFragment : Fragment() {
                         .setMessage("Select a new category for ${messageItem.merchant}")
                         .setItems(enhancedFallback.toTypedArray()) { _, which ->
                             val newCategory = fallbackCategoryNames[which]
-                            android.util.Log.d("CategoryDialog", "✅ Enhanced fallback selected category: $newCategory")
+                            android.util.Log.d("CategoryDialog", "[SUCCESS] Enhanced fallback selected category: $newCategory")
                             updateCategoryForMerchant(messageItem, newCategory)
                         }
                         .setNegativeButton("Cancel") { dialog, _ ->
@@ -308,124 +354,37 @@ class CategoryTransactionsFragment : Fragment() {
                         }
                         .show()
                         
-                    android.util.Log.d("CategoryDialog", "📱 Enhanced fallback dialog shown")
+                    android.util.Log.d("CategoryDialog", "[SMS] Enhanced fallback dialog shown")
                         
                 } catch (e2: Exception) {
-                    android.util.Log.e("CategoryDialog", "❌ Enhanced fallback failed, using basic approach", e2)
+                    android.util.Log.e("CategoryDialog", "[ERROR] Enhanced fallback failed, using basic approach", e2)
                     
                     // Ultra-simple fallback
                     MaterialAlertDialogBuilder(requireContext())
                         .setTitle("Change Category")
                         .setItems(fallbackCategoryNames.toTypedArray()) { _, which ->
                             val newCategory = fallbackCategoryNames[which]
-                            android.util.Log.d("CategoryDialog", "✅ Basic fallback selected category: $newCategory")
+                            android.util.Log.d("CategoryDialog", "[SUCCESS] Basic fallback selected category: $newCategory")
                             updateCategoryForMerchant(messageItem, newCategory)
                         }
                         .show()
                         
-                    android.util.Log.d("CategoryDialog", "📱 Basic fallback dialog shown")
+                    android.util.Log.d("CategoryDialog", "[SMS] Basic fallback dialog shown")
                 }
             }
         }
     }
     
     private fun updateCategoryForMerchant(messageItem: MessageItem, newCategory: String) {
-        lifecycleScope.launch {
-            try {
-                android.util.Log.d("CategoryTransactions", "🔄 Updating merchant ${messageItem.merchant} from $categoryName to $newCategory")
-                
-                // Update merchant category in the repository (SQLite database)
-                val normalizedMerchant = messageItem.merchant.lowercase()
-                    .replace(Regex("[^a-zA-Z0-9\\s]"), "")
-                    .replace(Regex("\\s+"), " ")
-                    .trim()
-                
-                // Find the merchant in database
-                val merchant = repository.getMerchantByNormalizedName(normalizedMerchant)
-                if (merchant != null) {
-                    // Get or create the new category
-                    var newCategoryEntity = repository.getCategoryByName(newCategory)
-                    if (newCategoryEntity == null) {
-                        // Category doesn't exist in database, create it
-                        android.util.Log.d("CategoryTransactions", "🆕 Creating new category: $newCategory")
-                        
-                        val categoryToCreate = com.expensemanager.app.data.entities.CategoryEntity(
-                            name = newCategory,
-                            emoji = getCategoryEmoji(newCategory),
-                            color = getRandomCategoryColor(),
-                            isSystem = false, // Custom category
-                            displayOrder = 100,
-                            createdAt = java.util.Date()
-                        )
-                        
-                        val categoryId = repository.insertCategory(categoryToCreate)
-                        newCategoryEntity = repository.getCategoryById(categoryId)
-                        
-                        android.util.Log.d("CategoryTransactions", "✅ Created new category: $newCategory with ID: $categoryId")
-                    }
-                    
-                    if (newCategoryEntity != null) {
-                        // Update merchant's category
-                        val updatedMerchant = merchant.copy(categoryId = newCategoryEntity.id)
-                        repository.updateMerchant(updatedMerchant)
-                        
-                        android.util.Log.d("CategoryTransactions", "✅ Updated merchant category in database")
-                        
-                        // Update CategoryManager as well for backwards compatibility
-                        categoryManager.updateCategory(messageItem.merchant, newCategory)
-                        
-                        // Refresh the current list if the item no longer belongs to this category
-                        if (newCategory != categoryName) {
-                            android.util.Log.d("CategoryTransactions", "📄 Merchant moved to different category, refreshing list")
-                            loadCategoryTransactions()
-                        } else {
-                            // Update the item in the current list
-                            val currentList = transactionsAdapter.currentList.toMutableList()
-                            val updatedList = currentList.map { item ->
-                                if (item.merchant == messageItem.merchant) {
-                                    item.copy(
-                                        category = newCategory,
-                                        categoryColor = categoryManager.getCategoryColor(newCategory)
-                                    )
-                                } else item
-                            }
-                            transactionsAdapter.submitList(updatedList)
-                        }
-                        
-                        // Show success message
-                        android.widget.Toast.makeText(
-                            requireContext(),
-                            "✅ Moved ${messageItem.merchant} to $newCategory",
-                            android.widget.Toast.LENGTH_SHORT
-                        ).show()
-                        
-                    } else {
-                        android.util.Log.e("CategoryTransactions", "❌ Category '$newCategory' not found")
-                        android.widget.Toast.makeText(
-                            requireContext(),
-                            "Error: Category '$newCategory' not found",
-                            android.widget.Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                } else {
-                    android.util.Log.e("CategoryTransactions", "❌ Merchant '$normalizedMerchant' not found in database")
-                    android.widget.Toast.makeText(
-                        requireContext(),
-                        "Error: Merchant not found in database",
-                        android.widget.Toast.LENGTH_SHORT
-                    ).show()
-                }
-                
-            } catch (e: Exception) {
-                MaterialAlertDialogBuilder(requireContext())
-                    .setTitle("Error")
-                    .setMessage("Failed to update category: ${e.message}")
-                    .setPositiveButton("OK") { dialog, _ ->
-                        dialog.dismiss()
-                    }
-                    .show()
-            }
-        }
+        // Use ViewModel to handle category update
+        viewModel.handleEvent(CategoryTransactionsUIEvent.UpdateTransactionCategory(messageItem, newCategory))
+        
+        // Show success message
+        android.widget.Toast.makeText(
+            requireContext(),
+            "[SUCCESS] Moved ${messageItem.merchant} to $newCategory",
+            android.widget.Toast.LENGTH_SHORT
+        ).show()
     }
     
     private fun applyFilterAndSort(transactions: List<MessageItem>): List<MessageItem> {
@@ -532,34 +491,34 @@ class CategoryTransactionsFragment : Fragment() {
     }
     
     private fun showDateFilterDialog() {
-        val options = arrayOf("Today", "Yesterday", "This Week", "This Month", "Last Month", "All Time")
-        val currentIndex = options.indexOf(currentFilterOption)
+        val currentState = viewModel.uiState.value
+        val options = currentState.filterOptions.toTypedArray()
+        val currentIndex = options.indexOf(currentState.currentFilterOption)
         
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("📅 Filter by Date")
             .setSingleChoiceItems(options, currentIndex) { dialog, which ->
-                currentFilterOption = options[which]
-                binding.btnFilterDate.text = currentFilterOption
-                refreshCurrentView()
+                val newFilterOption = options[which]
+                viewModel.handleEvent(CategoryTransactionsUIEvent.ChangeFilterOption(newFilterOption))
                 dialog.dismiss()
-                android.util.Log.d("CategoryTransactions", "🔽 Applied filter: $currentFilterOption")
+                android.util.Log.d("CategoryTransactions", "🔽 Applied filter: $newFilterOption")
             }
             .setNegativeButton("Cancel") { dialog, _ -> dialog.dismiss() }
             .show()
     }
     
     private fun showSortDialog() {
-        val options = arrayOf("Newest First", "Oldest First", "Highest Amount", "Lowest Amount")
-        val currentIndex = options.indexOf(currentSortOption)
+        val currentState = viewModel.uiState.value
+        val options = currentState.sortOptions.toTypedArray()
+        val currentIndex = options.indexOf(currentState.currentSortOption)
         
         MaterialAlertDialogBuilder(requireContext())
-            .setTitle("🔄 Sort Transactions")
+            .setTitle("[PROCESS] Sort Transactions")
             .setSingleChoiceItems(options, currentIndex) { dialog, which ->
-                currentSortOption = options[which]
-                binding.btnSort.text = currentSortOption
-                refreshCurrentView()
+                val newSortOption = options[which]
+                viewModel.handleEvent(CategoryTransactionsUIEvent.ChangeSortOption(newSortOption))
                 dialog.dismiss()
-                android.util.Log.d("CategoryTransactions", "🔄 Applied sort: $currentSortOption")
+                android.util.Log.d("CategoryTransactions", "[PROCESS] Applied sort: $newSortOption")
             }
             .setNegativeButton("Cancel") { dialog, _ -> dialog.dismiss() }
             .show()
@@ -592,7 +551,7 @@ class CategoryTransactionsFragment : Fragment() {
             "entertainment" -> "🎬"
             "shopping" -> "🛍️"
             "utilities" -> "⚡"
-            "money", "finance" -> "💰"
+            "money", "finance" -> "[FINANCIAL]"
             "education" -> "📚"
             "travel" -> "✈️"
             "bills" -> "💳"

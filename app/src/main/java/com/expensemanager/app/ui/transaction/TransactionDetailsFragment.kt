@@ -8,8 +8,11 @@ import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
+import dagger.hilt.android.AndroidEntryPoint
 import com.expensemanager.app.R
 import com.expensemanager.app.databinding.FragmentTransactionDetailsBinding
 import com.expensemanager.app.utils.CategoryManager
@@ -20,15 +23,20 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
+@AndroidEntryPoint
 class TransactionDetailsFragment : Fragment() {
     
     private var _binding: FragmentTransactionDetailsBinding? = null
     private val binding get() = _binding!!
     
+    // ViewModel injection
+    private val viewModel: TransactionDetailsViewModel by viewModels()
+    
+    // Keep managers for fallback compatibility
     private lateinit var categoryManager: CategoryManager
     private lateinit var merchantAliasManager: MerchantAliasManager
     
-    // Transaction details passed as arguments
+    // Transaction details passed as arguments (kept for backward compatibility)
     private var amount: Float = 0.0f
     private var merchant: String = ""
     private var bankName: String = ""
@@ -61,74 +69,116 @@ class TransactionDetailsFragment : Fragment() {
     
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        
+        // Initialize legacy components for fallback compatibility
         categoryManager = CategoryManager(requireContext())
         merchantAliasManager = MerchantAliasManager(requireContext())
         
         setupUI()
         setupClickListeners()
+        observeViewModel()
+        
+        // Set transaction data in ViewModel
+        viewModel.setTransactionData(
+            amount = amount,
+            merchant = merchant,
+            bankName = bankName,
+            category = category,
+            dateTime = dateTime,
+            confidence = confidence,
+            rawSMS = rawSMS
+        )
     }
     
+    /**
+     * Observe ViewModel state changes using the proven pattern
+     */
+    private fun observeViewModel() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+                viewModel.uiState.collect { uiState ->
+                    updateUI(uiState)
+                }
+            }
+        }
+    }
+    
+    /**
+     * Update UI based on ViewModel state
+     */
+    private fun updateUI(uiState: TransactionDetailsUIState) {
+        val transactionData = uiState.transactionData
+        
+        if (transactionData != null) {
+            binding.apply {
+                // Transaction amount
+                tvTransactionAmount.text = uiState.formattedAmount
+                
+                // Merchant information
+                tvMerchantName.text = transactionData.merchant
+                tvBankName.text = transactionData.bankName
+                
+                // Category with color indicator
+                tvCategory.text = transactionData.category
+                try {
+                    viewCategoryColor.setBackgroundColor(android.graphics.Color.parseColor(transactionData.categoryColor))
+                } catch (e: Exception) {
+                    viewCategoryColor.setBackgroundColor(android.graphics.Color.parseColor("#9e9e9e"))
+                }
+                
+                // Transaction details
+                tvDateTime.text = transactionData.dateTime
+                tvConfidenceScore.text = "${transactionData.confidence}%"
+                
+                // Confidence indicator
+                progressConfidence.progress = transactionData.confidence
+                tvConfidenceLabel.text = uiState.confidenceLabel
+                
+                val confidenceColorRes = when (uiState.confidenceColor) {
+                    "success" -> R.color.success
+                    "warning" -> R.color.warning
+                    else -> R.color.error
+                }
+                tvConfidenceLabel.setTextColor(androidx.core.content.ContextCompat.getColor(requireContext(), confidenceColorRes))
+                
+                // Raw SMS content
+                tvRawSms.text = transactionData.rawSMS
+                
+                // Similar transactions warning
+                if (uiState.showSimilarWarning) {
+                    layoutSimilarWarning.visibility = View.VISIBLE
+                    tvSimilarCount.text = "${uiState.similarTransactionsCount} similar transactions found"
+                } else {
+                    layoutSimilarWarning.visibility = View.GONE
+                }
+            }
+        }
+        
+        // Handle loading states
+        if (uiState.isAnyLoading) {
+            // Show loading indicator if needed
+        }
+        
+        // Handle error states
+        if (uiState.shouldShowError && uiState.error != null) {
+            Toast.makeText(requireContext(), uiState.error, Toast.LENGTH_LONG).show()
+            viewModel.handleEvent(TransactionDetailsUIEvent.ClearError)
+        }
+    }
+
     private fun setupUI() {
+        // Initial setup - actual data will come from ViewModel
         binding.apply {
-            // Transaction amount
-            tvTransactionAmount.text = "₹${String.format("%.0f", amount)}"
-            
-            // Merchant information
-            tvMerchantName.text = merchant
-            tvBankName.text = bankName
-            
-            // Category with color indicator
-            tvCategory.text = category
-            val categoryColor = merchantAliasManager.getMerchantCategoryColor(category)
-            try {
-                viewCategoryColor.setBackgroundColor(android.graphics.Color.parseColor(categoryColor))
-            } catch (e: Exception) {
-                // Fallback color
-                viewCategoryColor.setBackgroundColor(android.graphics.Color.parseColor("#9e9e9e"))
-            }
-            
-            // Transaction details
-            tvDateTime.text = dateTime
-            tvConfidenceScore.text = "${confidence}%"
-            
-            // Confidence indicator
-            progressConfidence.progress = confidence
-            when {
-                confidence >= 85 -> {
-                    tvConfidenceLabel.text = "High Confidence"
-                    tvConfidenceLabel.setTextColor(androidx.core.content.ContextCompat.getColor(requireContext(), R.color.success))
-                }
-                confidence >= 65 -> {
-                    tvConfidenceLabel.text = "Medium Confidence" 
-                    tvConfidenceLabel.setTextColor(androidx.core.content.ContextCompat.getColor(requireContext(), R.color.warning))
-                }
-                else -> {
-                    tvConfidenceLabel.text = "Low Confidence"
-                    tvConfidenceLabel.setTextColor(androidx.core.content.ContextCompat.getColor(requireContext(), R.color.error))
-                }
-            }
-            
-            // Raw SMS content
-            tvRawSms.text = rawSMS
-            
-            // Check if this is a duplicate or similar transaction
-            checkForSimilarTransactions()
+            // Set loading state initially
+            tvTransactionAmount.text = "Loading..."
+            tvMerchantName.text = "Loading..."
+            tvBankName.text = "Loading..."
         }
     }
     
     private fun checkForSimilarTransactions() {
-        lifecycleScope.launch {
-            // This is a placeholder for duplicate detection logic
-            // In a real implementation, you would query the database for similar transactions
-            val similarCount = 0 // Placeholder
-            
-            if (similarCount > 0) {
-                binding.layoutSimilarWarning.visibility = View.VISIBLE
-                binding.tvSimilarCount.text = "$similarCount similar transactions found"
-            } else {
-                binding.layoutSimilarWarning.visibility = View.GONE
-            }
-        }
+        // Use ViewModel to check for similar transactions
+        viewModel.handleEvent(TransactionDetailsUIEvent.CheckSimilarTransactions)
     }
     
     private fun setupClickListeners() {
@@ -150,19 +200,21 @@ class TransactionDetailsFragment : Fragment() {
             
             // Save transaction to database
             btnSaveTransaction.setOnClickListener {
-                saveTransaction()
+                viewModel.handleEvent(TransactionDetailsUIEvent.SaveTransaction)
             }
             
             // Close button
             btnClose.setOnClickListener {
+                viewModel.handleEvent(TransactionDetailsUIEvent.NavigateBack)
                 findNavController().navigateUp()
             }
         }
     }
     
     private fun showEditCategoryDialog() {
-        val categories = categoryManager.getAllCategories()
-        val currentIndex = categories.indexOf(category)
+        val categories = viewModel.getAllCategories()
+        val currentCategory = viewModel.uiState.value.transactionData?.category ?: ""
+        val currentIndex = categories.indexOf(currentCategory)
         
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("Change Category")
@@ -171,8 +223,8 @@ class TransactionDetailsFragment : Fragment() {
                 currentIndex
             ) { dialog, which ->
                 val newCategory = categories[which]
-                if (newCategory != category) {
-                    updateCategory(newCategory)
+                if (newCategory != currentCategory) {
+                    viewModel.handleEvent(TransactionDetailsUIEvent.UpdateCategory(newCategory))
                 }
                 dialog.dismiss()
             }
@@ -224,7 +276,7 @@ class TransactionDetailsFragment : Fragment() {
             
             if (categoryName.isNotEmpty()) {
                 val newCategoryName = categoryName.trim()
-                updateCategory(newCategoryName)
+                viewModel.handleEvent(TransactionDetailsUIEvent.CreateNewCategory(newCategoryName))
                 dialog.dismiss()
                 
                 Toast.makeText(
@@ -253,14 +305,16 @@ class TransactionDetailsFragment : Fragment() {
         val etGroupName = dialogView.findViewById<TextInputEditText>(R.id.et_group_name)
         val spinnerCategory = dialogView.findViewById<AutoCompleteTextView>(R.id.spinner_category)
         
+        val currentTransaction = viewModel.uiState.value.transactionData
+        
         // Pre-fill current values
-        etGroupName?.setText(merchant)
+        etGroupName?.setText(currentTransaction?.merchant ?: "")
         
         // Setup category dropdown
-        val categories = categoryManager.getAllCategories()
+        val categories = viewModel.getAllCategories()
         val adapter = ArrayAdapter(requireContext(), R.layout.dropdown_item_category, categories)
         spinnerCategory?.setAdapter(adapter)
-        spinnerCategory?.setText(category, false)
+        spinnerCategory?.setText(currentTransaction?.category ?: "", false)
         
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("Edit Merchant Name")
@@ -270,7 +324,7 @@ class TransactionDetailsFragment : Fragment() {
                 val newCategory = spinnerCategory?.text.toString().trim()
                 
                 if (newMerchantName.isNotEmpty() && newCategory.isNotEmpty()) {
-                    updateMerchant(newMerchantName, newCategory)
+                    viewModel.handleEvent(TransactionDetailsUIEvent.UpdateMerchant(newMerchantName, newCategory))
                 } else {
                     Toast.makeText(
                         requireContext(),
@@ -290,7 +344,8 @@ class TransactionDetailsFragment : Fragment() {
             .setTitle("Mark as Duplicate")
             .setMessage("Are you sure this is a duplicate transaction? This will exclude it from expense calculations.")
             .setPositiveButton("Mark Duplicate") { _, _ ->
-                markAsDuplicate()
+                viewModel.handleEvent(TransactionDetailsUIEvent.MarkAsDuplicate)
+                findNavController().navigateUp()
             }
             .setNegativeButton("Cancel") { dialog, _ ->
                 dialog.dismiss()
@@ -298,77 +353,6 @@ class TransactionDetailsFragment : Fragment() {
             .show()
     }
     
-    private fun updateCategory(newCategory: String) {
-        category = newCategory
-        binding.tvCategory.text = newCategory
-        
-        // Update color indicator
-        val categoryColor = merchantAliasManager.getMerchantCategoryColor(newCategory)
-        try {
-            binding.viewCategoryColor.setBackgroundColor(android.graphics.Color.parseColor(categoryColor))
-        } catch (e: Exception) {
-            binding.viewCategoryColor.setBackgroundColor(android.graphics.Color.parseColor("#9e9e9e"))
-        }
-        
-        // Update merchant alias with new category
-        merchantAliasManager.setMerchantAlias(merchant, merchant, newCategory)
-        
-        Toast.makeText(
-            requireContext(),
-            "Updated category to '$newCategory'",
-            Toast.LENGTH_SHORT
-        ).show()
-    }
-    
-    private fun updateMerchant(newMerchantName: String, newCategory: String) {
-        val oldMerchant = merchant
-        merchant = newMerchantName
-        category = newCategory
-        
-        binding.tvMerchantName.text = newMerchantName
-        binding.tvCategory.text = newCategory
-        
-        // Update merchant alias
-        merchantAliasManager.setMerchantAlias(oldMerchant, newMerchantName, newCategory)
-        
-        Toast.makeText(
-            requireContext(),
-            "Updated merchant to '$newMerchantName' in category '$newCategory'",
-            Toast.LENGTH_SHORT
-        ).show()
-    }
-    
-    private fun markAsDuplicate() {
-        // TODO: Mark transaction as duplicate in database
-        Toast.makeText(
-            requireContext(),
-            "Transaction marked as duplicate",
-            Toast.LENGTH_SHORT
-        ).show()
-        
-        findNavController().navigateUp()
-    }
-    
-    private fun saveTransaction() {
-        lifecycleScope.launch {
-            try {
-                // TODO: Save to database
-                Toast.makeText(
-                    requireContext(),
-                    "✅ Transaction saved successfully",
-                    Toast.LENGTH_SHORT
-                ).show()
-                
-                findNavController().navigateUp()
-            } catch (e: Exception) {
-                Toast.makeText(
-                    requireContext(),
-                    "❌ Error saving transaction: ${e.message}",
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
-        }
-    }
     
     override fun onDestroyView() {
         super.onDestroyView()

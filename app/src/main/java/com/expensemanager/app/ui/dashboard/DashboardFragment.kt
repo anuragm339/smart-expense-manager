@@ -17,7 +17,10 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.expensemanager.app.R
@@ -28,8 +31,10 @@ import com.expensemanager.app.data.repository.DashboardData
 import com.expensemanager.app.ui.dashboard.MerchantSpending
 import com.expensemanager.app.utils.CategoryManager
 import com.expensemanager.app.utils.MerchantAliasManager
-// REMOVED: SMSHistoryReader import - no more direct SMS reading
-import com.expensemanager.app.utils.ParsedTransaction
+// UPDATED: Import unified services for consistent SMS parsing and filtering
+import com.expensemanager.app.models.ParsedTransaction
+import com.expensemanager.app.services.TransactionParsingService
+import com.expensemanager.app.services.TransactionFilterService
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
@@ -37,12 +42,31 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 import android.util.Log
+import dagger.hilt.android.AndroidEntryPoint
+import com.expensemanager.app.domain.usecase.transaction.AddTransactionUseCase
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class DashboardFragment : Fragment() {
     
     private var _binding: FragmentDashboardBinding? = null
     private val binding get() = _binding!!
     
+    // Hilt-injected ViewModel
+    private val viewModel: DashboardViewModel by viewModels()
+    
+    // Hilt-injected use case for adding manual transactions
+    @Inject
+    lateinit var addTransactionUseCase: AddTransactionUseCase
+    
+    // Hilt-injected unified services for consistent parsing and filtering
+    @Inject
+    lateinit var transactionParsingService: TransactionParsingService
+    
+    @Inject
+    lateinit var transactionFilterService: TransactionFilterService
+    
+    // Keep existing repository for parallel approach during migration
     private lateinit var repository: ExpenseRepository
     private lateinit var categoryManager: CategoryManager
     private lateinit var merchantAliasManager: MerchantAliasManager
@@ -55,7 +79,7 @@ class DashboardFragment : Fragment() {
     private var customFirstMonth: Pair<Int, Int>? = null  // (month, year)
     private var customSecondMonth: Pair<Int, Int>? = null // (month, year)
     
-    // Broadcast receiver for new transaction and category update notifications
+    // Broadcast receiver for new transaction, category update, and inclusion state change notifications
     private val newTransactionReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
@@ -67,7 +91,7 @@ class DashboardFragment : Fragment() {
                     // Refresh dashboard data on the main thread
                     lifecycleScope.launch {
                         try {
-                            Log.d("DashboardFragment", "🔄 Refreshing dashboard due to new transaction")
+                            Log.d("DashboardFragment", "[REFRESH] Refreshing dashboard due to new transaction")
                             loadDashboardData()
                             
                             // Show a brief toast to indicate refresh
@@ -91,11 +115,53 @@ class DashboardFragment : Fragment() {
                     // Refresh dashboard data on the main thread
                     lifecycleScope.launch {
                         try {
-                            Log.d("DashboardFragment", "🔄 Refreshing dashboard due to category update")
+                            Log.d("DashboardFragment", "[REFRESH] Refreshing dashboard due to category update")
                             loadDashboardData()
                             
                         } catch (e: Exception) {
                             Log.e("DashboardFragment", "Error refreshing dashboard after category update", e)
+                        }
+                    }
+                }
+                
+                "com.expensemanager.INCLUSION_STATE_CHANGED" -> {
+                    val includedCount = intent.getIntExtra("included_count", 0)
+                    val totalAmount = intent.getDoubleExtra("total_amount", 0.0)
+                    Log.d("DashboardFragment", "📡 Received inclusion state change: $includedCount transactions, ₹${String.format("%.0f", totalAmount)} total")
+                    
+                    // FIXED: Refresh dashboard to reflect inclusion/exclusion changes from Messages screen
+                    lifecycleScope.launch {
+                        try {
+                            Log.d("DashboardFragment", "[REFRESH] Refreshing dashboard due to inclusion state change")
+                            loadDashboardData()
+                            
+                        } catch (e: Exception) {
+                            Log.e("DashboardFragment", "Error refreshing dashboard after inclusion state change", e)
+                        }
+                    }
+                }
+                
+                "com.expensemanager.MERCHANT_CATEGORY_CHANGED" -> {
+                    val merchantName = intent.getStringExtra("merchant_name") ?: "Unknown"
+                    val displayName = intent.getStringExtra("display_name") ?: "Unknown"
+                    val newCategory = intent.getStringExtra("new_category") ?: "Unknown"
+                    Log.d("DashboardFragment", "📡 Received merchant category change: '$merchantName' -> '$newCategory'")
+                    
+                    // Refresh dashboard to reflect category changes in Top Merchants section
+                    lifecycleScope.launch {
+                        try {
+                            Log.d("DashboardFragment", "[REFRESH] Refreshing dashboard due to merchant category change")
+                            loadDashboardData()
+                            
+                            // Show a brief toast to indicate refresh
+                            android.widget.Toast.makeText(
+                                requireContext(),
+                                "🏷️ Category updated for '$displayName' - Dashboard refreshed",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                            
+                        } catch (e: Exception) {
+                            Log.e("DashboardFragment", "Error refreshing dashboard after merchant category change", e)
                         }
                     }
                 }
@@ -114,12 +180,233 @@ class DashboardFragment : Fragment() {
     
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        
+        // Initialize existing components (parallel approach during migration)
         repository = ExpenseRepository.getInstance(requireContext())
         categoryManager = CategoryManager(requireContext())
         merchantAliasManager = MerchantAliasManager(requireContext())
+        
         setupUI()
         setupClickListeners()
+        
+        // Add ViewModel state observation
+        observeUIState()
+        
+        // Keep existing data loading for now (parallel approach)
         loadDashboardData()
+    }
+    
+    /**
+     * Observe ViewModel UI state following InsightsFragment pattern
+     */
+    private fun observeUIState() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                
+                // Observe main UI state
+                launch {
+                    viewModel.uiState.collect { state ->
+                        Log.d("DashboardFragment", "ViewModel UI State updated: loading=${state.isAnyLoading}, data=${state.dashboardData != null}, error=${state.hasError}")
+                        updateUIFromViewModel(state)
+                    }
+                }
+            }
+        }
+    }
+    
+    /**
+     * Update UI based on ViewModel state changes
+     */
+    private fun updateUIFromViewModel(state: DashboardUIState) {
+        when {
+            state.isInitialLoading -> {
+                showLoadingStateFromViewModel()
+            }
+            
+            state.shouldShowError -> {
+                showErrorStateFromViewModel(state.error)
+            }
+            
+            state.shouldShowContent -> {
+                showContentFromViewModel(state)
+            }
+            
+            state.shouldShowEmptyState -> {
+                showEmptyStateFromViewModel()
+            }
+        }
+        
+        // Handle SMS sync status
+        if (state.syncedTransactionsCount > 0) {
+            Toast.makeText(
+                requireContext(),
+                "✅ Synced ${state.syncedTransactionsCount} new transactions from SMS!",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+    
+    /**
+     * Show loading state from ViewModel
+     */
+    private fun showLoadingStateFromViewModel() {
+        binding.tvTotalBalance.text = "Loading from ViewModel..."
+        binding.tvTotalSpent.text = "Loading..."
+        binding.tvTransactionCount.text = "0"
+        Log.d("DashboardFragment", "Showing ViewModel loading state")
+    }
+    
+    /**
+     * Show error state from ViewModel
+     */
+    private fun showErrorStateFromViewModel(error: String?) {
+        binding.tvTotalBalance.text = "ViewModel Error"
+        binding.tvTotalSpent.text = "₹0"
+        binding.tvTransactionCount.text = "0"
+        
+        error?.let {
+            Toast.makeText(requireContext(), "ViewModel: $it", Toast.LENGTH_LONG).show()
+        }
+        
+        Log.d("DashboardFragment", "Showing ViewModel error state: $error")
+    }
+    
+    /**
+     * Show content from ViewModel
+     */
+    private fun showContentFromViewModel(state: DashboardUIState) {
+        val dashboardData = state.dashboardData ?: return
+        
+        // Update spending summary from ViewModel
+        binding.tvTotalSpent.text = "₹${String.format("%.0f", state.totalSpent)}"
+        
+        // MONTHLY BALANCE FEATURE: Show salary-based balance for "This Month", regular balance for other periods
+        val balanceToShow = if (state.dashboardPeriod == "This Month" && state.hasSalaryData) {
+            state.monthlyBalance
+        } else {
+            state.totalBalance
+        }
+        
+        binding.tvTotalBalance.text = if (balanceToShow >= 0) {
+            "₹${String.format("%.0f", balanceToShow)}"
+        } else {
+            "-₹${String.format("%.0f", kotlin.math.abs(balanceToShow))}"
+        }
+        
+        // Add salary info logging for debugging
+        if (state.dashboardPeriod == "This Month" && state.hasSalaryData) {
+            Log.d("DashboardFragment", "💰 [MONTHLY BALANCE] Showing salary-based balance: ₹${balanceToShow} (Last Salary: ₹${state.lastSalaryAmount})")
+        }
+        
+        binding.tvTransactionCount.text = "${state.transactionCount}"
+        
+        // Update top categories from ViewModel data
+        updateTopCategoriesFromViewModel(dashboardData)
+        
+        // Update top merchants from ViewModel data
+        updateTopMerchantsFromViewModel(dashboardData)
+        
+        // Update monthly comparison from ViewModel
+        updateMonthlyComparisonFromViewModel(state.monthlyComparison)
+        
+        Log.d("DashboardFragment", "[SUCCESS] Dashboard UI updated from ViewModel: ${state.transactionCount} transactions, ₹${String.format("%.0f", state.totalSpent)} spent")
+    }
+    
+    /**
+     * Show empty state from ViewModel
+     */
+    private fun showEmptyStateFromViewModel() {
+        binding.tvTotalBalance.text = "₹0"
+        binding.tvTotalSpent.text = "₹0"
+        binding.tvTransactionCount.text = "0"
+        topMerchantsAdapter.submitList(emptyList())
+        topCategoriesAdapter.submitList(emptyList())
+        Log.d("DashboardFragment", "Showing ViewModel empty state")
+    }
+    
+    /**
+     * Update top categories from ViewModel data
+     */
+    private fun updateTopCategoriesFromViewModel(dashboardData: DashboardData) {
+        val categorySpendingItems = dashboardData.topCategories.map { categoryResult ->
+            CategorySpending(
+                categoryName = categoryResult.category_name,
+                amount = categoryResult.total_amount,
+                categoryColor = categoryResult.color
+            )
+        }
+        
+        // Ensure consistent display - always show at least 4 categories (2x2 grid)
+        val finalCategoryItems = ensureMinimumCategories(categorySpendingItems, 4)
+        
+        Log.d("DashboardFragment", "ViewModel: Updating top categories: ${finalCategoryItems.map { "${it.categoryName}=₹${String.format("%.0f", it.amount)}" }}")
+        topCategoriesAdapter.submitList(finalCategoryItems)
+    }
+    
+    /**
+     * Update top merchants from ViewModel data
+     */
+    private fun updateTopMerchantsFromViewModel(dashboardData: DashboardData) {
+        val totalSpent = dashboardData.totalSpent
+        val allMerchantItems = dashboardData.topMerchantsWithCategory.map { merchantResult ->
+            // FIXED: Use merchantAliasManager for consistent merchant name display like Messages screen
+            val displayName = merchantAliasManager.getDisplayName(merchantResult.normalized_merchant)
+            Log.d("DashboardFragment", "[MERCHANT] Top Merchant Display Name: '${merchantResult.normalized_merchant}' -> '$displayName'")
+            
+            // FIXED: Calculate proper percentage instead of hardcoded 0.0
+            val percentage = if (totalSpent > 0) (merchantResult.total_amount / totalSpent) * 100 else 0.0
+            Log.d("DashboardFragment", "[PERCENTAGE] ViewModel: ${displayName} = ${String.format("%.1f", percentage)}% (₹${merchantResult.total_amount} / ₹${totalSpent})")
+            Log.d("DashboardFragment", "[CATEGORY] ViewModel: ${displayName} category: '${merchantResult.category_name}' color: '${merchantResult.category_color}'")
+            
+            MerchantSpending(
+                merchantName = displayName,
+                totalAmount = merchantResult.total_amount,
+                transactionCount = merchantResult.transaction_count,
+                category = merchantResult.category_name, // Now using actual category from database
+                categoryColor = merchantResult.category_color, // Now using actual category color
+                percentage = percentage
+            )
+        }
+        
+        // FIXED: Filter merchants by inclusion state to respect user toggle preferences
+        val filteredMerchantItems = filterMerchantsByInclusionState(allMerchantItems)
+        Log.d("DashboardFragment", "🔽 Filtered merchants from ${allMerchantItems.size} to ${filteredMerchantItems.size} based on inclusion states")
+        
+        // Ensure consistent display - always show at least 3 merchants (but only from included ones)
+        val finalMerchantItems = ensureMinimumMerchants(filteredMerchantItems, 3)
+        
+        Log.d("DashboardFragment", "ViewModel: Updating top merchants: ${finalMerchantItems.map { "${it.merchantName}=₹${String.format("%.0f", it.totalAmount)}" }}")
+        topMerchantsAdapter.submitList(finalMerchantItems)
+    }
+    
+    /**
+     * Update monthly comparison from ViewModel
+     */
+    private fun updateMonthlyComparisonFromViewModel(comparison: MonthlyComparison?) {
+        if (comparison == null) return
+        
+        try {
+            val thisMonthView = binding.root.findViewById<TextView>(R.id.tv_this_month_amount)
+            val lastMonthView = binding.root.findViewById<TextView>(R.id.tv_last_month_amount)
+            val comparisonView = binding.root.findViewById<TextView>(R.id.tv_spending_comparison)
+            
+            thisMonthView?.text = "₹${String.format("%.0f", comparison.currentAmount)}"
+            lastMonthView?.text = "₹${String.format("%.0f", comparison.previousAmount)}"
+            comparisonView?.text = comparison.changeText
+            
+            // Set color based on change
+            comparisonView?.setTextColor(
+                when {
+                    comparison.hasIncrease -> ContextCompat.getColor(requireContext(), R.color.error)
+                    comparison.hasDecrease -> ContextCompat.getColor(requireContext(), R.color.success)
+                    else -> ContextCompat.getColor(requireContext(), R.color.text_secondary)
+                }
+            )
+            
+            Log.d("DashboardFragment", "ViewModel: Updated monthly comparison: ${comparison.currentLabel} = ₹${String.format("%.0f", comparison.currentAmount)}, ${comparison.previousLabel} = ₹${String.format("%.0f", comparison.previousAmount)}")
+        } catch (e: Exception) {
+            Log.e("DashboardFragment", "Error updating monthly comparison from ViewModel", e)
+        }
     }
     
     private fun setupUI() {
@@ -183,7 +470,11 @@ class DashboardFragment : Fragment() {
                     if (selectedPeriod != currentTimePeriod) {
                         currentTimePeriod = selectedPeriod
                         binding.btnTimeFilter.text = selectedPeriod
-                        // FIXED: No more period aggregation - refresh dashboard with repository data
+                        
+                        // Use ViewModel for time period change
+                        viewModel.handleEvent(DashboardUIEvent.ChangeTimePeriod(selectedPeriod))
+                        
+                        // Also keep existing approach for parallel testing
                         loadDashboardData()
                     }
                 }
@@ -216,7 +507,10 @@ class DashboardFragment : Fragment() {
                         currentTimePeriod = selectedPeriod
                         binding.btnTimeFilter.text = selectedPeriod
                         
-                        // Refresh entire dashboard for the selected period
+                        // Use ViewModel for dashboard period change
+                        viewModel.handleEvent(DashboardUIEvent.ChangePeriod(selectedPeriod))
+                        
+                        // Also keep existing approach for parallel testing
                         loadDashboardDataForPeriod(selectedPeriod)
                     }
                 }
@@ -235,6 +529,10 @@ class DashboardFragment : Fragment() {
         }
         
         binding.btnSyncSms.setOnClickListener {
+            // Use ViewModel for SMS sync
+            viewModel.handleEvent(DashboardUIEvent.SyncSMS)
+            
+            // Also keep existing approach for parallel testing
             performSMSSync()
         }
         
@@ -286,20 +584,103 @@ class DashboardFragment : Fragment() {
         }
         
         dialogView.findViewById<MaterialButton>(R.id.btn_add).setOnClickListener {
-            val amount = dialogView.findViewById<TextInputEditText>(R.id.et_amount).text.toString()
-            val merchant = dialogView.findViewById<TextInputEditText>(R.id.et_merchant).text.toString()
-            val category = categorySpinner.text.toString()
+            val amountText = dialogView.findViewById<TextInputEditText>(R.id.et_amount).text.toString().trim()
+            val merchant = dialogView.findViewById<TextInputEditText>(R.id.et_merchant).text.toString().trim()
+            val category = categorySpinner.text.toString().trim()
             
-            if (amount.isNotEmpty() && merchant.isNotEmpty() && category.isNotEmpty()) {
-                Toast.makeText(
-                    requireContext(), 
-                    "✅ Added: ₹$amount at $merchant ($category)", 
-                    Toast.LENGTH_LONG
-                ).show()
-                dialog.dismiss()
+            if (amountText.isNotEmpty() && merchant.isNotEmpty() && category.isNotEmpty()) {
+                val amount = amountText.toDoubleOrNull()
+                if (amount == null || amount <= 0) {
+                    Toast.makeText(
+                        requireContext(), 
+                        "Please enter a valid amount", 
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    return@setOnClickListener
+                }
                 
-                // Refresh UI
-                setupUI()
+                // FIXED: Actually save the transaction to database
+                lifecycleScope.launch {
+                    try {
+                        Log.d("DashboardFragment", "[TRANSACTION] Saving manual transaction: ₹$amount at $merchant ($category)")
+                        
+                        // Create manual transaction entity
+                        val manualTransaction = addTransactionUseCase.createManualTransaction(
+                            amount = amount,
+                            merchantName = merchant,
+                            categoryName = category,
+                            bankName = "Manual Entry"
+                        )
+                        
+                        // Save transaction to database
+                        val result = addTransactionUseCase.execute(manualTransaction)
+                        
+                        if (result.isSuccess) {
+                            val transactionId = result.getOrNull()
+                            Log.d("DashboardFragment", "[SUCCESS] Manual transaction saved successfully with ID: $transactionId")
+                            
+                            // Show success message
+                            Toast.makeText(
+                                requireContext(), 
+                                "✅ Added: ₹$amount at $merchant ($category)", 
+                                Toast.LENGTH_LONG
+                            ).show()
+                            
+                            dialog.dismiss()
+                            
+                            // FIXED: Reload dashboard data to show the new transaction
+                            loadDashboardData()
+                            
+                            // Also trigger ViewModel refresh
+                            viewModel.handleEvent(DashboardUIEvent.LoadData)
+                            
+                            // Send broadcast to notify other screens (Messages, Categories, etc.)
+                            val intent = android.content.Intent("com.expensemanager.NEW_TRANSACTION_ADDED").apply {
+                                putExtra("merchant", merchant)
+                                putExtra("amount", amount)
+                                putExtra("category", category)
+                                putExtra("source", "manual_entry")
+                            }
+                            requireContext().sendBroadcast(intent)
+                            Log.d("DashboardFragment", "📡 Broadcast sent for new manual transaction")
+                            
+                        } else {
+                            val error = result.exceptionOrNull()?.message ?: "Unknown error"
+                            val exception = result.exceptionOrNull()
+                            Log.e("DashboardFragment", "[ERROR] Failed to save manual transaction: $error", exception)
+                            
+                            // Provide more helpful error messages to users
+                            val userMessage = when {
+                                error.contains("duplicate", ignoreCase = true) -> "This transaction may already exist"
+                                error.contains("validation", ignoreCase = true) -> "Please check that all fields are filled correctly"
+                                error.contains("database", ignoreCase = true) -> "Database error - please try again"
+                                else -> "Failed to save transaction: $error"
+                            }
+                            
+                            Toast.makeText(
+                                requireContext(), 
+                                userMessage, 
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                        
+                    } catch (e: Exception) {
+                        Log.e("DashboardFragment", "[ERROR] Error saving manual transaction", e)
+                        
+                        // Provide helpful error messages to users
+                        val userMessage = when (e) {
+                            is SecurityException -> "Permission error - please restart the app"
+                            is IllegalArgumentException -> "Invalid transaction data - please check your input"
+                            else -> "Error saving transaction - please try again"
+                        }
+                        
+                        Toast.makeText(
+                            requireContext(), 
+                            userMessage, 
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
             } else {
                 Toast.makeText(
                     requireContext(), 
@@ -484,7 +865,7 @@ class DashboardFragment : Fragment() {
                 // Load dashboard data for the first month (main display)
                 val firstMonthData = repository.getDashboardData(firstStart, firstEnd)
                 
-                Log.d("DashboardFragment", "📊 First month data: ${firstMonthData.transactionCount} transactions, ₹${String.format("%.0f", firstMonthData.totalSpent)}")
+                Log.d("DashboardFragment", "[DATA] First month data: ${firstMonthData.transactionCount} transactions, ₹${String.format("%.0f", firstMonthData.totalSpent)}")
                 
                 if (firstMonthData.transactionCount > 0) {
                     // Update dashboard with first month data
@@ -493,7 +874,7 @@ class DashboardFragment : Fragment() {
                     // Update monthly comparison with custom months
                     updateCustomMonthlyComparison(firstStart, firstEnd, secondStart, secondEnd)
                 } else {
-                    Log.d("DashboardFragment", "⚠️ No data found for first custom month, trying sync...")
+                    Log.d("DashboardFragment", "[WARNING] No data found for first custom month, trying sync...")
                     
                     // Try syncing SMS and retry
                     val syncedCount = repository.syncNewSMS()
@@ -552,7 +933,7 @@ class DashboardFragment : Fragment() {
             val firstMonthLabel = java.text.SimpleDateFormat("MMMM yyyy", java.util.Locale.getDefault()).format(firstStart)
             val secondMonthLabel = java.text.SimpleDateFormat("MMMM yyyy", java.util.Locale.getDefault()).format(secondStart)
             
-            Log.d("DashboardFragment", "💰 Custom monthly comparison:")
+            Log.d("DashboardFragment", "[FINANCIAL] Custom monthly comparison:")
             Log.d("DashboardFragment", "   $firstMonthLabel: ₹${String.format("%.0f", firstMonthSpent)}")
             Log.d("DashboardFragment", "   $secondMonthLabel: ₹${String.format("%.0f", secondMonthSpent)}")
             
@@ -565,64 +946,17 @@ class DashboardFragment : Fragment() {
     }
     
     private fun ensureMinimumMerchants(realMerchants: List<MerchantSpending>, minimumCount: Int): List<MerchantSpending> {
-        if (realMerchants.size >= minimumCount) {
-            return realMerchants.take(minimumCount) // Take exactly the minimum count
-        }
-        
-        // If we don't have enough real merchants, add placeholder merchants
-        val placeholderMerchants = listOf(
-            MerchantSpending("Swiggy", 0.0, 0, "Food & Dining", "#ff5722", 0.0),
-            MerchantSpending("Amazon", 0.0, 0, "Shopping", "#ff9800", 0.0),
-            MerchantSpending("Uber", 0.0, 0, "Transportation", "#3f51b5", 0.0),
-            MerchantSpending("BigBasket", 0.0, 0, "Groceries", "#4caf50", 0.0),
-            MerchantSpending("Netflix", 0.0, 0, "Entertainment", "#9c27b0", 0.0)
-        )
-        
-        val combinedList = realMerchants.toMutableList()
-        
-        // Add placeholders until we reach minimum count
-        for (placeholder in placeholderMerchants) {
-            if (combinedList.size >= minimumCount) break
-            // Only add if this merchant name doesn't already exist
-            if (combinedList.none { it.merchantName == placeholder.merchantName }) {
-                combinedList.add(placeholder)
-            }
-        }
-        
-        Log.d("DashboardFragment", "📊 Ensured minimum merchants: ${realMerchants.size} real + ${combinedList.size - realMerchants.size} placeholders = ${combinedList.size} total")
-        
-        return combinedList.take(minimumCount)
+        // FIXED: Don't show placeholder data - show actual data only or empty state
+        // This prevents confusing users with fake merchant data when no SMS exist
+        Log.d("DashboardFragment", "[DATA] Real merchants available: ${realMerchants.size}")
+        return realMerchants.take(minimumCount)
     }
     
     private fun ensureMinimumCategories(realCategories: List<CategorySpending>, minimumCount: Int): List<CategorySpending> {
-        if (realCategories.size >= minimumCount) {
-            return realCategories.take(minimumCount) // Take exactly the minimum count
-        }
-        
-        // If we don't have enough real categories, add placeholder categories
-        val placeholderCategories = listOf(
-            CategorySpending("Food & Dining", 0.0, "#ff5722"),
-            CategorySpending("Transportation", 0.0, "#3f51b5"),
-            CategorySpending("Shopping", 0.0, "#ff9800"),
-            CategorySpending("Groceries", 0.0, "#4caf50"),
-            CategorySpending("Entertainment", 0.0, "#9c27b0"),
-            CategorySpending("Utilities", 0.0, "#607d8b")
-        )
-        
-        val combinedList = realCategories.toMutableList()
-        
-        // Add placeholders until we reach minimum count
-        for (placeholder in placeholderCategories) {
-            if (combinedList.size >= minimumCount) break
-            // Only add if this category name doesn't already exist
-            if (combinedList.none { it.categoryName == placeholder.categoryName }) {
-                combinedList.add(placeholder)
-            }
-        }
-        
-        Log.d("DashboardFragment", "📊 Ensured minimum categories: ${realCategories.size} real + ${combinedList.size - realCategories.size} placeholders = ${combinedList.size} total")
-        
-        return combinedList.take(minimumCount)
+        // FIXED: Don't show placeholder data - show actual data only or empty state
+        // This prevents confusing users with fake category data when no SMS exist
+        Log.d("DashboardFragment", "[DATA] Real categories available: ${realCategories.size}")
+        return realCategories.take(minimumCount)
     }
     
     private fun performSMSSync() {
@@ -697,17 +1031,26 @@ class DashboardFragment : Fragment() {
                 
                 Log.d("DashboardFragment", "Loading dashboard data from SQLite database...")
                 
+                // FIXED: Enhanced empty state detection - check if database has any real data
+                val isDbEmpty = repository.isDatabaseEmpty()
+                
+                if (isDbEmpty) {
+                    Log.d("DashboardFragment", "Database is empty - showing proper empty state")
+                    updateDashboardWithEmptyState()
+                    return@launch
+                }
+                
                 // Get date range for current dashboard period
                 val (startDate, endDate) = getDateRangeForPeriod(currentDashboardPeriod)
                 
-                // Check if we have any data in the repository
+                // Get dashboard data for the specified period
                 val dashboardData = repository.getDashboardData(startDate, endDate)
                 
                 if (dashboardData.transactionCount > 0) {
-                    Log.d("DashboardFragment", "✅ Loaded dashboard data from SQLite: ${dashboardData.transactionCount} transactions, ₹${String.format("%.0f", dashboardData.totalSpent)} spent")
-                    Log.d("DashboardFragment", "📊 Dashboard Date Range: ${startDate} to ${endDate}")
-                    Log.d("DashboardFragment", "📊 Dashboard Raw Transactions Count: ${repository.getTransactionsByDateRange(startDate, endDate).size}")
-                    Log.d("DashboardFragment", "📊 Dashboard Filtered Total: ₹${String.format("%.0f", dashboardData.totalSpent)}")
+                    Log.d("DashboardFragment", "[SUCCESS] Loaded dashboard data from SQLite: ${dashboardData.transactionCount} transactions, ₹${String.format("%.0f", dashboardData.totalSpent)} spent")
+                    Log.d("DashboardFragment", "[DATA] Dashboard Date Range: ${startDate} to ${endDate}")
+                    Log.d("DashboardFragment", "[DATA] Dashboard Raw Transactions Count: ${repository.getTransactionsByDateRange(startDate, endDate).size}")
+                    Log.d("DashboardFragment", "[DATA] Dashboard Filtered Total: ₹${String.format("%.0f", dashboardData.totalSpent)}")
                     updateDashboardWithRepositoryData(dashboardData, startDate, endDate)
                 } else {
                     Log.d("DashboardFragment", "📥 No data in SQLite database yet, checking SMS sync status...")
@@ -715,7 +1058,7 @@ class DashboardFragment : Fragment() {
                     // Check if initial migration is still in progress
                     val syncStatus = repository.getSyncStatus()
                     if (syncStatus == "INITIAL" || syncStatus == "IN_PROGRESS") {
-                        Log.d("DashboardFragment", "🔄 Initial data migration in progress, showing loading state")
+                        Log.d("DashboardFragment", "[MIGRATION] Initial data migration in progress, showing loading state")
                         showLoadingStateWithMessage("Setting up your data for the first time...")
                         
                         // Retry loading data after a delay
@@ -723,8 +1066,9 @@ class DashboardFragment : Fragment() {
                             loadDashboardData()
                         }, 2000)
                     } else {
-                        Log.d("DashboardFragment", "⚠️ No transactions found, attempting SMS sync through repository...")
-                        performRepositoryBasedSync()
+                            // FIXED: For this time period, no data exists - show empty state for the period
+                        Log.d("DashboardFragment", "No transactions for period $currentDashboardPeriod")
+                        updateDashboardWithEmptyState()
                     }
                 }
                 
@@ -747,17 +1091,33 @@ class DashboardFragment : Fragment() {
         // REMOVED: Automatic large transfer exclusions - only user-controlled exclusions now
         
         // Debug: Log current exclusion states
-        Log.d("DashboardFragment", "🔍 ${repository.getExclusionStatesDebugInfo()}")
+        Log.d("DashboardFragment", "[DEBUG] ${repository.getExclusionStatesDebugInfo()}")
         
         // Update spending summary
         val totalSpent = dashboardData.totalSpent
         binding.tvTotalSpent.text = "₹${String.format("%.0f", totalSpent)}"
         binding.tvTransactionCount.text = "${dashboardData.transactionCount}"
         
-        // For total balance, we'll use a placeholder (real implementation would need bank balance integration)
-        // Set to a positive meaningful value instead of subtracting expenses from arbitrary amount
-        val placeholderBalance = 45280.0 // Placeholder balance
-        binding.tvTotalBalance.text = "₹${String.format("%.0f", placeholderBalance)}"
+        // MONTHLY BALANCE FEATURE: Use salary-based balance for "This Month", regular balance for other periods
+        val balanceToShow = if (currentDashboardPeriod == "This Month" && dashboardData.monthlyBalance.hasSalaryData) {
+            dashboardData.monthlyBalance.remainingBalance
+        } else {
+            dashboardData.actualBalance
+        }
+        
+        binding.tvTotalBalance.text = if (balanceToShow >= 0) {
+            "₹${String.format("%.0f", balanceToShow)}"
+        } else {
+            "-₹${String.format("%.0f", kotlin.math.abs(balanceToShow))}"
+        }
+        
+        // Add salary info logging for debugging
+        if (currentDashboardPeriod == "This Month" && dashboardData.monthlyBalance.hasSalaryData) {
+            Log.d("DashboardFragment", "💰 [REPOSITORY MONTHLY BALANCE] Showing salary-based balance: ₹${balanceToShow} (Last Salary: ₹${dashboardData.monthlyBalance.lastSalaryAmount})")
+        }
+        
+        // Debug logging for balance calculation
+        Log.d("DashboardFragment", "💰 [BALANCE UPDATE] Credits: ₹${dashboardData.totalCredits}, Debits: ₹${dashboardData.totalSpent}, Displayed Balance: ₹$balanceToShow")
         
         // Update top categories with repository data
         val categorySpendingItems = dashboardData.topCategories.map { categoryResult ->
@@ -774,20 +1134,33 @@ class DashboardFragment : Fragment() {
         Log.d("DashboardFragment", "Updating top categories: ${finalCategoryItems.map { "${it.categoryName}=₹${String.format("%.0f", it.amount)}" }}")
         topCategoriesAdapter.submitList(finalCategoryItems)
         
-        // Update top merchants with repository data  
-        val merchantItems = dashboardData.topMerchants.map { merchantResult ->
+        // Update top merchants with repository data using NEW category information
+        val allMerchantItems = dashboardData.topMerchantsWithCategory.map { merchantResult ->
+            // FIXED: Use merchantAliasManager for consistent merchant name display like Messages screen
+            val displayName = merchantAliasManager.getDisplayName(merchantResult.normalized_merchant)
+            Log.d("DashboardFragment", "[MERCHANT] Repository Top Merchant Display Name: '${merchantResult.normalized_merchant}' -> '$displayName'")
+            Log.d("DashboardFragment", "[CATEGORY] Repository: ${displayName} category: '${merchantResult.category_name}' color: '${merchantResult.category_color}'")
+            
+            // FIXED: Calculate proper percentage instead of hardcoded 0.0
+            val percentage = if (totalSpent > 0) (merchantResult.total_amount / totalSpent) * 100 else 0.0
+            Log.d("DashboardFragment", "[PERCENTAGE] Repository: ${displayName} = ${String.format("%.1f", percentage)}% (₹${merchantResult.total_amount} / ₹${totalSpent})")
+            
             MerchantSpending(
-                merchantName = repository.normalizeDisplayMerchantName(merchantResult.normalized_merchant),
+                merchantName = displayName,
                 totalAmount = merchantResult.total_amount,
                 transactionCount = merchantResult.transaction_count,
-                category = "Unknown", // We'll need to enhance this later
-                categoryColor = "#9e9e9e", // Default color
-                percentage = 0.0 // Will be calculated by adapter if needed
+                category = merchantResult.category_name, // Now using actual category from database
+                categoryColor = merchantResult.category_color, // Now using actual category color
+                percentage = percentage
             )
         }
         
-        // FIXED: Ensure consistent display - always show at least 3 merchants
-        val finalMerchantItems = ensureMinimumMerchants(merchantItems, 3)
+        // FIXED: Filter merchants by inclusion state to respect user toggle preferences  
+        val filteredMerchantItems = filterMerchantsByInclusionState(allMerchantItems)
+        Log.d("DashboardFragment", "🔽 Repository filtered merchants from ${allMerchantItems.size} to ${filteredMerchantItems.size} based on inclusion states")
+        
+        // FIXED: Ensure consistent display - always show at least 3 merchants (but only from included ones)
+        val finalMerchantItems = ensureMinimumMerchants(filteredMerchantItems, 3)
         
         Log.d("DashboardFragment", "Updating top merchants: ${finalMerchantItems.map { "${it.merchantName}=₹${String.format("%.0f", it.totalAmount)}" }}")
         topMerchantsAdapter.submitList(finalMerchantItems)
@@ -798,7 +1171,7 @@ class DashboardFragment : Fragment() {
         // Update weekly trend with repository data
         updateWeeklyTrendFromRepository(startDate, endDate)
         
-        Log.d("DashboardFragment", "✅ Dashboard UI updated successfully with repository data")
+        Log.d("DashboardFragment", "[SUCCESS] Dashboard UI updated successfully with repository data")
     }
     
     private suspend fun updateMonthlyComparisonFromRepository(currentStart: Date, currentEnd: Date, period: String) {
@@ -830,9 +1203,9 @@ class DashboardFragment : Fragment() {
                 
                 "Last Month" -> {
                     // Compare Last Month vs Two Months Ago (single months only)
-                    Log.d("DashboardFragment", "🔍 DEBUG: Processing 'Last Month' period case")
+                    Log.d("DashboardFragment", "[DEBUG] Processing 'Last Month' period case")
                     val cal = Calendar.getInstance()
-                    Log.d("DashboardFragment", "🔍 DEBUG: Current time: ${cal.time}")
+                    Log.d("DashboardFragment", "[DEBUG] Current time: ${cal.time}")
                     
                     cal.set(Calendar.DAY_OF_MONTH, 1)
                     cal.add(Calendar.MONTH, -2)
@@ -841,7 +1214,7 @@ class DashboardFragment : Fragment() {
                     cal.set(Calendar.SECOND, 0)
                     cal.set(Calendar.MILLISECOND, 0)
                     val prevStart = cal.time
-                    Log.d("DashboardFragment", "🔍 DEBUG: Two months ago start: $prevStart")
+                    Log.d("DashboardFragment", "[DEBUG] Two months ago start: $prevStart")
                     
                     cal.add(Calendar.MONTH, 1)
                     cal.add(Calendar.DAY_OF_MONTH, -1)
@@ -850,9 +1223,9 @@ class DashboardFragment : Fragment() {
                     cal.set(Calendar.SECOND, 59)
                     cal.set(Calendar.MILLISECOND, 999)
                     val prevEnd = cal.time
-                    Log.d("DashboardFragment", "🔍 DEBUG: Two months ago end: $prevEnd")
+                    Log.d("DashboardFragment", "[DEBUG] Two months ago end: $prevEnd")
                     
-                    Log.d("DashboardFragment", "🔍 DEBUG: Returning comparison 'Last Month' vs 'Two Months Ago'")
+                    Log.d("DashboardFragment", "[DEBUG] Returning comparison 'Last Month' vs 'Two Months Ago'")
                     Tuple4("Last Month", "Two Months Ago", prevStart, prevEnd)
                 }
                 
@@ -887,7 +1260,7 @@ class DashboardFragment : Fragment() {
             val currentPeriodSpent = repository.getTotalSpent(currentStart, currentEnd)
             val previousPeriodSpent = repository.getTotalSpent(previousStart, previousEnd)
             
-            Log.d("DashboardFragment", "💰 Monthly spending comparison (single months only):")
+            Log.d("DashboardFragment", "[FINANCIAL] Monthly spending comparison (single months only):")
             Log.d("DashboardFragment", "   $currentLabel: ₹${String.format("%.0f", currentPeriodSpent)}")
             Log.d("DashboardFragment", "   $previousLabel: ₹${String.format("%.0f", previousPeriodSpent)}")
             
@@ -1007,7 +1380,7 @@ class DashboardFragment : Fragment() {
     private fun performRepositoryBasedSync() {
         lifecycleScope.launch {
             try {
-                Log.d("DashboardFragment", "🔄 Attempting SMS sync through repository only...")
+                Log.d("DashboardFragment", "[SYNC] Attempting SMS sync through repository only...")
                 
                 // Use repository's syncNewSMS method - no direct SMS reading
                 val syncedCount = repository.syncNewSMS()
@@ -1015,10 +1388,10 @@ class DashboardFragment : Fragment() {
                 
                 if (syncedCount > 0) {
                     // Reload dashboard data after successful sync
-                    Log.d("DashboardFragment", "✅ SMS sync successful, reloading dashboard data...")
+                    Log.d("DashboardFragment", "[SUCCESS] SMS sync successful, reloading dashboard data...")
                     loadDashboardData()
                 } else {
-                    Log.d("DashboardFragment", "📭 No new transactions found during sync")
+                    Log.d("DashboardFragment", "[INFO] No new transactions found during sync")
                     updateDashboardWithEmptyState()
                 }
                 
@@ -1074,9 +1447,14 @@ class DashboardFragment : Fragment() {
         binding.tvTotalSpent.text = "₹${String.format("%.0f", currentMonthSpent)}"
         binding.tvTransactionCount.text = currentMonthCount.toString()
         
-        // Calculate estimated balance (this is just for display - real apps would connect to bank APIs)
-        val estimatedBalance = 50000 - currentMonthSpent // Assuming starting balance
-        binding.tvTotalBalance.text = "₹${String.format("%.0f", estimatedBalance)}"
+        // LEGACY BALANCE CALCULATION - TODO: Update to use ViewModel balance calculation
+        // This method might be deprecated as we now use ViewModel for balance calculations
+        val currentBalance = 0.0 - currentMonthSpent // Starting from 0, subtracting all expenses
+        binding.tvTotalBalance.text = if (currentBalance >= 0) {
+            "₹${String.format("%.0f", currentBalance)}"
+        } else {
+            "-₹${String.format("%.0f", kotlin.math.abs(currentBalance))}"
+        }
         
         // Update monthly comparison
         updateMonthlyComparison(currentMonthSpent, lastMonthSpent)
@@ -1175,6 +1553,57 @@ class DashboardFragment : Fragment() {
         
         // Return all transactions if no inclusion states found
         return transactions
+    }
+    
+    /**
+     * Filter merchants by inclusion state to respect user toggle preferences
+     * FIXED: This ensures disabled merchants don't appear in Dashboard Top Merchants
+     */
+    private fun filterMerchantsByInclusionState(merchants: List<MerchantSpending>): List<MerchantSpending> {
+        // Load inclusion states from SharedPreferences (same as Messages screen)
+        val prefs = requireContext().getSharedPreferences("expense_calculations", android.content.Context.MODE_PRIVATE)
+        val inclusionStatesJson = prefs.getString("group_inclusion_states", null)
+        
+        Log.d("DashboardFragment", "[DEBUG] Filtering ${merchants.size} merchants by inclusion state")
+        Log.d("DashboardFragment", "[DEBUG] Inclusion states JSON: $inclusionStatesJson")
+        
+        if (inclusionStatesJson != null) {
+            try {
+                val inclusionStates = org.json.JSONObject(inclusionStatesJson)
+                
+                // Debug: Log all keys in the inclusion states
+                val keys = mutableListOf<String>()
+                inclusionStates.keys().forEach { key -> keys.add(key) }
+                Log.d("DashboardFragment", "[DEBUG] All keys in inclusion states: $keys")
+                
+                val filteredMerchants = merchants.filter { merchant ->
+                    val isIncluded = if (inclusionStates.has(merchant.merchantName)) {
+                        val included = inclusionStates.getBoolean(merchant.merchantName)
+                        Log.d("DashboardFragment", "[DEBUG] Merchant '${merchant.merchantName}': included=$included")
+                        included
+                    } else {
+                        Log.d("DashboardFragment", "[DEBUG] Merchant '${merchant.merchantName}': not found in preferences, defaulting to included")
+                        true // Default to included if not found
+                    }
+                    isIncluded
+                }
+                
+                Log.d("DashboardFragment", "🔽 Merchant inclusion filter: ${merchants.size} -> ${filteredMerchants.size}")
+                filteredMerchants.forEach { merchant ->
+                    Log.d("DashboardFragment", "[SUCCESS] Included merchant: ${merchant.merchantName}")
+                }
+                
+                return filteredMerchants
+                
+            } catch (e: Exception) {
+                Log.w("DashboardFragment", "Error loading merchant inclusion states", e)
+            }
+        } else {
+            Log.d("DashboardFragment", "[DEBUG] No inclusion states found, showing all merchants")
+        }
+        
+        // Return all merchants if no inclusion states found or error occurred
+        return merchants
     }
     
     private fun updateMonthlyComparison(currentMonthSpent: Double, lastMonthSpent: Double) {
@@ -1319,10 +1748,22 @@ class DashboardFragment : Fragment() {
     }
     
     private fun updateDashboardWithEmptyState() {
+        // FIXED: Proper empty state handling - clear all data displays
         binding.tvTotalBalance.text = "₹0"
         binding.tvTotalSpent.text = "₹0"
         binding.tvTransactionCount.text = "0"
+        
+        // Clear all adapters to show truly empty state
         topMerchantsAdapter.submitList(emptyList())
+        topCategoriesAdapter.submitList(emptyList())
+        
+        // Clear monthly comparison
+        updateMonthlyComparisonUI("This Month", "Last Month", 0.0, 0.0)
+        
+        // Clear weekly trend
+        updateWeeklyTrendUI("📊 No Data Available\nNo transactions found")
+        
+        Log.d("DashboardFragment", "[INFO] Dashboard showing proper empty state - no placeholder data")
     }
     
     private fun updateDashboardWithPermissionError() {
@@ -1397,7 +1838,7 @@ class DashboardFragment : Fragment() {
     private suspend fun updateWeeklyTrendFromRepository(startDate: Date, endDate: Date) {
         try {
             // FIXED: Use same filtering logic as monthly comparison for consistency
-            Log.d("DashboardFragment", "📊 Weekly Trend: Using consistent filtering like monthly comparison")
+            Log.d("DashboardFragment", "[ANALYTICS] Weekly Trend: Using consistent filtering like monthly comparison")
             
             // Calculate current period total (matches monthly comparison)
             val currentPeriodTotal = repository.getTotalSpent(startDate, endDate)
@@ -1494,7 +1935,7 @@ class DashboardFragment : Fragment() {
         val placeholderTextView = weeklyTrendLayout?.getChildAt(0) as? TextView
         placeholderTextView?.text = trendText
         
-        Log.d("DashboardFragment", "📊 Weekly trend updated with consistent data: $trendText")
+        Log.d("DashboardFragment", "[ANALYTICS] Weekly trend updated with consistent data: $trendText")
     }
     
     // REMOVED: updateWeeklyTrendForPeriod() - no more direct SMS reading
@@ -1661,19 +2102,19 @@ class DashboardFragment : Fragment() {
                 // Access the bottom navigation from MainActivity and set the selected item
                 val bottomNavigation = mainActivity.findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.bottom_navigation)
                 bottomNavigation?.selectedItemId = tabId
-                android.util.Log.d("DashboardFragment", "✅ Successfully navigated to tab: $tabId")
+                android.util.Log.d("DashboardFragment", "[SUCCESS] Successfully navigated to tab: $tabId")
             } else {
                 // Fallback to normal navigation if MainActivity is not available
-                android.util.Log.w("DashboardFragment", "⚠️ MainActivity not available, using fallback navigation")
+                android.util.Log.w("DashboardFragment", "[WARNING] MainActivity not available, using fallback navigation")
                 findNavController().navigate(tabId)
             }
         } catch (e: Exception) {
             // Fallback to normal navigation if there's any error
-            android.util.Log.e("DashboardFragment", "❌ Error navigating to tab $tabId, using fallback", e)
+            android.util.Log.e("DashboardFragment", "[ERROR] Error navigating to tab $tabId, using fallback", e)
             try {
                 findNavController().navigate(tabId)
             } catch (fallbackError: Exception) {
-                android.util.Log.e("DashboardFragment", "❌ Fallback navigation also failed", fallbackError)
+                android.util.Log.e("DashboardFragment", "[ERROR] Fallback navigation also failed", fallbackError)
                 Toast.makeText(requireContext(), "Navigation error. Please use bottom navigation.", Toast.LENGTH_SHORT).show()
             }
         }
@@ -1682,18 +2123,24 @@ class DashboardFragment : Fragment() {
     override fun onResume() {
         super.onResume()
         
-        // Register broadcast receiver for new transactions and category updates
+        // FIXED: Register broadcast receiver for new transactions, category updates, merchant category changes, AND inclusion state changes
         val newTransactionFilter = IntentFilter("com.expensemanager.NEW_TRANSACTION_ADDED")
         val categoryUpdateFilter = IntentFilter("com.expensemanager.CATEGORY_UPDATED")
+        val inclusionStateFilter = IntentFilter("com.expensemanager.INCLUSION_STATE_CHANGED")
+        val merchantCategoryFilter = IntentFilter("com.expensemanager.MERCHANT_CATEGORY_CHANGED")
         
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
             requireContext().registerReceiver(newTransactionReceiver, newTransactionFilter, android.content.Context.RECEIVER_NOT_EXPORTED)
             requireContext().registerReceiver(newTransactionReceiver, categoryUpdateFilter, android.content.Context.RECEIVER_NOT_EXPORTED)
+            requireContext().registerReceiver(newTransactionReceiver, inclusionStateFilter, android.content.Context.RECEIVER_NOT_EXPORTED)
+            requireContext().registerReceiver(newTransactionReceiver, merchantCategoryFilter, android.content.Context.RECEIVER_NOT_EXPORTED)
         } else {
             requireContext().registerReceiver(newTransactionReceiver, newTransactionFilter)
             requireContext().registerReceiver(newTransactionReceiver, categoryUpdateFilter)
+            requireContext().registerReceiver(newTransactionReceiver, inclusionStateFilter)
+            requireContext().registerReceiver(newTransactionReceiver, merchantCategoryFilter)
         }
-        Log.d("DashboardFragment", "📡 Registered broadcast receiver for new transactions")
+        Log.d("DashboardFragment", "📡 Registered broadcast receiver for transactions, categories, merchant category changes, and inclusion states")
         
         // Refresh dashboard data when returning to this fragment
         // This ensures the dashboard reflects any changes made in the Messages screen

@@ -40,18 +40,65 @@ interface TransactionDao {
     @Query("SELECT COUNT(*) FROM transactions WHERE transaction_date >= :startDate AND transaction_date <= :endDate")
     suspend fun getTransactionCountByDateRange(startDate: Date, endDate: Date): Int
     
+    // EXPENSE-SPECIFIC QUERIES (Only debit transactions)
+    @Query("SELECT * FROM transactions WHERE is_debit = 1 AND transaction_date >= :startDate AND transaction_date <= :endDate ORDER BY transaction_date DESC")
+    suspend fun getExpenseTransactionsByDateRange(startDate: Date, endDate: Date): List<TransactionEntity>
+    
+    @Query("SELECT COUNT(*) FROM transactions WHERE is_debit = 1 AND transaction_date >= :startDate AND transaction_date <= :endDate")
+    suspend fun getExpenseTransactionCount(startDate: Date, endDate: Date): Int
+    
     @Query("SELECT SUM(amount) FROM transactions WHERE transaction_date >= :startDate AND transaction_date <= :endDate AND is_debit = 1")
     suspend fun getTotalSpentByDateRange(startDate: Date, endDate: Date): Double?
     
+    // Credit transaction queries for balance calculation
+    @Query("SELECT SUM(amount) FROM transactions WHERE transaction_date >= :startDate AND transaction_date <= :endDate AND is_debit = 0")
+    suspend fun getTotalCreditsOrIncomeByDateRange(startDate: Date, endDate: Date): Double?
+    
+    @Query("SELECT COUNT(*) FROM transactions WHERE is_debit = 0 AND transaction_date >= :startDate AND transaction_date <= :endDate")
+    suspend fun getCreditTransactionCount(startDate: Date, endDate: Date): Int
+    
+    // Salary-specific queries for monthly balance calculation
     @Query("""
-        SELECT normalized_merchant, SUM(amount) as total_amount, COUNT(*) as transaction_count
-        FROM transactions 
-        WHERE transaction_date >= :startDate AND transaction_date <= :endDate AND is_debit = 1
-        GROUP BY normalized_merchant 
+        SELECT * FROM transactions 
+        WHERE is_debit = 0 
+        AND (raw_sms_body LIKE '%salary%' OR raw_merchant LIKE '%SALARY%' 
+             OR raw_sms_body LIKE '%sal %' OR raw_merchant LIKE '%SAL%'
+             OR raw_sms_body LIKE '%wages%' OR raw_merchant LIKE '%WAGE%'
+             OR raw_sms_body LIKE '%payroll%' OR raw_merchant LIKE '%PAYROLL%')
+        ORDER BY transaction_date DESC 
+        LIMIT 1
+    """)
+    suspend fun getLastSalaryTransaction(): TransactionEntity?
+    
+    @Query("""
+        SELECT * FROM transactions 
+        WHERE is_debit = 0 
+        AND amount >= :minAmount
+        AND (raw_sms_body LIKE '%salary%' OR raw_merchant LIKE '%SALARY%' 
+             OR raw_sms_body LIKE '%sal %' OR raw_merchant LIKE '%SAL%'
+             OR raw_sms_body LIKE '%wages%' OR raw_merchant LIKE '%WAGE%'
+             OR raw_sms_body LIKE '%payroll%' OR raw_merchant LIKE '%PAYROLL%')
+        ORDER BY transaction_date DESC 
+        LIMIT :limit
+    """)
+    suspend fun getSalaryTransactions(minAmount: Double = 10000.0, limit: Int = 10): List<TransactionEntity>
+    
+    @Query("""
+        SELECT 
+            t.normalized_merchant, 
+            SUM(t.amount) as total_amount, 
+            COUNT(*) as transaction_count,
+            COALESCE(c.name, 'Unknown') as category_name,
+            COALESCE(c.color, '#9e9e9e') as category_color
+        FROM transactions t
+        LEFT JOIN merchants m ON t.normalized_merchant = m.normalized_name
+        LEFT JOIN categories c ON m.category_id = c.id
+        WHERE t.transaction_date >= :startDate AND t.transaction_date <= :endDate AND t.is_debit = 1
+        GROUP BY t.normalized_merchant, c.name, c.color
         ORDER BY total_amount DESC 
         LIMIT :limit
     """)
-    suspend fun getTopMerchantsBySpending(startDate: Date, endDate: Date, limit: Int = 10): List<MerchantSpending>
+    suspend fun getTopMerchantsBySpending(startDate: Date, endDate: Date, limit: Int = 10): List<MerchantSpendingWithCategory>
     
     @Query("""
         SELECT MAX(transaction_date) as last_sync_date, MAX(sms_id) as last_sms_id 
@@ -61,6 +108,21 @@ interface TransactionDao {
     
     @Query("SELECT * FROM transactions WHERE sms_id = :smsId")
     suspend fun getTransactionBySmsId(smsId: String): TransactionEntity?
+    
+    @Query("""
+        SELECT * FROM transactions 
+        WHERE normalized_merchant LIKE '%' || :merchant || '%' 
+        AND ABS(amount - :amount) < 0.01 
+        AND DATE(transaction_date) = :dateStr 
+        AND bank_name = :bankName
+        LIMIT 1
+    """)
+    suspend fun findSimilarTransaction(
+        merchant: String, 
+        amount: Double, 
+        dateStr: String, 
+        bankName: String
+    ): TransactionEntity?
     
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertTransaction(transaction: TransactionEntity): Long
@@ -79,6 +141,24 @@ interface TransactionDao {
     
     @Query("DELETE FROM transactions")
     suspend fun deleteAllTransactions()
+    
+    /**
+     * Find transactions that might be duplicates based on business logic
+     * Used for deduplication when SMS IDs might differ but transactions are identical
+     */
+    @Query("""
+        SELECT COUNT(*) FROM transactions 
+        WHERE normalized_merchant = :normalizedMerchant 
+        AND amount = :amount 
+        AND DATE(transaction_date) = :transactionDateStr
+        AND bank_name = :bankName
+    """)
+    suspend fun countSimilarTransactions(
+        normalizedMerchant: String,
+        amount: Double,
+        transactionDateStr: String,
+        bankName: String
+    ): Int
     
     // For dashboard category breakdown - joins with merchants to get categories
     @Query("""
@@ -105,6 +185,14 @@ data class MerchantSpending(
 data class SyncInfo(
     val last_sync_date: Date?,
     val last_sms_id: String?
+)
+
+data class MerchantSpendingWithCategory(
+    val normalized_merchant: String,
+    val total_amount: Double,
+    val transaction_count: Int,
+    val category_name: String,
+    val category_color: String
 )
 
 data class CategorySpendingResult(

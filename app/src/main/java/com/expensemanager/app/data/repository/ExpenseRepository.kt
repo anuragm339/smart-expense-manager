@@ -1,36 +1,63 @@
 package com.expensemanager.app.data.repository
 
 import android.content.Context
-import android.util.Log
 import com.expensemanager.app.data.database.ExpenseDatabase
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import com.expensemanager.app.data.entities.*
 import com.expensemanager.app.data.dao.*
-// REMOVED: SMSHistoryReader import - SMS reading now done directly in repository
-import com.expensemanager.app.utils.ParsedTransaction
-import android.provider.Telephony
+import com.expensemanager.app.domain.repository.*
+import com.expensemanager.app.services.SMSParsingService
+import com.expensemanager.app.models.ParsedTransaction
+import com.expensemanager.app.services.TransactionFilterService
+import com.expensemanager.app.utils.AppLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.Flow
 import java.util.Date
 import java.util.Calendar
+import javax.inject.Inject
+import javax.inject.Singleton
+import dagger.hilt.android.qualifiers.ApplicationContext
 
-class ExpenseRepository(private val context: Context) {
-    
-    private val database = ExpenseDatabase.getDatabase(context)
-    private val transactionDao = database.transactionDao()
-    private val categoryDao = database.categoryDao()
-    private val merchantDao = database.merchantDao()
-    private val syncStateDao = database.syncStateDao()
+@Singleton
+class ExpenseRepository @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val transactionDao: TransactionDao,
+    private val categoryDao: CategoryDao,
+    private val merchantDao: MerchantDao,
+    private val syncStateDao: SyncStateDao,
+    private val smsParsingService: SMSParsingService,
+    private val transactionFilterService: TransactionFilterService? = null,
+    private val appLogger: AppLogger
+) : TransactionRepositoryInterface, 
+    CategoryRepositoryInterface, 
+    MerchantRepositoryInterface, 
+    DashboardRepositoryInterface {
     
     companion object {
         private const val TAG = "ExpenseRepository"
+        private val logger: Logger = LoggerFactory.getLogger(TAG)
         
         @Volatile
         private var INSTANCE: ExpenseRepository? = null
         
+        // Temporary getInstance method for compatibility - TODO: Remove after migration to Hilt
         fun getInstance(context: Context): ExpenseRepository {
             return INSTANCE ?: synchronized(this) {
-                val instance = ExpenseRepository(context.applicationContext)
+                val database = ExpenseDatabase.getDatabase(context)
+                val smsParsingService = SMSParsingService(context.applicationContext)
+                val appLogger = AppLogger(context.applicationContext)
+                val instance = ExpenseRepository(
+                    context.applicationContext,
+                    database.transactionDao(),
+                    database.categoryDao(),
+                    database.merchantDao(),
+                    database.syncStateDao(),
+                    smsParsingService,
+                    null, // transactionFilterService (optional)
+                    appLogger
+                )
                 INSTANCE = instance
                 instance
             }
@@ -41,19 +68,23 @@ class ExpenseRepository(private val context: Context) {
     // TRANSACTION OPERATIONS
     // =======================
     
-    suspend fun getAllTransactions(): Flow<List<TransactionEntity>> {
+    override suspend fun getAllTransactions(): Flow<List<TransactionEntity>> {
         return transactionDao.getAllTransactions()
     }
     
-    suspend fun getTransactionsByDateRange(startDate: Date, endDate: Date): List<TransactionEntity> {
+    override suspend fun getTransactionsByDateRange(startDate: Date, endDate: Date): List<TransactionEntity> {
         return transactionDao.getTransactionsByDateRange(startDate, endDate)
     }
     
-    suspend fun getCategorySpending(startDate: Date, endDate: Date): List<CategorySpendingResult> {
-        // Instead of using the database query that doesn't handle exclusions properly,
-        // let's rebuild category spending from filtered transactions
-        val allTransactions = getTransactionsByDateRange(startDate, endDate)
-        val filteredTransactions = filterTransactionsByExclusions(allTransactions)
+    // New method for expense-specific transactions (debit only)
+    suspend fun getExpenseTransactionsByDateRange(startDate: Date, endDate: Date): List<TransactionEntity> {
+        return transactionDao.getExpenseTransactionsByDateRange(startDate, endDate)
+    }
+    
+    override suspend fun getCategorySpending(startDate: Date, endDate: Date): List<CategorySpendingResult> {
+        // FIXED: Use expense-specific transactions (debit only) instead of all transactions
+        val expenseTransactions = getExpenseTransactionsByDateRange(startDate, endDate)
+        val filteredTransactions = filterTransactionsByExclusions(expenseTransactions)
         
         // Group transactions by category and calculate totals
         val categoryTotals = mutableMapOf<String, Triple<Double, Int, Date?>>()
@@ -90,71 +121,194 @@ class ExpenseRepository(private val context: Context) {
         }.sortedByDescending { it.total_amount }
     }
     
-    suspend fun getTopMerchants(startDate: Date, endDate: Date, limit: Int = 10): List<MerchantSpending> {
-        val allMerchants = transactionDao.getTopMerchantsBySpending(startDate, endDate, limit * 2) // Get more to account for filtering
-        return filterMerchantsByExclusions(allMerchants).take(limit)
+    override suspend fun getTopMerchants(startDate: Date, endDate: Date, limit: Int): List<MerchantSpending> {
+        val allMerchantsWithCategory = transactionDao.getTopMerchantsBySpending(startDate, endDate, limit * 2) // Get more to account for filtering
+        val filteredMerchantsWithCategory = filterMerchantsByExclusionsWithCategory(allMerchantsWithCategory)
+        
+        // Convert to old MerchantSpending format for backward compatibility
+        return filteredMerchantsWithCategory.take(limit).map { merchantWithCategory ->
+            com.expensemanager.app.data.dao.MerchantSpending(
+                normalized_merchant = merchantWithCategory.normalized_merchant,
+                total_amount = merchantWithCategory.total_amount,
+                transaction_count = merchantWithCategory.transaction_count
+            )
+        }
     }
     
-    suspend fun getTotalSpent(startDate: Date, endDate: Date): Double {
-        val transactions = getTransactionsByDateRange(startDate, endDate)
-        val filteredTransactions = filterTransactionsByExclusions(transactions)
+    override suspend fun getTopMerchantsWithCategory(startDate: Date, endDate: Date, limit: Int): List<com.expensemanager.app.data.dao.MerchantSpendingWithCategory> {
+        val allMerchantsWithCategory = transactionDao.getTopMerchantsBySpending(startDate, endDate, limit * 2) // Get more to account for filtering
+        return filterMerchantsByExclusionsWithCategory(allMerchantsWithCategory).take(limit)
+    }
+    
+    override suspend fun getTotalSpent(startDate: Date, endDate: Date): Double {
+        // FIXED: Use expense-specific transactions (debit only) instead of all transactions
+        val expenseTransactions = getExpenseTransactionsByDateRange(startDate, endDate)
+        logger.debug("🔍 [getTotalSpent] Before filtering: ${expenseTransactions.size} debit transactions")
+        val filteredTransactions = filterTransactionsByExclusions(expenseTransactions)
+        logger.debug("🔍 [getTotalSpent] After filtering: ${filteredTransactions.size} debit transactions (${expenseTransactions.size - filteredTransactions.size} excluded)")
         return filteredTransactions.sumOf { it.amount }
     }
     
-    suspend fun getTransactionCount(startDate: Date, endDate: Date): Int {
-        val transactions = getTransactionsByDateRange(startDate, endDate)
-        return filterTransactionsByExclusions(transactions).size
+    /**
+     * Get total credits/income for balance calculation
+     */
+    suspend fun getTotalCredits(startDate: Date, endDate: Date): Double {
+        return transactionDao.getTotalCreditsOrIncomeByDateRange(startDate, endDate) ?: 0.0
     }
     
-    suspend fun getTransactionCount(): Int {
+    /**
+     * Calculate actual balance: Credits - Debits
+     */
+    suspend fun getActualBalance(startDate: Date, endDate: Date): Double {
+        val totalCredits = getTotalCredits(startDate, endDate)
+        val totalDebits = getTotalSpent(startDate, endDate)
+        return totalCredits - totalDebits
+    }
+    
+    /**
+     * Get the most recent salary transaction
+     */
+    suspend fun getLastSalaryTransaction(): TransactionEntity? {
+        return transactionDao.getLastSalaryTransaction()
+    }
+    
+    /**
+     * Get salary transactions with optional minimum amount filter
+     */
+    suspend fun getSalaryTransactions(minAmount: Double = 10000.0, limit: Int = 10): List<TransactionEntity> {
+        return transactionDao.getSalaryTransactions(minAmount, limit)
+    }
+    
+    /**
+     * Calculate monthly balance: Last Salary - Current Month's Expenses
+     * This provides a meaningful monthly budget view
+     */
+    suspend fun getMonthlyBudgetBalance(currentMonthStartDate: Date, currentMonthEndDate: Date): MonthlyBalanceInfo {
+        // Debug: Check all credit transactions first
+        val allCredits = transactionDao.getTransactionsByDateRange(Date(0), Date())
+            .filter { !it.isDebit }
+        logger.debug("💰 [SALARY DEBUG] Found ${allCredits.size} credit transactions:")
+        allCredits.take(5).forEach { credit ->
+            logger.debug("💰 [SALARY DEBUG] Credit: ₹${credit.amount} from '${credit.rawMerchant}' - SMS: '${credit.rawSmsBody.take(100)}...'")
+        }
+        
+        // Get the most recent salary transaction (could be from any month)
+        var lastSalary = getLastSalaryTransaction()
+        
+        // Fallback: If no explicit salary found, try to use the largest credit transaction as potential salary
+        if (lastSalary == null && allCredits.isNotEmpty()) {
+            lastSalary = allCredits.maxByOrNull { it.amount }
+            logger.debug("💰 [SALARY DEBUG] No explicit salary found, using largest credit: ₹${lastSalary?.amount} from '${lastSalary?.rawMerchant}'")
+        }
+        
+        // Get current month's expenses (debits only)
+        val currentMonthExpenses = getTotalSpent(currentMonthStartDate, currentMonthEndDate)
+        
+        // Calculate balance
+        val salaryAmount = lastSalary?.amount ?: 0.0
+        val remainingBalance = salaryAmount - currentMonthExpenses
+        
+        logger.info("💰 [MONTHLY BALANCE] Last Salary: ₹${salaryAmount}, Month Expenses: ₹${currentMonthExpenses}, Remaining: ₹${remainingBalance}")
+        
+        return MonthlyBalanceInfo(
+            lastSalaryAmount = salaryAmount,
+            lastSalaryDate = lastSalary?.transactionDate,
+            currentMonthExpenses = currentMonthExpenses,
+            remainingBalance = remainingBalance,
+            hasSalaryData = lastSalary != null
+        )
+    }
+    
+    override suspend fun getTransactionCount(startDate: Date, endDate: Date): Int {
+        // FIXED: Use expense-specific transactions (debit only) instead of all transactions
+        val expenseTransactions = getExpenseTransactionsByDateRange(startDate, endDate)
+        logger.debug("🔍 [getTransactionCount] Before filtering: ${expenseTransactions.size} debit transactions")
+        val filteredTransactions = filterTransactionsByExclusions(expenseTransactions)
+        logger.debug("🔍 [getTransactionCount] After filtering: ${filteredTransactions.size} debit transactions (${expenseTransactions.size - filteredTransactions.size} excluded)")
+        return filteredTransactions.size
+    }
+    
+    override suspend fun getTransactionCount(): Int {
         return transactionDao.getTransactionCount()
     }
     
-    suspend fun insertTransaction(transactionEntity: TransactionEntity): Long {
+    override suspend fun insertTransaction(transactionEntity: TransactionEntity): Long {
         return transactionDao.insertTransaction(transactionEntity)
     }
     
-    suspend fun getTransactionBySmsId(smsId: String): TransactionEntity? {
+    override suspend fun getTransactionBySmsId(smsId: String): TransactionEntity? {
         return transactionDao.getTransactionBySmsId(smsId)
     }
     
-    suspend fun updateSyncState(lastSyncDate: Date) {
+    /**
+     * Find similar transactions to prevent duplicates from different SMS sources
+     */
+    suspend fun findSimilarTransaction(deduplicationKey: String): TransactionEntity? {
+        // Parse the deduplication key to extract components
+        val parts = deduplicationKey.split("_")
+        if (parts.size < 4) return null
+        
+        val merchant = parts[0]
+        val amount = parts[1].toDoubleOrNull() ?: return null
+        val dateStr = parts[2]
+        val bankName = parts.drop(3).joinToString("_")
+        
+        return transactionDao.findSimilarTransaction(merchant, amount, dateStr, bankName)
+    }
+    
+    override suspend fun updateSyncState(lastSyncDate: Date) {
         syncStateDao.updateSyncState(lastSyncDate, null, getTransactionCount(), "COMPLETED")
     }
     
-    suspend fun searchTransactions(query: String, limit: Int = 50): List<TransactionEntity> {
+    override suspend fun searchTransactions(query: String, limit: Int): List<TransactionEntity> {
         return transactionDao.searchTransactions(query, limit)
+    }
+    
+    override suspend fun deleteTransaction(transaction: TransactionEntity) {
+        transactionDao.deleteTransaction(transaction)
+    }
+    
+    override suspend fun deleteTransactionById(transactionId: Long) {
+        transactionDao.deleteTransactionById(transactionId)
+    }
+    
+    override suspend fun updateTransaction(transaction: TransactionEntity) {
+        transactionDao.updateTransaction(transaction)
+    }
+    
+    override suspend fun getTransactionsByMerchant(merchantName: String): List<TransactionEntity> {
+        return transactionDao.getTransactionsByMerchant(merchantName)
     }
     
     // =======================
     // CATEGORY OPERATIONS  
     // =======================
     
-    suspend fun getAllCategories(): Flow<List<CategoryEntity>> {
+    override suspend fun getAllCategories(): Flow<List<CategoryEntity>> {
         return categoryDao.getAllCategories()
     }
     
-    suspend fun getAllCategoriesSync(): List<CategoryEntity> {
+    override suspend fun getAllCategoriesSync(): List<CategoryEntity> {
         return categoryDao.getAllCategoriesSync()
     }
     
-    suspend fun getCategoryById(categoryId: Long): CategoryEntity? {
+    override suspend fun getCategoryById(categoryId: Long): CategoryEntity? {
         return categoryDao.getCategoryById(categoryId)
     }
     
-    suspend fun getCategoryByName(name: String): CategoryEntity? {
+    override suspend fun getCategoryByName(name: String): CategoryEntity? {
         return categoryDao.getCategoryByName(name)
     }
     
-    suspend fun insertCategory(category: CategoryEntity): Long {
+    override suspend fun insertCategory(category: CategoryEntity): Long {
         return categoryDao.insertCategory(category)
     }
     
-    suspend fun updateCategory(category: CategoryEntity) {
+    override suspend fun updateCategory(category: CategoryEntity) {
         categoryDao.updateCategory(category)
     }
     
-    suspend fun deleteCategory(category: CategoryEntity) {
+    override suspend fun deleteCategory(category: CategoryEntity) {
         categoryDao.deleteCategory(category)
     }
     
@@ -162,35 +316,142 @@ class ExpenseRepository(private val context: Context) {
     // MERCHANT OPERATIONS
     // =======================
     
-    suspend fun getAllMerchants(): List<MerchantEntity> {
+    override suspend fun getAllMerchants(): List<MerchantEntity> {
         return merchantDao.getAllMerchantsSync()
     }
     
-    suspend fun getMerchantByNormalizedName(normalizedName: String): MerchantEntity? {
+    override suspend fun getMerchantByNormalizedName(normalizedName: String): MerchantEntity? {
         return merchantDao.getMerchantByNormalizedName(normalizedName)
     }
     
-    suspend fun getMerchantWithCategory(normalizedName: String): MerchantWithCategory? {
+    override suspend fun getMerchantWithCategory(normalizedName: String): MerchantWithCategory? {
         return merchantDao.getMerchantWithCategory(normalizedName)
     }
     
-    suspend fun insertMerchant(merchant: MerchantEntity): Long {
+    override suspend fun insertMerchant(merchant: MerchantEntity): Long {
         return merchantDao.insertMerchant(merchant)
     }
     
-    suspend fun updateMerchant(merchant: MerchantEntity) {
+    override suspend fun updateMerchant(merchant: MerchantEntity) {
         merchantDao.updateMerchant(merchant)
     }
     
-    suspend fun updateMerchantExclusion(normalizedMerchantName: String, isExcluded: Boolean) {
+    override suspend fun updateMerchantExclusion(normalizedMerchantName: String, isExcluded: Boolean) {
         merchantDao.updateMerchantExclusion(normalizedMerchantName, isExcluded)
     }
     
-    suspend fun getExcludedMerchants(): List<MerchantEntity> {
+    override suspend fun getExcludedMerchants(): List<MerchantEntity> {
         return merchantDao.getExcludedMerchants()
     }
+
+    suspend fun updateMerchantAliasInDatabase(
+        originalMerchantNames: List<String>,
+        newDisplayName: String,
+        newCategoryName: String
+    ): Boolean {
+        return try {
+            // Enhanced validation
+            if (originalMerchantNames.isEmpty()) {
+                return false
+            }
+            
+            if (newDisplayName.trim().isEmpty()) {
+                return false
+            }
+            
+            if (newCategoryName.trim().isEmpty()) {
+                return false
+            }
+            
+            // Get category with enhanced error handling
+            val category = getCategoryByName(newCategoryName)
+            if (category == null) {
+                // Try to create the category if it doesn't exist
+                try {
+                    val newCategory = CategoryEntity(
+                        name = newCategoryName,
+                        color = "#4CAF50", // Default green color
+                        isSystem = false, // User-defined category
+                        createdAt = Date()
+                    )
+                    val newCategoryId = insertCategory(newCategory)
+                } catch (e: Exception) {
+                    logger.error("Failed to create category: $newCategoryName", e)
+                    return false
+                }
+                
+                // Retry getting the category
+                val retryCategory = getCategoryByName(newCategoryName)
+                if (retryCategory == null) {
+                    return false
+                }
+            }
+            
+            val finalCategory = getCategoryByName(newCategoryName)!!
+
+            // Track update progress
+            var updatedCount = 0
+            var createdCount = 0
+            val failedUpdates = mutableListOf<String>()
+            
+            // Process each merchant
+            for (originalName in originalMerchantNames) {
+                try {
+                    val normalizedName = normalizeMerchantName(originalName)
+                    
+                    // Check if merchant exists in database
+                    val merchantExistsCount = merchantDao.merchantExists(normalizedName)
+                    val merchantExists = merchantExistsCount > 0
+                    
+                    if (merchantExists) {
+                        // Update existing merchant
+                        merchantDao.updateMerchantDisplayNameAndCategory(
+                            normalizedName = normalizedName,
+                            displayName = newDisplayName,
+                            categoryId = finalCategory.id
+                        )
+                        updatedCount++
+                    } else {
+                        // Create new merchant entry
+                        val newMerchant = MerchantEntity(
+                            normalizedName = normalizedName,
+                            displayName = newDisplayName,
+                            categoryId = finalCategory.id,
+                            isUserDefined = true,
+                            createdAt = Date()
+                        )
+                        
+                        val insertedMerchantId = insertMerchant(newMerchant)
+                        createdCount++
+                    }
+                    
+                } catch (e: Exception) {
+                    logger.error("Failed to process merchant '$originalName'", e)
+                    failedUpdates.add(originalName)
+                }
+            }
+            
+            // Final status report
+            val totalProcessed = updatedCount + createdCount
+            
+            logger.info("Merchant alias update: $totalProcessed/${originalMerchantNames.size} processed ($updatedCount updated, $createdCount created)")
+            
+            if (failedUpdates.isNotEmpty()) {
+                logger.warn("Failed to update ${failedUpdates.size} merchants: $failedUpdates")
+            }
+            
+            // Consider it successful if we updated at least some merchants
+            val isSuccessful = totalProcessed > 0 && failedUpdates.size < originalMerchantNames.size
+            
+            return isSuccessful
+            
+        } catch (e: Exception) {
+            logger.error("Critical error during database update", e)
+            false
+        }
+    }
     
-    suspend fun findOrCreateMerchant(
+    override suspend fun findOrCreateMerchant(
         normalizedName: String,
         displayName: String,
         categoryId: Long
@@ -218,37 +479,56 @@ class ExpenseRepository(private val context: Context) {
     // SMS SYNC OPERATIONS
     // =======================
     
-    suspend fun syncNewSMS(): Int = withContext(Dispatchers.IO) {
+    override suspend fun syncNewSMS(): Int = withContext(Dispatchers.IO) {
         try {
-            Log.d(TAG, "Starting SMS sync via repository (no SMSHistoryReader)...")
+            logger.debug("🔍 [UNIFIED] Starting SMS sync using unified SMSParsingService...")
             
             val syncState = syncStateDao.getSyncState()
             val lastSyncTimestamp = syncState?.lastSmsSyncTimestamp ?: Date(0)
             
-            Log.d(TAG, "Last sync timestamp: $lastSyncTimestamp")
+            logger.debug("Last sync timestamp: $lastSyncTimestamp")
             
             syncStateDao.updateSyncStatus("IN_PROGRESS")
             
-            // FIXED: Read SMS directly in repository without SMSHistoryReader
-            val allTransactions = readSMSTransactionsDirectly()
+            // UNIFIED: Use SMSParsingService instead of duplicate parsing logic
+            val allTransactions = smsParsingService.scanHistoricalSMS { current, total, status ->
+                logger.debug("[UNIFIED PROGRESS] $status ($current/$total)")
+            }
+            logger.info("📊 [UNIFIED] SMS scanning completed: ${allTransactions.size} valid transactions extracted from SMS")
             
             val newTransactions = allTransactions.filter { 
                 it.date.after(lastSyncTimestamp) 
             }
             
-            Log.d(TAG, "Found ${newTransactions.size} new transactions to sync")
+            logger.info("📊 [UNIFIED] SMS validation completed: ${newTransactions.size} new transactions to sync (filtered from ${allTransactions.size} total)")
             
             var insertedCount = 0
+            var duplicateCount = 0
+            val distinctMerchants = mutableSetOf<String>()
+            
             for (parsedTransaction in newTransactions) {
+                distinctMerchants.add(parsedTransaction.merchant)
                 val transactionEntity = convertToTransactionEntity(parsedTransaction)
                 
-                // Check if transaction already exists
+                // Enhanced duplicate detection - check both SMS ID and transaction similarity
                 val existingTransaction = transactionDao.getTransactionBySmsId(transactionEntity.smsId)
-                if (existingTransaction == null) {
+                
+                // Check for similar transactions that might be duplicates from different sources
+                val deduplicationKey = TransactionEntity.generateDeduplicationKey(
+                    merchant = parsedTransaction.merchant,
+                    amount = parsedTransaction.amount, 
+                    date = parsedTransaction.date,
+                    bankName = parsedTransaction.bankName
+                )
+                val similarTransaction = findSimilarTransaction(deduplicationKey)
+                
+                if (existingTransaction == null && similarTransaction == null) {
                     val insertedId = transactionDao.insertTransaction(transactionEntity)
                     if (insertedId > 0) {
                         insertedCount++
                     }
+                } else {
+                    duplicateCount++
                 }
             }
             
@@ -264,191 +544,133 @@ class ExpenseRepository(private val context: Context) {
                 )
             }
             
-            Log.d(TAG, "Repository-based SMS sync completed. Inserted $insertedCount new transactions")
+            logger.info("📊 [UNIFIED] Database storage completed: $insertedCount transactions inserted into Room database")
+            logger.info("📊 [UNIFIED FINAL STATS] Complete SMS-to-Database pipeline summary:")
+            logger.info("  - 📱 SMS messages scanned: ${allTransactions.size}")
+            logger.info("  - ✅ Valid bank transactions found: ${newTransactions.size}")
+            logger.info("  - 💾 New transactions stored in database: $insertedCount")
+            logger.info("  - 🔄 Duplicates skipped: $duplicateCount")
+            logger.debug("  - 🏪 Distinct merchants found: ${distinctMerchants.size}")
+            logger.debug("  - 📋 Merchants: ${distinctMerchants.joinToString(", ")}")
             insertedCount
             
         } catch (e: Exception) {
-            Log.e(TAG, "Repository-based SMS sync failed", e)
+            logger.error("[UNIFIED] Repository-based SMS sync failed", e)
             syncStateDao.updateSyncStatus("FAILED")
             throw e
         }
     }
     
-    /**
-     * Read SMS transactions directly from ContentResolver (repository-controlled)
-     */
-    private suspend fun readSMSTransactionsDirectly(): List<ParsedTransaction> = withContext(Dispatchers.IO) {
-        try {
-            Log.d(TAG, "📱 Reading SMS transactions directly from repository...")
-            
-            val transactions = mutableListOf<ParsedTransaction>()
-            
-            // Query SMS inbox
-            val projection = arrayOf(
-                Telephony.Sms._ID,
-                Telephony.Sms.ADDRESS,
-                Telephony.Sms.BODY,
-                Telephony.Sms.DATE,
-                Telephony.Sms.TYPE
-            )
-            
-            // Query last 6 months of SMS
-            val sixMonthsAgo = Calendar.getInstance()
-            sixMonthsAgo.add(Calendar.MONTH, -6)
-            
-            val selection = "${Telephony.Sms.DATE} > ?"
-            val selectionArgs = arrayOf(sixMonthsAgo.timeInMillis.toString())
-            val sortOrder = "${Telephony.Sms.DATE} DESC"
-            
-            val cursor = context.contentResolver.query(
-                Telephony.Sms.CONTENT_URI,
-                projection,
-                selection,
-                selectionArgs,
-                sortOrder
-            )
-            
-            cursor?.use { c ->
-                Log.d(TAG, "📱 Found ${c.count} SMS messages to process")
-                
-                val idIndex = c.getColumnIndexOrThrow(Telephony.Sms._ID)
-                val addressIndex = c.getColumnIndexOrThrow(Telephony.Sms.ADDRESS)
-                val bodyIndex = c.getColumnIndexOrThrow(Telephony.Sms.BODY)
-                val dateIndex = c.getColumnIndexOrThrow(Telephony.Sms.DATE)
-                val typeIndex = c.getColumnIndexOrThrow(Telephony.Sms.TYPE)
-                
-                var processedCount = 0
-                while (c.moveToNext() && processedCount < 2000) { // Limit to prevent ANR
-                    val smsId = c.getString(idIndex)
-                    val address = c.getString(addressIndex) ?: ""
-                    val body = c.getString(bodyIndex) ?: ""
-                    val dateMillis = c.getLong(dateIndex)
-                    val type = c.getInt(typeIndex)
-                    
-                    // Only process received messages from potential bank senders
-                    if (type == Telephony.Sms.MESSAGE_TYPE_INBOX && isPotentialBankSMS(address, body)) {
-                        val parsedTransaction = parseTransactionFromSMS(smsId, address, body, Date(dateMillis))
-                        parsedTransaction?.let { 
-                            transactions.add(it)
-                        }
-                    }
-                    
-                    processedCount++
-                }
-                
-                Log.d(TAG, "📱 Processed $processedCount SMS, found ${transactions.size} transactions")
-            }
-            
-            transactions
-            
-        } catch (e: SecurityException) {
-            Log.e(TAG, "SMS permission denied for repository reading", e)
-            emptyList()
-        } catch (e: Exception) {
-            Log.e(TAG, "Error reading SMS directly in repository", e)
-            emptyList()
-        }
-    }
+    // SMS parsing is now handled by unified SMSParsingService
     
-    private fun isPotentialBankSMS(address: String, body: String): Boolean {
-        // Bank SMS patterns
-        val bankKeywords = listOf("debited", "credited", "spent", "transaction", "account", "balance", 
-            "withdraw", "deposit", "transfer", "payment", "upi", "atm")
-        val bodyLower = body.lowercase()
-        
-        return bankKeywords.any { keyword -> bodyLower.contains(keyword) } ||
-               address.matches(Regex("^[A-Z]{2,6}-?\\d*$")) || // Bank sender IDs like HDFC-123456
-               address.matches(Regex("^\\d{4,6}$")) // Shortcodes like 567678
-    }
-    
-    private fun parseTransactionFromSMS(smsId: String, address: String, body: String, date: Date): ParsedTransaction? {
-        try {
-            // Simple parsing logic - look for amount patterns
-            val amountRegex = Regex("""(?:rs\.?\s*|inr\s*|₹\s*)?(\d+(?:[,]\d+)*(?:\.\d{2})?)\b""", RegexOption.IGNORE_CASE)
-            val amountMatch = amountRegex.find(body)
-            
-            val amount = amountMatch?.groupValues?.get(1)?.replace(",", "")?.toDoubleOrNull()
-            
-            if (amount != null && amount > 0) {
-                // Extract merchant name (simple logic)
-                val merchant = extractMerchantFromSMS(body) ?: "Unknown Merchant"
-                
-                // Determine bank from sender
-                val bankName = determineBankFromSender(address)
-                
-                return ParsedTransaction(
-                    id = smsId,
-                    amount = amount,
-                    merchant = merchant,
-                    bankName = bankName,
-                    date = date,
-                    rawSMS = body,
-                    confidence = 0.8f // Basic confidence
-                )
-            }
-            
-            return null
-            
-        } catch (e: Exception) {
-            Log.e(TAG, "Error parsing transaction from SMS: $body", e)
-            return null
-        }
-    }
-    
-    private fun extractMerchantFromSMS(body: String): String? {
-        // Look for common merchant patterns in SMS
-        val merchantPatterns = listOf(
-            Regex("""at\s+([A-Z][A-Z0-9\s&]+?)(?:\s+on|\s+dated|\.)""", RegexOption.IGNORE_CASE),
-            Regex("""spent\s+at\s+([A-Z][A-Z0-9\s&]+?)(?:\s+on|\s+dated|\.)""", RegexOption.IGNORE_CASE),
-            Regex("""paid\s+to\s+([A-Z][A-Z0-9\s&]+?)(?:\s+on|\s+dated|\.)""", RegexOption.IGNORE_CASE)
-        )
-        
-        for (pattern in merchantPatterns) {
-            val match = pattern.find(body)
-            if (match != null) {
-                return match.groupValues[1].trim()
-            }
-        }
-        
-        return "Unknown Merchant"
-    }
-    
-    private fun determineBankFromSender(address: String): String {
-        return when {
-            address.contains("HDFC", ignoreCase = true) -> "HDFC Bank"
-            address.contains("ICICI", ignoreCase = true) -> "ICICI Bank"
-            address.contains("SBI", ignoreCase = true) -> "SBI"
-            address.contains("AXIS", ignoreCase = true) -> "Axis Bank"
-            address.contains("KOTAK", ignoreCase = true) -> "Kotak Bank"
-            else -> "Unknown Bank"
-        }
-    }
-    
-    suspend fun getLastSyncTimestamp(): Date? {
+    override suspend fun getLastSyncTimestamp(): Date? {
         return syncStateDao.getLastSyncTimestamp()
     }
     
-    suspend fun getSyncStatus(): String? {
+    override suspend fun getSyncStatus(): String? {
         return syncStateDao.getSyncStatus()
+    }
+    
+    /**
+     * Check if database has any real transaction data
+     * Returns true if database is completely empty or has only test data
+     */
+    suspend fun isDatabaseEmpty(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val totalTransactions = transactionDao.getTransactionCount()
+            
+            if (totalTransactions == 0) {
+                return@withContext true
+            }
+            
+            // Check if all transactions are test data
+            val testMerchants = listOf(
+                "test", "example", "demo", "sample", "dummy", "placeholder"
+            )
+            
+            val allTransactions = transactionDao.getAllTransactionsSync()
+            val realTransactions = allTransactions.filter { transaction ->
+                val merchantLower = transaction.rawMerchant.lowercase()
+                !testMerchants.any { testMerchant -> merchantLower.contains(testMerchant) }
+            }
+            
+            val isEmpty = realTransactions.isEmpty()
+            
+            return@withContext isEmpty
+            
+        } catch (e: Exception) {
+            logger.error("Error checking if database is empty", e)
+            return@withContext true // Assume empty on error
+        }
     }
     
     // =======================
     // FAST DASHBOARD QUERIES
     // =======================
     
-    suspend fun getDashboardData(startDate: Date, endDate: Date): DashboardData {
+    override suspend fun getDashboardData(startDate: Date, endDate: Date): DashboardData {
+        // Get raw data counts from database (all transactions including credits)
+        val allTransactions = getTransactionsByDateRange(startDate, endDate)
+        val rawTransactionCount = allTransactions.size
+        val rawCreditCount = allTransactions.count { !it.isDebit }
+        val rawDebitCount = allTransactions.count { it.isDebit }
+        
+        // DEBUG: Get expense transactions BEFORE filtering 
+        val expenseTransactionsBeforeFilter = getExpenseTransactionsByDateRange(startDate, endDate)
+        logger.debug("🔍 [DEBUG] Raw debit transactions (before filtering): ${expenseTransactionsBeforeFilter.size}")
+        expenseTransactionsBeforeFilter.take(3).forEach { transaction ->
+            logger.debug("🔍 [DEBUG] Debit example: ${transaction.rawMerchant} - ₹${transaction.amount} - isDebit: ${transaction.isDebit}")
+        }
+        
+        // Get expense-specific data (debits only)
         val totalSpent = getTotalSpent(startDate, endDate)
-        val transactionCount = getTransactionCount(startDate, endDate)
+        val transactionCount = getTransactionCount(startDate, endDate)  // This applies filtering to debits only
         val categorySpending = getCategorySpending(startDate, endDate)
+        
+        // BALANCE FIX: Calculate credits and actual balance
+        val totalCredits = getTotalCredits(startDate, endDate)
+        val actualBalance = getActualBalance(startDate, endDate)
+        
+        logger.debug("📊 [DASHBOARD] Raw SMS data: $rawTransactionCount total ($rawDebitCount debits, $rawCreditCount credits)")
+        logger.debug("📊 [DASHBOARD] Dashboard display: $transactionCount expense transactions, ₹$totalSpent total spent")
+        logger.debug("💰 [BALANCE] Credits: ₹$totalCredits, Debits: ₹$totalSpent, Balance: ₹$actualBalance")
+        logger.debug("🔍 [DEBUG] Debit transactions: ${expenseTransactionsBeforeFilter.size} -> filtered to: $transactionCount (${expenseTransactionsBeforeFilter.size - transactionCount} excluded)")
+        
+        if (rawDebitCount > 0 && transactionCount == 0) {
+            logger.warn("⚠️ All $rawDebitCount debit transactions were filtered out - check exclusion settings")
+            
+            // DEBUG: Show examples of excluded transactions
+            expenseTransactionsBeforeFilter.take(3).forEach { transaction ->
+                logger.warn("⚠️ [EXCLUDED EXAMPLE] ${transaction.rawMerchant} (normalized: ${transaction.normalizedMerchant}) - ₹${transaction.amount}")
+            }
+            
+            // DEBUG: Get exclusion states
+            if (transactionFilterService != null) {
+                val exclusionDebugInfo = transactionFilterService.getExclusionStatesDebugInfo()
+                logger.warn("⚠️ [EXCLUSION INFO] $exclusionDebugInfo")
+            }
+        }
+        
+        if (rawCreditCount > 0) {
+            logger.info("💰 [CREDIT INFO] Found $rawCreditCount credit transactions totaling ₹$totalCredits")
+        }
         
         // FIXED: Request more merchants to ensure consistent display after exclusion filtering
         val topMerchants = getTopMerchants(startDate, endDate, 8) // Request 8 to get at least 5 after filtering
+        val topMerchantsWithCategory = getTopMerchantsWithCategory(startDate, endDate, 8) // Get merchants with category info
+        
+        // Calculate monthly balance (Last Salary - Current Period Expenses)
+        val monthlyBalance = getMonthlyBudgetBalance(startDate, endDate)
         
         return DashboardData(
             totalSpent = totalSpent,
+            totalCredits = totalCredits,
+            actualBalance = actualBalance,
             transactionCount = transactionCount,
             topCategories = categorySpending.take(6),
-            topMerchants = topMerchants.take(5) // Always take exactly 5 for consistent display
+            topMerchants = topMerchants.take(5), // Always take exactly 5 for consistent display (backward compatibility)
+            topMerchantsWithCategory = topMerchantsWithCategory.take(5), // New field with category information
+            monthlyBalance = monthlyBalance
         )
     }
     
@@ -462,19 +684,23 @@ class ExpenseRepository(private val context: Context) {
         // Ensure merchant exists in the merchants table with proper category
         ensureMerchantExists(normalizedMerchant, parsedTransaction.merchant)
         
-        return TransactionEntity(
+        val transactionEntity = TransactionEntity(
             smsId = parsedTransaction.id,
             amount = parsedTransaction.amount,
             rawMerchant = parsedTransaction.merchant,
             normalizedMerchant = normalizedMerchant,
             bankName = parsedTransaction.bankName,
-            transactionDate = parsedTransaction.date,
+            transactionDate = parsedTransaction.date, // CRITICAL: Using SMS timestamp, not current time
             rawSmsBody = parsedTransaction.rawSMS,
             confidenceScore = parsedTransaction.confidence,
-            isDebit = true, // Assuming debit transactions for now
-            createdAt = Date(),
+            isDebit = parsedTransaction.isDebit, // Use classification from SMS parsing
+            createdAt = Date(), // Record creation time (for debugging)
             updatedAt = Date()
         )
+        
+        logger.debug("[CONVERSION] ${if (parsedTransaction.isDebit) "DEBIT" else "CREDIT"}: ${parsedTransaction.merchant} - ₹${parsedTransaction.amount}")
+        
+        return transactionEntity
     }
     
     private suspend fun ensureMerchantExists(normalizedName: String, displayName: String) {
@@ -498,7 +724,6 @@ class ExpenseRepository(private val context: Context) {
         )
         
         insertMerchant(merchantEntity)
-        Log.d(TAG, "✅ Created merchant: $displayName -> $categoryName")
     }
     
     private fun categorizeMerchant(merchantName: String): String {
@@ -550,17 +775,17 @@ class ExpenseRepository(private val context: Context) {
     }
     
     private fun normalizeMerchantName(merchant: String): String {
-        return merchant.lowercase()
-            .replace(Regex("[^a-zA-Z0-9\\s]"), "")
-            .replace(Regex("\\s+"), " ")
+        // Use same logic as MerchantAliasManager for consistency
+        return merchant.uppercase()
+            .replace(Regex("[*#@\\-_]+.*"), "") // Remove suffixes after special chars
+            .replace(Regex("\\s+"), " ") // Normalize spaces
             .trim()
     }
     
-    suspend fun initializeDefaultData() = withContext(Dispatchers.IO) {
+    override suspend fun initializeDefaultData() = withContext(Dispatchers.IO) {
         // Check if categories already exist
         val existingCategories = categoryDao.getAllCategoriesSync()
         if (existingCategories.isEmpty()) {
-            Log.d(TAG, "Initializing default categories...")
             // Categories are already inserted by DatabaseCallback
         }
         
@@ -585,24 +810,76 @@ class ExpenseRepository(private val context: Context) {
     
     private suspend fun filterTransactionsByExclusions(transactions: List<TransactionEntity>): List<TransactionEntity> {
         return try {
-            // Get all excluded merchants from database
+            if (transactionFilterService != null) {
+                // UPDATED: Use unified TransactionFilterService for consistent exclusion logic
+                logger.debug("[UNIFIED] Using TransactionFilterService for exclusion filtering")
+                val filteredTransactions = transactionFilterService.filterTransactionsByExclusions(transactions)
+                
+                logger.debug("[SUCCESS] UNIFIED FILTERING result: ${filteredTransactions.size}/${transactions.size} transactions included")
+                
+                filteredTransactions
+            } else {
+                // Fallback to legacy filtering if service not available
+                logger.debug("[FALLBACK] TransactionFilterService not available, using legacy filtering")
+                filterTransactionsByExclusionsLegacy(transactions)
+            }
+        } catch (e: Exception) {
+            logger.error("Error in unified filtering", e)
+            transactions // Return all transactions on error
+        }
+    }
+    
+    /**
+     * Legacy filtering method for backwards compatibility
+     */
+    private suspend fun filterTransactionsByExclusionsLegacy(transactions: List<TransactionEntity>): List<TransactionEntity> {
+        return try {
+            // Legacy filtering system - check both database exclusions AND SharedPreferences inclusion states
+            
+            // 1. Get database exclusions
             val excludedMerchants = merchantDao.getExcludedMerchants()
             val excludedNormalizedNames = excludedMerchants.map { it.normalizedName }.toSet()
             
-            Log.d(TAG, "🔍 Filtering ${transactions.size} transactions with ${excludedNormalizedNames.size} excluded merchants")
+            // 2. Get SharedPreferences inclusion states (from Messages screen toggles)
+            val prefs = context.getSharedPreferences("expense_calculations", android.content.Context.MODE_PRIVATE)
+            val inclusionStatesJson = prefs.getString("group_inclusion_states", null)
+            val sharedPrefsExclusions = mutableSetOf<String>()
             
-            // Filter out transactions from excluded merchants
-            val filteredTransactions = transactions.filter { transaction ->
-                val isExcluded = excludedNormalizedNames.contains(transaction.normalizedMerchant)
-                !isExcluded // Include transaction only if merchant is NOT excluded
+            if (inclusionStatesJson != null) {
+                try {
+                    val inclusionStates = org.json.JSONObject(inclusionStatesJson)
+                    val keys = inclusionStates.keys()
+                    while (keys.hasNext()) {
+                        val merchantName = keys.next()
+                        val isIncluded = inclusionStates.getBoolean(merchantName)
+                        if (!isIncluded) {
+                            // Convert display name to normalized name for comparison
+                            val normalizedName = normalizeMerchantName(merchantName)
+                            sharedPrefsExclusions.add(normalizedName)
+                        }
+                    }
+                } catch (e: Exception) {
+                    logger.warn("Error parsing SharedPreferences inclusion states", e)
+                }
             }
             
-            Log.d(TAG, "✅ Filtered result: ${filteredTransactions.size}/${transactions.size} transactions included")
+            // 3. Filter transactions using BOTH exclusion systems
+            val filteredTransactions = transactions.filter { transaction ->
+                val isExcludedInDatabase = excludedNormalizedNames.contains(transaction.normalizedMerchant)
+                val isExcludedInSharedPrefs = sharedPrefsExclusions.contains(transaction.normalizedMerchant) ||
+                                             sharedPrefsExclusions.contains(transaction.rawMerchant.lowercase())
+                
+                val isIncluded = !isExcludedInDatabase && !isExcludedInSharedPrefs
+                isIncluded
+            }
+            
+            logger.debug("[LEGACY] Filtering result: ${filteredTransactions.size}/${transactions.size} transactions included")
             
             filteredTransactions
+            
         } catch (e: Exception) {
-            Log.e(TAG, "Error filtering transactions by exclusions", e)
-            transactions // Return all transactions on error
+            logger.error("Error in legacy filtering", e)
+            transactions
         }
     }
     
@@ -617,39 +894,120 @@ class ExpenseRepository(private val context: Context) {
     }
 
     /**
-     * Debug helper to get current exclusion states from database
+     * Debug helper to get current exclusion states from unified service
      */
-    suspend fun getExclusionStatesDebugInfo(): String {
+    override suspend fun getExclusionStatesDebugInfo(): String {
         return try {
-            val excludedMerchants = getExcludedMerchants()
-            if (excludedMerchants.isNotEmpty()) {
-                val excludedNames = excludedMerchants.map { "'${it.displayName}': excluded" }
-                "Excluded merchants (${excludedNames.size}): [${excludedNames.joinToString(", ")}]"
+            if (transactionFilterService != null) {
+                // UPDATED: Use unified TransactionFilterService for exclusion states debug info
+                transactionFilterService.getExclusionStatesDebugInfo()
             } else {
-                "No merchants are excluded from expense tracking"
+                // Fallback to legacy debug info
+                "TransactionFilterService not available - using legacy repository"
             }
         } catch (e: Exception) {
-            "Error loading exclusion states: ${e.message}"
+            "Error loading unified exclusion states: ${e.message}"
         }
     }
 
     private suspend fun filterMerchantsByExclusions(merchants: List<com.expensemanager.app.data.dao.MerchantSpending>): List<com.expensemanager.app.data.dao.MerchantSpending> {
         return try {
+            // FIXED: Apply same unified filtering to merchant results
+            
+            // 1. Get database exclusions
             val excludedMerchants = getExcludedMerchants()
             val excludedNormalizedNames = excludedMerchants.map { it.normalizedName }.toSet()
             
-            Log.d(TAG, "🔍 filterMerchantsByExclusions: Checking ${merchants.size} merchants")
-            Log.d(TAG, "🔍 Excluded merchants: ${excludedNormalizedNames.size}")
+            // 2. Get SharedPreferences exclusions
+            val prefs = context.getSharedPreferences("expense_calculations", android.content.Context.MODE_PRIVATE)
+            val inclusionStatesJson = prefs.getString("group_inclusion_states", null)
+            val sharedPrefsExclusions = mutableSetOf<String>()
             
-            val filteredMerchants = merchants.filter { merchant ->
-                val isExcluded = excludedNormalizedNames.contains(merchant.normalized_merchant)
-                !isExcluded // Include only if not excluded
+            if (inclusionStatesJson != null) {
+                try {
+                    val inclusionStates = org.json.JSONObject(inclusionStatesJson)
+                    val keys = inclusionStates.keys()
+                    while (keys.hasNext()) {
+                        val merchantName = keys.next()
+                        val isIncluded = inclusionStates.getBoolean(merchantName)
+                        if (!isIncluded) {
+                            val normalizedName = normalizeMerchantName(merchantName)
+                            sharedPrefsExclusions.add(normalizedName)
+                        }
+                    }
+                } catch (e: Exception) {
+                    logger.warn("Error parsing SharedPreferences for merchants", e)
+                }
             }
             
-            Log.d(TAG, "🔍 Filtered merchants: ${filteredMerchants.size}/${merchants.size}")
+            logger.debug("[DEBUG] UNIFIED MERCHANT FILTERING: ${merchants.size} merchants")
+            logger.debug("[DEBUG]   - Database exclusions: ${excludedNormalizedNames.size}")
+            logger.debug("[DEBUG]   - SharedPrefs exclusions: ${sharedPrefsExclusions.size}")
+            
+            // 3. Filter merchants using unified system
+            val filteredMerchants = merchants.filter { merchant ->
+                val isExcludedInDatabase = excludedNormalizedNames.contains(merchant.normalized_merchant)
+                val isExcludedInSharedPrefs = sharedPrefsExclusions.contains(merchant.normalized_merchant)
+                
+                val isIncluded = !isExcludedInDatabase && !isExcludedInSharedPrefs
+                isIncluded
+            }
+            
+            logger.debug("[SUCCESS] UNIFIED MERCHANT FILTERING result: ${filteredMerchants.size}/${merchants.size} merchants included")
             filteredMerchants
         } catch (e: Exception) {
-            Log.e(TAG, "Error filtering merchants by exclusions", e)
+            logger.error("Error in unified merchant filtering", e)
+            merchants // Return all merchants on error
+        }
+    }
+
+    private suspend fun filterMerchantsByExclusionsWithCategory(merchants: List<com.expensemanager.app.data.dao.MerchantSpendingWithCategory>): List<com.expensemanager.app.data.dao.MerchantSpendingWithCategory> {
+        return try {
+            // Apply same unified filtering to merchant results with category information
+            
+            // 1. Get database exclusions
+            val excludedMerchants = getExcludedMerchants()
+            val excludedNormalizedNames = excludedMerchants.map { it.normalizedName }.toSet()
+            
+            // 2. Get SharedPreferences exclusions
+            val prefs = context.getSharedPreferences("expense_calculations", android.content.Context.MODE_PRIVATE)
+            val inclusionStatesJson = prefs.getString("group_inclusion_states", null)
+            val sharedPrefsExclusions = mutableSetOf<String>()
+            
+            if (inclusionStatesJson != null) {
+                try {
+                    val inclusionStates = org.json.JSONObject(inclusionStatesJson)
+                    val keys = inclusionStates.keys()
+                    while (keys.hasNext()) {
+                        val merchantName = keys.next()
+                        val isIncluded = inclusionStates.getBoolean(merchantName)
+                        if (!isIncluded) {
+                            val normalizedName = normalizeMerchantName(merchantName)
+                            sharedPrefsExclusions.add(normalizedName)
+                        }
+                    }
+                } catch (e: Exception) {
+                    logger.warn("Error parsing SharedPreferences for merchants with category", e)
+                }
+            }
+            
+            logger.debug("[DEBUG] UNIFIED MERCHANT WITH CATEGORY FILTERING: ${merchants.size} merchants")
+            logger.debug("[DEBUG]   - Database exclusions: ${excludedNormalizedNames.size}")
+            logger.debug("[DEBUG]   - SharedPrefs exclusions: ${sharedPrefsExclusions.size}")
+            
+            // 3. Filter merchants using unified system
+            val filteredMerchants = merchants.filter { merchant ->
+                val isExcludedInDatabase = excludedNormalizedNames.contains(merchant.normalized_merchant)
+                val isExcludedInSharedPrefs = sharedPrefsExclusions.contains(merchant.normalized_merchant)
+                
+                val isIncluded = !isExcludedInDatabase && !isExcludedInSharedPrefs
+                isIncluded
+            }
+            
+            logger.debug("[SUCCESS] UNIFIED MERCHANT WITH CATEGORY FILTERING result: ${filteredMerchants.size}/${merchants.size} merchants included")
+            filteredMerchants
+        } catch (e: Exception) {
+            logger.error("Error in unified merchant with category filtering", e)
             merchants // Return all merchants on error
         }
     }
@@ -658,47 +1016,55 @@ class ExpenseRepository(private val context: Context) {
     // DATABASE MAINTENANCE
     // =======================
     
-    suspend fun cleanupDuplicateTransactions(): Int = withContext(Dispatchers.IO) {
+    override suspend fun cleanupDuplicateTransactions(): Int = withContext(Dispatchers.IO) {
         try {
-            Log.d(TAG, "🧹 Starting database cleanup for duplicate transactions...")
+            logger.debug("🧹 Starting enhanced database cleanup for duplicate transactions...")
             
             // Get all transactions grouped by potential duplicate key
             val allTransactions = transactionDao.getAllTransactionsSync()
             val duplicateGroups = allTransactions.groupBy { transaction ->
-                // Create a key combining merchant, amount, and date (to day precision)
-                val dayPrecisionDate = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
-                    .format(transaction.transactionDate)
-                "${transaction.normalizedMerchant}_${transaction.amount}_${dayPrecisionDate}"
+                // FIXED: Use the standardized deduplication key
+                TransactionEntity.generateDeduplicationKey(
+                    merchant = transaction.rawMerchant,
+                    amount = transaction.amount,
+                    date = transaction.transactionDate,
+                    bankName = transaction.bankName
+                )
             }.filter { it.value.size > 1 }
             
             var removedCount = 0
             
             for ((key, duplicates) in duplicateGroups) {
-                Log.d(TAG, "🔍 Found ${duplicates.size} potential duplicates for key: $key")
+                logger.debug("[DEBUG] Found ${duplicates.size} potential duplicates for key: $key")
                 
-                // Keep the most recent one, remove others
-                val toKeep = duplicates.maxByOrNull { it.createdAt }
+                // Keep the one with the highest confidence score, or most recent if tied
+                val toKeep = duplicates.maxWithOrNull { a, b ->
+                    when {
+                        a.confidenceScore != b.confidenceScore -> a.confidenceScore.compareTo(b.confidenceScore)
+                        else -> a.createdAt.compareTo(b.createdAt)
+                    }
+                }
                 val toRemove = duplicates.filter { it.id != toKeep?.id }
                 
                 for (duplicate in toRemove) {
                     transactionDao.deleteTransaction(duplicate)
                     removedCount++
-                    Log.d(TAG, "🗑️ Removed duplicate transaction: ${duplicate.rawMerchant} - ₹${duplicate.amount}")
+                    logger.debug("[DELETE] Removed duplicate transaction: ${duplicate.rawMerchant} - ₹${duplicate.amount} (SMS: ${duplicate.smsId})")
                 }
             }
             
-            Log.d(TAG, "✅ Database cleanup completed. Removed $removedCount duplicate transactions")
+            logger.debug("[SUCCESS] Enhanced database cleanup completed. Removed $removedCount duplicate transactions")
             removedCount
             
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Database cleanup failed", e)
+            logger.error("[ERROR] Database cleanup failed", e)
             0
         }
     }
     
-    suspend fun removeObviousTestData(): Int = withContext(Dispatchers.IO) {
+    override suspend fun removeObviousTestData(): Int = withContext(Dispatchers.IO) {
         try {
-            Log.d(TAG, "🧹 Starting cleanup of obvious test data...")
+            logger.debug("🧹 Starting cleanup of obvious test data...")
             
             val testMerchants = listOf(
                 "test", "example", "demo", "sample", "dummy",
@@ -717,15 +1083,15 @@ class ExpenseRepository(private val context: Context) {
                 for (transaction in transactions) {
                     transactionDao.deleteTransaction(transaction)
                     removedCount++
-                    Log.d(TAG, "🗑️ Removed test transaction: ${transaction.rawMerchant} - ₹${transaction.amount}")
+                    logger.debug("[DELETE] Removed test transaction: ${transaction.rawMerchant} - ₹${transaction.amount}")
                 }
             }
             
-            Log.d(TAG, "✅ Test data cleanup completed. Removed $removedCount test transactions")
+            logger.debug("[SUCCESS] Test data cleanup completed. Removed $removedCount test transactions")
             removedCount
             
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Test data cleanup failed", e)
+            logger.error("[ERROR] Test data cleanup failed", e)
             0
         }
     }
@@ -734,7 +1100,19 @@ class ExpenseRepository(private val context: Context) {
 // Data classes for repository responses
 data class DashboardData(
     val totalSpent: Double,
+    val totalCredits: Double,
+    val actualBalance: Double,
     val transactionCount: Int,
     val topCategories: List<CategorySpendingResult>,
-    val topMerchants: List<MerchantSpending>
+    val topMerchants: List<MerchantSpending>, // Kept for backward compatibility
+    val topMerchantsWithCategory: List<com.expensemanager.app.data.dao.MerchantSpendingWithCategory>, // New field with category info
+    val monthlyBalance: MonthlyBalanceInfo
+)
+
+data class MonthlyBalanceInfo(
+    val lastSalaryAmount: Double,
+    val lastSalaryDate: Date?,
+    val currentMonthExpenses: Double,
+    val remainingBalance: Double,
+    val hasSalaryData: Boolean
 )

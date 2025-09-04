@@ -9,12 +9,15 @@ import com.expensemanager.app.data.repository.OfflineException
 import com.expensemanager.app.domain.insights.GetAIInsightsUseCase
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 
 /**
  * ViewModel for AI Insights screen
  * Manages UI state and handles user interactions
  */
-class InsightsViewModel(
+@HiltViewModel
+class InsightsViewModel @Inject constructor(
     private val getAIInsightsUseCase: GetAIInsightsUseCase
 ) : ViewModel() {
     

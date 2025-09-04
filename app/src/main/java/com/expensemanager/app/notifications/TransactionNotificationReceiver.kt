@@ -93,7 +93,7 @@ class TransactionNotificationReceiver : BroadcastReceiver() {
                         // Update legacy CategoryManager for backward compatibility
                         categoryManager.updateCategory(merchant, category)
                         
-                        Log.d(TAG, "✅ Transaction $transactionId categorized as $category in SQLite")
+                        Log.d(TAG, "[SUCCESS] Transaction $transactionId categorized as $category in SQLite")
                         
                         // Send broadcast to notify UI components to refresh
                         val updateIntent = Intent("com.expensemanager.CATEGORY_UPDATED")
@@ -171,7 +171,7 @@ class TransactionNotificationReceiver : BroadcastReceiver() {
                     // The transaction already exists in the database which means it's been processed
                     notificationManager.dismissNotification(transactionId)
                     
-                    Log.d(TAG, "✅ Transaction $transactionId notification dismissed")
+                    Log.d(TAG, "[SUCCESS] Transaction $transactionId notification dismissed")
                     
                     CoroutineScope(Dispatchers.Main).launch {
                         Toast.makeText(context, "Transaction acknowledged", Toast.LENGTH_SHORT).show()

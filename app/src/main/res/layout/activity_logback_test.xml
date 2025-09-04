@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Logback Logging Test"
+            android:textAppearance="?attr/textAppearanceHeadline5"
+            android:textColor="?attr/colorOnSurface"
+            android:gravity="center"
+            android:layout_marginBottom="24dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Test various logging scenarios to verify Logback implementation"
+            android:textAppearance="?attr/textAppearanceBody2"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:gravity="center"
+            android:layout_marginBottom="24dp" />
+
+        <!-- Log Level Tests -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:cardElevation="2dp"
+            app:cardCornerRadius="8dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Basic Logging Tests"
+                    android:textAppearance="?attr/textAppearanceSubtitle1"
+                    android:layout_marginBottom="12dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/buttonTestLogLevels"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Test Log Levels (TRACE, DEBUG, INFO, WARN, ERROR)"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_marginBottom="8dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/buttonTestErrorLogging"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Test Error Logging (with exceptions)"
+                    style="@style/Widget.Material3.Button.OutlinedButton" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Financial App Specific Tests -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:cardElevation="2dp"
+            app:cardCornerRadius="8dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Financial App Logging"
+                    android:textAppearance="?attr/textAppearanceSubtitle1"
+                    android:layout_marginBottom="12dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/buttonTestSmsLogging"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Test SMS Processing Logging"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_marginBottom="8dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/buttonTestTransactionLogging"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Test Transaction Logging"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_marginBottom="8dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/buttonTestDatabaseLogging"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Test Database Operation Logging"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_marginBottom="8dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/buttonTestAiLogging"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Test AI Processing Logging"
+                    style="@style/Widget.Material3.Button.OutlinedButton" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- File Management -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:cardElevation="2dp"
+            app:cardCornerRadius="8dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Log File Management"
+                    android:textAppearance="?attr/textAppearanceSubtitle1"
+                    android:layout_marginBottom="12dp" />
+
+                <TextView
+                    android:id="@+id/textLogStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Log file status will appear here"
+                    android:textAppearance="?attr/textAppearanceBody2"
+                    android:textColor="?attr/colorOnSurfaceVariant"
+                    android:layout_marginBottom="12dp"
+                    android:padding="8dp"
+                    android:background="?attr/colorSurfaceVariant" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/buttonCheckLogFiles"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="8dp"
+                        android:text="Check Log Files"
+                        style="@style/Widget.Material3.Button.OutlinedButton" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/buttonClearLogs"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="8dp"
+                        android:text="Clear Logs"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        app:iconTint="?attr/colorError" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Instructions -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardElevation="1dp"
+            app:cardCornerRadius="8dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Instructions"
+                    android:textAppearance="?attr/textAppearanceSubtitle1"
+                    android:layout_marginBottom="8dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="1. Run tests and check logcat output for console logging\n2. Check internal storage for log files\n3. Test different log levels in Settings > Logging\n4. Use 'adb pull' to extract log files for inspection\n5. Test file export functionality in production build"
+                    android:textAppearance="?attr/textAppearanceCaption"
+                    android:textColor="?attr/colorOnSurfaceVariant"
+                    android:lineSpacingMultiplier="1.3" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+    </LinearLayout>
+
+</ScrollView>

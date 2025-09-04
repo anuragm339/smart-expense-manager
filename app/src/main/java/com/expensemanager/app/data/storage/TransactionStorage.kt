@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import android.util.Log
 import com.expensemanager.app.data.models.Transaction
 import com.expensemanager.app.data.models.TransactionType
+import com.expensemanager.app.models.ParsedTransaction
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -175,7 +176,7 @@ class TransactionStorage(context: Context) {
     }
     
     // Save SMS transactions from parsed data
-    suspend fun saveSMSTransactions(parsedTransactions: List<com.expensemanager.app.utils.ParsedTransaction>): List<Transaction> = withContext(Dispatchers.IO) {
+    suspend fun saveSMSTransactions(parsedTransactions: List<ParsedTransaction>): List<Transaction> = withContext(Dispatchers.IO) {
         val newTransactions = mutableListOf<Transaction>()
         
         for (parsedTransaction in parsedTransactions) {
@@ -263,7 +264,7 @@ class TransactionStorage(context: Context) {
         )
     }
     
-    private fun generateTransactionId(parsedTransaction: com.expensemanager.app.utils.ParsedTransaction): String {
+    private fun generateTransactionId(parsedTransaction: ParsedTransaction): String {
         val content = "${parsedTransaction.amount}_${parsedTransaction.merchant}_${parsedTransaction.date.time}_${parsedTransaction.bankName}"
         return content.hashCode().toString()
     }

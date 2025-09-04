@@ -1,5 +1,6 @@
 package com.expensemanager.app.data.models
 
+import com.expensemanager.app.models.ParsedTransaction
 import java.util.Date
 
 data class Transaction(
@@ -21,9 +22,18 @@ data class Transaction(
     fun getDateAsDate(): Date = Date(date)
     fun getCreatedAtAsDate(): Date = Date(createdAt)
     
+    // Extension properties for ViewModel compatibility
+    val timestamp: Long get() = date
+    val categoryId: String get() = category
+    val categoryName: String? get() = if (category.isNotEmpty()) category else null
+    val description: String get() = merchant
+    val smsBody: String? get() = if (rawSMS.isNotEmpty()) rawSMS else null
+    val note: String? get() = if (notes.isNotEmpty()) notes else null
+    val excludeFromBudget: Boolean get() = false // Default to false
+    
     companion object {
         fun fromParsedTransaction(
-            parsedTransaction: com.expensemanager.app.utils.ParsedTransaction,
+            parsedTransaction: ParsedTransaction,
             id: String = generateId(parsedTransaction)
         ): Transaction {
             return Transaction(
@@ -35,12 +45,12 @@ data class Transaction(
                 rawSMS = parsedTransaction.rawSMS,
                 confidence = parsedTransaction.confidence,
                 bankName = parsedTransaction.bankName,
-                transactionType = TransactionType.DEBIT,
+                transactionType = if (parsedTransaction.isDebit) TransactionType.DEBIT else TransactionType.CREDIT,
                 isProcessed = false // New transactions start as unprocessed
             )
         }
         
-        private fun generateId(parsedTransaction: com.expensemanager.app.utils.ParsedTransaction): String {
+        private fun generateId(parsedTransaction: ParsedTransaction): String {
             // Generate a unique ID based on transaction data
             val content = "${parsedTransaction.amount}_${parsedTransaction.merchant}_${parsedTransaction.date.time}_${parsedTransaction.bankName}"
             return content.hashCode().toString()

@@ -15,18 +15,22 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 import java.util.*
+import javax.inject.Inject
+import javax.inject.Named
+import javax.inject.Singleton
+import dagger.hilt.android.qualifiers.ApplicationContext
 
 /**
  * Repository for managing AI Insights data
  * Handles API calls, caching, and offline support
  */
-class AIInsightsRepository(
-    private val context: Context,
-    private val expenseRepository: ExpenseRepository
+@Singleton
+class AIInsightsRepository @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val expenseRepository: ExpenseRepository,
+    private val apiService: AIInsightsApiService,
+    @Named("ai_insights_cache") private val prefs: SharedPreferences
 ) {
-    
-    private val apiService: AIInsightsApiService = ApiServiceFactory.getAIInsightsApiService()
-    private val prefs: SharedPreferences = context.getSharedPreferences("ai_insights_cache", Context.MODE_PRIVATE)
     
     companion object {
         private const val TAG = "AIInsightsRepository"
@@ -43,7 +47,12 @@ class AIInsightsRepository(
         
         fun getInstance(context: Context, expenseRepository: ExpenseRepository): AIInsightsRepository {
             return INSTANCE ?: synchronized(this) {
-                val instance = AIInsightsRepository(context.applicationContext, expenseRepository)
+                val instance = AIInsightsRepository(
+                    context.applicationContext, 
+                    expenseRepository,
+                    ApiServiceFactory.getAIInsightsApiService(),
+                    context.getSharedPreferences("ai_insights_cache", Context.MODE_PRIVATE)
+                )
                 INSTANCE = instance
                 instance
             }
@@ -240,7 +249,7 @@ class AIInsightsRepository(
         
         // Debug: Log exclusion status before gathering data
         val exclusionDebugInfo = expenseRepository.getExclusionStatesDebugInfo()
-        Log.d(TAG, "🔍 AI Data Prep - Exclusion Status: $exclusionDebugInfo")
+        Log.d(TAG, "[DEBUG] AI Data Prep - Exclusion Status: $exclusionDebugInfo")
         
         // Get dashboard data for current month (already filtered by exclusions)
         val dashboardData = expenseRepository.getDashboardData(currentMonthStart, currentMonthEnd)
@@ -249,9 +258,9 @@ class AIInsightsRepository(
         val previousMonthSpent = expenseRepository.getTotalSpent(previousMonthStart, previousMonthEnd)
         
         // Debug: Log filtered data being sent to AI
-        Log.d(TAG, "🔍 AI Data Prep - Filtered totals: Current ₹${dashboardData.totalSpent}, Previous ₹$previousMonthSpent")
-        Log.d(TAG, "🔍 AI Data Prep - Filtered merchants: ${dashboardData.topMerchants.size} merchants")
-        Log.d(TAG, "🔍 AI Data Prep - Filtered categories: ${dashboardData.topCategories.size} categories")
+        Log.d(TAG, "[DEBUG] AI Data Prep - Filtered totals: Current ₹${dashboardData.totalSpent}, Previous ₹$previousMonthSpent")
+        Log.d(TAG, "[DEBUG] AI Data Prep - Filtered merchants: ${dashboardData.topMerchants.size} merchants")
+        Log.d(TAG, "[DEBUG] AI Data Prep - Filtered categories: ${dashboardData.topCategories.size} categories")
         
         // Generate monthly trends (last 3 months)
         val monthlyTrends = generateMonthlyTrends()
@@ -289,7 +298,7 @@ class AIInsightsRepository(
      * Generate monthly trends for the last 3 months
      */
     private suspend fun generateMonthlyTrends(): List<MonthlySummary> {
-        Log.d(TAG, "🔍 AI Data Prep - Generating monthly trends (with exclusions)")
+        Log.d(TAG, "[DEBUG] AI Data Prep - Generating monthly trends (with exclusions)")
         val trends = mutableListOf<MonthlySummary>()
         
         for (monthsBack in 0..2) {
@@ -318,7 +327,7 @@ class AIInsightsRepository(
             
             val monthKey = String.format("%d-%02d", calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH) + 1)
             
-            Log.d(TAG, "🔍 AI Data Prep - Month $monthKey: ₹$totalSpent ($transactionCount transactions)")
+            Log.d(TAG, "[DEBUG] AI Data Prep - Month $monthKey: ₹$totalSpent ($transactionCount transactions)")
             
             trends.add(MonthlySummary(
                 month = monthKey,
@@ -328,7 +337,7 @@ class AIInsightsRepository(
             ))
         }
         
-        Log.d(TAG, "🔍 AI Data Prep - Monthly trends complete: ${trends.size} months")
+        Log.d(TAG, "[DEBUG] AI Data Prep - Monthly trends complete: ${trends.size} months")
         return trends.reversed() // Return oldest to newest
     }
     
