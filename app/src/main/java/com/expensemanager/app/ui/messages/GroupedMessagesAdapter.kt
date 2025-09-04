@@ -120,7 +120,6 @@ class GroupedMessagesAdapter(
                 switchIncludeGroup.isChecked = group.isIncludedInCalculations
                 switchIncludeGroup.setOnCheckedChangeListener { _, isChecked ->
                     try {
-                        android.util.Log.d("GroupedMessagesAdapter", "Toggle switch for '${group.merchantName}': $isChecked")
                         
                         // Update UI immediately for responsive feedback
                         group.isIncludedInCalculations = isChecked
@@ -139,7 +138,7 @@ class GroupedMessagesAdapter(
                                     switchIncludeGroup.isEnabled = true
                                 }, 500)
                             } catch (callbackError: Exception) {
-                                android.util.Log.e("GroupedMessagesAdapter", "Error in toggle callback for '${group.merchantName}'", callbackError)
+                                android.util.Log.e("GroupedMessagesAdapter", "Toggle callback error", callbackError)
                                 // Revert state on callback error
                                 group.isIncludedInCalculations = !isChecked
                                 switchIncludeGroup.isChecked = !isChecked
@@ -156,7 +155,7 @@ class GroupedMessagesAdapter(
                         }
                         
                     } catch (e: Exception) {
-                        android.util.Log.e("GroupedMessagesAdapter", "Critical error handling toggle switch for '${group.merchantName}'", e)
+                        android.util.Log.e("GroupedMessagesAdapter", "Toggle switch error", e)
                         switchIncludeGroup.isEnabled = true
                         android.widget.Toast.makeText(
                             binding.root.context,
@@ -259,7 +258,6 @@ class GroupedMessagesAdapter(
                     override fun onRequestDisallowInterceptTouchEvent(disallowIntercept: Boolean) {}
                 })
                 
-                android.util.Log.d("GroupedMessagesAdapter", "Setup ${sortedTransactions.size} transactions for ${group.merchantName}, height: ${calculatedHeight}dp")
             }
         }
         
@@ -336,7 +334,6 @@ class TransactionItemAdapter(
             
             itemView.setOnClickListener {
                 try {
-                    android.util.Log.d("GroupedMessagesAdapter", "Transaction clicked: ${transaction.merchant} - ₹${transaction.amount}")
                     onTransactionClick(transaction)
                 } catch (e: Exception) {
                     android.util.Log.e("GroupedMessagesAdapter", "Error handling transaction click", e)

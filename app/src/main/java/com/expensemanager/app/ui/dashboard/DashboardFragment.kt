@@ -86,18 +86,17 @@ class DashboardFragment : Fragment() {
                 "com.expensemanager.NEW_TRANSACTION_ADDED" -> {
                     val merchant = intent.getStringExtra("merchant") ?: "Unknown"
                     val amount = intent.getDoubleExtra("amount", 0.0)
-                    Log.d("DashboardFragment", "📡 Received new transaction broadcast: $merchant - ₹${String.format("%.0f", amount)}")
+                    Log.d("DashboardFragment", "New transaction broadcast: $merchant - ₹${String.format("%.0f", amount)}")
                     
                     // Refresh dashboard data on the main thread
                     lifecycleScope.launch {
                         try {
-                            Log.d("DashboardFragment", "[REFRESH] Refreshing dashboard due to new transaction")
                             loadDashboardData()
                             
                             // Show a brief toast to indicate refresh
                             android.widget.Toast.makeText(
                                 requireContext(),
-                                "💰 New transaction added - Dashboard updated",
+                                "New transaction added - Dashboard updated",
                                 android.widget.Toast.LENGTH_SHORT
                             ).show()
                             
@@ -110,7 +109,7 @@ class DashboardFragment : Fragment() {
                 "com.expensemanager.CATEGORY_UPDATED" -> {
                     val merchant = intent.getStringExtra("merchant") ?: "Unknown"
                     val category = intent.getStringExtra("category") ?: "Unknown"
-                    Log.d("DashboardFragment", "📡 Received category update broadcast: $merchant → $category")
+                    Log.d("DashboardFragment", "Category update broadcast: $merchant → $category")
                     
                     // Refresh dashboard data on the main thread
                     lifecycleScope.launch {
@@ -127,12 +126,11 @@ class DashboardFragment : Fragment() {
                 "com.expensemanager.INCLUSION_STATE_CHANGED" -> {
                     val includedCount = intent.getIntExtra("included_count", 0)
                     val totalAmount = intent.getDoubleExtra("total_amount", 0.0)
-                    Log.d("DashboardFragment", "📡 Received inclusion state change: $includedCount transactions, ₹${String.format("%.0f", totalAmount)} total")
+                    Log.d("DashboardFragment", "Inclusion state change: $includedCount transactions, ₹${String.format("%.0f", totalAmount)} total")
                     
                     // FIXED: Refresh dashboard to reflect inclusion/exclusion changes from Messages screen
                     lifecycleScope.launch {
                         try {
-                            Log.d("DashboardFragment", "[REFRESH] Refreshing dashboard due to inclusion state change")
                             loadDashboardData()
                             
                         } catch (e: Exception) {
@@ -145,12 +143,11 @@ class DashboardFragment : Fragment() {
                     val merchantName = intent.getStringExtra("merchant_name") ?: "Unknown"
                     val displayName = intent.getStringExtra("display_name") ?: "Unknown"
                     val newCategory = intent.getStringExtra("new_category") ?: "Unknown"
-                    Log.d("DashboardFragment", "📡 Received merchant category change: '$merchantName' -> '$newCategory'")
+                    Log.d("DashboardFragment", "Merchant category change: '$merchantName' -> '$newCategory'")
                     
                     // Refresh dashboard to reflect category changes in Top Merchants section
                     lifecycleScope.launch {
                         try {
-                            Log.d("DashboardFragment", "[REFRESH] Refreshing dashboard due to merchant category change")
                             loadDashboardData()
                             
                             // Show a brief toast to indicate refresh
@@ -240,7 +237,7 @@ class DashboardFragment : Fragment() {
         if (state.syncedTransactionsCount > 0) {
             Toast.makeText(
                 requireContext(),
-                "✅ Synced ${state.syncedTransactionsCount} new transactions from SMS!",
+                "Synced ${state.syncedTransactionsCount} new transactions from SMS!",
                 Toast.LENGTH_LONG
             ).show()
         }
@@ -295,7 +292,6 @@ class DashboardFragment : Fragment() {
         
         // Add salary info logging for debugging
         if (state.dashboardPeriod == "This Month" && state.hasSalaryData) {
-            Log.d("DashboardFragment", "💰 [MONTHLY BALANCE] Showing salary-based balance: ₹${balanceToShow} (Last Salary: ₹${state.lastSalaryAmount})")
         }
         
         binding.tvTransactionCount.text = "${state.transactionCount}"
@@ -309,7 +305,6 @@ class DashboardFragment : Fragment() {
         // Update monthly comparison from ViewModel
         updateMonthlyComparisonFromViewModel(state.monthlyComparison)
         
-        Log.d("DashboardFragment", "[SUCCESS] Dashboard UI updated from ViewModel: ${state.transactionCount} transactions, ₹${String.format("%.0f", state.totalSpent)} spent")
     }
     
     /**
@@ -568,7 +563,7 @@ class DashboardFragment : Fragment() {
         )
         
         val dialog = MaterialAlertDialogBuilder(requireContext())
-            .setTitle("💰 Quick Add Expense")
+            .setTitle("Quick Add Expense")
             .setView(dialogView)
             .create()
         
@@ -617,12 +612,11 @@ class DashboardFragment : Fragment() {
                         
                         if (result.isSuccess) {
                             val transactionId = result.getOrNull()
-                            Log.d("DashboardFragment", "[SUCCESS] Manual transaction saved successfully with ID: $transactionId")
                             
                             // Show success message
                             Toast.makeText(
                                 requireContext(), 
-                                "✅ Added: ₹$amount at $merchant ($category)", 
+                                "Added: ₹$amount at $merchant ($category)", 
                                 Toast.LENGTH_LONG
                             ).show()
                             
@@ -642,12 +636,11 @@ class DashboardFragment : Fragment() {
                                 putExtra("source", "manual_entry")
                             }
                             requireContext().sendBroadcast(intent)
-                            Log.d("DashboardFragment", "📡 Broadcast sent for new manual transaction")
                             
                         } else {
                             val error = result.exceptionOrNull()?.message ?: "Unknown error"
                             val exception = result.exceptionOrNull()
-                            Log.e("DashboardFragment", "[ERROR] Failed to save manual transaction: $error", exception)
+                            Log.e("DashboardFragment", "Failed to save transaction: $error", exception)
                             
                             // Provide more helpful error messages to users
                             val userMessage = when {
@@ -665,7 +658,7 @@ class DashboardFragment : Fragment() {
                         }
                         
                     } catch (e: Exception) {
-                        Log.e("DashboardFragment", "[ERROR] Error saving manual transaction", e)
+                        Log.e("DashboardFragment", "Error saving transaction", e)
                         
                         // Provide helpful error messages to users
                         val userMessage = when (e) {
@@ -708,7 +701,7 @@ class DashboardFragment : Fragment() {
         
         // First Month Section
         val firstMonthLabel = TextView(requireContext()).apply {
-            text = "📊 First Month:"
+            text = "First Month:"
             textSize = 16f
             setTypeface(null, android.graphics.Typeface.BOLD)
             setPadding(0, 0, 0, 16)
@@ -812,16 +805,16 @@ class DashboardFragment : Fragment() {
                 
                 Toast.makeText(
                     requireContext(),
-                    "✅ Comparing $firstMonthText vs $secondMonthText",
+                    "Comparing $firstMonthText vs $secondMonthText",
                     Toast.LENGTH_LONG
                 ).show()
             } else {
-                Toast.makeText(requireContext(), "❌ Error parsing selected months", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), "Error parsing selected months", Toast.LENGTH_SHORT).show()
             }
             
         } catch (e: Exception) {
             Log.e("DashboardFragment", "Error handling custom month selection", e)
-            Toast.makeText(requireContext(), "❌ Error with month selection", Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), "Error with month selection", Toast.LENGTH_SHORT).show()
         }
     }
     
@@ -874,7 +867,7 @@ class DashboardFragment : Fragment() {
                     // Update monthly comparison with custom months
                     updateCustomMonthlyComparison(firstStart, firstEnd, secondStart, secondEnd)
                 } else {
-                    Log.d("DashboardFragment", "[WARNING] No data found for first custom month, trying sync...")
+                    Log.d("DashboardFragment", "No data found for first custom month, trying sync...")
                     
                     // Try syncing SMS and retry
                     val syncedCount = repository.syncNewSMS()
@@ -982,7 +975,7 @@ class DashboardFragment : Fragment() {
                         if (syncedCount > 0) {
                             Toast.makeText(
                                 requireContext(),
-                                "✅ Synced $syncedCount new transactions from SMS!",
+                                "Synced $syncedCount new transactions from SMS!",
                                 Toast.LENGTH_LONG
                             ).show()
                             

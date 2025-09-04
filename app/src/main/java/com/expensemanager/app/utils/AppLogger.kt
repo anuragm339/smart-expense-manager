@@ -118,19 +118,18 @@ class AppLogger @Inject constructor(
                             inputStream.close()
                             Log.d(TAG, "✅ Logback configured from assets/logback.xml")
                         } catch (e: Exception) {
-                            Log.e(TAG, "❌ Failed to configure Logback from assets", e)
+                            Log.e(TAG, "Failed to configure Logback from assets", e)
                             throw e
                         }
                         
-                        // Step 7: Print configuration status for debugging
-                        StatusPrinter.print(loggerContext)
+                        // Step 7: Configuration complete
                         
                         initialized = true
-                        Log.d(TAG, "✅ Logback initialized successfully")
+                        Log.d(TAG, "Logback initialized successfully")
                         
                         // Step 8: Test that logging is working
                         rootLogger.info("Enhanced logging system initialized - Logback is active")
-                        Log.d(TAG, "✅ Test log message sent to Logback")
+                        Log.d(TAG, "Test log message sent to Logback")
                         
                         // Step 9: Test file appender functionality
                         testFileAppenders()
