@@ -33,6 +33,7 @@ import com.expensemanager.app.ui.categories.CategorySelectionDialogFragment
 // UPDATED: Import unified services for consistent SMS parsing and filtering
 import com.expensemanager.app.services.TransactionParsingService
 import com.expensemanager.app.services.TransactionFilterService
+import androidx.appcompat.app.AlertDialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
 import android.widget.ArrayAdapter
@@ -420,7 +421,7 @@ class MessagesFragment : Fragment() {
             else -> 0
         }
         
-        MaterialAlertDialogBuilder(requireContext())
+        MaterialAlertDialogBuilder(requireContext(), R.style.DialogTheme)
             .setTitle("Sort Transactions")
             .setSingleChoiceItems(sortOptions, currentIndex) { dialog, which ->
                 Log.d("MessagesFragment", "[DEBUG] User selected sort option: $which (${sortOptions[which]})")
@@ -488,7 +489,7 @@ class MessagesFragment : Fragment() {
             chipGroupBanks.addView(chip)
         }
         
-        val dialog = MaterialAlertDialogBuilder(requireContext())
+        val dialog = MaterialAlertDialogBuilder(requireContext(), R.style.DialogTheme)
             .setTitle("Advanced Filters")
             .setView(dialogView)
             .setPositiveButton("Apply") { _, _ ->
@@ -532,6 +533,43 @@ class MessagesFragment : Fragment() {
             .create()
         
         dialog.show()
+        
+        // Apply additional programmatic styling for high contrast (similar to category dialog)
+        try {
+            // Apply high contrast colors to dialog buttons
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.apply {
+                setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
+                backgroundTintList = ContextCompat.getColorStateList(requireContext(), R.color.primary)
+            }
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.apply {
+                setTextColor(ContextCompat.getColor(requireContext(), R.color.primary))
+                setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.transparent))
+            }
+            dialog.getButton(AlertDialog.BUTTON_NEUTRAL)?.apply {
+                setTextColor(ContextCompat.getColor(requireContext(), R.color.primary))
+                setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.transparent))
+            }
+            
+            // Apply high contrast to input fields
+            dialogView.findViewById<TextInputEditText>(R.id.et_min_amount)?.apply {
+                setTextColor(ContextCompat.getColor(requireContext(), R.color.dialog_input_text))
+                setHintTextColor(ContextCompat.getColor(requireContext(), R.color.dialog_text_hint))
+            }
+            dialogView.findViewById<TextInputEditText>(R.id.et_max_amount)?.apply {
+                setTextColor(ContextCompat.getColor(requireContext(), R.color.dialog_input_text))
+                setHintTextColor(ContextCompat.getColor(requireContext(), R.color.dialog_text_hint))
+            }
+            dialogView.findViewById<TextInputEditText>(R.id.et_date_from)?.apply {
+                setTextColor(ContextCompat.getColor(requireContext(), R.color.dialog_input_text))
+                setHintTextColor(ContextCompat.getColor(requireContext(), R.color.dialog_text_hint))
+            }
+            dialogView.findViewById<TextInputEditText>(R.id.et_date_to)?.apply {
+                setTextColor(ContextCompat.getColor(requireContext(), R.color.dialog_input_text))
+                setHintTextColor(ContextCompat.getColor(requireContext(), R.color.dialog_text_hint))
+            }
+        } catch (e: Exception) {
+            Log.w("MessagesFragment", "Error applying high contrast styling to filter dialog", e)
+        }
     }
     
     private fun applyFiltersAndSort() {

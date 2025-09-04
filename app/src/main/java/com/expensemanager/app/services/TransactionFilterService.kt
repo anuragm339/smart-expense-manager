@@ -356,11 +356,10 @@ class TransactionFilterService @Inject constructor(
      * This should match the normalization logic used in ExpenseRepository
      */
     private fun normalizeMerchantName(merchantName: String): String {
-        return merchantName
-            .trim()
-            .lowercase(Locale.ROOT)
-            .replace(Regex("[^a-z0-9\\s]"), "") // Remove special characters
-            .replace(Regex("\\s+"), " ") // Normalize whitespace
+        // Use same normalization as MerchantAliasManager and DataMigrationHelper for consistency
+        return merchantName.uppercase()
+            .replace(Regex("[*#@\\-_]+.*"), "") // Remove suffixes after special chars
+            .replace(Regex("\\s+"), " ") // Normalize spaces
             .trim()
     }
     

@@ -182,9 +182,10 @@ class CategoryTransactionsViewModel @Inject constructor(
         
         viewModelScope.launch {
             try {
-                val normalizedMerchant = messageItem.merchant.lowercase()
-                    .replace(Regex("[^a-zA-Z0-9\\s]"), "")
-                    .replace(Regex("\\s+"), " ")
+                // Use the same normalization as MerchantAliasManager and DataMigrationHelper
+                val normalizedMerchant = messageItem.merchant.uppercase()
+                    .replace(Regex("[*#@\\-_]+.*"), "") // Remove suffixes after special chars
+                    .replace(Regex("\\s+"), " ") // Normalize spaces
                     .trim()
                 
                 // Find the merchant in database
