@@ -177,7 +177,7 @@ class MerchantTransactionsViewModel @Inject constructor(
                     putExtra("is_included", isIncluded)
                 }
                 context.sendBroadcast(intent)
-                Log.d(TAG, "📡 Broadcast sent for inclusion state change: $normalizedMerchantName = $isIncluded")
+                Log.d(TAG, "Broadcast sent for inclusion state change: $normalizedMerchantName = $isIncluded")
                 
                 _uiState.value = _uiState.value.copy(isIncludedInExpense = isIncluded)
                 

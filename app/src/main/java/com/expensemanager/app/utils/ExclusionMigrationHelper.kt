@@ -47,7 +47,7 @@ object ExclusionMigrationHelper {
                             migratedCount++
                             
                             if (isExcluded) {
-                                Log.d(TAG, "🚫 Migrated exclusion: $merchantDisplayName -> $normalizedName")
+                                Log.d(TAG, "Migrated exclusion: $merchantDisplayName -> $normalizedName")
                             }
                         } else {
                             Log.w(TAG, "[WARNING] Merchant not found in database: $merchantDisplayName -> $normalizedName")

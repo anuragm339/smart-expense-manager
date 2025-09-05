@@ -194,7 +194,7 @@ class ExportDataFragment : Fragment() {
                 val file = saveToFile(fileName, csvContent.toString())
                 
                 // Show file location to user
-                Toast.makeText(requireContext(), "✅ CSV saved to: ${file.absolutePath}", Toast.LENGTH_LONG).show()
+                Toast.makeText(requireContext(), "CSV saved to: ${file.absolutePath}", Toast.LENGTH_LONG).show()
                 shareFile(file, "Comprehensive Expense Report (CSV)")
                 
             } catch (e: Exception) {
@@ -276,7 +276,7 @@ class ExportDataFragment : Fragment() {
                 val file = saveToFile(fileName, rootJson.toString(2))
                 
                 // Show file location to user
-                Toast.makeText(requireContext(), "✅ JSON saved to: ${file.absolutePath}", Toast.LENGTH_LONG).show()
+                Toast.makeText(requireContext(), "JSON saved to: ${file.absolutePath}", Toast.LENGTH_LONG).show()
                 shareFile(file, "Comprehensive Expense Report (JSON)")
                 
             } catch (e: Exception) {
@@ -316,7 +316,7 @@ class ExportDataFragment : Fragment() {
                 pdfDocument.close()
                 
                 // Show file location to user
-                Toast.makeText(requireContext(), "✅ PDF saved to: ${file.absolutePath}", Toast.LENGTH_LONG).show()
+                Toast.makeText(requireContext(), "PDF saved to: ${file.absolutePath}", Toast.LENGTH_LONG).show()
                 shareFile(file, "Comprehensive Expense Report (PDF)")
                 
             } catch (e: Exception) {

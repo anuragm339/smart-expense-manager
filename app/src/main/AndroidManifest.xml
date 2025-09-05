@@ -46,15 +46,7 @@
             android:exported="false">
         </receiver>
 
-        <activity
-            android:name=".debug.SMSTestActivity"
-            android:label="SMS Parser Test"
-            android:exported="false" />
 
-        <activity
-            android:name=".debug.LogbackTestActivity"
-            android:label="Logback Logging Test"
-            android:exported="false" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

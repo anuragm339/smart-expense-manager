@@ -20,19 +20,39 @@ class GroupedMessagesAdapter(
     private var _merchantGroups = listOf<MerchantGroup>()
     val merchantGroups: List<MerchantGroup> get() = _merchantGroups
     
+    // Crash prevention variables
+    private var isUpdating = false
+    private var pendingUpdate: List<MerchantGroup>? = null
+    
     fun submitList(groups: List<MerchantGroup>) {
+        // CRITICAL FIX: Prevent RecyclerView crashes during rapid updates
+        if (isUpdating) {
+            pendingUpdate = groups
+            return
+        }
+        
         val oldList = _merchantGroups
+        isUpdating = true
         
         // Use post() to defer ALL updates until after current layout computation
         android.os.Handler(android.os.Looper.getMainLooper()).post {
-            _merchantGroups = groups
-            
-            if (oldList.isEmpty() && groups.isEmpty()) {
-                return@post // No change needed
+            try {
+                _merchantGroups = groups
+                
+                if (oldList.isEmpty() && groups.isEmpty()) {
+                    isUpdating = false
+                    processPendingUpdate()
+                    return@post // No change needed
+                }
+                
+                // Always use diff for safer updates
+                updateWithDiff(oldList, groups)
+                
+            } catch (e: Exception) {
+                android.util.Log.e("GroupedMessagesAdapter", "Error in submitList", e)
+                isUpdating = false
+                processPendingUpdate()
             }
-            
-            // Always use diff for safer updates
-            updateWithDiff(oldList, groups)
         }
     }
     
@@ -46,7 +66,13 @@ class GroupedMessagesAdapter(
                 _merchantGroups == newList) {
                 diffResult.dispatchUpdatesTo(this)
             }
+            
+            // Mark update as complete and process pending updates
+            isUpdating = false
+            processPendingUpdate()
+            
         } catch (e: Exception) {
+            android.util.Log.e("GroupedMessagesAdapter", "DiffUtil update failed", e)
             // Fallback to notifyDataSetChanged with additional safety delay
             android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                 try {
@@ -54,9 +80,20 @@ class GroupedMessagesAdapter(
                         notifyDataSetChanged()
                     }
                 } catch (ex: Exception) {
-                    // Last resort - ignore the update
+                    android.util.Log.e("GroupedMessagesAdapter", "Fallback update failed", ex)
+                } finally {
+                    // Always mark as complete even if fallback fails
+                    isUpdating = false
+                    processPendingUpdate()
                 }
             }, 150)
+        }
+    }
+    
+    private fun processPendingUpdate() {
+        pendingUpdate?.let { pending ->
+            pendingUpdate = null
+            submitList(pending)
         }
     }
     
@@ -68,14 +105,44 @@ class GroupedMessagesAdapter(
     }
     
     override fun onBindViewHolder(holder: MerchantGroupViewHolder, position: Int) {
-        // Safety check to prevent IndexOutOfBoundsException
-        if (position < 0 || position >= _merchantGroups.size) {
-            return
+        // CRITICAL SAFETY CHECKS: Prevent IndexOutOfBoundsException crashes
+        try {
+            if (position < 0 || position >= _merchantGroups.size || _merchantGroups.isEmpty()) {
+                android.util.Log.w("GroupedMessagesAdapter", "Invalid position: $position, size: ${_merchantGroups.size}")
+                return
+            }
+            
+            // Additional check during rapid updates
+            if (isUpdating) {
+                android.util.Log.d("GroupedMessagesAdapter", "Skipping bind during update, position: $position")
+                return
+            }
+            
+            val group = _merchantGroups.getOrNull(position)
+            if (group != null) {
+                holder.bind(group)
+            } else {
+                android.util.Log.w("GroupedMessagesAdapter", "Null group at position: $position")
+            }
+            
+        } catch (e: Exception) {
+            android.util.Log.e("GroupedMessagesAdapter", "Error in onBindViewHolder at position $position", e)
         }
-        holder.bind(_merchantGroups[position])
     }
     
-    override fun getItemCount(): Int = _merchantGroups.size
+    override fun getItemCount(): Int {
+        return try {
+            // Safety check during rapid updates
+            if (isUpdating) {
+                0 // Return 0 during updates to prevent crashes
+            } else {
+                _merchantGroups.size
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("GroupedMessagesAdapter", "Error in getItemCount", e)
+            0 // Return 0 on any error
+        }
+    }
     
     inner class MerchantGroupViewHolder(
         private val binding: ItemMerchantGroupBinding

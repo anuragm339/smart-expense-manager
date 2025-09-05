@@ -532,8 +532,8 @@ class ExpenseRepository @Inject constructor(
                 )
             }
             
-            logger.debug("  - 🏪 Distinct merchants found: ${distinctMerchants.size}")
-            logger.debug("  - 📋 Merchants: ${distinctMerchants.joinToString(", ")}")
+            logger.debug("  - Distinct merchants found: ${distinctMerchants.size}")
+            logger.debug("  - Merchants: ${distinctMerchants.joinToString(", ")}")
             insertedCount
             
         } catch (e: Exception) {
@@ -599,9 +599,9 @@ class ExpenseRepository @Inject constructor(
         
         // DEBUG: Get expense transactions BEFORE filtering 
         val expenseTransactionsBeforeFilter = getExpenseTransactionsByDateRange(startDate, endDate)
-        logger.debug("🔍 [DEBUG] Raw debit transactions (before filtering): ${expenseTransactionsBeforeFilter.size}")
+        logger.debug("[DEBUG] Raw debit transactions (before filtering): ${expenseTransactionsBeforeFilter.size}")
         expenseTransactionsBeforeFilter.take(3).forEach { transaction ->
-            logger.debug("🔍 [DEBUG] Debit example: ${transaction.rawMerchant} - ₹${transaction.amount} - isDebit: ${transaction.isDebit}")
+            logger.debug("[DEBUG] Debit example: ${transaction.rawMerchant} - ₹${transaction.amount} - isDebit: ${transaction.isDebit}")
         }
         
         // Get expense-specific data (debits only)
@@ -993,7 +993,7 @@ class ExpenseRepository @Inject constructor(
     
     override suspend fun cleanupDuplicateTransactions(): Int = withContext(Dispatchers.IO) {
         try {
-            logger.debug("🧹 Starting enhanced database cleanup for duplicate transactions...")
+            logger.debug("Starting enhanced database cleanup for duplicate transactions...")
             
             // Get all transactions grouped by potential duplicate key
             val allTransactions = transactionDao.getAllTransactionsSync()
@@ -1039,7 +1039,7 @@ class ExpenseRepository @Inject constructor(
     
     override suspend fun removeObviousTestData(): Int = withContext(Dispatchers.IO) {
         try {
-            logger.debug("🧹 Starting cleanup of obvious test data...")
+            logger.debug("Starting cleanup of obvious test data...")
             
             val testMerchants = listOf(
                 "test", "example", "demo", "sample", "dummy",

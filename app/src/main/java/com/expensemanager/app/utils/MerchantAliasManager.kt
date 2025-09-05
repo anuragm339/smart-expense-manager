@@ -214,11 +214,11 @@ class MerchantAliasManager(private val context: Context) {
             Log.d(TAG, "[SAVE] Saving ${aliases.size} merchant aliases to SharedPreferences...")
             
             val aliasesJson = convertAliasesToJson(aliases)
-            Log.d(TAG, "📝 Converted aliases to JSON (${aliasesJson.length} chars)")
+            Log.d(TAG, "Converted aliases to JSON (${aliasesJson.length} chars)")
             
             val editor = prefs.edit()
             val putSuccess = editor.putString(KEY_ALIASES, aliasesJson)
-            Log.d(TAG, "📝 Put string to editor: $putSuccess")
+            Log.d(TAG, "Put string to editor: $putSuccess")
             
             val commitSuccess = editor.commit() // Use commit() instead of apply() for immediate error detection
             
@@ -239,7 +239,7 @@ class MerchantAliasManager(private val context: Context) {
             }
             
         } catch (e: Exception) {
-            Log.e(TAG, "💥 Error saving aliases to SharedPreferences", e)
+            Log.e(TAG, "Error saving aliases to SharedPreferences", e)
             throw e // Re-throw to let caller handle
         }
     }

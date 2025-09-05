@@ -176,28 +176,12 @@ class MessagesFragment : Fragment() {
         binding.tvTotalMessages.text = state.totalMessagesCount.toString()
         binding.tvAutoCategorized.text = state.autoCategorizedCount.toString()
         
-        // Update adapter with grouped messages using post to avoid layout conflicts
+        // Update adapter with grouped messages - let adapter handle timing and safety
         if (state.groupedMessages.isNotEmpty()) {
-            // Use post to defer adapter update until after current layout computation
-            binding.recyclerMessages.post {
-                try {
-                    groupedMessagesAdapter.submitList(state.groupedMessages)
-                    binding.recyclerMessages.visibility = View.VISIBLE
-                    binding.layoutEmpty.visibility = View.GONE
-                } catch (e: Exception) {
-                    android.util.Log.e("MessagesFragment", "Error updating adapter", e)
-                    // Retry with delay if initial update fails
-                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                        try {
-                            groupedMessagesAdapter.submitList(state.groupedMessages)
-                            binding.recyclerMessages.visibility = View.VISIBLE
-                            binding.layoutEmpty.visibility = View.GONE
-                        } catch (retryError: Exception) {
-                            android.util.Log.e("MessagesFragment", "Retry adapter update failed", retryError)
-                        }
-                    }, 200)
-                }
-            }
+            // Direct call - adapter now handles all safety and timing internally
+            groupedMessagesAdapter.submitList(state.groupedMessages)
+            binding.recyclerMessages.visibility = View.VISIBLE
+            binding.layoutEmpty.visibility = View.GONE
         } else if (state.shouldShowEmptyState) {
             binding.recyclerMessages.visibility = View.GONE
             binding.layoutEmpty.visibility = View.VISIBLE
@@ -379,7 +363,7 @@ class MessagesFragment : Fragment() {
     private fun showFilterMenu() {
         val options = arrayOf(
             "[PROCESS] Resync SMS Messages", 
-            "📅 Filter by Date", 
+            "Filter by Date", 
             "[FINANCIAL] Filter by Amount",
             "Filter by Bank",
             "Test SMS Scanning"
@@ -791,7 +775,7 @@ class MessagesFragment : Fragment() {
                         
                         val merchantCounts = transactions.groupBy { it.merchant }.mapValues { it.value.size }
                         if (merchantCounts.isNotEmpty()) {
-                            appendLine("🏪 Top merchants:")
+                            appendLine("Top merchants:")
                             merchantCounts.toList().sortedByDescending { it.second }.take(3).forEach { (merchant, count) ->
                                 appendLine("• $merchant: $count transactions")
                             }
@@ -892,7 +876,6 @@ class MessagesFragment : Fragment() {
         
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                Log.d("MessagesFragment", "[LOAD] Loading historical transactions...")
                 
                 // Use repository to get transactions from database (faster and more reliable)
                 val repository = com.expensemanager.app.data.repository.ExpenseRepository.getInstance(requireContext())
@@ -1203,7 +1186,6 @@ class MessagesFragment : Fragment() {
                         if (calendar.get(java.util.Calendar.YEAR) == 1970) {
                             calendar.set(java.util.Calendar.YEAR, java.util.Calendar.getInstance().get(java.util.Calendar.YEAR))
                         }
-                        Log.d("MessagesFragment", "[DATE] Parsed absolute date '$dateString' to timestamp: ${calendar.timeInMillis}")
                         return calendar.timeInMillis
                     }
                 } catch (e: Exception) {
@@ -1212,12 +1194,10 @@ class MessagesFragment : Fragment() {
                 }
             }
             
-            Log.w("MessagesFragment", "[DATE] Could not parse absolute date: '$dateString', using default")
             // Fallback to a reasonable old timestamp instead of 0L
             return System.currentTimeMillis() - (365 * 24 * 60 * 60 * 1000L) // 1 year ago
             
         } catch (e: Exception) {
-            Log.w("MessagesFragment", "[DATE] Error parsing date '$dateString'", e)
             return System.currentTimeMillis() - (365 * 24 * 60 * 60 * 1000L) // 1 year ago
         }
     }
@@ -1604,16 +1584,15 @@ class MessagesFragment : Fragment() {
     private fun updateMerchantGroup(group: MerchantGroup, newDisplayName: String, newCategory: String) {
         lifecycleScope.launch {
             try {
-                Log.d("MessagesFragment", "[PROCESS] Starting merchant group update: ${group.merchantName} -> $newDisplayName, category: ${group.category} -> $newCategory")
                 
                 // Enhanced validation
                 if (newDisplayName.trim().isEmpty()) {
-                    Toast.makeText(requireContext(), "⚠️ Please enter a display name", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), "Please enter a display name", Toast.LENGTH_SHORT).show()
                     return@launch
                 }
                 
                 if (newCategory.trim().isEmpty()) {
-                    Toast.makeText(requireContext(), "⚠️ Please select a category", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), "Please select a category", Toast.LENGTH_SHORT).show()
                     return@launch
                 }
                 
@@ -1637,7 +1616,7 @@ class MessagesFragment : Fragment() {
                         if (extractedName.isNotEmpty() && extractedName.length >= 3) { // Minimum length check
                             originalMerchantNames.add(extractedName)
                             extractedCount++
-                            Log.d("MessagesFragment", "📤 Extracted: $extractedName from SMS: ${transaction.rawSMS.take(50)}...")
+                            Log.d("MessagesFragment", "Extracted: $extractedName from SMS: ${transaction.rawSMS.take(50)}...")
                         }
                     }
                     
@@ -1651,7 +1630,6 @@ class MessagesFragment : Fragment() {
                     
                     // METHOD 4: Try alternative extraction using transaction data
                     if (originalMerchantNames.size == 1 && originalMerchantNames.first() == group.merchantName) {
-                        Log.d("MessagesFragment", "[PROCESS] Attempting alternative merchant name extraction...")
                         group.transactions.forEach { transaction ->
                             // Try different patterns for merchant extraction
                             val alternativeNames = extractAlternativeMerchantNames(transaction.rawSMS)
@@ -1665,21 +1643,21 @@ class MessagesFragment : Fragment() {
                     }
                 }
                 
-                Log.d("MessagesFragment", "📝 Final original merchant names to update: $originalMerchantNames")
+                Log.d("MessagesFragment", "Final original merchant names to update: $originalMerchantNames")
                 
                 // Enhanced category validation and creation
                 val allCategories = categoryManager.getAllCategories()
-                Log.d("MessagesFragment", "📂 Available categories: $allCategories")
+                Log.d("MessagesFragment", "Available categories: $allCategories")
                 
                 if (!allCategories.contains(newCategory)) {
-                    Log.i("MessagesFragment", "➕ Creating new category: $newCategory")
+                    Log.i("MessagesFragment", "Creating new category: $newCategory")
                     try {
                         categoryManager.addCustomCategory(newCategory)
                     } catch (e: Exception) {
                         Log.e("MessagesFragment", "Failed to add category: $newCategory", e)
                         Toast.makeText(
                             requireContext(),
-                            "⚠️ Unable to create category '$newCategory': ${e.message ?: "Please try again"}",
+                            "Unable to create category '$newCategory': ${e.message ?: "Please try again"}",
                             Toast.LENGTH_LONG
                         ).show()
                         return@launch
@@ -1687,7 +1665,7 @@ class MessagesFragment : Fragment() {
                 }
                 
                 // STEP 1: Update SharedPreferences (MerchantAliasManager)
-                Log.d("MessagesFragment", "📝 Step 1: Updating SharedPreferences aliases...")
+                Log.d("MessagesFragment", "Step 1: Updating SharedPreferences aliases...")
                 var aliasUpdateSuccess = true
                 var aliasUpdateError: String? = null
                 
@@ -1696,7 +1674,7 @@ class MessagesFragment : Fragment() {
                 
                 try {
                     originalMerchantNames.forEachIndexed { index, originalName ->
-                        Log.d("MessagesFragment", "📝 Setting alias ${index + 1}/${originalMerchantNames.size}: $originalName -> $newDisplayName ($newCategory)")
+                        Log.d("MessagesFragment", "Setting alias ${index + 1}/${originalMerchantNames.size}: $originalName -> $newDisplayName ($newCategory)")
                         
                         val aliasSetSuccess = merchantAliasManager.setMerchantAlias(originalName, newDisplayName, newCategory)
                         
@@ -1821,19 +1799,19 @@ class MessagesFragment : Fragment() {
                         
                         Toast.makeText(
                             requireContext(),
-                            "⚠️ Unable to save changes to app memory.\n\nError: ${aliasUpdateError ?: "Unknown error"}\n\nPlease try again or restart the app.",
+                            "Unable to save changes to app memory.\n\nError: ${aliasUpdateError ?: "Unknown error"}\n\nPlease try again or restart the app.",
                             Toast.LENGTH_LONG
                         ).show()
                     }
                 }
                 
-                Log.d("MessagesFragment", "🏁 Merchant group update process completed - Success: Alias=$aliasUpdateSuccess, DB=$databaseUpdateSuccess")
+                Log.d("MessagesFragment", "Merchant group update process completed - Success: Alias=$aliasUpdateSuccess, DB=$databaseUpdateSuccess")
                 
             } catch (e: Exception) {
-                Log.e("MessagesFragment", "💥 Critical error during merchant group update", e)
+                Log.e("MessagesFragment", "Critical error during merchant group update", e)
                 Toast.makeText(
                     requireContext(),
-                    "💥 Critical error updating group: ${e.message ?: "Unknown error"}\n\nPlease restart the app and try again.",
+                    "Critical error updating group: ${e.message ?: "Unknown error"}\n\nPlease restart the app and try again.",
                     Toast.LENGTH_LONG
                 ).show()
             }
@@ -1970,7 +1948,7 @@ class MessagesFragment : Fragment() {
                 Log.e("MessagesFragment", "Error resetting merchant group", e)
                 Toast.makeText(
                     requireContext(),
-                    "⚠️ Unable to reset group: ${e.message ?: "Please try again"}",
+                    "Unable to reset group: ${e.message ?: "Please try again"}",
                     Toast.LENGTH_SHORT
                 ).show()
             }
@@ -2177,7 +2155,7 @@ class MessagesFragment : Fragment() {
         } else {
             requireContext().registerReceiver(newTransactionReceiver, intentFilter)
         }
-        Log.d("MessagesFragment", "📡 Registered broadcast receiver for new transactions")
+        Log.d("MessagesFragment", "Registered broadcast receiver for new transactions")
         
         // Refresh UI when user returns (in case they granted permissions in settings)
         checkPermissionsAndSetupUI()
@@ -2189,7 +2167,7 @@ class MessagesFragment : Fragment() {
         // Unregister broadcast receiver to prevent memory leaks
         try {
             requireContext().unregisterReceiver(newTransactionReceiver)
-            Log.d("MessagesFragment", "📡 Unregistered broadcast receiver for new transactions")
+            Log.d("MessagesFragment", "Unregistered broadcast receiver for new transactions")
         } catch (e: Exception) {
             // Receiver may not have been registered, ignore
             Log.w("MessagesFragment", "Broadcast receiver was not registered, ignoring unregister", e)

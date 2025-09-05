@@ -313,7 +313,6 @@ class MainActivity : AppCompatActivity() {
             var progressText: android.widget.TextView? = null
             
             try {
-                Log.d("MainActivity", "[PROCESS] Starting SMS scan process...")
                 
                 // Create custom progress dialog with percentage indicator
                 val dialogView = layoutInflater.inflate(R.layout.dialog_sms_progress, null)
@@ -361,7 +360,6 @@ class MainActivity : AppCompatActivity() {
                     
                     // Scan and store transactions through repository
                     val transactions = smsReader.scanHistoricalSMS()
-                    Log.d("MainActivity", "[SMS] Found ${transactions.size} transactions from SMS scan")
                     
                     // Now sync transactions through repository (repository handles conversion internally)
                     val insertedCount = repository.syncNewSMS()
@@ -409,7 +407,6 @@ class MainActivity : AppCompatActivity() {
                         }
                         .show()
                     
-                    Log.d("MainActivity", "[SUCCESS] SMS scan and database sync completed successfully")
                 } else {
                     Toast.makeText(
                         this@MainActivity,

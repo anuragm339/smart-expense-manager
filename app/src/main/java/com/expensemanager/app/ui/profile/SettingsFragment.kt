@@ -219,10 +219,10 @@ class SettingsFragment : Fragment() {
                     }
                 }.apply()
                 
-                Toast.makeText(requireContext(), "✅ All transaction data and settings cleared successfully", Toast.LENGTH_LONG).show()
+                Toast.makeText(requireContext(), "All transaction data and settings cleared successfully", Toast.LENGTH_LONG).show()
                 
             } catch (e: Exception) {
-                Toast.makeText(requireContext(), "❌ Error clearing data: ${e.message}", Toast.LENGTH_LONG).show()
+                Toast.makeText(requireContext(), "Error clearing data: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -252,10 +252,10 @@ class SettingsFragment : Fragment() {
                     repository.updateMerchantExclusion(merchant.normalizedName, false)
                 }
                 
-                Toast.makeText(requireContext(), "✅ Categories reset to defaults successfully", Toast.LENGTH_LONG).show()
+                Toast.makeText(requireContext(), "Categories reset to defaults successfully", Toast.LENGTH_LONG).show()
                 
             } catch (e: Exception) {
-                Toast.makeText(requireContext(), "❌ Error resetting categories: ${e.message}", Toast.LENGTH_LONG).show()
+                Toast.makeText(requireContext(), "Error resetting categories: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
     }

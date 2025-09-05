@@ -310,7 +310,7 @@ class DataMigrationManager @Inject constructor(
         
         try {
             // ENHANCED LOGGING: Track SMS import process in detail
-            Log.i(TAG, "🔄 [SMS] Starting fresh install SMS import through repository...")
+            Log.i(TAG, " [SMS] Starting fresh install SMS import through repository...")
             val startTime = System.currentTimeMillis()
             
             // First, check if we have SMS permissions by testing a simple query
@@ -321,17 +321,17 @@ class DataMigrationManager @Inject constructor(
             val endTime = System.currentTimeMillis()
             val durationSeconds = (endTime - startTime) / 1000
             
-            Log.i(TAG, "✅ [SUCCESS] Initial SMS import completed in ${durationSeconds}s. Imported $importedCount new transactions")
+            Log.i(TAG, " [SUCCESS] Initial SMS import completed in ${durationSeconds}s. Imported $importedCount new transactions")
             
             // Verify that transactions were actually inserted
             val totalTransactions = transactionRepository.getTransactionCount()
-            Log.i(TAG, "📊 [ANALYTICS] Total transactions in database after import: $totalTransactions")
+            Log.i(TAG, " [ANALYTICS] Total transactions in database after import: $totalTransactions")
             
             if (importedCount > 0) {
                 Log.i(TAG, "🎉 [FRESH_INSTALL] SMS import successful - Dashboard should now show data!")
             } else {
-                Log.w(TAG, "⚠️ [FRESH_INSTALL] No new SMS transactions imported")
-                Log.w(TAG, "⚠️ [DIAGNOSIS] This could mean:")
+                Log.w(TAG, " [FRESH_INSTALL] No new SMS transactions imported")
+                Log.w(TAG, " [DIAGNOSIS] This could mean:")
                 Log.w(TAG, "   1. No bank SMS messages exist in the device")
                 Log.w(TAG, "   2. SMS messages don't match parsing patterns")
                 Log.w(TAG, "   3. All SMS messages were already processed")
