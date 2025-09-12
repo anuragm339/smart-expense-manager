@@ -223,10 +223,8 @@ class CategoryTransactionsViewModel @Inject constructor(
                             category = newCategory // But update the category
                         )
                         
-                        if (aliasUpdateSuccess) {
-                            Log.d(TAG, "[SUCCESS] Successfully updated merchant alias for category change: ${messageItem.merchant} -> $newCategory")
-                        } else {
-                            Log.w(TAG, "[WARNING] Failed to update merchant alias for category change: ${messageItem.merchant} -> $newCategory")
+                        if (!aliasUpdateSuccess) {
+                            Log.w(TAG, "Failed to update merchant alias: ${messageItem.merchant}")
                         }
                         
                         // Update CategoryManager for backwards compatibility
@@ -238,7 +236,7 @@ class CategoryTransactionsViewModel @Inject constructor(
                             putExtra("category", newCategory)
                         }
                         context.sendBroadcast(intent)
-                        Log.d(TAG, "📡 Broadcast sent for category update: ${messageItem.merchant} -> $newCategory")
+                        Log.d(TAG, "Category updated: ${messageItem.merchant} -> $newCategory")
                         
                         _uiState.value = _uiState.value.copy(isUpdatingCategory = false)
                         
@@ -252,7 +250,6 @@ class CategoryTransactionsViewModel @Inject constructor(
                             updateTransactionInList(messageItem, newCategory)
                         }
                         
-                        Log.d(TAG, "Successfully updated merchant category")
                     }
                 } else {
                     throw Exception("Merchant '$normalizedMerchant' not found in database")

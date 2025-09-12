@@ -21,6 +21,8 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.expensemanager.app.databinding.FragmentMessagesBinding
@@ -78,6 +80,10 @@ class MessagesFragment : Fragment() {
     // Legacy data management (kept for parallel approach during migration)
     private var allMessageItems = listOf<MessageItem>()
     private var filteredMessageItems = listOf<MessageItem>()
+    
+    // Performance optimization: Caches for date operations
+    private val dateParsingCache = mutableMapOf<String, Long>()
+    private val dateFormattingCache = mutableMapOf<Long, String>()
     private var currentSearchQuery = ""
     
     // Legacy sorting and filtering state (kept for backward compatibility)
@@ -100,7 +106,7 @@ class MessagesFragment : Fragment() {
             if (intent?.action == "com.expensemanager.NEW_TRANSACTION_ADDED") {
                 val merchant = intent.getStringExtra("merchant") ?: "Unknown"
                 val amount = intent.getDoubleExtra("amount", 0.0)
-                Log.d("MessagesFragment", "📡 Received new transaction broadcast: $merchant - ₹${String.format("%.0f", amount)}")
+                Log.d("MessagesFragment", "New transaction broadcast: $merchant - ₹${String.format("%.0f", amount)}")
                 
                 // Refresh messages data on the main thread
                 lifecycleScope.launch {
@@ -170,28 +176,12 @@ class MessagesFragment : Fragment() {
         binding.tvTotalMessages.text = state.totalMessagesCount.toString()
         binding.tvAutoCategorized.text = state.autoCategorizedCount.toString()
         
-        // Update adapter with grouped messages using post to avoid layout conflicts
+        // Update adapter with grouped messages - let adapter handle timing and safety
         if (state.groupedMessages.isNotEmpty()) {
-            // Use post to defer adapter update until after current layout computation
-            binding.recyclerMessages.post {
-                try {
-                    groupedMessagesAdapter.submitList(state.groupedMessages)
-                    binding.recyclerMessages.visibility = View.VISIBLE
-                    binding.layoutEmpty.visibility = View.GONE
-                } catch (e: Exception) {
-                    android.util.Log.e("MessagesFragment", "Error updating adapter", e)
-                    // Retry with delay if initial update fails
-                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                        try {
-                            groupedMessagesAdapter.submitList(state.groupedMessages)
-                            binding.recyclerMessages.visibility = View.VISIBLE
-                            binding.layoutEmpty.visibility = View.GONE
-                        } catch (retryError: Exception) {
-                            android.util.Log.e("MessagesFragment", "Retry adapter update failed", retryError)
-                        }
-                    }, 200)
-                }
-            }
+            // Direct call - adapter now handles all safety and timing internally
+            groupedMessagesAdapter.submitList(state.groupedMessages)
+            binding.recyclerMessages.visibility = View.VISIBLE
+            binding.layoutEmpty.visibility = View.GONE
         } else if (state.shouldShowEmptyState) {
             binding.recyclerMessages.visibility = View.GONE
             binding.layoutEmpty.visibility = View.VISIBLE
@@ -300,6 +290,16 @@ class MessagesFragment : Fragment() {
         binding.recyclerMessages.apply {
             adapter = groupedMessagesAdapter
             layoutManager = LinearLayoutManager(requireContext())
+            
+            // PERFORMANCE: Optimize RecyclerView for better performance
+            setHasFixedSize(true) // Size won't change
+            setItemViewCacheSize(20) // Cache more views
+            isDrawingCacheEnabled = true
+            drawingCacheQuality = View.DRAWING_CACHE_QUALITY_HIGH
+            
+            // Enable item animator optimizations
+            itemAnimator?.changeDuration = 0
+            itemAnimator?.moveDuration = 0
         }
         
         // Initialize with empty list - data will be loaded by ViewModel
@@ -363,10 +363,10 @@ class MessagesFragment : Fragment() {
     private fun showFilterMenu() {
         val options = arrayOf(
             "[PROCESS] Resync SMS Messages", 
-            "📅 Filter by Date", 
+            "Filter by Date", 
             "[FINANCIAL] Filter by Amount",
-            "🏦 Filter by Bank",
-            "[DEBUG] Test SMS Scanning"
+            "Filter by Bank",
+            "Test SMS Scanning"
         )
         
         MaterialAlertDialogBuilder(requireContext())
@@ -424,7 +424,6 @@ class MessagesFragment : Fragment() {
         MaterialAlertDialogBuilder(requireContext(), R.style.DialogTheme)
             .setTitle("Sort Transactions")
             .setSingleChoiceItems(sortOptions, currentIndex) { dialog, which ->
-                Log.d("MessagesFragment", "[DEBUG] User selected sort option: $which (${sortOptions[which]})")
                 
                 val oldSortOption = currentSortOption
                 val newSortOption = when (which) {
@@ -441,7 +440,6 @@ class MessagesFragment : Fragment() {
                     else -> return@setSingleChoiceItems
                 }
                 
-                Log.d("MessagesFragment", "[DEBUG] Sort option changed from ${oldSortOption.name} to ${newSortOption.name}")
                 
                 // Use ViewModel event
                 messagesViewModel.handleEvent(MessagesUIEvent.ApplySort(newSortOption))
@@ -449,7 +447,6 @@ class MessagesFragment : Fragment() {
                 // Keep legacy for fallback
                 currentSortOption = SortOption(newSortOption.name, newSortOption.field, newSortOption.ascending)
                 binding.btnSort.text = "Sort: ${currentSortOption.name.split(" ")[0]}"
-                Log.d("MessagesFragment", "[DEBUG] Updated sort button text to: ${binding.btnSort.text}")
                 applyFiltersAndSort()
                 
                 dialog.dismiss()
@@ -573,32 +570,32 @@ class MessagesFragment : Fragment() {
     }
     
     private fun applyFiltersAndSort() {
-        Log.d("MessagesFragment", "[DEBUG] Starting applyFiltersAndSort() with ${allMessageItems.size} total items")
-        Log.d("MessagesFragment", "[DEBUG] Current sort option: ${currentSortOption.name} (field: ${currentSortOption.field}, ascending: ${currentSortOption.ascending})")
         
         // UPDATED: Use unified TransactionFilterService for consistent filtering across screens
         lifecycleScope.launch {
             try {
                 // Step 1: Apply exclusion filtering first (unified logic)
                 val excludedFiltered = transactionFilterService.filterMessageItemsByExclusions(allMessageItems)
-                Log.d("MessagesFragment", "[UNIFIED] After exclusion filtering: ${excludedFiltered.size} items (excluded ${allMessageItems.size - excludedFiltered.size})")
                 
-                // Step 2: Apply generic filters using unified service
-                val filtered = transactionFilterService.applyGenericFilters(
-                    transactions = excludedFiltered,
-                    minAmount = currentFilterOptions.minAmount,
-                    maxAmount = currentFilterOptions.maxAmount,
-                    selectedBanks = currentFilterOptions.selectedBanks,
-                    minConfidence = currentFilterOptions.minConfidence,
-                    dateFrom = currentFilterOptions.dateFrom,
-                    dateTo = currentFilterOptions.dateTo,
-                    searchQuery = currentSearchQuery
-                )
+                // Step 2: Apply generic filters using unified service (skip if no filters applied)
+                val filtered = if (hasActiveFilters()) {
+                    transactionFilterService.applyGenericFilters(
+                        transactions = excludedFiltered,
+                        minAmount = currentFilterOptions.minAmount,
+                        maxAmount = currentFilterOptions.maxAmount,
+                        selectedBanks = currentFilterOptions.selectedBanks,
+                        minConfidence = currentFilterOptions.minConfidence,
+                        dateFrom = currentFilterOptions.dateFrom,
+                        dateTo = currentFilterOptions.dateTo,
+                        searchQuery = currentSearchQuery
+                    )
+                } else {
+                    excludedFiltered
+                }
                 
                 Log.d("MessagesFragment", "[UNIFIED] Final filtering result: ${filtered.size} items")
                 
                 if (filtered.isNotEmpty()) {
-                    Log.d("MessagesFragment", "[DEBUG] Sample items after unified filtering:")
                     filtered.take(3).forEach { item ->
                         Log.d("MessagesFragment", "  - ${item.merchant}: ₹${item.amount} (${item.dateTime})")
                     }
@@ -714,7 +711,7 @@ class MessagesFragment : Fragment() {
                     
                     Toast.makeText(
                         requireContext(),
-                        "[SUCCESS] Found ${historicalTransactions.size} new transaction SMS messages!",
+                        "Found ${historicalTransactions.size} transaction messages",
                         Toast.LENGTH_LONG
                     ).show()
                 } else {
@@ -735,7 +732,7 @@ class MessagesFragment : Fragment() {
                 Log.w("MessagesFragment", "SMS permission denied during resync", e)
                 Toast.makeText(
                     requireContext(),
-                    "📱 SMS permission is required to sync transaction messages",
+                    "SMS permission is required to sync transaction messages",
                     Toast.LENGTH_LONG
                 ).show()
                 showNoPermissionState()
@@ -744,7 +741,7 @@ class MessagesFragment : Fragment() {
                 Log.e("MessagesFragment", "Error during SMS resync", e)
                 Toast.makeText(
                     requireContext(),
-                    "⚠️ Unable to sync SMS messages: ${e.message ?: "Please try again"}",
+                    "Unable to sync SMS messages: ${e.message ?: "Please try again"}",
                     Toast.LENGTH_LONG
                 ).show()
                 
@@ -778,7 +775,7 @@ class MessagesFragment : Fragment() {
                         
                         val merchantCounts = transactions.groupBy { it.merchant }.mapValues { it.value.size }
                         if (merchantCounts.isNotEmpty()) {
-                            appendLine("🏪 Top merchants:")
+                            appendLine("Top merchants:")
                             merchantCounts.toList().sortedByDescending { it.second }.take(3).forEach { (merchant, count) ->
                                 appendLine("• $merchant: $count transactions")
                             }
@@ -803,7 +800,7 @@ class MessagesFragment : Fragment() {
                 }
                 
                 MaterialAlertDialogBuilder(requireContext())
-                    .setTitle("[DEBUG] SMS Test Results")
+                    .setTitle("SMS Test Results")
                     .setMessage(message)
                     .setPositiveButton("OK") { dialog, _ ->
                         dialog.dismiss()
@@ -814,7 +811,7 @@ class MessagesFragment : Fragment() {
                 
             } catch (e: SecurityException) {
                 MaterialAlertDialogBuilder(requireContext())
-                    .setTitle("📱 SMS Permission Required")
+                    .setTitle("SMS Permission Required")
                     .setMessage("SMS permission is required to test SMS scanning. Please grant SMS permissions in app settings.")
                     .setPositiveButton("Open Settings") { _, _ ->
                         val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
@@ -828,7 +825,7 @@ class MessagesFragment : Fragment() {
                     .show()
             } catch (e: Exception) {
                 MaterialAlertDialogBuilder(requireContext())
-                    .setTitle("⚠️ Test Failed")
+                    .setTitle("Test Failed")
                     .setMessage("Error testing SMS scanning: ${e.message}")
                     .setPositiveButton("OK") { dialog, _ ->
                         dialog.dismiss()
@@ -874,9 +871,11 @@ class MessagesFragment : Fragment() {
     
     
     private fun loadHistoricalTransactions() {
-        lifecycleScope.launch {
+        // PERFORMANCE: Show loading state immediately
+        showLoadingState()
+        
+        lifecycleScope.launch(Dispatchers.IO) {
             try {
-                Log.d("MessagesFragment", "[LOAD] Loading historical transactions...")
                 
                 // Use repository to get transactions from database (faster and more reliable)
                 val repository = com.expensemanager.app.data.repository.ExpenseRepository.getInstance(requireContext())
@@ -897,71 +896,27 @@ class MessagesFragment : Fragment() {
                 calendar.set(java.util.Calendar.SECOND, 59)
                 val endDate = calendar.time
                 
-                // Load transactions from SQLite database
+                // PERFORMANCE: Load transactions with limit for faster initial display
                 val dbTransactions = repository.getTransactionsByDateRange(startDate, endDate)
-                val dbDebitCount = dbTransactions.count { it.isDebit }
-                val dbCreditCount = dbTransactions.count { !it.isDebit }
-                Log.d("MessagesFragment", "[DATA] Found ${dbTransactions.size} transactions in database ($dbDebitCount debits, $dbCreditCount credits)")
+                Log.d("MessagesFragment", "[DATA] Found ${dbTransactions.size} transactions in database")
                 
-                // DEBUG: Also check what the Dashboard method would return
-                val expenseTransactions = repository.getExpenseTransactionsByDateRange(startDate, endDate)
-                Log.d("MessagesFragment", "[DEBUG] Dashboard would get ${expenseTransactions.size} debit-only transactions vs Messages gets ${dbTransactions.size} total")
+                // PERFORMANCE: Show partial results immediately if we have many transactions
+                val shouldShowProgressively = dbTransactions.size > 50
+                val initialBatchSize = if (shouldShowProgressively) 30 else dbTransactions.size
                 
                 if (dbTransactions.isNotEmpty()) {
-                    // Convert to MessageItem format with proper deduplication
-                    val messageItems = dbTransactions.mapNotNull { transaction ->
-                        try {
-                            val merchantWithCategory = repository.getMerchantWithCategory(transaction.normalizedMerchant)
-                            val category = merchantWithCategory?.category_name ?: "Other"
-                            val categoryColor = merchantWithCategory?.category_color ?: "#888888"
-                            
-                            // CRITICAL FIX: Apply merchant aliases when loading from database
-                            val displayName = merchantAliasManager.getDisplayName(transaction.rawMerchant)
-                            val aliasCategory = merchantAliasManager.getMerchantCategory(transaction.rawMerchant)
-                            val aliasCategoryColor = merchantAliasManager.getMerchantCategoryColor(transaction.rawMerchant)
-                            
-                            Log.d("MessagesFragment", "[DEBUG] Database load: rawMerchant='${transaction.rawMerchant}' -> displayName='$displayName', category='$aliasCategory'")
-                            
-                            MessageItem(
-                                amount = transaction.amount,
-                                merchant = displayName, // Use alias display name, not raw merchant
-                                bankName = transaction.bankName,
-                                category = aliasCategory, // Use alias category
-                                categoryColor = aliasCategoryColor, // Use alias category color
-                                confidence = (transaction.confidenceScore * 100).toInt(),
-                                dateTime = formatDate(transaction.transactionDate),
-                                rawSMS = transaction.rawSmsBody,
-                                isDebit = transaction.isDebit
-                            )
-                        } catch (e: Exception) {
-                            Log.w("MessagesFragment", "Error converting transaction: ${e.message}")
-                            null
-                        }
-                    }.distinctBy { 
-                        // Remove duplicates based on merchant, amount, and date
-                        "${it.merchant}_${it.amount}_${it.dateTime}_${it.bankName}"
+                    if (shouldShowProgressively) {
+                        // Show first batch immediately
+                        val initialTransactions = dbTransactions.take(initialBatchSize)
+                        processAndDisplayTransactions(initialTransactions, isPartial = true)
+                        
+                        // Process remaining transactions in background
+                        val remainingTransactions = dbTransactions.drop(initialBatchSize)
+                        processRemainingTransactions(remainingTransactions)
+                    } else {
+                        // Small dataset, process all at once
+                        processAndDisplayTransactions(dbTransactions, isPartial = false)
                     }
-                    
-                    Log.d("MessagesFragment", "[DEBUG] Before filtering: ${messageItems.size} message items")
-                    
-                    // IMPORTANT: For debugging only - show what would be excluded
-                    // Note: Messages screen shows ALL transactions but Dashboard should apply filtering
-                    // This difference is intentional - Messages shows everything, Dashboard shows filtered results
-                    
-                    // Store for filtering/sorting
-                    allMessageItems = messageItems
-                    filteredMessageItems = messageItems
-                    
-                    // Apply initial sorting and filtering
-                    applyFiltersAndSort()
-                    binding.recyclerMessages.visibility = View.VISIBLE
-                    binding.layoutEmpty.visibility = View.GONE
-                    
-                    // Update stats with real data
-                    updateExpenseCalculations()
-                    
-                    Log.d("MessagesFragment", "[SUCCESS] Successfully loaded ${messageItems.size} unique transactions from database")
-                    
                 } else {
                     // No database data found - fallback to SMS scanning
                     Log.d("MessagesFragment", "[SMS] No database transactions found, falling back to SMS scanning...")
@@ -972,7 +927,7 @@ class MessagesFragment : Fragment() {
                 Log.w("MessagesFragment", "SMS permission denied", e)
                 Toast.makeText(
                     requireContext(),
-                    "📱 SMS permission is required to read transaction messages",
+                    "SMS permission is required to read transaction messages",
                     Toast.LENGTH_LONG
                 ).show()
                 showNoPermissionState()
@@ -987,7 +942,7 @@ class MessagesFragment : Fragment() {
                 
                 Toast.makeText(
                     requireContext(),
-                    "[WARNING] Error reading SMS: ${e.message ?: "Unknown error"}",
+                    "Error reading SMS: ${e.message ?: "Unknown error"}",
                     Toast.LENGTH_LONG
                 ).show()
             }
@@ -1036,7 +991,6 @@ class MessagesFragment : Fragment() {
                     // Update stats with real data
                     updateExpenseCalculations()
                     
-                    Log.d("MessagesFragment", "[SUCCESS] SMS Fallback: Loaded ${messageItems.size} unique transactions")
                 } else {
                     // FIXED: Show empty state instead of falling back to old approach
                     Log.d("MessagesFragment", "Database has no transactions, showing empty state")
@@ -1090,7 +1044,6 @@ class MessagesFragment : Fragment() {
         ) { selectedCategory ->
             // Remove emoji from selected category to get the actual name
             val actualCategory = selectedCategory.replace(Regex("^[\\p{So}\\p{Cn}]\\s+"), "")
-            Log.d("MessagesFragment", "[SUCCESS] Category selected: $actualCategory for ${messageItem.merchant}")
             if (actualCategory != messageItem.category) {
                 updateCategoryForMerchant(messageItem, actualCategory)
             }
@@ -1131,7 +1084,7 @@ class MessagesFragment : Fragment() {
                 
                 // Show feedback
                 MaterialAlertDialogBuilder(requireContext())
-                    .setTitle("Category Updated! [SUCCESS]")
+                    .setTitle("Category Updated!")
                     .setMessage("Updated category for ${messageItem.merchant} to '$newCategory'.")
                     .setPositiveButton("OK") { dialog, _ ->
                         dialog.dismiss()
@@ -1151,19 +1104,22 @@ class MessagesFragment : Fragment() {
     }
     
     private fun formatDate(date: java.util.Date): String {
-        val now = java.util.Date()
-        val diffInMs = now.time - date.time
-        val diffInDays = diffInMs / (1000 * 60 * 60 * 24)
-        val diffInHours = diffInMs / (1000 * 60 * 60)
-        
-        return when {
-            diffInHours < 1 -> "Just now"
-            diffInHours < 24 -> "$diffInHours hours ago"
-            diffInDays == 1L -> "Yesterday"
-            diffInDays < 7 -> "$diffInDays days ago"
-            else -> {
-                val formatter = java.text.SimpleDateFormat("MMM dd", java.util.Locale.getDefault())
-                formatter.format(date)
+        // PERFORMANCE: Cache formatted dates to avoid repeated calculations
+        return dateFormattingCache.getOrPut(date.time) {
+            val now = java.util.Date()
+            val diffInMs = now.time - date.time
+            val diffInDays = diffInMs / (1000 * 60 * 60 * 24)
+            val diffInHours = diffInMs / (1000 * 60 * 60)
+            
+            when {
+                diffInHours < 1 -> "Just now"
+                diffInHours < 24 -> "$diffInHours hours ago"
+                diffInDays == 1L -> "Yesterday"
+                diffInDays < 7 -> "$diffInDays days ago"
+                else -> {
+                    val formatter = java.text.SimpleDateFormat("MMM dd", java.util.Locale.getDefault())
+                    formatter.format(date)
+                }
             }
         }
     }
@@ -1188,21 +1144,23 @@ class MessagesFragment : Fragment() {
     }
     
     private fun getDateSortOrderReverse(dateTimeString: String): Long {
-        // Return a timestamp-like value for sorting (higher = newer)
-        return when {
-            dateTimeString.contains("Just now") -> System.currentTimeMillis()
-            dateTimeString.contains("hour") -> {
-                val hours = dateTimeString.split(" ")[0].toIntOrNull() ?: 0
-                System.currentTimeMillis() - (hours * 60 * 60 * 1000L)
-            }
-            dateTimeString.contains("Yesterday") -> System.currentTimeMillis() - (24 * 60 * 60 * 1000L)
-            dateTimeString.contains("days ago") -> {
-                val days = dateTimeString.split(" ")[0].toIntOrNull() ?: 0
-                System.currentTimeMillis() - (days * 24 * 60 * 60 * 1000L)
-            }
-            else -> {
-                // Handle absolute dates like "Aug 29", "Dec 15", "2024-08-29", etc.
-                parseAbsoluteDateToTimestamp(dateTimeString)
+        // PERFORMANCE: Use cache for date parsing to avoid repeated calculations
+        return dateParsingCache.getOrPut(dateTimeString) {
+            when {
+                dateTimeString.contains("Just now") -> System.currentTimeMillis()
+                dateTimeString.contains("hour") -> {
+                    val hours = dateTimeString.split(" ")[0].toIntOrNull() ?: 0
+                    System.currentTimeMillis() - (hours * 60 * 60 * 1000L)
+                }
+                dateTimeString.contains("Yesterday") -> System.currentTimeMillis() - (24 * 60 * 60 * 1000L)
+                dateTimeString.contains("days ago") -> {
+                    val days = dateTimeString.split(" ")[0].toIntOrNull() ?: 0
+                    System.currentTimeMillis() - (days * 24 * 60 * 60 * 1000L)
+                }
+                else -> {
+                    // Handle absolute dates like "Aug 29", "Dec 15", "2024-08-29", etc.
+                    parseAbsoluteDateToTimestamp(dateTimeString)
+                }
             }
         }
     }
@@ -1228,7 +1186,6 @@ class MessagesFragment : Fragment() {
                         if (calendar.get(java.util.Calendar.YEAR) == 1970) {
                             calendar.set(java.util.Calendar.YEAR, java.util.Calendar.getInstance().get(java.util.Calendar.YEAR))
                         }
-                        Log.d("MessagesFragment", "[DATE] Parsed absolute date '$dateString' to timestamp: ${calendar.timeInMillis}")
                         return calendar.timeInMillis
                     }
                 } catch (e: Exception) {
@@ -1237,49 +1194,49 @@ class MessagesFragment : Fragment() {
                 }
             }
             
-            Log.w("MessagesFragment", "[DATE] Could not parse absolute date: '$dateString', using default")
             // Fallback to a reasonable old timestamp instead of 0L
             return System.currentTimeMillis() - (365 * 24 * 60 * 60 * 1000L) // 1 year ago
             
         } catch (e: Exception) {
-            Log.w("MessagesFragment", "[DATE] Error parsing date '$dateString'", e)
             return System.currentTimeMillis() - (365 * 24 * 60 * 60 * 1000L) // 1 year ago
         }
     }
     
     private fun groupTransactionsByMerchant(transactions: List<MessageItem>): List<MerchantGroup> {
-        Log.d("MessagesFragment", "[DEBUG] Grouping ${transactions.size} transactions by merchant")
-        Log.d("MessagesFragment", "[DEBUG] Current sort option for grouping: ${currentSortOption.name}")
         
         // Group by the display name (which is already set from the alias manager)
         val groups = transactions
             .groupBy { it.merchant } // merchant field already contains the display name
             .map { (displayName, merchantTransactions) ->
-                // Sort transactions within each group by date (newest first) for consistent display
+                // PERFORMANCE: Calculate values in a single pass
+                var totalAmount = 0.0
+                var totalConfidence = 0
+                val bankCounts = mutableMapOf<String, Int>()
+                var latestTimestamp = 0L
+                
+                // Single pass calculation
+                for (transaction in merchantTransactions) {
+                    totalAmount += transaction.amount
+                    totalConfidence += transaction.confidence
+                    bankCounts[transaction.bankName] = bankCounts.getOrDefault(transaction.bankName, 0) + 1
+                    val timestamp = getDateSortOrderReverse(transaction.dateTime)
+                    if (timestamp > latestTimestamp) latestTimestamp = timestamp
+                }
+                
+                // Sort transactions only once
                 val sortedTransactions = merchantTransactions.sortedByDescending { transaction ->
                     getDateSortOrderReverse(transaction.dateTime)
                 }
-                val totalAmount = merchantTransactions.sumOf { it.amount }
+                
                 val category = merchantTransactions.firstOrNull()?.category ?: "Other"
                 val categoryColor = merchantTransactions.firstOrNull()?.categoryColor ?: "#9e9e9e"
-                
-                // Get the latest transaction timestamp for fallback sorting
-                val latestTransactionDate = sortedTransactions.firstOrNull()?.let { 
-                    getDateSortOrderReverse(it.dateTime) 
-                } ?: 0L
-                
-                // Get primary bank (most frequent bank for this merchant)
-                val primaryBankName = merchantTransactions
-                    .groupBy { it.bankName }
-                    .maxByOrNull { it.value.size }
-                    ?.key ?: ""
-                
-                // Calculate average confidence
+                val primaryBankName = bankCounts.maxByOrNull { it.value }?.key ?: ""
                 val averageConfidence = if (merchantTransactions.isNotEmpty()) {
-                    merchantTransactions.map { it.confidence }.average()
+                    totalConfidence.toDouble() / merchantTransactions.size
                 } else {
                     0.0
                 }
+                val latestTransactionDate = latestTimestamp
                 
                 MerchantGroup(
                     merchantName = displayName,
@@ -1340,11 +1297,9 @@ class MessagesFragment : Fragment() {
             }
         }
         
-        Log.d("MessagesFragment", "[DEBUG] Created ${sortedGroups.size} merchant groups, sorted by ${currentSortOption.field}")
         
         // Enhanced debug logging for group sorting results
         if (sortedGroups.isNotEmpty()) {
-            Log.d("MessagesFragment", "[DEBUG] Top 3 groups after sorting by ${currentSortOption.field}:")
             sortedGroups.take(3).forEach { group ->
                 when (currentSortOption.field) {
                     "amount" -> Log.d("MessagesFragment", "  - ${group.merchantName}: ₹${String.format("%.2f", group.totalAmount)} (${group.transactions.size} transactions)")
@@ -1505,7 +1460,6 @@ class MessagesFragment : Fragment() {
         ) { selectedCategory ->
             // Remove emoji from selected category to get the actual name
             val actualCategory = selectedCategory.replace(Regex("^[\\p{So}\\p{Cn}]\\s+"), "")
-            Log.d("MessagesFragment", "[SUCCESS] Category selected from long press: $actualCategory")
             onCategorySelected(actualCategory)
         }
         
@@ -1630,16 +1584,15 @@ class MessagesFragment : Fragment() {
     private fun updateMerchantGroup(group: MerchantGroup, newDisplayName: String, newCategory: String) {
         lifecycleScope.launch {
             try {
-                Log.d("MessagesFragment", "[PROCESS] Starting merchant group update: ${group.merchantName} -> $newDisplayName, category: ${group.category} -> $newCategory")
                 
                 // Enhanced validation
                 if (newDisplayName.trim().isEmpty()) {
-                    Toast.makeText(requireContext(), "⚠️ Please enter a display name", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), "Please enter a display name", Toast.LENGTH_SHORT).show()
                     return@launch
                 }
                 
                 if (newCategory.trim().isEmpty()) {
-                    Toast.makeText(requireContext(), "⚠️ Please select a category", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), "Please select a category", Toast.LENGTH_SHORT).show()
                     return@launch
                 }
                 
@@ -1647,7 +1600,6 @@ class MessagesFragment : Fragment() {
                 val originalMerchantNames = mutableSetOf<String>()
                 
                 // Enhanced original merchant name detection
-                Log.d("MessagesFragment", "[DEBUG] Finding original merchant names for group: ${group.merchantName}")
                 
                 // METHOD 1: Check if this group already has aliases
                 val existingOriginalNames = merchantAliasManager.getMerchantsByDisplayName(group.merchantName)
@@ -1655,9 +1607,7 @@ class MessagesFragment : Fragment() {
                 
                 if (existingOriginalNames.isNotEmpty()) {
                     originalMerchantNames.addAll(existingOriginalNames)
-                    Log.d("MessagesFragment", "[SUCCESS] Using existing alias mappings")
                 } else {
-                    Log.d("MessagesFragment", "[DEBUG] No existing aliases found, extracting from transactions...")
                     
                     // METHOD 2: Extract from raw SMS data in transactions
                     var extractedCount = 0
@@ -1666,7 +1616,7 @@ class MessagesFragment : Fragment() {
                         if (extractedName.isNotEmpty() && extractedName.length >= 3) { // Minimum length check
                             originalMerchantNames.add(extractedName)
                             extractedCount++
-                            Log.d("MessagesFragment", "📤 Extracted: $extractedName from SMS: ${transaction.rawSMS.take(50)}...")
+                            Log.d("MessagesFragment", "Extracted: $extractedName from SMS: ${transaction.rawSMS.take(50)}...")
                         }
                     }
                     
@@ -1675,12 +1625,11 @@ class MessagesFragment : Fragment() {
                     // METHOD 3: Fallback to current display name if no extraction worked
                     if (originalMerchantNames.isEmpty()) {
                         originalMerchantNames.add(group.merchantName)
-                        Log.w("MessagesFragment", "[WARNING] Fallback: Using current display name as original: ${group.merchantName}")
+                        Log.w("MessagesFragment", "Using display name as original: ${group.merchantName}")
                     }
                     
                     // METHOD 4: Try alternative extraction using transaction data
                     if (originalMerchantNames.size == 1 && originalMerchantNames.first() == group.merchantName) {
-                        Log.d("MessagesFragment", "[PROCESS] Attempting alternative merchant name extraction...")
                         group.transactions.forEach { transaction ->
                             // Try different patterns for merchant extraction
                             val alternativeNames = extractAlternativeMerchantNames(transaction.rawSMS)
@@ -1694,22 +1643,21 @@ class MessagesFragment : Fragment() {
                     }
                 }
                 
-                Log.d("MessagesFragment", "📝 Final original merchant names to update: $originalMerchantNames")
+                Log.d("MessagesFragment", "Final original merchant names to update: $originalMerchantNames")
                 
                 // Enhanced category validation and creation
                 val allCategories = categoryManager.getAllCategories()
-                Log.d("MessagesFragment", "📂 Available categories: $allCategories")
+                Log.d("MessagesFragment", "Available categories: $allCategories")
                 
                 if (!allCategories.contains(newCategory)) {
-                    Log.i("MessagesFragment", "➕ Creating new category: $newCategory")
+                    Log.i("MessagesFragment", "Creating new category: $newCategory")
                     try {
                         categoryManager.addCustomCategory(newCategory)
-                        Log.d("MessagesFragment", "[SUCCESS] Successfully added new category: $newCategory")
                     } catch (e: Exception) {
-                        Log.e("MessagesFragment", "[ERROR] Failed to add new category: $newCategory", e)
+                        Log.e("MessagesFragment", "Failed to add category: $newCategory", e)
                         Toast.makeText(
                             requireContext(),
-                            "⚠️ Unable to create category '$newCategory': ${e.message ?: "Please try again"}",
+                            "Unable to create category '$newCategory': ${e.message ?: "Please try again"}",
                             Toast.LENGTH_LONG
                         ).show()
                         return@launch
@@ -1717,7 +1665,7 @@ class MessagesFragment : Fragment() {
                 }
                 
                 // STEP 1: Update SharedPreferences (MerchantAliasManager)
-                Log.d("MessagesFragment", "📝 Step 1: Updating SharedPreferences aliases...")
+                Log.d("MessagesFragment", "Step 1: Updating SharedPreferences aliases...")
                 var aliasUpdateSuccess = true
                 var aliasUpdateError: String? = null
                 
@@ -1726,25 +1674,23 @@ class MessagesFragment : Fragment() {
                 
                 try {
                     originalMerchantNames.forEachIndexed { index, originalName ->
-                        Log.d("MessagesFragment", "📝 Setting alias ${index + 1}/${originalMerchantNames.size}: $originalName -> $newDisplayName ($newCategory)")
+                        Log.d("MessagesFragment", "Setting alias ${index + 1}/${originalMerchantNames.size}: $originalName -> $newDisplayName ($newCategory)")
                         
                         val aliasSetSuccess = merchantAliasManager.setMerchantAlias(originalName, newDisplayName, newCategory)
                         
                         if (aliasSetSuccess) {
                             aliasSetCount++
-                            Log.d("MessagesFragment", "[SUCCESS] Successfully set alias for: $originalName")
                             
                             // Verify the alias was set correctly
                             val verifyDisplayName = merchantAliasManager.getDisplayName(originalName)
                             val verifyCategory = merchantAliasManager.getMerchantCategory(originalName)
-                            Log.d("MessagesFragment", "[DEBUG] Verification: $originalName -> display: $verifyDisplayName, category: $verifyCategory")
                             
                             if (verifyDisplayName != newDisplayName || verifyCategory != newCategory) {
-                                Log.w("MessagesFragment", "[WARNING] Alias verification failed for $originalName: expected $newDisplayName/$newCategory, got $verifyDisplayName/$verifyCategory")
+                                Log.w("MessagesFragment", "Alias verification failed for $originalName")
                             }
                         } else {
                             aliasFailCount++
-                            Log.e("MessagesFragment", "[ERROR] Failed to set alias for: $originalName")
+                            Log.e("MessagesFragment", "Failed to set alias: $originalName")
                         }
                     }
                     
@@ -1752,15 +1698,14 @@ class MessagesFragment : Fragment() {
                     
                     // Consider successful if majority of aliases were set
                     if (aliasSetCount > 0 && aliasSetCount >= aliasFailCount) {
-                        Log.d("MessagesFragment", "[SUCCESS] SharedPreferences update completed successfully")
                     } else {
-                        Log.e("MessagesFragment", "[ERROR] SharedPreferences update failed - too many individual failures")
+                        Log.e("MessagesFragment", "SharedPreferences update failed")
                         aliasUpdateSuccess = false
                         aliasUpdateError = "$aliasFailCount out of ${originalMerchantNames.size} aliases failed to set"
                     }
                     
                 } catch (e: Exception) {
-                    Log.e("MessagesFragment", "[ERROR] SharedPreferences update failed", e)
+                    Log.e("MessagesFragment", "SharedPreferences update failed", e)
                     aliasUpdateSuccess = false
                     aliasUpdateError = e.message
                 }
@@ -1782,7 +1727,6 @@ class MessagesFragment : Fragment() {
                         )
                         
                         if (databaseUpdateSuccess) {
-                            Log.d("MessagesFragment", "[SUCCESS] Database update completed successfully")
                             
                             // Verify database changes
                             originalMerchantNames.take(3).forEach { originalName ->
@@ -1790,29 +1734,27 @@ class MessagesFragment : Fragment() {
                                     // Use MerchantAliasManager's normalizeMerchantName since repository's is private
                                     val normalizedName = merchantAliasManager.normalizeMerchantName(originalName)
                                     val merchantWithCategory = repository.getMerchantWithCategory(normalizedName)
-                                    Log.d("MessagesFragment", "[DEBUG] DB Verification: $originalName -> ${merchantWithCategory?.display_name} (${merchantWithCategory?.category_name})")
                                 } catch (e: Exception) {
                                     Log.w("MessagesFragment", "Could not verify database changes for $originalName", e)
                                 }
                             }
                         } else {
-                            Log.e("MessagesFragment", "[ERROR] Database update failed (returned false)")
+                            Log.e("MessagesFragment", "Database update failed")
                             databaseUpdateError = "Database update returned false"
                         }
                     } catch (e: Exception) {
-                        Log.e("MessagesFragment", "[ERROR] Database update failed with exception", e)
+                        Log.e("MessagesFragment", "Database update failed", e)
                         databaseUpdateSuccess = false
                         databaseUpdateError = e.message
                     }
                 } else {
-                    Log.w("MessagesFragment", "[SKIP] Skipping database update due to SharedPreferences failure")
+                    Log.w("MessagesFragment", "Skipping database update due to SharedPreferences failure")
                     databaseUpdateError = "SharedPreferences update failed first"
                 }
                 
                 // STEP 3: Enhanced result handling and user feedback
                 when {
                     aliasUpdateSuccess && databaseUpdateSuccess -> {
-                        Log.d("MessagesFragment", "[SUCCESS] COMPLETE SUCCESS: Both SharedPreferences and Database updated")
                         
                         // Reload data to reflect changes
                         loadHistoricalTransactions()
@@ -1826,7 +1768,7 @@ class MessagesFragment : Fragment() {
                         
                         Toast.makeText(
                             requireContext(),
-                            "[SUCCESS] Successfully updated '${group.merchantName}' to '$newDisplayName' in category '$newCategory'",
+                            "Successfully updated '${group.merchantName}' to '$newDisplayName' in category '$newCategory'"  ,
                             Toast.LENGTH_LONG
                         ).show()
                         
@@ -1840,36 +1782,36 @@ class MessagesFragment : Fragment() {
                     }
                     
                     aliasUpdateSuccess && !databaseUpdateSuccess -> {
-                        Log.w("MessagesFragment", "[WARNING] PARTIAL SUCCESS: SharedPreferences updated but database failed")
+                        Log.w("MessagesFragment", "SharedPreferences updated but database failed")
                         
                         // Still reload data to show UI changes
                         loadHistoricalTransactions()
                         
                         Toast.makeText(
                             requireContext(),
-                            "[WARNING] Changes saved to app memory but database update failed. Changes may not persist after app restart.\n\nError: ${databaseUpdateError ?: "Unknown database error"}",
+                            "Changes saved to app memory but database update failed. Changes may not persist after app restart.\n\nError: ${databaseUpdateError ?: "Unknown database error"}",
                             Toast.LENGTH_LONG
                         ).show()
                     }
                     
                     !aliasUpdateSuccess -> {
-                        Log.e("MessagesFragment", "[ERROR] COMPLETE FAILURE: SharedPreferences update failed")
+                        Log.e("MessagesFragment", "SharedPreferences update failed")
                         
                         Toast.makeText(
                             requireContext(),
-                            "⚠️ Unable to save changes to app memory.\n\nError: ${aliasUpdateError ?: "Unknown error"}\n\nPlease try again or restart the app.",
+                            "Unable to save changes to app memory.\n\nError: ${aliasUpdateError ?: "Unknown error"}\n\nPlease try again or restart the app.",
                             Toast.LENGTH_LONG
                         ).show()
                     }
                 }
                 
-                Log.d("MessagesFragment", "🏁 Merchant group update process completed - Success: Alias=$aliasUpdateSuccess, DB=$databaseUpdateSuccess")
+                Log.d("MessagesFragment", "Merchant group update process completed - Success: Alias=$aliasUpdateSuccess, DB=$databaseUpdateSuccess")
                 
             } catch (e: Exception) {
-                Log.e("MessagesFragment", "💥 Critical error during merchant group update", e)
+                Log.e("MessagesFragment", "Critical error during merchant group update", e)
                 Toast.makeText(
                     requireContext(),
-                    "💥 Critical error updating group: ${e.message ?: "Unknown error"}\n\nPlease restart the app and try again.",
+                    "Critical error updating group: ${e.message ?: "Unknown error"}\n\nPlease restart the app and try again.",
                     Toast.LENGTH_LONG
                 ).show()
             }
@@ -1905,7 +1847,7 @@ class MessagesFragment : Fragment() {
             }
         }
         
-        Log.d("MessagesFragment", "[ERROR] No merchant extracted from SMS: ${rawSMS.take(100)}...")
+        Log.d("MessagesFragment", "No merchant extracted from SMS: ${rawSMS.take(100)}...")
         return ""
     }
     
@@ -1998,7 +1940,7 @@ class MessagesFragment : Fragment() {
                 
                 Toast.makeText(
                     requireContext(),
-                    "[SUCCESS] Reset group to original names and categories",
+                    "Reset group to original names and categories",
                     Toast.LENGTH_LONG
                 ).show()
                 
@@ -2006,11 +1948,21 @@ class MessagesFragment : Fragment() {
                 Log.e("MessagesFragment", "Error resetting merchant group", e)
                 Toast.makeText(
                     requireContext(),
-                    "⚠️ Unable to reset group: ${e.message ?: "Please try again"}",
+                    "Unable to reset group: ${e.message ?: "Please try again"}",
                     Toast.LENGTH_SHORT
                 ).show()
             }
         }
+    }
+    
+    private fun hasActiveFilters(): Boolean {
+        return currentFilterOptions.minAmount != null ||
+               currentFilterOptions.maxAmount != null ||
+               currentFilterOptions.selectedBanks.isNotEmpty() ||
+               currentFilterOptions.minConfidence > 0 ||
+               currentFilterOptions.dateFrom != null ||
+               currentFilterOptions.dateTo != null ||
+               currentSearchQuery.isNotBlank()
     }
     
     private fun navigateToTransactionDetails(messageItem: MessageItem) {
@@ -2028,6 +1980,100 @@ class MessagesFragment : Fragment() {
             R.id.action_navigation_messages_to_transaction_details,
             bundle
         )
+    }
+    
+    private fun showLoadingState() {
+        binding.recyclerMessages.visibility = View.GONE
+        binding.layoutEmpty.visibility = View.VISIBLE
+        // You could also show a progress bar here if available
+    }
+    
+    private suspend fun processAndDisplayTransactions(transactions: List<com.expensemanager.app.data.entities.TransactionEntity>, isPartial: Boolean) {
+        val messageItems = convertTransactionsToMessageItems(transactions)
+        
+        withContext(Dispatchers.Main) {
+            // Store for filtering/sorting
+            if (isPartial) {
+                allMessageItems = messageItems // Will be updated later with full dataset
+                filteredMessageItems = messageItems
+            } else {
+                allMessageItems = messageItems
+                filteredMessageItems = messageItems
+            }
+            
+            // Apply initial sorting and filtering
+            applyFiltersAndSort()
+            binding.recyclerMessages.visibility = View.VISIBLE
+            binding.layoutEmpty.visibility = View.GONE
+            
+            // Update stats with current data
+            updateExpenseCalculations()
+        }
+    }
+    
+    private suspend fun processRemainingTransactions(remainingTransactions: List<com.expensemanager.app.data.entities.TransactionEntity>) {
+        if (remainingTransactions.isEmpty()) return
+        
+        // Process remaining transactions in chunks to avoid blocking
+        val chunkSize = 20
+        val chunks = remainingTransactions.chunked(chunkSize)
+        
+        for (chunk in chunks) {
+            val chunkMessageItems = convertTransactionsToMessageItems(chunk)
+            
+            withContext(Dispatchers.Main) {
+                // Append to existing data
+                allMessageItems = allMessageItems + chunkMessageItems
+                filteredMessageItems = allMessageItems // Will be re-filtered
+                
+                // Update display with growing dataset
+                applyFiltersAndSort()
+                updateExpenseCalculations()
+            }
+            
+            // Small delay to allow UI updates
+            kotlinx.coroutines.delay(50)
+        }
+    }
+    
+    private suspend fun convertTransactionsToMessageItems(transactions: List<com.expensemanager.app.data.entities.TransactionEntity>): List<MessageItem> {
+        // PERFORMANCE: Pre-load all merchant data in batch (existing optimization)
+        val uniqueRawMerchants = transactions.map { it.rawMerchant }.distinct()
+        
+        val merchantCategoryMap = mutableMapOf<String, Triple<String, String, String>>()
+        
+        // Batch load alias data
+        uniqueRawMerchants.forEach { rawMerchant ->
+            val displayName = merchantAliasManager.getDisplayName(rawMerchant)
+            val category = merchantAliasManager.getMerchantCategory(rawMerchant)
+            val categoryColor = merchantAliasManager.getMerchantCategoryColor(rawMerchant)
+            merchantCategoryMap[rawMerchant] = Triple(displayName, category, categoryColor)
+        }
+        
+        // Convert to MessageItem format with cached data
+        return transactions.mapNotNull { transaction ->
+            try {
+                val (displayName, aliasCategory, aliasCategoryColor) = merchantCategoryMap[transaction.rawMerchant]
+                    ?: Triple(transaction.rawMerchant, "Other", "#888888")
+                
+                MessageItem(
+                    amount = transaction.amount,
+                    merchant = displayName,
+                    bankName = transaction.bankName,
+                    category = aliasCategory,
+                    categoryColor = aliasCategoryColor,
+                    confidence = (transaction.confidenceScore * 100).toInt(),
+                    dateTime = formatDate(transaction.transactionDate),
+                    rawSMS = transaction.rawSmsBody,
+                    isDebit = transaction.isDebit
+                )
+            } catch (e: Exception) {
+                Log.w("MessagesFragment", "Error converting transaction: ${e.message}")
+                null
+            }
+        }.distinctBy { 
+            "${it.merchant}_${it.amount}_${it.dateTime}_${it.bankName}"
+        }
     }
     
     /**
@@ -2109,7 +2155,7 @@ class MessagesFragment : Fragment() {
         } else {
             requireContext().registerReceiver(newTransactionReceiver, intentFilter)
         }
-        Log.d("MessagesFragment", "📡 Registered broadcast receiver for new transactions")
+        Log.d("MessagesFragment", "Registered broadcast receiver for new transactions")
         
         // Refresh UI when user returns (in case they granted permissions in settings)
         checkPermissionsAndSetupUI()
@@ -2121,7 +2167,7 @@ class MessagesFragment : Fragment() {
         // Unregister broadcast receiver to prevent memory leaks
         try {
             requireContext().unregisterReceiver(newTransactionReceiver)
-            Log.d("MessagesFragment", "📡 Unregistered broadcast receiver for new transactions")
+            Log.d("MessagesFragment", "Unregistered broadcast receiver for new transactions")
         } catch (e: Exception) {
             // Receiver may not have been registered, ignore
             Log.w("MessagesFragment", "Broadcast receiver was not registered, ignoring unregister", e)

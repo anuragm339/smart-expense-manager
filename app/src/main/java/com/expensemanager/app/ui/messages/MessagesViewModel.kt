@@ -827,7 +827,6 @@ class MessagesViewModel @Inject constructor(
                         if (calendar.get(java.util.Calendar.YEAR) == 1970) {
                             calendar.set(java.util.Calendar.YEAR, java.util.Calendar.getInstance().get(java.util.Calendar.YEAR))
                         }
-                        Log.d(TAG, "[DATE] Parsed absolute date '$dateString' to timestamp: ${calendar.timeInMillis}")
                         return calendar.timeInMillis
                     }
                 } catch (e: Exception) {
@@ -836,12 +835,10 @@ class MessagesViewModel @Inject constructor(
                 }
             }
             
-            Log.w(TAG, "[DATE] Could not parse absolute date: '$dateString', using default")
             // Fallback to a reasonable old timestamp instead of 0L
             return System.currentTimeMillis() - (365 * 24 * 60 * 60 * 1000L) // 1 year ago
             
         } catch (e: Exception) {
-            Log.w(TAG, "[DATE] Error parsing date '$dateString'", e)
             return System.currentTimeMillis() - (365 * 24 * 60 * 60 * 1000L) // 1 year ago
         }
     }

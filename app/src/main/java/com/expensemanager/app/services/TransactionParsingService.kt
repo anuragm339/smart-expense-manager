@@ -164,7 +164,6 @@ class TransactionParsingService @Inject constructor(
                             val transaction = parseTransaction(sms)
                             if (transaction != null) {
                                 transactions.add(transaction)
-                                logger.debug("[PARSE] Valid transaction: ${transaction.merchant} - ₹${transaction.amount}")
                             }
                         }
                         

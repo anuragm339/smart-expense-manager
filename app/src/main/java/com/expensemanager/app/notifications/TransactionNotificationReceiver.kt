@@ -110,7 +110,7 @@ class TransactionNotificationReceiver : BroadcastReceiver() {
                         
                         // Show toast on main thread
                         CoroutineScope(Dispatchers.Main).launch {
-                            Toast.makeText(context, "✅ $merchant categorized as $category", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, " $merchant categorized as $category", Toast.LENGTH_SHORT).show()
                         }
                     } else {
                         Log.e(TAG, "Failed to create or find category: $category")

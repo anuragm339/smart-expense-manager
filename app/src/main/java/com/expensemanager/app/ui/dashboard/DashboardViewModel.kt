@@ -79,7 +79,6 @@ class DashboardViewModel @Inject constructor(
         
         result.fold(
             onSuccess = { dashboardData ->
-                Log.d(TAG, "📊 [DASHBOARD] ${dashboardData.transactionCount} transactions loaded, ₹${dashboardData.totalSpent} total")
                 
                 if (dashboardData.transactionCount == 0 && retryCount < maxRetries) {
                     // Database might be empty due to ongoing migration/SMS import, retry after delay
@@ -91,17 +90,12 @@ class DashboardViewModel @Inject constructor(
                         else -> 10000L // 10 seconds - final attempt
                     }
                     
-                    Log.w(TAG, "📊 [RETRY ${retryCount + 1}/${maxRetries + 1}] Dashboard empty, retrying in ${delayMillis/1000}s...")
                     
                     delay(delayMillis)
                     loadDashboardDataWithRetry(retryCount + 1, maxRetries)
                 } else {
                     // Either we have data or we've exhausted retries
-                    if (dashboardData.transactionCount > 0) {
-                        Log.d(TAG, "✅ Dashboard loaded: ${dashboardData.transactionCount} transactions")
-                    } else {
-                        Log.w(TAG, "📊 Dashboard empty after ${maxRetries + 1} attempts - check SMS permissions & transaction history")
-                    }
+                    // Dashboard data loaded or retries exhausted
                     handleDashboardResult(result, isInitialLoad = true)
                 }
             },

@@ -80,9 +80,9 @@ class AppLogger @Inject constructor(
                         // Step 1: Check if Logback classes are available
                         try {
                             val loggerContextClass = LoggerContext::class.java
-                            Log.d(TAG, "✅ Logback classes available: ${loggerContextClass.name}")
+                            Log.d(TAG, "Logback classes available: ${loggerContextClass.name}")
                         } catch (e: Exception) {
-                            Log.e(TAG, "❌ Logback classes not found", e)
+                            Log.e(TAG, "Logback classes not found", e)
                             throw e
                         }
                         
@@ -98,9 +98,9 @@ class AppLogger @Inject constructor(
                             val inputStream = context.assets.open("logback.xml")
                             val content = inputStream.bufferedReader().readText()
                             inputStream.close()
-                            Log.d(TAG, "✅ logback.xml found in assets (${content.length} chars)")
+                            Log.d(TAG, "logback.xml found in assets (${content.length} chars)")
                         } catch (e: Exception) {
-                            Log.e(TAG, "❌ logback.xml not accessible in assets", e)
+                            Log.e(TAG, "logback.xml not accessible in assets", e)
                             throw e
                         }
                         
@@ -116,21 +116,20 @@ class AppLogger @Inject constructor(
                             val inputStream = context.assets.open("logback.xml")
                             configurator.doConfigure(inputStream)
                             inputStream.close()
-                            Log.d(TAG, "✅ Logback configured from assets/logback.xml")
+                            Log.d(TAG, "Logback configured from assets/logback.xml")
                         } catch (e: Exception) {
-                            Log.e(TAG, "❌ Failed to configure Logback from assets", e)
+                            Log.e(TAG, "Failed to configure Logback from assets", e)
                             throw e
                         }
                         
-                        // Step 7: Print configuration status for debugging
-                        StatusPrinter.print(loggerContext)
+                        // Step 7: Configuration complete
                         
                         initialized = true
-                        Log.d(TAG, "✅ Logback initialized successfully")
+                        Log.d(TAG, "Logback initialized successfully")
                         
                         // Step 8: Test that logging is working
                         rootLogger.info("Enhanced logging system initialized - Logback is active")
-                        Log.d(TAG, "✅ Test log message sent to Logback")
+                        Log.d(TAG, "Test log message sent to Logback")
                         
                         // Step 9: Test file appender functionality
                         testFileAppenders()
@@ -140,7 +139,7 @@ class AppLogger @Inject constructor(
                         
                     } catch (e: Exception) {
                         // Fallback to system logging if Logback fails
-                        Log.e(TAG, "❌ Failed to initialize Logback, falling back to Timber", e)
+                        Log.e(TAG, "Failed to initialize Logback, falling back to Timber", e)
                         initialized = false
                     }
                 }
@@ -536,10 +535,10 @@ class AppLogger @Inject constructor(
             testLogger.warn("FILE APPENDER TEST: Warning message to file appenders")
             testLogger.error("FILE APPENDER TEST: Error message to file appenders")
             
-            Log.d(TAG, "✅ File appender test messages sent")
+            Log.d(TAG, "File appender test messages sent")
             
         } catch (e: Exception) {
-            Log.e(TAG, "❌ File appender test failed", e)
+            Log.e(TAG, "File appender test failed", e)
         }
     }
     
@@ -578,7 +577,7 @@ class AppLogger @Inject constructor(
                         Log.d(TAG, "  - File size: ${file.length()} bytes")
                         
                         if (parentDir != null && !parentDir.exists()) {
-                            Log.w(TAG, "  ⚠️ Parent directory does not exist for ${appender.name}")
+                            Log.w(TAG, "  WARNING: Parent directory does not exist for ${appender.name}")
                             // Try to create it
                             val created = parentDir.mkdirs()
                             Log.d(TAG, "  - Attempted to create parent directory: $created")
@@ -587,10 +586,10 @@ class AppLogger @Inject constructor(
                 }
             }
             
-            Log.d(TAG, "✅ Found $fileAppenderCount file appenders")
+            Log.d(TAG, "Found $fileAppenderCount file appenders")
             
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Failed to verify file appender status", e)
+            Log.e(TAG, "Failed to verify file appender status", e)
         }
     }
 }

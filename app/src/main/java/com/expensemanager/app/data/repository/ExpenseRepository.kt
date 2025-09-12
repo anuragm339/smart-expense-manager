@@ -143,9 +143,7 @@ class ExpenseRepository @Inject constructor(
     override suspend fun getTotalSpent(startDate: Date, endDate: Date): Double {
         // FIXED: Use expense-specific transactions (debit only) instead of all transactions
         val expenseTransactions = getExpenseTransactionsByDateRange(startDate, endDate)
-        logger.debug("🔍 [getTotalSpent] Before filtering: ${expenseTransactions.size} debit transactions")
         val filteredTransactions = filterTransactionsByExclusions(expenseTransactions)
-        logger.debug("🔍 [getTotalSpent] After filtering: ${filteredTransactions.size} debit transactions (${expenseTransactions.size - filteredTransactions.size} excluded)")
         return filteredTransactions.sumOf { it.amount }
     }
     
@@ -187,9 +185,7 @@ class ExpenseRepository @Inject constructor(
         // Debug: Check all credit transactions first
         val allCredits = transactionDao.getTransactionsByDateRange(Date(0), Date())
             .filter { !it.isDebit }
-        logger.debug("💰 [SALARY DEBUG] Found ${allCredits.size} credit transactions:")
         allCredits.take(5).forEach { credit ->
-            logger.debug("💰 [SALARY DEBUG] Credit: ₹${credit.amount} from '${credit.rawMerchant}' - SMS: '${credit.rawSmsBody.take(100)}...'")
         }
         
         // Get the most recent salary transaction (could be from any month)
@@ -198,7 +194,6 @@ class ExpenseRepository @Inject constructor(
         // Fallback: If no explicit salary found, try to use the largest credit transaction as potential salary
         if (lastSalary == null && allCredits.isNotEmpty()) {
             lastSalary = allCredits.maxByOrNull { it.amount }
-            logger.debug("💰 [SALARY DEBUG] No explicit salary found, using largest credit: ₹${lastSalary?.amount} from '${lastSalary?.rawMerchant}'")
         }
         
         // Get current month's expenses (debits only)
@@ -208,7 +203,6 @@ class ExpenseRepository @Inject constructor(
         val salaryAmount = lastSalary?.amount ?: 0.0
         val remainingBalance = salaryAmount - currentMonthExpenses
         
-        logger.info("💰 [MONTHLY BALANCE] Last Salary: ₹${salaryAmount}, Month Expenses: ₹${currentMonthExpenses}, Remaining: ₹${remainingBalance}")
         
         return MonthlyBalanceInfo(
             lastSalaryAmount = salaryAmount,
@@ -222,9 +216,7 @@ class ExpenseRepository @Inject constructor(
     override suspend fun getTransactionCount(startDate: Date, endDate: Date): Int {
         // FIXED: Use expense-specific transactions (debit only) instead of all transactions
         val expenseTransactions = getExpenseTransactionsByDateRange(startDate, endDate)
-        logger.debug("🔍 [getTransactionCount] Before filtering: ${expenseTransactions.size} debit transactions")
         val filteredTransactions = filterTransactionsByExclusions(expenseTransactions)
-        logger.debug("🔍 [getTransactionCount] After filtering: ${filteredTransactions.size} debit transactions (${expenseTransactions.size - filteredTransactions.size} excluded)")
         return filteredTransactions.size
     }
     
@@ -481,7 +473,6 @@ class ExpenseRepository @Inject constructor(
     
     override suspend fun syncNewSMS(): Int = withContext(Dispatchers.IO) {
         try {
-            logger.debug("🔍 [UNIFIED] Starting SMS sync using unified SMSParsingService...")
             
             val syncState = syncStateDao.getSyncState()
             val lastSyncTimestamp = syncState?.lastSmsSyncTimestamp ?: Date(0)
@@ -492,15 +483,12 @@ class ExpenseRepository @Inject constructor(
             
             // UNIFIED: Use SMSParsingService instead of duplicate parsing logic
             val allTransactions = smsParsingService.scanHistoricalSMS { current, total, status ->
-                logger.debug("[UNIFIED PROGRESS] $status ($current/$total)")
             }
-            logger.info("📊 [UNIFIED] SMS scanning completed: ${allTransactions.size} valid transactions extracted from SMS")
             
             val newTransactions = allTransactions.filter { 
                 it.date.after(lastSyncTimestamp) 
             }
             
-            logger.info("📊 [UNIFIED] SMS validation completed: ${newTransactions.size} new transactions to sync (filtered from ${allTransactions.size} total)")
             
             var insertedCount = 0
             var duplicateCount = 0
@@ -544,14 +532,8 @@ class ExpenseRepository @Inject constructor(
                 )
             }
             
-            logger.info("📊 [UNIFIED] Database storage completed: $insertedCount transactions inserted into Room database")
-            logger.info("📊 [UNIFIED FINAL STATS] Complete SMS-to-Database pipeline summary:")
-            logger.info("  - 📱 SMS messages scanned: ${allTransactions.size}")
-            logger.info("  - ✅ Valid bank transactions found: ${newTransactions.size}")
-            logger.info("  - 💾 New transactions stored in database: $insertedCount")
-            logger.info("  - 🔄 Duplicates skipped: $duplicateCount")
-            logger.debug("  - 🏪 Distinct merchants found: ${distinctMerchants.size}")
-            logger.debug("  - 📋 Merchants: ${distinctMerchants.joinToString(", ")}")
+            logger.debug("  - Distinct merchants found: ${distinctMerchants.size}")
+            logger.debug("  - Merchants: ${distinctMerchants.joinToString(", ")}")
             insertedCount
             
         } catch (e: Exception) {
@@ -617,9 +599,9 @@ class ExpenseRepository @Inject constructor(
         
         // DEBUG: Get expense transactions BEFORE filtering 
         val expenseTransactionsBeforeFilter = getExpenseTransactionsByDateRange(startDate, endDate)
-        logger.debug("🔍 [DEBUG] Raw debit transactions (before filtering): ${expenseTransactionsBeforeFilter.size}")
+        logger.debug("[DEBUG] Raw debit transactions (before filtering): ${expenseTransactionsBeforeFilter.size}")
         expenseTransactionsBeforeFilter.take(3).forEach { transaction ->
-            logger.debug("🔍 [DEBUG] Debit example: ${transaction.rawMerchant} - ₹${transaction.amount} - isDebit: ${transaction.isDebit}")
+            logger.debug("[DEBUG] Debit example: ${transaction.rawMerchant} - ₹${transaction.amount} - isDebit: ${transaction.isDebit}")
         }
         
         // Get expense-specific data (debits only)
@@ -631,28 +613,21 @@ class ExpenseRepository @Inject constructor(
         val totalCredits = getTotalCredits(startDate, endDate)
         val actualBalance = getActualBalance(startDate, endDate)
         
-        logger.debug("📊 [DASHBOARD] Raw SMS data: $rawTransactionCount total ($rawDebitCount debits, $rawCreditCount credits)")
-        logger.debug("📊 [DASHBOARD] Dashboard display: $transactionCount expense transactions, ₹$totalSpent total spent")
-        logger.debug("💰 [BALANCE] Credits: ₹$totalCredits, Debits: ₹$totalSpent, Balance: ₹$actualBalance")
-        logger.debug("🔍 [DEBUG] Debit transactions: ${expenseTransactionsBeforeFilter.size} -> filtered to: $transactionCount (${expenseTransactionsBeforeFilter.size - transactionCount} excluded)")
         
         if (rawDebitCount > 0 && transactionCount == 0) {
-            logger.warn("⚠️ All $rawDebitCount debit transactions were filtered out - check exclusion settings")
+            logger.warn("All $rawDebitCount debit transactions were filtered out - check exclusion settings")
             
             // DEBUG: Show examples of excluded transactions
             expenseTransactionsBeforeFilter.take(3).forEach { transaction ->
-                logger.warn("⚠️ [EXCLUDED EXAMPLE] ${transaction.rawMerchant} (normalized: ${transaction.normalizedMerchant}) - ₹${transaction.amount}")
             }
             
             // DEBUG: Get exclusion states
             if (transactionFilterService != null) {
                 val exclusionDebugInfo = transactionFilterService.getExclusionStatesDebugInfo()
-                logger.warn("⚠️ [EXCLUSION INFO] $exclusionDebugInfo")
             }
         }
         
         if (rawCreditCount > 0) {
-            logger.info("💰 [CREDIT INFO] Found $rawCreditCount credit transactions totaling ₹$totalCredits")
         }
         
         // FIXED: Request more merchants to ensure consistent display after exclusion filtering
@@ -1018,7 +993,7 @@ class ExpenseRepository @Inject constructor(
     
     override suspend fun cleanupDuplicateTransactions(): Int = withContext(Dispatchers.IO) {
         try {
-            logger.debug("🧹 Starting enhanced database cleanup for duplicate transactions...")
+            logger.debug("Starting enhanced database cleanup for duplicate transactions...")
             
             // Get all transactions grouped by potential duplicate key
             val allTransactions = transactionDao.getAllTransactionsSync()
@@ -1064,7 +1039,7 @@ class ExpenseRepository @Inject constructor(
     
     override suspend fun removeObviousTestData(): Int = withContext(Dispatchers.IO) {
         try {
-            logger.debug("🧹 Starting cleanup of obvious test data...")
+            logger.debug("Starting cleanup of obvious test data...")
             
             val testMerchants = listOf(
                 "test", "example", "demo", "sample", "dummy",

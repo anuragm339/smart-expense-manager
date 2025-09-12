@@ -103,9 +103,9 @@ class DataMigrationHelper @Inject constructor(
             
             // Log final results
             Log.d(TAG, "[STATS] Migration completed:")
-            Log.d(TAG, "  ✅ Migrated: $migratedCount transactions")
-            Log.d(TAG, "  ⏭️ Duplicates skipped: $duplicateCount")
-            Log.d(TAG, "  ❌ Errors: ${migrationErrors.size}")
+            Log.d(TAG, "  Migrated: $migratedCount transactions")
+            Log.d(TAG, "  Duplicates skipped: $duplicateCount")
+            Log.d(TAG, "  Errors: ${migrationErrors.size}")
             
             if (migrationErrors.isNotEmpty()) {
                 Log.w(TAG, "[ERRORS] Migration errors encountered:")

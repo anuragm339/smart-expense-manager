@@ -81,9 +81,7 @@ class GetTransactionsUseCase @Inject constructor(
      */
     suspend fun searchTransactions(query: String, limit: Int = 50): Result<List<TransactionEntity>> {
         return try {
-            Log.d(TAG, "Searching transactions with query: $query, limit: $limit")
             val transactions = repository.searchTransactions(query, limit)
-            Log.d(TAG, "Found ${transactions.size} transactions matching query")
             Result.success(transactions)
         } catch (e: Exception) {
             Log.e(TAG, "Error searching transactions", e)

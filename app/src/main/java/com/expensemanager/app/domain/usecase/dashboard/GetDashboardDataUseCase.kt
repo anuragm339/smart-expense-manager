@@ -26,7 +26,7 @@ class GetDashboardDataUseCase @Inject constructor(
         return try {
             val dashboardData = repository.getDashboardData(startDate, endDate)
             
-            Log.d(TAG, "📊 [USECASE] Dashboard: ${dashboardData.transactionCount} transactions, ₹${dashboardData.totalSpent}")
+            Log.d(TAG, " [USECASE] Dashboard: ${dashboardData.transactionCount} transactions, ₹${dashboardData.totalSpent}")
             
             Result.success(dashboardData)
             

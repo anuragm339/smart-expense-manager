@@ -25,7 +25,7 @@ fun testProblematicSMSSamples() {
     println("=== TESTING PROBLEMATIC SMS (Should be REJECTED) ===")
     problematicSamples.forEach { (sender, sms) ->
         val result = tester.testSMSParsing(sms, sender)
-        val status = if (result.isValidTransaction) "❌ INCORRECTLY ACCEPTED" else "✅ CORRECTLY REJECTED"
+        val status = if (result.isValidTransaction) "INCORRECTLY ACCEPTED" else "CORRECTLY REJECTED"
         println("$status: $sender - ${sms.take(40)}...")
         if (result.isValidTransaction) {
             println("  Issues: ${result.failureReasons.joinToString(", ")}")
@@ -36,7 +36,7 @@ fun testProblematicSMSSamples() {
     println("=== TESTING VALID SMS (Should be ACCEPTED) ===")
     validSamples.forEach { (sender, sms) ->
         val result = tester.testSMSParsing(sms, sender)
-        val status = if (result.isValidTransaction) "✅ CORRECTLY ACCEPTED" else "❌ INCORRECTLY REJECTED"
+        val status = if (result.isValidTransaction) "CORRECTLY ACCEPTED" else "INCORRECTLY REJECTED"
         println("$status: $sender - ${sms.take(40)}...")
         if (!result.isValidTransaction) {
             println("  Issues: ${result.failureReasons.joinToString(", ")}")

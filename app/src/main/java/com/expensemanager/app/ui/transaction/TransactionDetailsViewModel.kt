@@ -182,7 +182,7 @@ class TransactionDetailsViewModel @Inject constructor(
         
         viewModelScope.launch {
             try {
-                Log.d(TAG, "📝 Step 1: Updating SharedPreferences alias...")
+                Log.d(TAG, "Step 1: Updating SharedPreferences alias...")
                 
                 // STEP 1: Update SharedPreferences (MerchantAliasManager)
                 var aliasUpdateSuccess = true
@@ -269,7 +269,7 @@ class TransactionDetailsViewModel @Inject constructor(
                 }
                 
             } catch (e: Exception) {
-                Log.e(TAG, "💥 Critical error during category update", e)
+                Log.e(TAG, "Critical error during category update", e)
                 handleTransactionError(e)
             }
         }
@@ -287,7 +287,7 @@ class TransactionDetailsViewModel @Inject constructor(
         
         viewModelScope.launch {
             try {
-                Log.d(TAG, "📝 Step 1: Updating SharedPreferences alias...")
+                Log.d(TAG, "Step 1: Updating SharedPreferences alias...")
                 
                 // STEP 1: Update SharedPreferences (MerchantAliasManager)
                 var aliasUpdateSuccess = true
@@ -376,7 +376,7 @@ class TransactionDetailsViewModel @Inject constructor(
                 }
                 
             } catch (e: Exception) {
-                Log.e(TAG, "💥 Critical error during merchant update", e)
+                Log.e(TAG, "Critical error during merchant update", e)
                 handleTransactionError(e)
             }
         }

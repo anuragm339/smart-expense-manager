@@ -55,7 +55,7 @@ class CategoryTransactionsFragment : Fragment() {
             if (intent?.action == "com.expensemanager.NEW_TRANSACTION_ADDED") {
                 val merchant = intent.getStringExtra("merchant") ?: "Unknown"
                 val amount = intent.getDoubleExtra("amount", 0.0)
-                android.util.Log.d("CategoryTransactions", "📡 Received new transaction broadcast: $merchant - ₹${String.format("%.0f", amount)}")
+                android.util.Log.d("CategoryTransactions", "Received new transaction broadcast: $merchant - ₹${String.format("%.0f", amount)}")
                 
                 // Refresh category transactions data on the main thread using ViewModel
                 lifecycleScope.launch {
@@ -245,7 +245,7 @@ class CategoryTransactionsFragment : Fragment() {
                     } else null
                 }
                 
-                android.util.Log.d("CategoryTransactions", "🏷️ Filtered to ${categoryTransactions.size} transactions for $categoryName")
+                android.util.Log.d("CategoryTransactions", "Filtered to ${categoryTransactions.size} transactions for $categoryName")
                 
                 // Store all transactions for filtering/sorting
                 allTransactions.clear()
@@ -303,7 +303,7 @@ class CategoryTransactionsFragment : Fragment() {
                         "${getCategoryEmoji(category)} $category"
                     }.toTypedArray()
                     
-                    android.util.Log.d("CategoryDialog", "✨ Enhanced categories: ${enhancedCategories.joinToString(", ")}")
+                    android.util.Log.d("CategoryDialog", "Enhanced categories: ${enhancedCategories.joinToString(", ")}")
                     
                     // Use custom DialogFragment for guaranteed visibility
                     android.util.Log.d("CategoryDialog", "[TARGET] Creating custom DialogFragment...")
@@ -501,7 +501,7 @@ class CategoryTransactionsFragment : Fragment() {
                 val newFilterOption = options[which]
                 viewModel.handleEvent(CategoryTransactionsUIEvent.ChangeFilterOption(newFilterOption))
                 dialog.dismiss()
-                android.util.Log.d("CategoryTransactions", "🔽 Applied filter: $newFilterOption")
+                android.util.Log.d("CategoryTransactions", "Applied filter: $newFilterOption")
             }
             .setNegativeButton("Cancel") { dialog, _ -> dialog.dismiss() }
             .show()
@@ -598,7 +598,7 @@ class CategoryTransactionsFragment : Fragment() {
         } else {
             requireContext().registerReceiver(newTransactionReceiver, intentFilter)
         }
-        android.util.Log.d("CategoryTransactions", "📡 Registered broadcast receiver for new transactions")
+        android.util.Log.d("CategoryTransactions", "Registered broadcast receiver for new transactions")
     }
     
     override fun onPause() {
@@ -607,7 +607,7 @@ class CategoryTransactionsFragment : Fragment() {
         // Unregister broadcast receiver to prevent memory leaks
         try {
             requireContext().unregisterReceiver(newTransactionReceiver)
-            android.util.Log.d("CategoryTransactions", "📡 Unregistered broadcast receiver for new transactions")
+            android.util.Log.d("CategoryTransactions", "Unregistered broadcast receiver for new transactions")
         } catch (e: Exception) {
             // Receiver may not have been registered, ignore
             android.util.Log.w("CategoryTransactions", "Broadcast receiver was not registered, ignoring unregister", e)
