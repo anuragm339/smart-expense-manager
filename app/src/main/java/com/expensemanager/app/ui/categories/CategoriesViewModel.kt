@@ -102,6 +102,12 @@ class CategoriesViewModel @Inject constructor(
     private fun refreshCategories() {
         Log.d(TAG, "Refreshing categories...")
         
+        // Clear display provider cache to ensure fresh emoji data
+        if (categoryDisplayProvider is DefaultCategoryDisplayProvider) {
+            categoryDisplayProvider.clearCache()
+            Log.d(TAG, "Cleared CategoryDisplayProvider cache")
+        }
+        
         _uiState.value = _uiState.value.copy(
             isRefreshing = true,
             hasError = false,
@@ -333,6 +339,12 @@ class CategoriesViewModel @Inject constructor(
                 refreshCategories()
                 
                 Log.d(TAG, "Category renamed from '$oldName' to '$newName' successfully across all locations")
+                
+                // DEBUG: Log that the display provider fix has been applied
+                Log.d(TAG, "=== DISPLAY PROVIDER FIX APPLIED ===")
+                Log.d(TAG, "getCategoryEmoji now uses CategoryDisplayProvider (database-aware)")
+                Log.d(TAG, "refreshCategories now clears display cache")
+                Log.d(TAG, "Expected: UI should show updated emojis immediately")
                 
                 // COMPREHENSIVE DEBUG: Print all categories from both sources
                 printAllCategoriesFromBothSources()
@@ -579,19 +591,11 @@ class CategoriesViewModel @Inject constructor(
     }
     
     /**
-     * Get emoji for category
+     * Get emoji for category using CategoryDisplayProvider
+     * This ensures database-aware emoji lookup with proper fallbacks
      */
     private fun getCategoryEmoji(category: String): String {
-        return when (category.lowercase()) {
-            "food & dining", "food", "dining" -> "🍽️"
-            "transportation", "transport" -> "🚗"
-            "groceries", "grocery" -> "🛒"
-            "healthcare", "health" -> "🏥"
-            "entertainment" -> "🎬"
-            "shopping" -> "🛍️"
-            "utilities" -> "⚡"
-            else -> "📂"
-        }
+        return categoryDisplayProvider.getEmojiString(category)
     }
     
     /**

@@ -18,6 +18,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import dagger.hilt.android.AndroidEntryPoint
 import com.expensemanager.app.R
 import com.expensemanager.app.databinding.FragmentCategoriesBinding
+import com.expensemanager.app.constants.Categories
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
@@ -86,8 +87,8 @@ class CategoriesFragment : Fragment() {
                     bundle
                 )
             },
-            onCategoryLongClick = { categoryItem ->
-                showCategoryActionDialog(categoryItem)
+            onCategoryLongClick = { categoryItem, view ->
+                showCategoryActionDialog(categoryItem, view)
             }
         )
         binding.recyclerCategories.apply {
@@ -573,39 +574,26 @@ class CategoriesFragment : Fragment() {
         return transactions
     }
     
-    private fun showCategoryActionDialog(categoryItem: CategoryItem) {
+    private fun showCategoryActionDialog(categoryItem: CategoryItem, anchorView: android.view.View) {
         Log.d("CategoriesFragment", "Long press detected for category: ${categoryItem.name}")
         
-        try {
-            // Create a simple popup menu instead of AlertDialog for better visibility
-            val popupMenu = android.widget.PopupMenu(
+        // Check if this is a system/predefined category
+        if (Categories.isSystemCategory(categoryItem.name)) {
+            Log.d("CategoriesFragment", "Category '${categoryItem.name}' is a system category - actions not allowed")
+            Log.d("CategoriesFragment", "System categories: ${Categories.DEFAULT_CATEGORIES}")
+            Toast.makeText(
                 requireContext(),
-                binding.recyclerCategories.findViewHolderForLayoutPosition(0)?.itemView
-                    ?: binding.recyclerCategories
-            )
-            
-            popupMenu.menuInflater.inflate(R.menu.category_actions_menu, popupMenu.menu)
-            
-            popupMenu.setOnMenuItemClickListener { menuItem ->
-                Log.d("CategoriesFragment", "PopupMenu item clicked: ${menuItem.title}")
-                when (menuItem.itemId) {
-                    R.id.action_rename -> {
-                        Log.d("CategoriesFragment", "Rename action selected")
-                        showRenameCategoryDialog(categoryItem)
-                        true
-                    }
-                    R.id.action_delete -> {
-                        Log.d("CategoriesFragment", "Delete action selected")
-                        showDeleteCategoryDialog(categoryItem)
-                        true
-                    }
-                    else -> false
-                }
-            }
-            
-            Log.d("CategoriesFragment", "Showing popup menu...")
-            popupMenu.show()
-            Log.d("CategoriesFragment", "Popup menu shown successfully")
+                "Cannot modify system category '${categoryItem.name}'",
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        } else {
+            Log.d("CategoriesFragment", "Category '${categoryItem.name}' is a custom category - allowing actions")
+        }
+        
+        try {
+            // Use BottomSheetDialog for better UX and proper positioning
+            showCategoryActionBottomSheet(categoryItem)
             
         } catch (e: Exception) {
             Log.e("CategoriesFragment", "PopupMenu failed, trying fallback dialog", e)
@@ -649,6 +637,38 @@ class CategoriesFragment : Fragment() {
                 ).show()
             }
         }
+    }
+    
+    /**
+     * Show a modern BottomSheetDialog for category actions
+     */
+    private fun showCategoryActionBottomSheet(categoryItem: CategoryItem) {
+        val bottomSheetDialog = com.google.android.material.bottomsheet.BottomSheetDialog(requireContext())
+        val view = LayoutInflater.from(requireContext()).inflate(R.layout.bottom_sheet_category_actions, null)
+        
+        // Set up category info
+        view.findViewById<android.widget.TextView>(R.id.tv_category_name)?.text = categoryItem.name
+        view.findViewById<android.widget.TextView>(R.id.tv_category_emoji)?.text = categoryItem.emoji
+        
+        // Set up action buttons
+        view.findViewById<MaterialButton>(R.id.btn_rename)?.setOnClickListener {
+            bottomSheetDialog.dismiss()
+            showRenameCategoryDialog(categoryItem)
+        }
+        
+        view.findViewById<MaterialButton>(R.id.btn_delete)?.setOnClickListener {
+            bottomSheetDialog.dismiss()
+            showDeleteCategoryDialog(categoryItem)
+        }
+        
+        view.findViewById<MaterialButton>(R.id.btn_cancel)?.setOnClickListener {
+            bottomSheetDialog.dismiss()
+        }
+        
+        bottomSheetDialog.setContentView(view)
+        bottomSheetDialog.show()
+        
+        Log.d("CategoriesFragment", "BottomSheet dialog shown for category: ${categoryItem.name}")
     }
     
     private fun showRenameCategoryDialog(categoryItem: CategoryItem) {
