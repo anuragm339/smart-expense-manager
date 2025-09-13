@@ -82,7 +82,8 @@ data class MessageItem(
     val confidence: Int,
     val dateTime: String,
     val rawSMS: String,
-    val isDebit: Boolean = true
+    val isDebit: Boolean = true,
+    val rawMerchant: String = merchant // Original merchant name before alias processing
 )
 
 /**

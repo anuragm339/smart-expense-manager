@@ -96,6 +96,9 @@ interface MerchantDao {
 
     @Query("SELECT COUNT(*) FROM merchants WHERE normalized_name = :normalizedName")
     suspend fun merchantExists(normalizedName: String): Int
+    
+    @Query("UPDATE merchants SET category_id = :newCategoryId WHERE category_id = :oldCategoryId")
+    suspend fun updateMerchantsByCategory(oldCategoryId: Long, newCategoryId: Long): Int
 }
 
 // Data classes for query results

@@ -2,7 +2,10 @@ package com.expensemanager.app.di
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.expensemanager.app.data.repository.ExpenseRepository
 import com.expensemanager.app.services.SMSParsingService
+import com.expensemanager.app.ui.categories.CategoryDisplayProvider
+import com.expensemanager.app.ui.categories.DefaultCategoryDisplayProvider
 import com.expensemanager.app.utils.AppLogger
 import com.expensemanager.app.utils.MerchantAliasManager
 import dagger.Module
@@ -107,5 +110,18 @@ object AppModule {
         @ApplicationContext context: Context
     ): MerchantAliasManager {
         return MerchantAliasManager(context)
+    }
+    
+    /**
+     * Provides category display provider for flexible category visualization
+     * Used for managing category icons, emojis, and display formatting
+     */
+    @Provides
+    @Singleton
+    fun provideCategoryDisplayProvider(
+        @ApplicationContext context: Context,
+        repository: ExpenseRepository
+    ): CategoryDisplayProvider {
+        return DefaultCategoryDisplayProvider(context, repository)
     }
 }

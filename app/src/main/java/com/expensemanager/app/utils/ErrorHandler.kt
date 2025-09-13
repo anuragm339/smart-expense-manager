@@ -2,131 +2,121 @@ package com.expensemanager.app.utils
 
 import android.content.Context
 import com.expensemanager.app.R
-import com.expensemanager.app.data.exceptions.*
-import retrofit2.HttpException
-import timber.log.Timber
-import java.io.IOException
+import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
- * Centralized error handling utility for production-ready error management
+ * Centralized error handling utility that converts technical exceptions
+ * into user-friendly error messages
  */
-object ErrorHandler {
-
+@Singleton
+class ErrorHandler @Inject constructor() {
+    
     /**
-     * Convert exceptions to user-friendly messages
+     * Convert an exception into a user-friendly error message
      */
     fun getErrorMessage(context: Context, throwable: Throwable): String {
         return when (throwable) {
-            is AppException -> getAppExceptionMessage(context, throwable)
-            is HttpException -> getHttpExceptionMessage(context, throwable)
-            is IOException -> getIOExceptionMessage(context, throwable)
-            else -> context.getString(R.string.error_generic)
+            is ConnectException, is UnknownHostException -> {
+                "Network connection error. Please check your internet connection."
+            }
+            is SocketTimeoutException -> {
+                "Connection timeout. Please try again."
+            }
+            is SecurityException -> {
+                if (throwable.message?.contains("permission", ignoreCase = true) == true) {
+                    "Permission required. Please grant the necessary permissions in settings."
+                } else {
+                    "Security error occurred. Please try again."
+                }
+            }
+            is IllegalArgumentException -> {
+                "Invalid data provided. Please check your input."
+            }
+            is android.database.sqlite.SQLiteException -> {
+                "Database error occurred. Please restart the app."
+            }
+            else -> {
+                // Check for specific patterns in the error message
+                val message = throwable.message?.lowercase() ?: ""
+                when {
+                    message.contains("network") || message.contains("connection") -> {
+                        "Network connection error. Please check your internet connection."
+                    }
+                    message.contains("permission") -> {
+                        "Permission required. Please grant the necessary permissions in settings."
+                    }
+                    message.contains("database") || message.contains("sql") -> {
+                        "Database error occurred. Please restart the app."
+                    }
+                    message.contains("timeout") -> {
+                        "Operation timed out. Please try again."
+                    }
+                    message.contains("not found") -> {
+                        "Requested data not found."
+                    }
+                    message.contains("duplicate") -> {
+                        "Duplicate data detected."
+                    }
+                    else -> {
+                        "Something went wrong. Please try again."
+                    }
+                }
+            }
         }
     }
-
+    
     /**
-     * Log error appropriately based on type and severity
+     * Get error message with retry option
      */
-    fun logError(throwable: Throwable, context: String = "Unknown") {
-        when (throwable) {
-            is NetworkException.NoInternetConnection -> Timber.i("No internet connection in $context")
-            is NetworkException.Timeout -> Timber.w("Request timeout in $context")
-            is NetworkException -> Timber.e(throwable, "Network error in $context")
-            is DatabaseException -> Timber.e(throwable, "Database error in $context")
-            is ValidationException -> Timber.d("Validation error in $context: ${throwable.message}")
-            is AIException.ServiceUnavailable -> Timber.w("AI service unavailable in $context")
-            is AIException -> Timber.e(throwable, "AI service error in $context")
-            is SMSException.PermissionDenied -> Timber.w("SMS permission denied in $context")
-            is SMSException -> Timber.d("SMS parsing error in $context: ${throwable.message}")
-            else -> Timber.e(throwable, "Unexpected error in $context")
+    fun getErrorMessageWithRetry(context: Context, throwable: Throwable): Pair<String, Boolean> {
+        val message = getErrorMessage(context, throwable)
+        val canRetry = when (throwable) {
+            is ConnectException, is SocketTimeoutException, is UnknownHostException -> true
+            is android.database.sqlite.SQLiteException -> false // Database errors usually need app restart
+            is SecurityException -> false // Permission errors need user action
+            else -> true // Most other errors can be retried
         }
+        return Pair(message, canRetry)
     }
-
+    
     /**
-     * Determine if error is recoverable
+     * Get detailed error information for debugging
      */
-    fun isRecoverable(throwable: Throwable): Boolean {
+    fun getDetailedErrorInfo(throwable: Throwable): ErrorInfo {
+        return ErrorInfo(
+            type = throwable::class.simpleName ?: "Unknown",
+            message = throwable.message ?: "No message",
+            stackTrace = throwable.stackTrace.take(5).joinToString("\n") { 
+                "  at ${it.className}.${it.methodName}(${it.fileName}:${it.lineNumber})"
+            },
+            cause = throwable.cause?.let { "Caused by: ${it::class.simpleName}: ${it.message}" }
+        )
+    }
+    
+    /**
+     * Check if error is recoverable
+     */
+    fun isRecoverableError(throwable: Throwable): Boolean {
         return when (throwable) {
-            is NetworkException.NoInternetConnection -> true
-            is NetworkException.Timeout -> true
-            is NetworkException.ServerError -> throwable.message?.contains("5") == true // 5xx errors
-            is AIException.ServiceUnavailable -> true
-            is AIException.QuotaExceeded -> false
-            is DatabaseException.CorruptionError -> false
-            is ValidationException -> true
-            else -> false
-        }
-    }
-
-    /**
-     * Convert HTTP exceptions to app exceptions
-     */
-    fun mapHttpException(httpException: HttpException): NetworkException {
-        return when (httpException.code()) {
-            400 -> NetworkException.BadRequest(httpException.message())
-            401 -> NetworkException.Unauthorized()
-            404 -> NetworkException.NotFound()
-            in 500..599 -> NetworkException.ServerError(httpException.code(), httpException.message())
-            else -> NetworkException.Unknown(httpException.message(), httpException)
-        }
-    }
-
-    /**
-     * Convert IO exceptions to app exceptions
-     */
-    fun mapIOException(ioException: IOException): NetworkException {
-        return when (ioException) {
-            is UnknownHostException -> NetworkException.NoInternetConnection()
-            is SocketTimeoutException -> NetworkException.Timeout()
-            else -> NetworkException.Unknown(ioException.message ?: "Network error", ioException)
-        }
-    }
-
-    private fun getAppExceptionMessage(context: Context, exception: AppException): String {
-        return when (exception) {
-            is NetworkException.NoInternetConnection -> 
-                context.getString(R.string.error_no_internet)
-            is NetworkException.Timeout -> 
-                context.getString(R.string.error_timeout)
-            is NetworkException.ServerError -> 
-                context.getString(R.string.error_server)
-            is NetworkException.Unauthorized -> 
-                context.getString(R.string.error_unauthorized)
-            is DatabaseException.ReadError -> 
-                context.getString(R.string.error_database_read)
-            is DatabaseException.WriteError -> 
-                context.getString(R.string.error_database_write)
-            is DatabaseException.CorruptionError -> 
-                context.getString(R.string.error_database_corruption)
-            is ValidationException.InvalidAmount -> 
-                context.getString(R.string.error_invalid_amount)
-            is ValidationException.InvalidMerchant -> 
-                context.getString(R.string.error_invalid_merchant)
-            is AIException.ServiceUnavailable -> 
-                context.getString(R.string.error_ai_service_unavailable)
-            is SMSException.PermissionDenied -> 
-                context.getString(R.string.error_sms_permission)
-            else -> exception.message ?: context.getString(R.string.error_generic)
-        }
-    }
-
-    private fun getHttpExceptionMessage(context: Context, exception: HttpException): String {
-        return when (exception.code()) {
-            400 -> context.getString(R.string.error_bad_request)
-            401 -> context.getString(R.string.error_unauthorized)
-            404 -> context.getString(R.string.error_not_found)
-            in 500..599 -> context.getString(R.string.error_server)
-            else -> context.getString(R.string.error_network)
-        }
-    }
-
-    private fun getIOExceptionMessage(context: Context, exception: IOException): String {
-        return when (exception) {
-            is UnknownHostException -> context.getString(R.string.error_no_internet)
-            is SocketTimeoutException -> context.getString(R.string.error_timeout)
-            else -> context.getString(R.string.error_network)
+            is ConnectException, is SocketTimeoutException, is UnknownHostException -> true
+            is SecurityException -> false
+            is OutOfMemoryError -> false
+            is android.database.sqlite.SQLiteDatabaseCorruptException -> false
+            else -> true
         }
     }
 }
+
+/**
+ * Data class containing detailed error information
+ */
+data class ErrorInfo(
+    val type: String,
+    val message: String,
+    val stackTrace: String,
+    val cause: String?
+)

@@ -9,7 +9,8 @@ import androidx.recyclerview.widget.RecyclerView
 import com.expensemanager.app.databinding.ItemCategoryBinding
 
 class CategoriesAdapter(
-    private val onCategoryClick: (CategoryItem) -> Unit = {}
+    private val onCategoryClick: (CategoryItem) -> Unit = {},
+    private val onCategoryLongClick: (CategoryItem) -> Unit = {}
 ) : ListAdapter<CategoryItem, CategoriesAdapter.CategoryViewHolder>(CategoryDiffCallback()) {
     
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): CategoryViewHolder {
@@ -22,14 +23,14 @@ class CategoriesAdapter(
     }
     
     override fun onBindViewHolder(holder: CategoryViewHolder, position: Int) {
-        holder.bind(getItem(position), onCategoryClick)
+        holder.bind(getItem(position), onCategoryClick, onCategoryLongClick)
     }
     
     class CategoryViewHolder(
         private val binding: ItemCategoryBinding
     ) : RecyclerView.ViewHolder(binding.root) {
         
-        fun bind(item: CategoryItem, onCategoryClick: (CategoryItem) -> Unit) {
+        fun bind(item: CategoryItem, onCategoryClick: (CategoryItem) -> Unit, onCategoryLongClick: (CategoryItem) -> Unit) {
             with(binding) {
                 tvCategoryName.text = item.name
                 tvCategoryEmoji.text = item.emoji
@@ -51,6 +52,12 @@ class CategoriesAdapter(
                 // Set click listener for category item
                 root.setOnClickListener {
                     onCategoryClick(item)
+                }
+                
+                // Set long click listener for delete/rename actions
+                root.setOnLongClickListener {
+                    onCategoryLongClick(item)
+                    true
                 }
             }
         }

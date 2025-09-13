@@ -6,6 +6,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.expensemanager.app.data.repository.ExpenseRepository
+import com.expensemanager.app.ui.categories.CategoryDisplayProvider
 import com.expensemanager.app.ui.messages.MessageItem
 import com.expensemanager.app.utils.CategoryManager
 import com.expensemanager.app.utils.MerchantAliasManager
@@ -24,7 +25,8 @@ import javax.inject.Inject
 @HiltViewModel
 class CategoryTransactionsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val repository: ExpenseRepository
+    private val repository: ExpenseRepository,
+    private val categoryDisplayProvider: CategoryDisplayProvider
 ) : ViewModel() {
     
     companion object {
@@ -60,6 +62,7 @@ class CategoryTransactionsViewModel @Inject constructor(
             is CategoryTransactionsUIEvent.UpdateTransactionCategory -> updateTransactionCategory(event.messageItem, event.newCategory)
             is CategoryTransactionsUIEvent.ShowCategoryEditDialog -> showCategoryEditDialog(event.messageItem)
             is CategoryTransactionsUIEvent.ClearError -> clearError()
+            is CategoryTransactionsUIEvent.ClearSuccess -> clearSuccess()
         }
     }
     
@@ -174,32 +177,82 @@ class CategoryTransactionsViewModel @Inject constructor(
     
     /**
      * Update transaction category
+     * @param messageItem The transaction item to update
+     * @param newCategory The new category name (should be plain name without emojis)
      */
     private fun updateTransactionCategory(messageItem: MessageItem, newCategory: String) {
-        Log.d(TAG, "Updating merchant ${messageItem.merchant} from ${messageItem.category} to $newCategory")
+        // newCategory is now expected to be a plain category name (no emoji extraction needed)
+        val plainCategoryName = newCategory.trim()
         
-        _uiState.value = _uiState.value.copy(isUpdatingCategory = true)
+        Log.d(TAG, "Updating merchant ${messageItem.merchant} (raw: ${messageItem.rawMerchant}) from ${messageItem.category} to $plainCategoryName")
+        
+        _uiState.value = _uiState.value.copy(
+            isUpdatingCategory = true,
+            hasError = false,
+            error = null,
+            successMessage = null
+        )
         
         viewModelScope.launch {
             try {
-                // Use the same normalization as MerchantAliasManager and DataMigrationHelper
-                val normalizedMerchant = messageItem.merchant.uppercase()
+                // CRITICAL FIX: Use the exact same normalization as used when storing merchants
+                // This should match the normalization used in DataMigrationHelper, AddTransactionUseCase, etc.
+                val normalizedMerchant = messageItem.rawMerchant.uppercase()
                     .replace(Regex("[*#@\\-_]+.*"), "") // Remove suffixes after special chars
                     .replace(Regex("\\s+"), " ") // Normalize spaces
                     .trim()
                 
-                // Find the merchant in database
-                val merchant = repository.getMerchantByNormalizedName(normalizedMerchant)
+                Log.d(TAG, "MERCHANT_UPDATE: rawMerchant='${messageItem.rawMerchant}' -> normalizedMerchant='$normalizedMerchant'")
+                
+                // Try to find the merchant in database
+                var merchant = repository.getMerchantByNormalizedName(normalizedMerchant)
+                
+                // FALLBACK: If merchant not found, try alternative normalization strategies
+                if (merchant == null) {
+                    Log.w(TAG, "Merchant not found with normalization '$normalizedMerchant', trying alternatives...")
+                    
+                    // Try without removing suffixes
+                    val alternativeNormalized1 = messageItem.rawMerchant.uppercase()
+                        .replace(Regex("\\s+"), " ")
+                        .trim()
+                    merchant = repository.getMerchantByNormalizedName(alternativeNormalized1)
+                    Log.d(TAG, "Alternative 1: '$alternativeNormalized1' -> ${if (merchant != null) "FOUND" else "NOT FOUND"}")
+                    
+                    if (merchant == null) {
+                        // Try using the display name as-is
+                        val alternativeNormalized2 = messageItem.merchant.uppercase()
+                            .replace(Regex("\\s+"), " ")
+                            .trim()
+                        merchant = repository.getMerchantByNormalizedName(alternativeNormalized2)
+                        Log.d(TAG, "Alternative 2: '$alternativeNormalized2' -> ${if (merchant != null) "FOUND" else "NOT FOUND"}")
+                    }
+                    
+                    if (merchant == null) {
+                        // Try exact raw merchant as stored
+                        merchant = repository.getMerchantByNormalizedName(messageItem.rawMerchant)
+                        Log.d(TAG, "Alternative 3: '${messageItem.rawMerchant}' -> ${if (merchant != null) "FOUND" else "NOT FOUND"}")
+                    }
+                }
+                
                 if (merchant != null) {
-                    // Get or create the new category
-                    var newCategoryEntity = repository.getCategoryByName(newCategory)
+                    Log.d(TAG, "MERCHANT_FOUND: id=${merchant.id}, normalizedName='${merchant.normalizedName}', displayName='${merchant.displayName}'")
+                    
+                    // Get or create the new category using plain category name (without emoji)
+                    var newCategoryEntity = repository.getCategoryByName(plainCategoryName)
                     if (newCategoryEntity == null) {
                         // Category doesn't exist in database, create it
-                        Log.d(TAG, "Creating new category: $newCategory")
+                        Log.d(TAG, "Creating new category: $plainCategoryName")
+                        
+                        // Use display provider to get appropriate emoji for this category
+                        val categoryIcon = categoryDisplayProvider.getDisplayIcon(plainCategoryName)
+                        val emoji = when (categoryIcon) {
+                            is com.expensemanager.app.ui.categories.CategoryIcon.Emoji -> categoryIcon.emoji
+                            else -> "📂" // Default fallback
+                        }
                         
                         val categoryToCreate = com.expensemanager.app.data.entities.CategoryEntity(
-                            name = newCategory,
-                            emoji = getCategoryEmoji(newCategory),
+                            name = plainCategoryName,
+                            emoji = emoji,
                             color = getRandomCategoryColor(),
                             isSystem = false,
                             displayOrder = 100,
@@ -208,55 +261,80 @@ class CategoryTransactionsViewModel @Inject constructor(
                         
                         val categoryId = repository.insertCategory(categoryToCreate)
                         newCategoryEntity = repository.getCategoryById(categoryId)
+                        Log.d(TAG, "Created category with ID: $categoryId")
                     }
                     
                     if (newCategoryEntity != null) {
-                        // Update merchant's category
+                        Log.d(TAG, "TARGET_CATEGORY: id=${newCategoryEntity.id}, name='${newCategoryEntity.name}'")
+                        
+                        // Update merchant's category in database
                         val updatedMerchant = merchant.copy(categoryId = newCategoryEntity.id)
                         repository.updateMerchant(updatedMerchant)
+                        Log.d(TAG, "Updated merchant category in database: ${merchant.id} -> categoryId=${newCategoryEntity.id}")
                         
                         // FIXED: Update MerchantAliasManager to ensure consistent behavior across all screens
-                        val currentDisplayName = merchantAliasManager.getDisplayName(messageItem.merchant)
+                        val currentDisplayName = merchantAliasManager.getDisplayName(messageItem.rawMerchant)
                         val aliasUpdateSuccess = merchantAliasManager.setMerchantAlias(
-                            originalName = messageItem.merchant,
+                            originalName = messageItem.rawMerchant,
                             displayName = currentDisplayName, // Keep current display name
-                            category = newCategory // But update the category
+                            category = plainCategoryName // Use plain category name (without emoji) for database consistency
                         )
                         
                         if (!aliasUpdateSuccess) {
-                            Log.w(TAG, "Failed to update merchant alias: ${messageItem.merchant}")
+                            Log.w(TAG, "Failed to update merchant alias for: ${messageItem.rawMerchant}")
+                        } else {
+                            Log.d(TAG, "Updated MerchantAliasManager for: ${messageItem.rawMerchant}")
                         }
                         
                         // Update CategoryManager for backwards compatibility
-                        categoryManager.updateCategory(messageItem.merchant, newCategory)
+                        categoryManager.updateCategory(messageItem.rawMerchant, plainCategoryName)
+                        Log.d(TAG, "Updated CategoryManager for: ${messageItem.rawMerchant}")
                         
                         // FIXED: Send broadcast to notify Dashboard and other screens about category change
                         val intent = Intent("com.expensemanager.CATEGORY_UPDATED").apply {
                             putExtra("merchant", messageItem.merchant)
-                            putExtra("category", newCategory)
+                            putExtra("rawMerchant", messageItem.rawMerchant)
+                            putExtra("category", plainCategoryName) // Use plain category name for broadcast consistency
                         }
                         context.sendBroadcast(intent)
-                        Log.d(TAG, "Category updated: ${messageItem.merchant} -> $newCategory")
+                        Log.d(TAG, "BROADCAST_SENT: Category updated ${messageItem.merchant} -> $plainCategoryName")
                         
-                        _uiState.value = _uiState.value.copy(isUpdatingCategory = false)
+                        // Show success message
+                        _uiState.value = _uiState.value.copy(
+                            isUpdatingCategory = false,
+                            successMessage = "Successfully moved ${messageItem.merchant} to $plainCategoryName",
+                            hasError = false,
+                            error = null
+                        )
                         
                         // Refresh data if merchant moved to different category or update current list
                         val currentCategoryName = _uiState.value.categoryName
-                        if (newCategory != currentCategoryName) {
-                            // Merchant moved to different category, refresh list
+                        if (plainCategoryName != currentCategoryName) {
+                            // Merchant moved to different category, refresh list to remove it
+                            Log.d(TAG, "Merchant moved from '$currentCategoryName' to '$plainCategoryName', refreshing list")
                             refreshTransactions()
                         } else {
-                            // Update the item in the current list
-                            updateTransactionInList(messageItem, newCategory)
+                            // Update the item in the current list (use plain category name)
+                            Log.d(TAG, "Merchant stayed in same category '$currentCategoryName', updating list item")
+                            updateTransactionInList(messageItem, plainCategoryName)
                         }
                         
+                    } else {
+                        throw Exception("Failed to create or retrieve category: $plainCategoryName")
                     }
                 } else {
-                    throw Exception("Merchant '$normalizedMerchant' not found in database")
+                    // Log available merchants for debugging
+                    try {
+                        Log.e(TAG, "MERCHANT_NOT_FOUND: Tried normalizations: '$normalizedMerchant', '${messageItem.rawMerchant}', '${messageItem.merchant}'")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error logging merchant details", e)
+                    }
+                    throw Exception("Merchant not found in database. Tried normalizations: '$normalizedMerchant', '${messageItem.rawMerchant}', '${messageItem.merchant}'")
                 }
                 
             } catch (e: Exception) {
-                Log.e(TAG, "Error updating transaction category", e)
+                Log.e(TAG, "Error updating transaction category for merchant '${messageItem.rawMerchant}'", e)
+                _uiState.value = _uiState.value.copy(isUpdatingCategory = false)
                 handleTransactionError(e)
             }
         }
@@ -271,17 +349,36 @@ class CategoryTransactionsViewModel @Inject constructor(
     }
     
     /**
-     * Get all available categories
+     * Get all available categories as plain names (no emojis)
+     * Always fetches fresh data from database to include newly created categories
      */
     fun getAllCategories(): List<String> {
         return try {
-            // Use runBlocking temporarily for synchronous access
+            // Always fetch fresh data from database to include newly created categories
             kotlinx.coroutines.runBlocking {
                 val dbCategories = repository.getAllCategoriesSync()
+                Log.d(TAG, "=== LOADING CATEGORIES FOR DROPDOWN ===")
+                Log.d(TAG, "Loading categories from database: ${dbCategories.size} categories found")
+                
+                // Debug: Log each category individually
+                dbCategories.forEachIndexed { index, category ->
+                    Log.d(TAG, "Category $index: id=${category.id}, name='${category.name}', emoji='${category.emoji}'")
+                }
+                
                 if (dbCategories.isNotEmpty()) {
-                    dbCategories.map { it.name }
+                    // Return plain category names (without emojis)
+                    val plainCategoryNames = dbCategories
+                        .filter { category -> 
+                            // Filter out categories with invalid names
+                            category.name.isNotBlank() && category.name.length > 1
+                        }
+                        .map { it.name } // Just the plain name
+                    
+                    Log.d(TAG, "Plain category names: ${plainCategoryNames.joinToString(", ")}")
+                    plainCategoryNames
                 } else {
-                    // Fallback to default categories
+                    Log.d(TAG, "No database categories found, using fallback defaults")
+                    // Fallback to default categories (plain names)
                     listOf(
                         "Food & Dining", "Transportation", "Groceries",
                         "Healthcare", "Entertainment", "Shopping",
@@ -302,6 +399,15 @@ class CategoryTransactionsViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(
             hasError = false,
             error = null
+        )
+    }
+    
+    /**
+     * Clear success message
+     */
+    private fun clearSuccess() {
+        _uiState.value = _uiState.value.copy(
+            successMessage = null
         )
     }
     
@@ -335,6 +441,8 @@ class CategoryTransactionsViewModel @Inject constructor(
                 val merchantWithCategory = repository.getMerchantWithCategory(transaction.normalizedMerchant)
                 val transactionCategory = merchantWithCategory?.category_name ?: "Other"
                 
+                Log.d(TAG, "Transaction ${transaction.rawMerchant} -> normalized: ${transaction.normalizedMerchant} -> category: $transactionCategory")
+                
                 if (transactionCategory == categoryName) {
                     MessageItem(
                         amount = transaction.amount,
@@ -345,7 +453,8 @@ class CategoryTransactionsViewModel @Inject constructor(
                         confidence = (transaction.confidenceScore * 100).toInt(),
                         dateTime = formatDate(transaction.transactionDate),
                         rawSMS = transaction.rawSmsBody,
-                        isDebit = transaction.isDebit
+                        isDebit = transaction.isDebit,
+                        rawMerchant = transaction.rawMerchant // Pass the original raw merchant name
                     )
                 } else null
             }

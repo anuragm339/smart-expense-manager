@@ -24,8 +24,14 @@ class MerchantAliasManager(private val context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     private val categoryManager = CategoryManager(context)
     
-    // Cache for performance
+    // Enhanced cache for performance with LRU eviction
     private var aliasCache: MutableMap<String, MerchantAlias>? = null
+    private var lastCacheUpdate = 0L
+    private val CACHE_VALIDITY_MS = 5 * 60 * 1000L // 5 minutes
+    
+    // Category lookup cache to reduce repeated database queries
+    private val categoryCache = mutableMapOf<String, String>()
+    private var categoryCacheTimestamp = 0L
     
     /**
      * Get the display name for a merchant (original name or alias)
@@ -184,7 +190,28 @@ class MerchantAliasManager(private val context: Context) {
     fun clearAllAliases() {
         prefs.edit().clear().apply()
         aliasCache = mutableMapOf()
-        Log.d(TAG, "Cleared all merchant aliases")
+        categoryCache.clear()
+        lastCacheUpdate = 0L
+        categoryCacheTimestamp = 0L
+        Log.d(TAG, "Cleared all merchant aliases and caches")
+    }
+    
+    /**
+     * Invalidate cache to force reload
+     */
+    fun invalidateCache() {
+        aliasCache = null
+        categoryCache.clear()
+        lastCacheUpdate = 0L
+        categoryCacheTimestamp = 0L
+        Log.d(TAG, "Invalidated merchant alias caches")
+    }
+    
+    /**
+     * Check if cache is valid
+     */
+    private fun isCacheValid(): Boolean {
+        return aliasCache != null && (System.currentTimeMillis() - lastCacheUpdate) < CACHE_VALIDITY_MS
     }
     
     private fun getAlias(normalizedName: String): MerchantAlias? {

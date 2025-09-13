@@ -5,6 +5,8 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.expensemanager.app.data.repository.ExpenseRepository
+import com.expensemanager.app.ui.categories.CategoryDisplayProvider
+import com.expensemanager.app.ui.categories.DefaultCategoryDisplayProvider
 import com.expensemanager.app.utils.CategoryManager
 import com.expensemanager.app.utils.MerchantAliasManager
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -21,7 +23,8 @@ import javax.inject.Inject
 @HiltViewModel
 class CategoriesViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val repository: ExpenseRepository
+    private val repository: ExpenseRepository,
+    private val categoryDisplayProvider: CategoryDisplayProvider
 ) : ViewModel() {
     
     companion object {
@@ -53,6 +56,8 @@ class CategoriesViewModel @Inject constructor(
             is CategoriesUIEvent.Refresh -> refreshCategories()
             is CategoriesUIEvent.LoadCategories -> loadCategories()
             is CategoriesUIEvent.AddCategory -> addNewCategory(event.name, event.emoji)
+            is CategoriesUIEvent.DeleteCategory -> deleteCategory(event.categoryName)
+            is CategoriesUIEvent.RenameCategory -> renameCategory(event.oldName, event.newName, event.newEmoji)
             is CategoriesUIEvent.QuickAddExpense -> addQuickExpense(event.amount, event.merchant, event.category)
             is CategoriesUIEvent.CategorySelected -> handleCategorySelection(event.categoryName)
             is CategoriesUIEvent.ClearError -> clearError()
@@ -131,14 +136,27 @@ class CategoriesViewModel @Inject constructor(
         
         viewModelScope.launch {
             try {
-                // Add to CategoryManager for persistence
+                // Add to CategoryManager for persistence (SharedPreferences)
                 categoryManager.addCustomCategory(name)
+                
+                // CRITICAL FIX: Also save category to database so it appears in dropdowns and can be deleted/renamed
+                val categoryColor = getRandomCategoryColor() // Use same color for both database and UI
+                val categoryEntity = com.expensemanager.app.data.entities.CategoryEntity(
+                    name = name,
+                    emoji = emoji,
+                    color = categoryColor,
+                    isSystem = false,
+                    displayOrder = 999,
+                    createdAt = java.util.Date()
+                )
+                val categoryId = repository.insertCategory(categoryEntity)
+                Log.d(TAG, "Category '$name' saved to database with ID: $categoryId")
                 
                 // Create new category item
                 val newCategory = CategoryItem(
                     name = name,
                     emoji = emoji,
-                    color = getRandomCategoryColor(),
+                    color = categoryColor,
                     amount = 0.0,
                     transactionCount = 0,
                     lastTransaction = "No transactions yet",
@@ -155,10 +173,172 @@ class CategoriesViewModel @Inject constructor(
                     categoryCount = currentCategories.size
                 )
                 
+                // Clear display provider cache to ensure new category gets proper icon
+                if (categoryDisplayProvider is DefaultCategoryDisplayProvider) {
+                    categoryDisplayProvider.clearCacheForCategory(name)
+                    Log.d(TAG, "Cleared CategoryDisplayProvider cache for '$name' after add")
+                }
+                
                 Log.d(TAG, "Category '$name' added successfully")
+                
+                // DEBUG: Print all categories from database to verify persistence
+                try {
+                    val allDbCategories = repository.getAllCategoriesSync()
+                    Log.d(TAG, "=== ALL CATEGORIES IN DATABASE AFTER CREATION ===")
+                    allDbCategories.forEachIndexed { index, category ->
+                        Log.d(TAG, "DB Category $index: id=${category.id}, name='${category.name}', emoji='${category.emoji}'")
+                    }
+                    Log.d(TAG, "=== END DATABASE CATEGORIES (${allDbCategories.size} total) ===")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error printing database categories", e)
+                }
                 
             } catch (e: Exception) {
                 Log.e(TAG, "Error adding category", e)
+                handleCategoryError(e)
+            }
+        }
+    }
+    
+    /**
+     * Delete a category comprehensively across all storage locations
+     */
+    private fun deleteCategory(categoryName: String) {
+        Log.d(TAG, "Deleting category: $categoryName")
+        
+        viewModelScope.launch {
+            try {
+                // 1. Remove from CategoryManager (SharedPreferences custom categories)
+                categoryManager.removeCustomCategory(categoryName)
+                Log.d(TAG, "Removed '$categoryName' from CategoryManager")
+                
+                // 2. Handle database category deletion
+                val categoryEntity = repository.getCategoryByName(categoryName)
+                if (categoryEntity != null) {
+                    // Ensure "Other" category exists
+                    var otherCategory = repository.getCategoryByName("Other")
+                    if (otherCategory == null) {
+                        // Create "Other" category if it doesn't exist
+                        val otherCategoryEntity = com.expensemanager.app.data.entities.CategoryEntity(
+                            name = "Other",
+                            emoji = "📂",
+                            color = "#607d8b",
+                            isSystem = true,
+                            displayOrder = 999,
+                            createdAt = java.util.Date()
+                        )
+                        repository.insertCategory(otherCategoryEntity)
+                        otherCategory = repository.getCategoryByName("Other")
+                        Log.d(TAG, "Created 'Other' category as fallback")
+                    }
+                    
+                    if (otherCategory != null) {
+                        // Move all merchants with this category to "Other"
+                        val movedCount = repository.updateMerchantsByCategory(categoryEntity.id, otherCategory.id)
+                        Log.d(TAG, "Moved $movedCount merchants from '$categoryName' to 'Other' in database")
+                    }
+                    
+                    // Delete the category from database
+                    repository.deleteCategory(categoryEntity)
+                    Log.d(TAG, "Deleted '$categoryName' from database")
+                } else {
+                    Log.d(TAG, "Category '$categoryName' not found in database, only removing from SharedPreferences")
+                }
+                
+                // 3. Update MerchantAliasManager - change all aliases pointing to this category
+                updateMerchantAliasesForCategoryChange(categoryName, "Other")
+                
+                // 4. Update CategoryManager learned rules
+                updateCategoryManagerLearnedRules(categoryName, "Other")
+                
+                // 5. Clear display provider cache to force icon/emoji refresh
+                if (categoryDisplayProvider is DefaultCategoryDisplayProvider) {
+                    categoryDisplayProvider.clearCacheForCategory(categoryName)
+                    Log.d(TAG, "Cleared CategoryDisplayProvider cache for '$categoryName' after delete")
+                }
+                
+                // 6. Refresh categories to get updated data from repository
+                refreshCategories()
+                
+                Log.d(TAG, "Category '$categoryName' deleted successfully from all locations")
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Error deleting category", e)
+                handleCategoryError(e)
+            }
+        }
+    }
+    
+    /**
+     * Rename a category comprehensively across all storage locations
+     */
+    private fun renameCategory(oldName: String, newName: String, newEmoji: String) {
+        Log.d(TAG, "Renaming category from '$oldName' to '$newName' with emoji '$newEmoji'")
+        
+        viewModelScope.launch {
+            try {
+                // 1. Update CategoryManager (SharedPreferences custom categories)
+                categoryManager.removeCustomCategory(oldName)
+                categoryManager.addCustomCategory(newName)
+                Log.d(TAG, "Updated '$oldName' to '$newName' in CategoryManager")
+                
+                // 2. Handle database category rename
+                val categoryEntity = repository.getCategoryByName(oldName)
+                if (categoryEntity != null) {
+                    // Update the category name and emoji in database
+                    val updatedCategory = categoryEntity.copy(
+                        name = newName,
+                        emoji = newEmoji.ifEmpty { categoryEntity.emoji }
+                    )
+                    repository.updateCategory(updatedCategory)
+                    Log.d(TAG, "Updated '$oldName' to '$newName' in database")
+                    
+                    // DEBUG: Verify the update worked
+                    val verifyCategory = repository.getCategoryByName(newName)
+                    Log.d(TAG, "VERIFY: Category '$newName' now has emoji: '${verifyCategory?.emoji}'")
+                } else {
+                    // Category doesn't exist in database, create it
+                    Log.d(TAG, "Category '$oldName' not found in database, creating new entry for '$newName'")
+                    val newCategoryEntity = com.expensemanager.app.data.entities.CategoryEntity(
+                        name = newName,
+                        emoji = newEmoji,
+                        color = getRandomCategoryColor(),
+                        isSystem = false,
+                        displayOrder = 999,
+                        createdAt = java.util.Date()
+                    )
+                    repository.insertCategory(newCategoryEntity)
+                    Log.d(TAG, "Created new category '$newName' in database")
+                    
+                    // DEBUG: Verify the creation worked
+                    val verifyCategory = repository.getCategoryByName(newName)
+                    Log.d(TAG, "VERIFY: Created category '$newName' has emoji: '${verifyCategory?.emoji}'")
+                }
+                
+                // 3. Update MerchantAliasManager - change all aliases pointing to old category
+                updateMerchantAliasesForCategoryChange(oldName, newName)
+                
+                // 4. Update CategoryManager learned rules
+                updateCategoryManagerLearnedRules(oldName, newName)
+                
+                // 5. Clear display provider cache to force icon/emoji refresh
+                if (categoryDisplayProvider is DefaultCategoryDisplayProvider) {
+                    // Clear cache for both old and new category names
+                    categoryDisplayProvider.clearCacheForCategory(oldName)
+                    categoryDisplayProvider.clearCacheForCategory(newName)
+                    Log.d(TAG, "Cleared CategoryDisplayProvider cache for '$oldName' and '$newName' after rename")
+                }
+                
+                // 6. Refresh categories to get updated data from repository
+                refreshCategories()
+                
+                Log.d(TAG, "Category renamed from '$oldName' to '$newName' successfully across all locations")
+                
+                // COMPREHENSIVE DEBUG: Print all categories from both sources
+                printAllCategoriesFromBothSources()
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Error renaming category", e)
                 handleCategoryError(e)
             }
         }
@@ -464,5 +644,115 @@ class CategoriesViewModel @Inject constructor(
             hasError = !hasExistingData,
             error = if (hasExistingData) null else errorMessage
         )
+    }
+    
+    /**
+     * Update all merchant aliases that point to the old category name
+     */
+    private suspend fun updateMerchantAliasesForCategoryChange(oldCategoryName: String, newCategoryName: String) {
+        try {
+            val aliases = merchantAliasManager.getAllAliases()
+            var updatedCount = 0
+            
+            aliases.values.filter { it.category == oldCategoryName }.forEach { alias ->
+                merchantAliasManager.setMerchantAlias(
+                    originalName = alias.originalName,
+                    displayName = alias.displayName,
+                    category = newCategoryName
+                )
+                updatedCount++
+            }
+            
+            Log.d(TAG, "Updated $updatedCount merchant aliases from '$oldCategoryName' to '$newCategoryName'")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error updating merchant aliases for category change", e)
+        }
+    }
+    
+    /**
+     * Update CategoryManager learned rules for category changes
+     */
+    private suspend fun updateCategoryManagerLearnedRules(oldCategoryName: String, newCategoryName: String) {
+        try {
+            // Get all learned merchant categories from SharedPreferences
+            val categoryPrefs = context.getSharedPreferences("category_rules", Context.MODE_PRIVATE)
+            val allKeys = categoryPrefs.all.keys.toList()
+            var updatedCount = 0
+            
+            allKeys.filter { it.startsWith("learned_") }.forEach { key ->
+                val learnedCategory = categoryPrefs.getString(key, null)
+                if (learnedCategory == oldCategoryName) {
+                    categoryPrefs.edit().putString(key, newCategoryName).apply()
+                    updatedCount++
+                }
+            }
+            
+            Log.d(TAG, "Updated $updatedCount learned rules from '$oldCategoryName' to '$newCategoryName'")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error updating CategoryManager learned rules", e)
+        }
+    }
+    
+    /**
+     * COMPREHENSIVE DEBUG: Print all categories from both SharedPreferences and Room Database
+     * This helps verify that rename operations are working correctly across both storage systems
+     */
+    private fun printAllCategoriesFromBothSources() {
+        viewModelScope.launch {
+            try {
+                Log.d(TAG, "")
+                Log.d(TAG, "=================== COMPREHENSIVE CATEGORY DEBUG ===================")
+                Log.d(TAG, "")
+                
+                // 1. ROOM DATABASE CATEGORIES
+                Log.d(TAG, "📁 ROOM DATABASE CATEGORIES:")
+                val dbCategories = repository.getAllCategoriesSync()
+                if (dbCategories.isNotEmpty()) {
+                    dbCategories.forEachIndexed { index, category ->
+                        Log.d(TAG, "  DB[$index]: id=${category.id} | name='${category.name}' | emoji='${category.emoji}' | color='${category.color}'")
+                    }
+                    Log.d(TAG, "  📊 Total DB categories: ${dbCategories.size}")
+                } else {
+                    Log.d(TAG, "  ❌ No categories found in Room database")
+                }
+                
+                Log.d(TAG, "")
+                
+                // 2. CATEGORYMANAGER (SHAREDPREFERENCES) ALL CATEGORIES
+                Log.d(TAG, "💾 CATEGORYMANAGER (SharedPreferences) ALL CATEGORIES:")
+                val allCategoryManagerCategories = categoryManager.getAllCategories()
+                if (allCategoryManagerCategories.isNotEmpty()) {
+                    allCategoryManagerCategories.forEachIndexed { index, categoryName ->
+                        val color = categoryManager.getCategoryColor(categoryName)
+                        Log.d(TAG, "  CM[$index]: name='$categoryName' | color='$color'")
+                    }
+                    Log.d(TAG, "  📊 Total CategoryManager categories: ${allCategoryManagerCategories.size}")
+                } else {
+                    Log.d(TAG, "  ❌ No categories found in CategoryManager")
+                }
+                
+                Log.d(TAG, "")
+                
+                // 3. CATEGORYDISPLAYPROVIDER TEST
+                Log.d(TAG, "🎨 CATEGORY DISPLAY PROVIDER TEST:")
+                val testCategories = listOf("ABc1", "TestCat", "Food & Dining", "Other")
+                testCategories.forEach { testCategory ->
+                    val displayIcon = categoryDisplayProvider.getDisplayIcon(testCategory)
+                    val formattedDisplay = categoryDisplayProvider.formatForDisplay(testCategory)
+                    val iconType = when (displayIcon) {
+                        is com.expensemanager.app.ui.categories.CategoryIcon.Emoji -> "Emoji: '${displayIcon.emoji}'"
+                        else -> "Other: $displayIcon"
+                    }
+                    Log.d(TAG, "  DISP['$testCategory']: $iconType | formatted='$formattedDisplay'")
+                }
+                
+                Log.d(TAG, "")
+                Log.d(TAG, "================== END COMPREHENSIVE DEBUG ==================")
+                Log.d(TAG, "")
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Error in comprehensive category debug", e)
+            }
+        }
     }
 }

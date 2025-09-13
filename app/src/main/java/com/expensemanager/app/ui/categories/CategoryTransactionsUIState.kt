@@ -29,6 +29,7 @@ data class CategoryTransactionsUIState(
     val isEmpty: Boolean = false,
     val hasError: Boolean = false,
     val error: String? = null,
+    val successMessage: String? = null,
     val lastRefreshTime: Long = 0L
 ) {
     /**
@@ -42,6 +43,9 @@ data class CategoryTransactionsUIState(
     
     val shouldShowError: Boolean
         get() = !isInitialLoading && hasError && error != null
+    
+    val shouldShowSuccess: Boolean
+        get() = successMessage != null
     
     val isAnyLoading: Boolean
         get() = isInitialLoading || isLoading || isRefreshing || isUpdatingCategory
@@ -66,6 +70,7 @@ sealed class CategoryTransactionsUIEvent {
     object LoadTransactions : CategoryTransactionsUIEvent()
     object Refresh : CategoryTransactionsUIEvent()
     object ClearError : CategoryTransactionsUIEvent()
+    object ClearSuccess : CategoryTransactionsUIEvent()
     
     data class SetCategoryName(val categoryName: String) : CategoryTransactionsUIEvent()
     data class ChangeSortOption(val sortOption: String) : CategoryTransactionsUIEvent()
