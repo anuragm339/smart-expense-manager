@@ -777,10 +777,18 @@ class ExpenseRepository @Inject constructor(
     }
     
     private fun normalizeMerchantName(merchant: String): String {
-        // Use same logic as MerchantAliasManager for consistency
-        return merchant.uppercase()
-            .replace(Regex("[*#@\\-_]+.*"), "") // Remove suffixes after special chars
-            .replace(Regex("\\s+"), " ") // Normalize spaces
+        // Updated to match MerchantAliasManager normalization for consistency
+        val cleaned = merchant.uppercase()
+            .replace(Regex("\\s+"), " ") // Normalize spaces first
+            .trim()
+        
+        // Use same logic as MerchantAliasManager - less aggressive normalization
+        return cleaned
+            .replace(Regex("\\*(ORDER|PAYMENT|TXN|TRANSACTION).*$"), "") // Remove order/payment suffixes
+            .replace(Regex("#\\d+.*$"), "") // Remove transaction numbers
+            .replace(Regex("@\\w+.*$"), "") // Remove @ suffixes
+            .replace(Regex("-{2,}.*$"), "") // Remove double dashes and everything after
+            .replace(Regex("_{2,}.*$"), "") // Remove double underscores and everything after
             .trim()
     }
     

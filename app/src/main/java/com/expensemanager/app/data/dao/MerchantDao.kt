@@ -92,7 +92,7 @@ interface MerchantDao {
     suspend fun updateMerchantDisplayName(normalizedName: String, displayName: String)
 
     @Query("UPDATE merchants SET display_name = :displayName, category_id = :categoryId WHERE normalized_name = :normalizedName")
-    suspend fun updateMerchantDisplayNameAndCategory(normalizedName: String, displayName: String, categoryId: Long)
+    suspend fun updateMerchantDisplayNameAndCategory(normalizedName: String, displayName: String, categoryId: Long): Int
 
     @Query("SELECT COUNT(*) FROM merchants WHERE normalized_name = :normalizedName")
     suspend fun merchantExists(normalizedName: String): Int

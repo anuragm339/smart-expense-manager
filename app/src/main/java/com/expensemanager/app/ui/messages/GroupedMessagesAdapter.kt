@@ -294,6 +294,7 @@ class GroupedMessagesAdapter(
                 
                 // Setup long click listener for editing group
                 root.setOnLongClickListener {
+                    android.util.Log.d("LongPressDebug", "Long press detected for merchant: '${group.merchantName}', expanded: ${group.isExpanded}")
                     onGroupEdit(group)
                     true
                 }
@@ -334,14 +335,31 @@ class GroupedMessagesAdapter(
                 layoutParams.height = (calculatedHeight * density).toInt()
                 this.layoutParams = layoutParams
                 
-                // Fix touch handling for nested scrolling
+                // Fix touch handling for nested scrolling while preserving long press
                 addOnItemTouchListener(object : RecyclerView.OnItemTouchListener {
+                    private var initialY = 0f
+                    private val touchSlop = android.view.ViewConfiguration.get(context).scaledTouchSlop
+                    
                     override fun onInterceptTouchEvent(rv: RecyclerView, e: android.view.MotionEvent): Boolean {
-                        // Allow the inner RecyclerView to handle vertical scrolling
                         val action = e.action
                         when (action) {
                             android.view.MotionEvent.ACTION_DOWN -> {
-                                rv.parent.requestDisallowInterceptTouchEvent(true)
+                                initialY = e.y
+                                // Don't immediately disallow parent intercept - wait to see if user is scrolling
+                                android.util.Log.d("TouchHandler", "ACTION_DOWN at y=${e.y}, allowing parent touch events")
+                            }
+                            android.view.MotionEvent.ACTION_MOVE -> {
+                                val deltaY = kotlin.math.abs(e.y - initialY)
+                                if (deltaY > touchSlop) {
+                                    // User is scrolling, now prevent parent from intercepting
+                                    rv.parent.requestDisallowInterceptTouchEvent(true)
+                                    android.util.Log.d("TouchHandler", "ACTION_MOVE detected scroll, disallowing parent intercept")
+                                }
+                            }
+                            android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
+                                // Re-enable parent touch event interception for next touch sequence
+                                rv.parent.requestDisallowInterceptTouchEvent(false)
+                                android.util.Log.d("TouchHandler", "Touch sequence ended, re-enabling parent intercept")
                             }
                         }
                         return false

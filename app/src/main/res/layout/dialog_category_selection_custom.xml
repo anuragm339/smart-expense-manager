@@ -44,21 +44,29 @@
 
         </LinearLayout>
 
-        <!-- Categories List -->
-        <ListView
-            android:id="@+id/categoryListView"
+        <!-- Categories List Container -->
+        <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginHorizontal="16dp"
-            android:layout_marginBottom="16dp"
-            android:choiceMode="singleChoice"
-            android:divider="@color/divider"
-            android:dividerHeight="1dp"
-            android:maxHeight="300dp"
-            android:scrollbars="vertical"
-            android:background="@color/dialog_input_background"
-            android:padding="8dp"
-            android:listSelector="@color/primary" />
+            android:layout_marginBottom="16dp">
+            
+            <ListView
+                android:id="@+id/categoryListView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:choiceMode="singleChoice"
+                android:divider="@color/divider"
+                android:dividerHeight="1dp"
+                android:maxHeight="240dp"
+                android:scrollbars="vertical"
+                android:background="@color/dialog_input_background"
+                android:padding="8dp"
+                android:listSelector="@color/primary"
+                android:scrollbarStyle="insideOverlay"
+                android:fadeScrollbars="false" />
+                
+        </FrameLayout>
 
         <!-- Buttons -->
         <LinearLayout

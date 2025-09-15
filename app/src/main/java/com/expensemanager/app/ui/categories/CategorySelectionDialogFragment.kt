@@ -74,6 +74,28 @@ class CategorySelectionDialogFragment : DialogFragment() {
         listView.adapter = adapter
         listView.choiceMode = ListView.CHOICE_MODE_SINGLE
         
+        // Dynamically adjust ListView height based on number of categories and screen size
+        val displayMetrics = resources.displayMetrics
+        val screenHeight = displayMetrics.heightPixels
+        val density = displayMetrics.density
+        
+        // Calculate appropriate height (leaving space for title, buttons, and margins)
+        val reservedHeight = (180 * density).toInt() // Space for title, buttons, margins
+        val availableHeight = screenHeight - reservedHeight
+        val itemHeight = (48 * density).toInt() // Approximate item height
+        val calculatedHeight = (categories.size * itemHeight).coerceAtMost((availableHeight * 0.6).toInt())
+        val minHeight = (150 * density).toInt()
+        val maxHeight = (250 * density).toInt()
+        
+        val finalHeight = calculatedHeight.coerceIn(minHeight, maxHeight)
+        
+        // Apply calculated height
+        val layoutParams = listView.layoutParams
+        layoutParams.height = finalHeight
+        listView.layoutParams = layoutParams
+        
+        Log.d(TAG, "ListView height adjusted: categories=${categories.size}, calculated=$calculatedHeight, final=$finalHeight")
+        
         // Apply dialog styling programmatically
         listView.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.dialog_input_background))
         
@@ -116,10 +138,26 @@ class CategorySelectionDialogFragment : DialogFragment() {
     
     override fun onStart() {
         super.onStart()
+        
+        // Calculate appropriate dialog height to ensure buttons are visible
+        val displayMetrics = resources.displayMetrics
+        val screenHeight = displayMetrics.heightPixels
+        val maxDialogHeight = (screenHeight * 0.8).toInt() // Use 80% of screen height max
+        
         dialog?.window?.setLayout(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
         )
+        
+        // Ensure dialog doesn't exceed screen bounds
+        dialog?.window?.attributes?.let { params ->
+            params.height = ViewGroup.LayoutParams.WRAP_CONTENT
+            params.width = ViewGroup.LayoutParams.MATCH_PARENT
+            params.y = 0 // Center vertically
+            dialog?.window?.attributes = params
+        }
+        
+        Log.d(TAG, "Dialog layout set - Screen height: $screenHeight, Max dialog height: $maxDialogHeight")
         
         // Apply additional programmatic styling for high contrast
         view?.let { dialogView ->

@@ -68,34 +68,62 @@ class MerchantAliasManager(private val context: Context) {
     
     /**
      * Create or update an alias for a merchant
+     * This method allows multiple merchants to map to the same display name (grouping)
      */
     fun setMerchantAlias(originalName: String, displayName: String, category: String): Boolean {
+        Log.d(TAG, "[ALIAS] Setting alias: '$originalName' -> '$displayName' in category '$category'")
+        
         return try {
             // Enhanced validation
             if (originalName.trim().isEmpty()) {
+                Log.e(TAG, "[ALIAS] Invalid original name: empty")
                 return false
             }
             
             if (displayName.trim().isEmpty()) {
+                Log.e(TAG, "[ALIAS] Invalid display name: empty")
                 return false
             }
             
             if (category.trim().isEmpty()) {
+                Log.e(TAG, "[ALIAS] Invalid category: empty")
                 return false
             }
             
             val normalizedName = normalizeMerchantName(originalName)
+            val cleanDisplayName = displayName.trim()
+            val cleanCategory = category.trim()
+            
+            Log.d(TAG, "[ALIAS] Normalized name: '$normalizedName' -> '$cleanDisplayName'")
+            
+            // Check for existing aliases and log conflicts
+            val existingAliases = getAllAliases()
+            val existingSameDisplayName = existingAliases.values.filter { it.displayName == cleanDisplayName }
+            
+            if (existingSameDisplayName.isNotEmpty()) {
+                Log.d(TAG, "[ALIAS] Found ${existingSameDisplayName.size} existing merchants with display name '$cleanDisplayName'")
+                existingSameDisplayName.forEach { existing ->
+                    Log.d(TAG, "[ALIAS] Existing: '${existing.originalName}' -> '${existing.displayName}' (${existing.category})")
+                }
+            }
+            
+            // Check if this would create a conflict (same original name with different display name)
+            val existingForOriginal = existingAliases[normalizedName]
+            if (existingForOriginal != null && existingForOriginal.displayName != cleanDisplayName) {
+                Log.w(TAG, "[ALIAS] Overwriting existing alias for '$normalizedName': '${existingForOriginal.displayName}' -> '$cleanDisplayName'")
+            }
             
             // Get category color with fallback
-            var categoryColor = categoryManager.getCategoryColor(category)
+            var categoryColor = categoryManager.getCategoryColor(cleanCategory)
             if (categoryColor.isEmpty() || categoryColor == "#000000") {
                 categoryColor = "#4CAF50" // Default green
+                Log.d(TAG, "[ALIAS] Using default color for category '$cleanCategory'")
             }
             
             val alias = MerchantAlias(
                 originalName = normalizedName,
-                displayName = displayName.trim(),
-                category = category.trim(),
+                displayName = cleanDisplayName,
+                category = cleanCategory,
                 categoryColor = categoryColor
             )
             
@@ -107,7 +135,9 @@ class MerchantAliasManager(private val context: Context) {
                 mutableMapOf<String, MerchantAlias>()
             }
             
+            // Set the alias (this allows multiple original names to map to same display name)
             aliases[normalizedName] = alias
+            Log.d(TAG, "[ALIAS] Added alias to collection. Total aliases: ${aliases.size}")
             
             // Save aliases with error handling
             val saveSuccess = try {
@@ -121,9 +151,10 @@ class MerchantAliasManager(private val context: Context) {
             if (saveSuccess) {
                 // Update cache only if save was successful
                 aliasCache = aliases
+                Log.d(TAG, "[ALIAS] Successfully set alias for '$normalizedName' -> '$cleanDisplayName'")
                 return true
             } else {
-                Log.e(TAG, "Failed to save alias for $normalizedName")
+                Log.e(TAG, "[ALIAS] Failed to save alias for $normalizedName")
                 return false
             }
             
@@ -155,6 +186,87 @@ class MerchantAliasManager(private val context: Context) {
         return getAllAliases().values
             .filter { it.displayName == displayName }
             .map { it.originalName }
+    }
+    
+    /**
+     * Check if setting this alias would create a conflict
+     * Returns conflict details for UI to handle
+     */
+    data class AliasConflict(
+        val type: ConflictType,
+        val existingDisplayName: String?,
+        val existingCategory: String?,
+        val newDisplayName: String,
+        val newCategory: String,
+        val affectedMerchants: List<String>
+    )
+    
+    enum class ConflictType {
+        NONE,                    // No conflict
+        DISPLAY_NAME_EXISTS,     // Display name already exists for other merchants
+        CATEGORY_MISMATCH,       // Same display name but different category
+        OVERWRITE_EXISTING       // Would overwrite existing alias for this merchant
+    }
+    
+    fun checkAliasConflict(originalName: String, displayName: String, category: String): AliasConflict {
+        val normalizedName = normalizeMerchantName(originalName)
+        val cleanDisplayName = displayName.trim()
+        val cleanCategory = category.trim()
+        val existingAliases = getAllAliases()
+        
+        // Check if this merchant already has an alias
+        val existingForOriginal = existingAliases[normalizedName]
+        if (existingForOriginal != null && existingForOriginal.displayName != cleanDisplayName) {
+            return AliasConflict(
+                type = ConflictType.OVERWRITE_EXISTING,
+                existingDisplayName = existingForOriginal.displayName,
+                existingCategory = existingForOriginal.category,
+                newDisplayName = cleanDisplayName,
+                newCategory = cleanCategory,
+                affectedMerchants = listOf(originalName)
+            )
+        }
+        
+        // Check if display name already exists for other merchants
+        val existingSameDisplayName = existingAliases.values.filter { 
+            it.displayName == cleanDisplayName && it.originalName != normalizedName 
+        }
+        
+        if (existingSameDisplayName.isNotEmpty()) {
+            // Check if all existing merchants with this display name have the same category
+            val existingCategories = existingSameDisplayName.map { it.category }.distinct()
+            if (existingCategories.size == 1 && existingCategories.first() == cleanCategory) {
+                // Same category - this is fine, it's just grouping merchants
+                return AliasConflict(
+                    type = ConflictType.NONE,
+                    existingDisplayName = null,
+                    existingCategory = null,
+                    newDisplayName = cleanDisplayName,
+                    newCategory = cleanCategory,
+                    affectedMerchants = existingSameDisplayName.map { it.originalName }
+                )
+            } else {
+                // Different categories - potential conflict
+                return AliasConflict(
+                    type = ConflictType.CATEGORY_MISMATCH,
+                    existingDisplayName = cleanDisplayName,
+                    existingCategory = existingCategories.joinToString(", "),
+                    newDisplayName = cleanDisplayName,
+                    newCategory = cleanCategory,
+                    affectedMerchants = existingSameDisplayName.map { it.originalName }
+                )
+            }
+        }
+        
+        // No conflict
+        return AliasConflict(
+            type = ConflictType.NONE,
+            existingDisplayName = null,
+            existingCategory = null,
+            newDisplayName = cleanDisplayName,
+            newCategory = cleanCategory,
+            affectedMerchants = emptyList()
+        )
     }
     
     /**
@@ -309,12 +421,34 @@ class MerchantAliasManager(private val context: Context) {
     
     /**
      * Normalize merchant name for consistent mapping
-     * Handles variations like "SWIGGY", "Swiggy*Order", "SWIGGY-CHENNAI"
+     * Enhanced to preserve more identity while still grouping similar merchants
      */
     fun normalizeMerchantName(name: String): String {
+        val cleaned = name.uppercase()
+            .replace(Regex("\\s+"), " ") // Normalize spaces first
+            .trim()
+        
+        // Less aggressive normalization - preserve location and key identifiers
+        return cleaned
+            .replace(Regex("\\*(ORDER|PAYMENT|TXN|TRANSACTION).*$"), "") // Remove order/payment suffixes
+            .replace(Regex("#\\d+.*$"), "") // Remove transaction numbers
+            .replace(Regex("@\\w+.*$"), "") // Remove @ suffixes
+            .replace(Regex("-{2,}.*$"), "") // Remove double dashes and everything after
+            .replace(Regex("_{2,}.*$"), "") // Remove double underscores and everything after
+            .trim()
+    }
+    
+    /**
+     * Get a more aggressive normalized name for grouping similar merchants
+     * This is used when user wants to group merchants that should be the same
+     */
+    fun getAggressiveNormalizedName(name: String): String {
         return name.uppercase()
             .replace(Regex("[*#@\\-_]+.*"), "") // Remove suffixes after special chars
             .replace(Regex("\\s+"), " ") // Normalize spaces
+            .replace(Regex("\\b(BANGALORE|MUMBAI|DELHI|CHENNAI|HYDERABAD|PUNE)\\b"), "") // Remove city names
+            .replace(Regex("\\b(PVT|LTD|LLC|INC|CORP)\\b"), "") // Remove company suffixes
+            .replace(Regex("\\s+"), " ")
             .trim()
     }
 }

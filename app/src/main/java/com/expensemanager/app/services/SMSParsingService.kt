@@ -110,7 +110,7 @@ class SMSParsingService @Inject constructor(
         var processedCount = 0
         
         try {
-            logger.debug("[UNIFIED] Starting SMS scan using unified parsing service...")
+          //  logger.debug("[UNIFIED] Starting SMS scan using unified parsing service...")
             progressCallback?.invoke(0, 100, "Reading SMS history...")
             
             val historicalSMS = readSMSHistory()
@@ -168,12 +168,12 @@ class SMSParsingService @Inject constructor(
             // Final progress update
             progressCallback?.invoke(totalSMS, totalSMS, "Scan complete! Found $acceptedCount transactions")
             
-            logger.info("[UNIFIED] SMS Processing Summary:")
-            logger.info("Total SMS scanned: $totalSMS")
-            logger.info("Accepted transactions: $acceptedCount")
-            logger.info("Rejected SMS: $rejectedCount")
-            logger.info("Final parsed transactions: ${transactions.size}")
-            logger.info("[UNIFIED] Rejected SMS saved to CSV file for verification")
+//            logger.info("[UNIFIED] SMS Processing Summary:")
+//            logger.info("Total SMS scanned: $totalSMS")
+//            logger.info("Accepted transactions: $acceptedCount")
+//            logger.info("Rejected SMS: $rejectedCount")
+//            logger.info("Final parsed transactions: ${transactions.size}")
+//            logger.info("[UNIFIED] Rejected SMS saved to CSV file for verification")
             
         } catch (e: Exception) {
             logger.error("[UNIFIED] Error scanning historical SMS", e)
@@ -212,7 +212,7 @@ class SMSParsingService @Inject constructor(
         
         var cursor: Cursor? = null
         try {
-            logger.debug("[UNIFIED] Querying SMS from last $MONTHS_TO_SCAN months (max $MAX_SMS_TO_PROCESS messages)")
+           // logger.debug("[UNIFIED] Querying SMS from last $MONTHS_TO_SCAN months (max $MAX_SMS_TO_PROCESS messages)")
             cursor = context.contentResolver.query(
                 uri, projection, selection, selectionArgs, sortOrder
             )
@@ -402,16 +402,16 @@ class SMSParsingService @Inject constructor(
         // as they are typically more explicit
         return when {
             hasCreditKeywords || hasCreditPatterns -> {
-                logger.debug("[CREDIT] Detected credit transaction: ${messageBody.take(50)}...")
+             //   logger.debug("[CREDIT] Detected credit transaction: ${messageBody.take(50)}...")
                 false // false means credit (money coming in)
             }
             hasDebitKeywords -> {
-                logger.debug("[DEBIT] Detected debit transaction: ${messageBody.take(50)}...")
+           //     logger.debug("[DEBIT] Detected debit transaction: ${messageBody.take(50)}...")
                 true // true means debit (money going out)
             }
             else -> {
                 // Default to debit if we can't determine
-                logger.warn("[DEFAULT] Cannot determine transaction type, defaulting to debit: ${messageBody.take(50)}...")
+            //    logger.warn("[DEFAULT] Cannot determine transaction type, defaulting to debit: ${messageBody.take(50)}...")
                 true
             }
         }
@@ -646,9 +646,9 @@ class SMSParsingService @Inject constructor(
                 }
             }
             
-            logger.info("[CSV] Rejected SMS saved to: ${csvFile.absolutePath}")
-            logger.info("[CSV] File contains ${rejectedSMSList.size} rejected SMS messages")
-            logger.info("[CSV] You can find this file at: /Android/data/com.expensemanager.app/files/rejected_sms_*.csv")
+//            logger.info("[CSV] Rejected SMS saved to: ${csvFile.absolutePath}")
+//            logger.info("[CSV] File contains ${rejectedSMSList.size} rejected SMS messages")
+//            logger.info("[CSV] You can find this file at: /Android/data/com.expensemanager.app/files/rejected_sms_*.csv")
             
         } catch (e: Exception) {
             logger.error("[CSV] Error saving rejected SMS to CSV", e)
