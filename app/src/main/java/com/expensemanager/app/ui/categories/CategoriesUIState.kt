@@ -52,6 +52,8 @@ sealed class CategoriesUIEvent {
     object ClearError : CategoriesUIEvent()
     
     data class AddCategory(val name: String, val emoji: String) : CategoriesUIEvent()
+    data class DeleteCategory(val categoryName: String) : CategoriesUIEvent()
+    data class RenameCategory(val oldName: String, val newName: String, val newEmoji: String) : CategoriesUIEvent()
     data class QuickAddExpense(
         val amount: Double,
         val merchant: String,

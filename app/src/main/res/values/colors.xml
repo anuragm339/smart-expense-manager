@@ -56,6 +56,11 @@
     <color name="debit_red">#e53e3e</color>
     <color name="credit_green">#4caf50</color>
     
+    <!-- Smart Suggestion Colors -->
+    <color name="suggestion_high_confidence">#4caf50</color>
+    <color name="suggestion_medium_confidence">#ff9800</color>
+    <color name="suggestion_low_confidence">#e0e0e0</color>
+    
     <!-- Standard Colors -->
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>

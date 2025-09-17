@@ -133,7 +133,8 @@ class MessagesViewModel @Inject constructor(
                                 confidence = (transaction.confidenceScore * 100).toInt(),
                                 dateTime = formatDate(transaction.transactionDate),
                                 rawSMS = transaction.rawSmsBody,
-                                isDebit = transaction.isDebit
+                                isDebit = transaction.isDebit,
+                                rawMerchant = transaction.rawMerchant // Pass the original raw merchant name
                             )
                         } catch (e: Exception) {
                             Log.w(TAG, "Error converting transaction: ${e.message}")

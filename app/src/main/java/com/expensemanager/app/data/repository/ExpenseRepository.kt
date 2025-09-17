@@ -72,6 +72,10 @@ class ExpenseRepository @Inject constructor(
         return transactionDao.getAllTransactions()
     }
     
+    suspend fun getAllTransactionsSync(): List<TransactionEntity> {
+        return transactionDao.getAllTransactionsSync()
+    }
+    
     override suspend fun getTransactionsByDateRange(startDate: Date, endDate: Date): List<TransactionEntity> {
         return transactionDao.getTransactionsByDateRange(startDate, endDate)
     }
@@ -82,43 +86,62 @@ class ExpenseRepository @Inject constructor(
     }
     
     override suspend fun getCategorySpending(startDate: Date, endDate: Date): List<CategorySpendingResult> {
-        // FIXED: Use expense-specific transactions (debit only) instead of all transactions
-        val expenseTransactions = getExpenseTransactionsByDateRange(startDate, endDate)
-        val filteredTransactions = filterTransactionsByExclusions(expenseTransactions)
-        
-        // Group transactions by category and calculate totals
-        val categoryTotals = mutableMapOf<String, Triple<Double, Int, Date?>>()
-        
-        for (transaction in filteredTransactions) {
-            // Get category for this transaction
-            val merchantWithCategory = getMerchantWithCategory(transaction.normalizedMerchant)
-            val categoryName = merchantWithCategory?.category_name ?: "Other"
+        // OPTIMIZED: Use direct SQL query instead of multiple separate operations for better performance
+        return try {
+            transactionDao.getCategorySpendingBreakdown(startDate, endDate)
+        } catch (e: Exception) {
+            logger.warn("Optimized query failed, falling back to original method", e)
             
-            val currentData = categoryTotals[categoryName] ?: Triple(0.0, 0, null)
-            val newTotal = currentData.first + transaction.amount
-            val newCount = currentData.second + 1
-            val newLastDate = if (currentData.third == null || transaction.transactionDate.after(currentData.third)) {
-                transaction.transactionDate
-            } else {
-                currentData.third
+            // Fallback to original method
+            val expenseTransactions = getExpenseTransactionsByDateRange(startDate, endDate)
+            val filteredTransactions = filterTransactionsByExclusions(expenseTransactions)
+            
+            // Group transactions by category and calculate totals with improved efficiency
+            val categoryTotals = mutableMapOf<String, Triple<Double, Int, Date?>>()
+            val merchantCategoryCache = mutableMapOf<String, String>()
+            
+            for (transaction in filteredTransactions) {
+                // Cache merchant category lookups to reduce database hits
+                val categoryName = merchantCategoryCache.getOrPut(transaction.normalizedMerchant) {
+                    getMerchantWithCategory(transaction.normalizedMerchant)?.category_name ?: "Other"
+                }
+                
+                val currentData = categoryTotals[categoryName] ?: Triple(0.0, 0, null)
+                val newTotal = currentData.first + transaction.amount
+                val newCount = currentData.second + 1
+                val newLastDate = if (currentData.third == null || transaction.transactionDate.after(currentData.third)) {
+                    transaction.transactionDate
+                } else {
+                    currentData.third
+                }
+                
+                categoryTotals[categoryName] = Triple(newTotal, newCount, newLastDate)
             }
             
-            categoryTotals[categoryName] = Triple(newTotal, newCount, newLastDate)
+            // Batch category lookups for better performance
+            val categoryNames = categoryTotals.keys.toList()
+            val categories = mutableListOf<CategoryEntity>()
+            for (name in categoryNames) {
+                val category = categoryDao.getCategoryByName(name)
+                if (category != null) {
+                    categories.add(category)
+                }
+            }
+            val categoryMap = categories.associateBy { it.name }
+            
+            // Convert to CategorySpendingResult objects
+            categoryTotals.map { (categoryName, data) ->
+                val category = categoryMap[categoryName]
+                CategorySpendingResult(
+                    category_id = category?.id ?: 0L,
+                    category_name = categoryName,
+                    color = category?.color ?: "#888888",
+                    total_amount = data.first,
+                    transaction_count = data.second,
+                    last_transaction_date = data.third
+                )
+            }.sortedByDescending { it.total_amount }
         }
-        
-        // Convert to CategorySpendingResult objects
-        return categoryTotals.map { (categoryName, data) ->
-            // Get category info from database
-            val category = getCategoryByName(categoryName)
-            CategorySpendingResult(
-                category_id = category?.id ?: 0L,
-                category_name = categoryName,
-                color = category?.color ?: "#888888",
-                total_amount = data.first,
-                transaction_count = data.second,
-                last_transaction_date = data.third
-            )
-        }.sortedByDescending { it.total_amount }
     }
     
     override suspend fun getTopMerchants(startDate: Date, endDate: Date, limit: Int): List<MerchantSpending> {
@@ -330,6 +353,10 @@ class ExpenseRepository @Inject constructor(
     
     override suspend fun updateMerchantExclusion(normalizedMerchantName: String, isExcluded: Boolean) {
         merchantDao.updateMerchantExclusion(normalizedMerchantName, isExcluded)
+    }
+    
+    suspend fun updateMerchantsByCategory(oldCategoryId: Long, newCategoryId: Long): Int {
+        return merchantDao.updateMerchantsByCategory(oldCategoryId, newCategoryId)
     }
     
     override suspend fun getExcludedMerchants(): List<MerchantEntity> {
@@ -750,10 +777,18 @@ class ExpenseRepository @Inject constructor(
     }
     
     private fun normalizeMerchantName(merchant: String): String {
-        // Use same logic as MerchantAliasManager for consistency
-        return merchant.uppercase()
-            .replace(Regex("[*#@\\-_]+.*"), "") // Remove suffixes after special chars
-            .replace(Regex("\\s+"), " ") // Normalize spaces
+        // Updated to match MerchantAliasManager normalization for consistency
+        val cleaned = merchant.uppercase()
+            .replace(Regex("\\s+"), " ") // Normalize spaces first
+            .trim()
+        
+        // Use same logic as MerchantAliasManager - less aggressive normalization
+        return cleaned
+            .replace(Regex("\\*(ORDER|PAYMENT|TXN|TRANSACTION).*$"), "") // Remove order/payment suffixes
+            .replace(Regex("#\\d+.*$"), "") // Remove transaction numbers
+            .replace(Regex("@\\w+.*$"), "") // Remove @ suffixes
+            .replace(Regex("-{2,}.*$"), "") // Remove double dashes and everything after
+            .replace(Regex("_{2,}.*$"), "") // Remove double underscores and everything after
             .trim()
     }
     

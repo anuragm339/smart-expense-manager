@@ -15,9 +15,12 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import com.expensemanager.app.databinding.FragmentCategoryTransactionsBinding
 import com.expensemanager.app.ui.messages.MessageItem
 import com.expensemanager.app.ui.messages.MessagesAdapter
+import com.expensemanager.app.ui.categories.CategoryDisplayProvider
+import com.expensemanager.app.ui.categories.getEmojiString
 import com.expensemanager.app.utils.CategoryManager
 import com.expensemanager.app.utils.MerchantAliasManager
 import com.expensemanager.app.utils.SMSHistoryReader
@@ -36,6 +39,10 @@ class CategoryTransactionsFragment : Fragment() {
     
     // ViewModel injection
     private val viewModel: CategoryTransactionsViewModel by viewModels()
+    
+    // Injected dependencies
+    @Inject
+    lateinit var categoryDisplayProvider: CategoryDisplayProvider
     
     // Keep legacy components for fallback compatibility
     private lateinit var categoryName: String
@@ -185,6 +192,12 @@ class CategoryTransactionsFragment : Fragment() {
             viewModel.handleEvent(CategoryTransactionsUIEvent.ClearError)
         }
         
+        // Handle success states
+        if (uiState.shouldShowSuccess && uiState.successMessage != null) {
+            android.widget.Toast.makeText(requireContext(), uiState.successMessage, android.widget.Toast.LENGTH_SHORT).show()
+            viewModel.handleEvent(CategoryTransactionsUIEvent.ClearSuccess)
+        }
+        
         // Update legacy state for backwards compatibility
         currentSortOption = uiState.currentSortOption
         currentFilterOption = uiState.currentFilterOption
@@ -240,7 +253,8 @@ class CategoryTransactionsFragment : Fragment() {
                             confidence = (transaction.confidenceScore * 100).toInt(),
                             dateTime = formatDate(transaction.transactionDate),
                             rawSMS = transaction.rawSmsBody,
-                            isDebit = transaction.isDebit
+                            isDebit = transaction.isDebit,
+                            rawMerchant = transaction.rawMerchant // FIXED: Pass the original raw merchant name
                         )
                     } else null
                 }
@@ -298,9 +312,9 @@ class CategoryTransactionsFragment : Fragment() {
                     val currentCategoryIndex = categoryNames.indexOf(messageItem.category)
                     android.util.Log.d("CategoryDialog", "[TARGET] Current category: ${messageItem.category}, Index: $currentCategoryIndex")
                     
-                    // Create enhanced category list with emojis for better visibility
+                    // Create enhanced category list with emojis for better visibility using display provider
                     val enhancedCategories = categoryNames.map { category ->
-                        "${getCategoryEmoji(category)} $category"
+                        categoryDisplayProvider.formatForDisplay(category)
                     }.toTypedArray()
                     
                     android.util.Log.d("CategoryDialog", "Enhanced categories: ${enhancedCategories.joinToString(", ")}")
@@ -314,7 +328,18 @@ class CategoryTransactionsFragment : Fragment() {
                         merchantName = messageItem.merchant
                     ) { selectedCategory ->
                         android.util.Log.d("CategoryDialog", "[SUCCESS] Custom dialog selected: $selectedCategory")
-                        updateCategoryForMerchant(messageItem, selectedCategory)
+                        
+                        // Find the corresponding plain category name from the original list
+                        val selectedIndex = enhancedCategories.indexOf(selectedCategory)
+                        val plainCategoryName = if (selectedIndex >= 0 && selectedIndex < categoryNames.size) {
+                            categoryNames[selectedIndex]
+                        } else {
+                            // Fallback: extract from display format
+                            categoryDisplayProvider.getDisplayName(selectedCategory)
+                        }
+                        android.util.Log.d("CategoryDialog", "[FIX] Mapped '$selectedCategory' to database name: '$plainCategoryName'")
+                        
+                        updateCategoryForMerchant(messageItem, plainCategoryName)
                     }
                     
                     dialog.show(parentFragmentManager, "CategorySelectionDialog")
@@ -324,17 +349,15 @@ class CategoryTransactionsFragment : Fragment() {
             } catch (e: Exception) {
                 android.util.Log.e("CategoryDialog", "[ERROR] Error loading categories for dialog", e)
                 
-                // Multiple fallback approaches
+                // Multiple fallback approaches using display provider
                 val fallbackCategoryNames = listOf(
                     "Food & Dining", "Transportation", "Groceries", 
                     "Healthcare", "Entertainment", "Shopping", 
                     "Utilities", "Other"
                 )
-                val enhancedFallback = listOf(
-                    "🍽️ Food & Dining", "🚗 Transportation", "🛒 Groceries", 
-                    "🏥 Healthcare", "🎬 Entertainment", "🛍️ Shopping", 
-                    "⚡ Utilities", "📂 Other"
-                )
+                val enhancedFallback = fallbackCategoryNames.map { category ->
+                    categoryDisplayProvider.formatForDisplay(category)
+                }
                 val currentIndex = fallbackCategoryNames.indexOf(messageItem.category)
                 
                 android.util.Log.d("CategoryDialog", "[FIX] Using fallback categories, current index: $currentIndex")
@@ -376,15 +399,11 @@ class CategoryTransactionsFragment : Fragment() {
     }
     
     private fun updateCategoryForMerchant(messageItem: MessageItem, newCategory: String) {
-        // Use ViewModel to handle category update
+        // Use ViewModel to handle category update - success/error will be handled by ViewModel
         viewModel.handleEvent(CategoryTransactionsUIEvent.UpdateTransactionCategory(messageItem, newCategory))
         
-        // Show success message
-        android.widget.Toast.makeText(
-            requireContext(),
-            "[SUCCESS] Moved ${messageItem.merchant} to $newCategory",
-            android.widget.Toast.LENGTH_SHORT
-        ).show()
+        // FIXED: Removed false success message - ViewModel will handle success/error feedback through UI state
+        android.util.Log.d("CategoryTransactions", "Initiated category update for ${messageItem.merchant} to $newCategory")
     }
     
     private fun applyFilterAndSort(transactions: List<MessageItem>): List<MessageItem> {
@@ -543,21 +562,8 @@ class CategoryTransactionsFragment : Fragment() {
     }
     
     private fun getCategoryEmoji(categoryName: String): String {
-        return when (categoryName.lowercase()) {
-            "food & dining", "food", "dining" -> "🍽️"
-            "transportation", "transport" -> "🚗"
-            "groceries", "grocery" -> "🛒"
-            "healthcare", "health" -> "🏥"
-            "entertainment" -> "🎬"
-            "shopping" -> "🛍️"
-            "utilities" -> "⚡"
-            "money", "finance" -> "[FINANCIAL]"
-            "education" -> "📚"
-            "travel" -> "✈️"
-            "bills" -> "💳"
-            "insurance" -> "🛡️"
-            else -> "📂"
-        }
+        // Use display provider to get emoji
+        return categoryDisplayProvider.getEmojiString(categoryName)
     }
     
     private fun getRandomCategoryColor(): String {

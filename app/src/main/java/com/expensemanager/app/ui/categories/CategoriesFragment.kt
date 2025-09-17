@@ -7,6 +7,8 @@ import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
@@ -16,6 +18,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import dagger.hilt.android.AndroidEntryPoint
 import com.expensemanager.app.R
 import com.expensemanager.app.databinding.FragmentCategoriesBinding
+import com.expensemanager.app.constants.Categories
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
@@ -70,19 +73,24 @@ class CategoriesFragment : Fragment() {
     }
     
     private fun setupRecyclerView() {
-        categoriesAdapter = CategoriesAdapter { categoryItem ->
-            // Notify ViewModel of category selection for any business logic
-            viewModel.handleEvent(CategoriesUIEvent.CategorySelected(categoryItem.name))
-            
-            // Navigate to category transactions
-            val bundle = Bundle().apply {
-                putString("categoryName", categoryItem.name)
+        categoriesAdapter = CategoriesAdapter(
+            onCategoryClick = { categoryItem ->
+                // Notify ViewModel of category selection for any business logic
+                viewModel.handleEvent(CategoriesUIEvent.CategorySelected(categoryItem.name))
+                
+                // Navigate to category transactions
+                val bundle = Bundle().apply {
+                    putString("categoryName", categoryItem.name)
+                }
+                findNavController().navigate(
+                    R.id.action_navigation_categories_to_navigation_category_transactions,
+                    bundle
+                )
+            },
+            onCategoryLongClick = { categoryItem, view ->
+                showCategoryActionDialog(categoryItem, view)
             }
-            findNavController().navigate(
-                R.id.action_navigation_categories_to_navigation_category_transactions,
-                bundle
-            )
-        }
+        )
         binding.recyclerCategories.apply {
             adapter = categoriesAdapter
             layoutManager = LinearLayoutManager(requireContext())
@@ -111,8 +119,10 @@ class CategoriesFragment : Fragment() {
      * Update UI based on ViewModel state
      */
     private fun updateUI(uiState: CategoriesUIState) {
+        Log.d("CategoriesFragment", "Updating UI with ${uiState.categories.size} categories")
+        
         // Update categories list
-        categoriesAdapter.submitList(uiState.categories)
+        categoriesAdapter.submitList(uiState.categories.toList()) // Create new list to trigger adapter update
         
         // Update summary text
         binding.tvTotalSpending.text = uiState.formattedTotalSpent
@@ -562,6 +572,199 @@ class CategoriesFragment : Fragment() {
         
         // Return all transactions if no inclusion states found
         return transactions
+    }
+    
+    private fun showCategoryActionDialog(categoryItem: CategoryItem, anchorView: android.view.View) {
+        Log.d("CategoriesFragment", "Long press detected for category: ${categoryItem.name}")
+        
+        // Check if this is a system/predefined category
+        if (Categories.isSystemCategory(categoryItem.name)) {
+            Log.d("CategoriesFragment", "Category '${categoryItem.name}' is a system category - actions not allowed")
+            Log.d("CategoriesFragment", "System categories: ${Categories.DEFAULT_CATEGORIES}")
+            Toast.makeText(
+                requireContext(),
+                "Cannot modify system category '${categoryItem.name}'",
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        } else {
+            Log.d("CategoriesFragment", "Category '${categoryItem.name}' is a custom category - allowing actions")
+        }
+        
+        try {
+            // Use BottomSheetDialog for better UX and proper positioning
+            showCategoryActionBottomSheet(categoryItem)
+            
+        } catch (e: Exception) {
+            Log.e("CategoriesFragment", "PopupMenu failed, trying fallback dialog", e)
+            
+            // Fallback to a simple bottom sheet style dialog
+            try {
+                val options = arrayOf("Rename Category", "Delete Category", "Cancel")
+                
+                MaterialAlertDialogBuilder(requireContext())
+                    .setTitle("${categoryItem.name} Actions")
+                    .setItems(options) { dialog, which ->
+                        Log.d("CategoriesFragment", "Fallback dialog action selected: $which")
+                        when (which) {
+                            0 -> {
+                                Log.d("CategoriesFragment", "Rename selected from fallback")
+                                showRenameCategoryDialog(categoryItem)
+                            }
+                            1 -> {
+                                Log.d("CategoriesFragment", "Delete selected from fallback")  
+                                showDeleteCategoryDialog(categoryItem)
+                            }
+                            2 -> {
+                                Log.d("CategoriesFragment", "Cancel selected from fallback")
+                                dialog.dismiss()
+                            }
+                        }
+                    }
+                    .setCancelable(true)
+                    .show()
+                    
+                Log.d("CategoriesFragment", "Fallback dialog shown")
+                
+            } catch (fallbackError: Exception) {
+                Log.e("CategoriesFragment", "Both popup and fallback dialog failed", fallbackError)
+                
+                // Last resort - Toast with instructions
+                Toast.makeText(
+                    requireContext(),
+                    "Long press detected on ${categoryItem.name}. Use menu options to rename/delete.",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+    
+    /**
+     * Show a modern BottomSheetDialog for category actions
+     */
+    private fun showCategoryActionBottomSheet(categoryItem: CategoryItem) {
+        val bottomSheetDialog = com.google.android.material.bottomsheet.BottomSheetDialog(requireContext())
+        val view = LayoutInflater.from(requireContext()).inflate(R.layout.bottom_sheet_category_actions, null)
+        
+        // Set up category info
+        view.findViewById<android.widget.TextView>(R.id.tv_category_name)?.text = categoryItem.name
+        view.findViewById<android.widget.TextView>(R.id.tv_category_emoji)?.text = categoryItem.emoji
+        
+        // Set up action buttons
+        view.findViewById<MaterialButton>(R.id.btn_rename)?.setOnClickListener {
+            bottomSheetDialog.dismiss()
+            showRenameCategoryDialog(categoryItem)
+        }
+        
+        view.findViewById<MaterialButton>(R.id.btn_delete)?.setOnClickListener {
+            bottomSheetDialog.dismiss()
+            showDeleteCategoryDialog(categoryItem)
+        }
+        
+        view.findViewById<MaterialButton>(R.id.btn_cancel)?.setOnClickListener {
+            bottomSheetDialog.dismiss()
+        }
+        
+        bottomSheetDialog.setContentView(view)
+        bottomSheetDialog.show()
+        
+        Log.d("CategoriesFragment", "BottomSheet dialog shown for category: ${categoryItem.name}")
+    }
+    
+    private fun showRenameCategoryDialog(categoryItem: CategoryItem) {
+        val dialogView = LayoutInflater.from(requireContext()).inflate(
+            R.layout.dialog_add_category, 
+            null
+        )
+        
+        // Pre-fill current values
+        val categoryNameInput = dialogView.findViewById<TextInputEditText>(R.id.et_category_name)
+        val emojiInput = dialogView.findViewById<TextInputEditText>(R.id.et_emoji)
+        categoryNameInput.setText(categoryItem.name)
+        emojiInput.setText(categoryItem.emoji)
+        
+        val dialog = MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Rename Category")
+            .setView(dialogView)
+            .create()
+        
+        // Update button text and icon for rename operation
+        val addButton = dialogView.findViewById<MaterialButton>(R.id.btn_add)
+        addButton.text = "Rename"
+        addButton.icon = null // Remove the add icon for rename operation
+        
+        // Set up emoji quick selection
+        dialogView.findViewById<MaterialButton>(R.id.btn_emoji_food).setOnClickListener {
+            emojiInput.setText("🍽️")
+        }
+        dialogView.findViewById<MaterialButton>(R.id.btn_emoji_transport).setOnClickListener {
+            emojiInput.setText("🚗")
+        }
+        dialogView.findViewById<MaterialButton>(R.id.btn_emoji_shopping).setOnClickListener {
+            emojiInput.setText("🛒")
+        }
+        dialogView.findViewById<MaterialButton>(R.id.btn_emoji_health).setOnClickListener {
+            emojiInput.setText("🏥")
+        }
+        dialogView.findViewById<MaterialButton>(R.id.btn_emoji_entertainment).setOnClickListener {
+            emojiInput.setText("🎬")
+        }
+        
+        // Set up click listeners
+        dialogView.findViewById<MaterialButton>(R.id.btn_cancel).setOnClickListener {
+            dialog.dismiss()
+        }
+        
+        dialogView.findViewById<MaterialButton>(R.id.btn_add).setOnClickListener {
+            val newName = categoryNameInput.text.toString().trim()
+            val newEmoji = emojiInput.text.toString().trim()
+            
+            if (newName.isNotEmpty() && (newName != categoryItem.name || newEmoji != categoryItem.emoji)) {
+                Log.d("CategoriesFragment", "Triggering rename from '${categoryItem.name}' to '$newName' with emoji '$newEmoji'")
+                viewModel.handleEvent(CategoriesUIEvent.RenameCategory(categoryItem.name, newName, newEmoji))
+                val message = if (newName != categoryItem.name) {
+                    "Updating category to '$newName'..."
+                } else {
+                    "Updating category emoji..."
+                }
+                Toast.makeText(
+                    requireContext(),
+                    message,
+                    Toast.LENGTH_SHORT
+                ).show()
+                dialog.dismiss()
+            } else if (newName.isEmpty()) {
+                Toast.makeText(
+                    requireContext(),
+                    "Please enter a category name",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+        
+        dialog.show()
+    }
+    
+    private fun showDeleteCategoryDialog(categoryItem: CategoryItem) {
+        Log.d("CategoriesFragment", "Showing delete dialog for category: ${categoryItem.name}")
+        
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Delete Category")
+            .setMessage("Are you sure you want to delete '${categoryItem.name}' category?\n\nAll transactions will be moved to 'Other' category. This action cannot be undone.")
+            .setPositiveButton("Delete") { _, _ ->
+                Log.d("CategoriesFragment", "Triggering delete for category: ${categoryItem.name}")
+                viewModel.handleEvent(CategoriesUIEvent.DeleteCategory(categoryItem.name))
+                Toast.makeText(
+                    requireContext(),
+                    "Deleting category '${categoryItem.name}'...",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+            .setNegativeButton("Cancel") { dialog, _ ->
+                Log.d("CategoriesFragment", "Delete dialog cancelled")
+                dialog.dismiss()
+            }
+            .show()
     }
     
     override fun onDestroyView() {
