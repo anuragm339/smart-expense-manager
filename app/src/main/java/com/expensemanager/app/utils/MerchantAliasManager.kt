@@ -214,17 +214,70 @@ class MerchantAliasManager(private val context: Context) {
         val cleanCategory = category.trim()
         val existingAliases = getAllAliases()
         
-        // Check if this merchant already has an alias
-        val existingForOriginal = existingAliases[normalizedName]
-        if (existingForOriginal != null && existingForOriginal.displayName != cleanDisplayName) {
+        Log.d(TAG, "[CONFLICT_CHECK] Checking alias conflict for: '$originalName' -> '$cleanDisplayName' in '$cleanCategory'")
+        Log.d(TAG, "[CONFLICT_CHECK] Normalized name: '$normalizedName', existing aliases count: ${existingAliases.size}")
+        
+        // Enhanced validation
+        if (cleanDisplayName.isEmpty()) {
+            Log.w(TAG, "[CONFLICT_CHECK] Empty display name provided")
             return AliasConflict(
-                type = ConflictType.OVERWRITE_EXISTING,
-                existingDisplayName = existingForOriginal.displayName,
-                existingCategory = existingForOriginal.category,
+                type = ConflictType.NONE,
+                existingDisplayName = null,
+                existingCategory = null,
                 newDisplayName = cleanDisplayName,
                 newCategory = cleanCategory,
-                affectedMerchants = listOf(originalName)
+                affectedMerchants = emptyList()
             )
+        }
+        
+        if (cleanCategory.isEmpty()) {
+            Log.w(TAG, "[CONFLICT_CHECK] Empty category provided")
+            return AliasConflict(
+                type = ConflictType.NONE,
+                existingDisplayName = null,
+                existingCategory = null,
+                newDisplayName = cleanDisplayName,
+                newCategory = cleanCategory,
+                affectedMerchants = emptyList()
+            )
+        }
+        
+        // Check if this merchant already has an alias
+        val existingForOriginal = existingAliases[normalizedName]
+        if (existingForOriginal != null) {
+            Log.d(TAG, "[CONFLICT_CHECK] Found existing alias for '$normalizedName': '${existingForOriginal.displayName}' -> '${existingForOriginal.category}'")
+            
+            if (existingForOriginal.displayName != cleanDisplayName) {
+                Log.d(TAG, "[CONFLICT_CHECK] OVERWRITE_EXISTING detected: changing display name from '${existingForOriginal.displayName}' to '$cleanDisplayName'")
+                return AliasConflict(
+                    type = ConflictType.OVERWRITE_EXISTING,
+                    existingDisplayName = existingForOriginal.displayName,
+                    existingCategory = existingForOriginal.category,
+                    newDisplayName = cleanDisplayName,
+                    newCategory = cleanCategory,
+                    affectedMerchants = listOf(originalName)
+                )
+            } else if (existingForOriginal.category != cleanCategory) {
+                Log.d(TAG, "[CONFLICT_CHECK] OVERWRITE_EXISTING detected: changing category from '${existingForOriginal.category}' to '$cleanCategory'")
+                return AliasConflict(
+                    type = ConflictType.OVERWRITE_EXISTING,
+                    existingDisplayName = existingForOriginal.displayName,
+                    existingCategory = existingForOriginal.category,
+                    newDisplayName = cleanDisplayName,
+                    newCategory = cleanCategory,
+                    affectedMerchants = listOf(originalName)
+                )
+            } else {
+                Log.d(TAG, "[CONFLICT_CHECK] No changes detected for existing alias")
+                return AliasConflict(
+                    type = ConflictType.NONE,
+                    existingDisplayName = null,
+                    existingCategory = null,
+                    newDisplayName = cleanDisplayName,
+                    newCategory = cleanCategory,
+                    affectedMerchants = emptyList()
+                )
+            }
         }
         
         // Check if display name already exists for other merchants
@@ -233,10 +286,18 @@ class MerchantAliasManager(private val context: Context) {
         }
         
         if (existingSameDisplayName.isNotEmpty()) {
+            Log.d(TAG, "[CONFLICT_CHECK] Found ${existingSameDisplayName.size} existing merchants with display name '$cleanDisplayName'")
+            existingSameDisplayName.forEach { existing ->
+                Log.d(TAG, "[CONFLICT_CHECK] - '${existing.originalName}' -> '${existing.displayName}' (${existing.category})")
+            }
+            
             // Check if all existing merchants with this display name have the same category
             val existingCategories = existingSameDisplayName.map { it.category }.distinct()
+            Log.d(TAG, "[CONFLICT_CHECK] Existing categories: $existingCategories, new category: '$cleanCategory'")
+            
             if (existingCategories.size == 1 && existingCategories.first() == cleanCategory) {
                 // Same category - this is fine, it's just grouping merchants
+                Log.d(TAG, "[CONFLICT_CHECK] NONE - same category grouping allowed")
                 return AliasConflict(
                     type = ConflictType.NONE,
                     existingDisplayName = null,
@@ -247,6 +308,7 @@ class MerchantAliasManager(private val context: Context) {
                 )
             } else {
                 // Different categories - potential conflict
+                Log.d(TAG, "[CONFLICT_CHECK] CATEGORY_MISMATCH detected - different categories: ${existingCategories.joinToString(", ")} vs '$cleanCategory'")
                 return AliasConflict(
                     type = ConflictType.CATEGORY_MISMATCH,
                     existingDisplayName = cleanDisplayName,
@@ -259,6 +321,7 @@ class MerchantAliasManager(private val context: Context) {
         }
         
         // No conflict
+        Log.d(TAG, "[CONFLICT_CHECK] NONE - no conflicts detected")
         return AliasConflict(
             type = ConflictType.NONE,
             existingDisplayName = null,

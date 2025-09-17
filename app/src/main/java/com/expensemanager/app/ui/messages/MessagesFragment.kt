@@ -1597,24 +1597,46 @@ class MessagesFragment : Fragment() {
                     return@launch
                 }
                 
+                // Enhanced input validation before conflict check
+                if (newDisplayName.isBlank()) {
+                    Log.w("MessagesFragment", "[VALIDATION] Empty display name provided")
+                    Toast.makeText(requireContext(), "⚠️ Please enter a valid merchant name", Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
+                
+                if (newDisplayName.length < 2) {
+                    Log.w("MessagesFragment", "[VALIDATION] Display name too short: '$newDisplayName'")
+                    Toast.makeText(requireContext(), "⚠️ Merchant name must be at least 2 characters", Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
+                
+                if (newDisplayName.length > 50) {
+                    Log.w("MessagesFragment", "[VALIDATION] Display name too long: ${newDisplayName.length} characters")
+                    Toast.makeText(requireContext(), "⚠️ Merchant name too long (max 50 characters)", Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
+                
                 // Check for conflicts before proceeding
                 val conflict = merchantAliasManager.checkAliasConflict(group.merchantName, newDisplayName, newCategory)
-                Log.d("MessagesFragment", "[CONFLICT] Conflict check result: ${conflict.type}")
+                Log.d("MessagesFragment", "[CONFLICT] Conflict check result: ${conflict.type} for '$newDisplayName' -> '$newCategory'")
                 
                 when (conflict.type) {
                     MerchantAliasManager.ConflictType.CATEGORY_MISMATCH -> {
                         // Show conflict resolution dialog
+                        Log.d("MessagesFragment", "[CONFLICT] Category mismatch detected - showing resolution dialog")
                         showAliasConflictDialog(group, newDisplayName, newCategory, conflict)
                         return@launch
                     }
                     MerchantAliasManager.ConflictType.OVERWRITE_EXISTING -> {
                         // Ask user if they want to overwrite existing alias
+                        Log.d("MessagesFragment", "[CONFLICT] Overwrite existing detected - showing confirmation dialog")
                         showOverwriteConfirmationDialog(group, newDisplayName, newCategory, conflict)
                         return@launch
                     }
                     MerchantAliasManager.ConflictType.DISPLAY_NAME_EXISTS -> {
                         // Display name exists but should be treated as grouping (handled in conflict checking logic)
-                        Log.d("MessagesFragment", "[CONFLICT] Display name exists but no conflict - proceeding")
+                        Log.d("MessagesFragment", "[CONFLICT] Display name exists but no conflict - proceeding with grouping")
+                        Toast.makeText(requireContext(), "✅ Grouping with existing '$newDisplayName' merchants", Toast.LENGTH_SHORT).show()
                     }
                     MerchantAliasManager.ConflictType.NONE -> {
                         // No conflict, proceed normally
@@ -1792,11 +1814,20 @@ class MessagesFragment : Fragment() {
                             Log.w("MessagesFragment", "Could not trigger ViewModel resync", e)
                         }
                         
+                        // Enhanced success feedback
+                        val successMessage = if (aliasSetCount > 1) {
+                            "✅ Successfully grouped $aliasSetCount merchants as '$newDisplayName' in '$newCategory'"
+                        } else {
+                            "✅ Successfully updated '${group.merchantName}' to '$newDisplayName' in '$newCategory'"
+                        }
+                        
                         Toast.makeText(
                             requireContext(),
-                            "Successfully updated '${group.merchantName}' to '$newDisplayName' in category '$newCategory'"  ,
+                            successMessage,
                             Toast.LENGTH_LONG
                         ).show()
+                        
+                        Log.d("MessagesFragment", "[SUCCESS] Merchant alias update completed successfully: ${group.merchantName} -> $newDisplayName ($newCategory)")
                         
                         // Notify Dashboard and other screens about merchant category change
                         val intent = Intent("com.expensemanager.MERCHANT_CATEGORY_CHANGED")
@@ -2214,29 +2245,41 @@ class MessagesFragment : Fragment() {
         newCategory: String, 
         conflict: MerchantAliasManager.AliasConflict
     ) {
-        Log.d("MessagesFragment", "[CONFLICT] Showing category mismatch dialog")
+        Log.d("MessagesFragment", "[CONFLICT] Showing enhanced category mismatch dialog")
+        
+        val affectedMerchantCount = conflict.affectedMerchants.size
+        val merchantText = if (affectedMerchantCount == 1) "merchant" else "merchants"
         
         val message = """
-            The merchant name "$newDisplayName" already exists in category "${conflict.existingCategory}".
+            🚨 Merchant Name Conflict Detected
             
-            You're trying to add it to "$newCategory".
+            The name "$newDisplayName" is already used by $affectedMerchantCount $merchantText in "${conflict.existingCategory}" category.
             
-            What would you like to do?
+            You're trying to assign it to "$newCategory" category.
+            
+            📝 Your Options:
+            
+            1️⃣ Merge All: Move ALL "$newDisplayName" merchants to one category
+            2️⃣ Use Different Name: Keep them separate with a unique name
+            3️⃣ Cancel: Keep everything as it is
+            
+            💡 This ensures your transaction grouping stays organized!
         """.trimIndent()
         
         MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Merchant Name Conflict")
+            .setTitle("📋 Smart Grouping Assistant")
             .setMessage(message)
-            .setPositiveButton("Merge Categories") { _, _ ->
+            .setPositiveButton("🔄 Merge All") { _, _ ->
                 // Ask which category to use for all merchants with this display name
                 showCategoryMergeDialog(group, newDisplayName, newCategory, conflict)
             }
-            .setNeutralButton("Use Different Name") { _, _ ->
+            .setNeutralButton("✏️ Use Different Name") { _, _ ->
                 // Re-open the edit dialog with a suggested alternative name
                 val suggestedName = "${newDisplayName} (${newCategory})"
                 showMerchantGroupEditDialogWithSuggestion(group, suggestedName, newCategory)
             }
-            .setNegativeButton("Cancel") { dialog, _ ->
+            .setNegativeButton("❌ Cancel") { dialog, _ ->
+                Log.d("MessagesFragment", "[CONFLICT] User cancelled merchant aliasing")
                 dialog.dismiss()
             }
             .show()
@@ -2253,18 +2296,39 @@ class MessagesFragment : Fragment() {
     ) {
         val categories = listOf(newCategory, conflict.existingCategory!!).distinct()
         val categoryArray = categories.toTypedArray()
+        val affectedMerchantCount = conflict.affectedMerchants.size + 1 // +1 for the current merchant
+        
+        val enhancedMessage = """
+            🎯 Merging Categories for '$displayName'
+            
+            📊 Impact: This will affect $affectedMerchantCount merchant groups
+            
+            🔄 All transactions from merchants named '$displayName' will be grouped under the selected category.
+            
+            💡 Choose wisely - this action will reorganize your transaction history!
+        """.trimIndent()
+        
+        // Add emoji indicators for categories
+        val enhancedCategories = categoryArray.map { category ->
+            val emoji = getCategoryEmoji(category)
+            "$emoji $category"
+        }.toTypedArray()
         
         MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Choose Category for '$displayName'")
-            .setMessage("All merchants with the name '$displayName' will be moved to the selected category.")
-            .setSingleChoiceItems(categoryArray, 0) { dialog, which ->
-                val selectedCategory = categoryArray[which]
+            .setTitle("🔄 Merge Categories")
+            .setMessage(enhancedMessage)
+            .setSingleChoiceItems(enhancedCategories, 0) { dialog, which ->
+                val selectedCategoryWithEmoji = enhancedCategories[which]
+                val selectedCategory = selectedCategoryWithEmoji.replace(Regex("^[\\p{So}\\p{Cn}]\\s+"), "") // Remove emoji
                 dialog.dismiss()
+                
+                Log.d("MessagesFragment", "[MERGE] User selected category '$selectedCategory' for merging '$displayName'")
                 
                 // Update all merchants with this display name to use the selected category
                 performMerchantAliasUpdateDirectly(group, displayName, selectedCategory)
             }
-            .setNegativeButton("Cancel") { dialog, _ ->
+            .setNegativeButton("❌ Cancel") { dialog, _ ->
+                Log.d("MessagesFragment", "[MERGE] User cancelled category merge")
                 dialog.dismiss()
             }
             .show()
@@ -2279,21 +2343,44 @@ class MessagesFragment : Fragment() {
         newCategory: String,
         conflict: MerchantAliasManager.AliasConflict
     ) {
-        Log.d("MessagesFragment", "[CONFLICT] Showing overwrite confirmation dialog")
+        Log.d("MessagesFragment", "[CONFLICT] Showing enhanced overwrite confirmation dialog")
+        
+        val currentEmojiCategory = getCategoryEmoji(conflict.existingCategory ?: "")
+        val newEmojiCategory = getCategoryEmoji(newCategory)
+        
+        val changeType = if (conflict.existingDisplayName != newDisplayName && conflict.existingCategory != newCategory) {
+            "both name and category"
+        } else if (conflict.existingDisplayName != newDisplayName) {
+            "name only"
+        } else {
+            "category only"
+        }
         
         val message = """
-            "${group.merchantName}" is currently aliased to "${conflict.existingDisplayName}" in category "${conflict.existingCategory}".
+            📝 Update Existing Merchant Alias
             
-            Do you want to change it to "$newDisplayName" in category "$newCategory"?
+            Current Settings:
+            🏷️ Name: "${conflict.existingDisplayName}"
+            $currentEmojiCategory Category: "${conflict.existingCategory}"
+            
+            New Settings:
+            🏷️ Name: "$newDisplayName"
+            $newEmojiCategory Category: "$newCategory"
+            
+            📊 This will update $changeType for this merchant group.
+            
+            ⚠️ All existing transactions will be regrouped accordingly.
         """.trimIndent()
         
         MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Overwrite Existing Alias?")
+            .setTitle("🔄 Update Merchant Settings")
             .setMessage(message)
-            .setPositiveButton("Yes, Overwrite") { _, _ ->
+            .setPositiveButton("✅ Update") { _, _ ->
+                Log.d("MessagesFragment", "[OVERWRITE] User confirmed overwrite: '$changeType' update")
                 performMerchantAliasUpdateDirectly(group, newDisplayName, newCategory)
             }
-            .setNegativeButton("Cancel") { dialog, _ ->
+            .setNegativeButton("❌ Cancel") { dialog, _ ->
+                Log.d("MessagesFragment", "[OVERWRITE] User cancelled overwrite")
                 dialog.dismiss()
             }
             .show()
