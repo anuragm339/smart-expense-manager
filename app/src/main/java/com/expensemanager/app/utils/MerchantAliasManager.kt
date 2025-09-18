@@ -39,9 +39,11 @@ class MerchantAliasManager(private val context: Context) {
     fun getDisplayName(originalMerchantName: String): String {
         val normalizedName = normalizeMerchantName(originalMerchantName)
         val alias = getAlias(normalizedName)
-        val displayName = alias?.displayName ?: originalMerchantName
         
+        // Use explicit alias display name if exists, otherwise use enhanced normalized name for better grouping
+        val displayName = alias?.displayName ?: normalizedName
         
+        Log.d(TAG, "[DISPLAY] '$originalMerchantName' -> '$displayName' (normalized: '$normalizedName', hasAlias: ${alias != null})")
         return displayName
     }
     
@@ -149,8 +151,15 @@ class MerchantAliasManager(private val context: Context) {
             }
             
             if (saveSuccess) {
-                // Update cache only if save was successful
-                aliasCache = aliases
+                // Force cache invalidation and fresh reload to ensure immediate consistency
+                aliasCache = null
+                Log.d(TAG, "[CACHE_FIX] Invalidated cache to force fresh reload")
+                
+                // Force immediate reload to verify the data
+                loadAliases()
+                val verificationAlias = aliasCache?.get(normalizedName)
+                Log.d(TAG, "[CACHE_FIX] Verification after reload: '$normalizedName' -> '${verificationAlias?.displayName}' (expected: '$cleanDisplayName')")
+                
                 Log.d(TAG, "[ALIAS] Successfully set alias for '$normalizedName' -> '$cleanDisplayName'")
                 return true
             } else {
@@ -491,14 +500,22 @@ class MerchantAliasManager(private val context: Context) {
             .replace(Regex("\\s+"), " ") // Normalize spaces first
             .trim()
         
-        // Less aggressive normalization - preserve location and key identifiers
-        return cleaned
+        // Enhanced normalization - remove company suffixes and transaction artifacts
+        val normalized = cleaned
             .replace(Regex("\\*(ORDER|PAYMENT|TXN|TRANSACTION).*$"), "") // Remove order/payment suffixes
             .replace(Regex("#\\d+.*$"), "") // Remove transaction numbers
             .replace(Regex("@\\w+.*$"), "") // Remove @ suffixes
             .replace(Regex("-{2,}.*$"), "") // Remove double dashes and everything after
             .replace(Regex("_{2,}.*$"), "") // Remove double underscores and everything after
+            // Remove common company suffixes to group similar merchants
+            .replace(Regex("\\s+(PVT\\s+)?LTD\\.?$"), "") // Remove LTD, PVT LTD
+            .replace(Regex("\\s+LIMITED$"), "") // Remove LIMITED
+            .replace(Regex("\\s+PRIVATE\\s+LIMITED$"), "") // Remove PRIVATE LIMITED
+            .replace(Regex("\\s+(LLC|INC|CORP)\\.?$"), "") // Remove LLC, INC, CORP
             .trim()
+        
+        Log.d(TAG, "[NORMALIZE] '$name' -> '$normalized'")
+        return normalized
     }
     
     /**

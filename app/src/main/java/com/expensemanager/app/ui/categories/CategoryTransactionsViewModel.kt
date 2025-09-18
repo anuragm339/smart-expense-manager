@@ -416,7 +416,7 @@ class CategoryTransactionsViewModel @Inject constructor(
      */
     private suspend fun loadCategoryTransactionsFromRepository(categoryName: String): List<MessageItem> {
         return try {
-            // Get current date range (this month by default)
+            // Get date range from the start of the current month to the current time
             val calendar = Calendar.getInstance()
             calendar.set(Calendar.DAY_OF_MONTH, 1)
             calendar.set(Calendar.HOUR_OF_DAY, 0)
@@ -424,13 +424,12 @@ class CategoryTransactionsViewModel @Inject constructor(
             calendar.set(Calendar.SECOND, 0)
             calendar.set(Calendar.MILLISECOND, 0)
             val startDate = calendar.time
-            
-            calendar.add(Calendar.MONTH, 1)
-            calendar.add(Calendar.DAY_OF_MONTH, -1)
-            calendar.set(Calendar.HOUR_OF_DAY, 23)
-            calendar.set(Calendar.MINUTE, 59)
-            calendar.set(Calendar.SECOND, 59)
-            val endDate = calendar.time
+
+            // Set end date to current time to exclude future transactions
+            val endDate = Calendar.getInstance().time
+
+            val dateFormatter = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+            Log.d(TAG, "Loading category transactions from start of month: ${dateFormatter.format(startDate)}")
             
             // Load transactions from repository
             val allDbTransactions = repository.getTransactionsByDateRange(startDate, endDate)
