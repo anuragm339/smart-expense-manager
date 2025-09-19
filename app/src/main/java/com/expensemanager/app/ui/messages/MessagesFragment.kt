@@ -111,8 +111,20 @@ class MessagesFragment : Fragment() {
                 // Refresh messages data on the main thread
                 lifecycleScope.launch {
                     try {
-                        Log.d("MessagesFragment", "[REFRESH] Refreshing messages due to new transaction")
-                        loadHistoricalTransactions()
+                        Log.d("MessagesFragment", "[REFRESH] Refreshing messages via ViewModel due to new transaction")
+                        
+                        // Invalidate ViewModel's cache to ensure it gets fresh alias data
+                        try {
+                            messagesViewModel.invalidateMerchantAliasCache()
+                        } catch (e: Exception) {
+                            Log.w("MessagesFragment", "Could not invalidate ViewModel cache for new transaction", e)
+                        }
+                        
+                        try {
+                            messagesViewModel.handleEvent(MessagesUIEvent.LoadMessages)
+                        } catch (e: Exception) {
+                            Log.w("MessagesFragment", "Could not trigger ViewModel refresh for new transaction", e)
+                        }
                         
                     } catch (e: Exception) {
                         Log.e("MessagesFragment", "Error refreshing messages after new transaction", e)
@@ -842,9 +854,137 @@ class MessagesFragment : Fragment() {
             .setTitle("Filter by Date")
             .setItems(options) { _, which ->
                 Toast.makeText(requireContext(), "Filtering by: ${options[which]}", Toast.LENGTH_SHORT).show()
-                // TODO: Implement actual date filtering
+                applyDateFilter(which)
             }
             .show()
+    }
+    
+    private fun applyDateFilter(filterOption: Int) {
+        val calendar = java.util.Calendar.getInstance()
+        val startDate: java.util.Date
+        val endDate: java.util.Date
+        
+        when (filterOption) {
+            0 -> { // Today
+                calendar.set(java.util.Calendar.HOUR_OF_DAY, 0)
+                calendar.set(java.util.Calendar.MINUTE, 0)
+                calendar.set(java.util.Calendar.SECOND, 0)
+                calendar.set(java.util.Calendar.MILLISECOND, 0)
+                startDate = calendar.time
+                
+                calendar.set(java.util.Calendar.HOUR_OF_DAY, 23)
+                calendar.set(java.util.Calendar.MINUTE, 59)
+                calendar.set(java.util.Calendar.SECOND, 59)
+                endDate = calendar.time
+            }
+            1 -> { // Yesterday
+                calendar.add(java.util.Calendar.DAY_OF_MONTH, -1)
+                calendar.set(java.util.Calendar.HOUR_OF_DAY, 0)
+                calendar.set(java.util.Calendar.MINUTE, 0)
+                calendar.set(java.util.Calendar.SECOND, 0)
+                calendar.set(java.util.Calendar.MILLISECOND, 0)
+                startDate = calendar.time
+                
+                calendar.set(java.util.Calendar.HOUR_OF_DAY, 23)
+                calendar.set(java.util.Calendar.MINUTE, 59)
+                calendar.set(java.util.Calendar.SECOND, 59)
+                endDate = calendar.time
+            }
+            2 -> { // This Week
+                calendar.set(java.util.Calendar.DAY_OF_WEEK, calendar.firstDayOfWeek)
+                calendar.set(java.util.Calendar.HOUR_OF_DAY, 0)
+                calendar.set(java.util.Calendar.MINUTE, 0)
+                calendar.set(java.util.Calendar.SECOND, 0)
+                calendar.set(java.util.Calendar.MILLISECOND, 0)
+                startDate = calendar.time
+                
+                calendar.add(java.util.Calendar.WEEK_OF_YEAR, 1)
+                calendar.add(java.util.Calendar.DAY_OF_MONTH, -1)
+                calendar.set(java.util.Calendar.HOUR_OF_DAY, 23)
+                calendar.set(java.util.Calendar.MINUTE, 59)
+                calendar.set(java.util.Calendar.SECOND, 59)
+                endDate = calendar.time
+            }
+            3 -> { // This Month
+                calendar.set(java.util.Calendar.DAY_OF_MONTH, 1)
+                calendar.set(java.util.Calendar.HOUR_OF_DAY, 0)
+                calendar.set(java.util.Calendar.MINUTE, 0)
+                calendar.set(java.util.Calendar.SECOND, 0)
+                calendar.set(java.util.Calendar.MILLISECOND, 0)
+                startDate = calendar.time
+                
+                calendar.add(java.util.Calendar.MONTH, 1)
+                calendar.add(java.util.Calendar.DAY_OF_MONTH, -1)
+                calendar.set(java.util.Calendar.HOUR_OF_DAY, 23)
+                calendar.set(java.util.Calendar.MINUTE, 59)
+                calendar.set(java.util.Calendar.SECOND, 59)
+                endDate = calendar.time
+            }
+            4 -> { // Last Month
+                calendar.add(java.util.Calendar.MONTH, -1)
+                calendar.set(java.util.Calendar.DAY_OF_MONTH, 1)
+                calendar.set(java.util.Calendar.HOUR_OF_DAY, 0)
+                calendar.set(java.util.Calendar.MINUTE, 0)
+                calendar.set(java.util.Calendar.SECOND, 0)
+                calendar.set(java.util.Calendar.MILLISECOND, 0)
+                startDate = calendar.time
+                
+                calendar.add(java.util.Calendar.MONTH, 1)
+                calendar.add(java.util.Calendar.DAY_OF_MONTH, -1)
+                calendar.set(java.util.Calendar.HOUR_OF_DAY, 23)
+                calendar.set(java.util.Calendar.MINUTE, 59)
+                calendar.set(java.util.Calendar.SECOND, 59)
+                endDate = calendar.time
+            }
+            5 -> { // All Time
+                calendar.set(2020, java.util.Calendar.JANUARY, 1)
+                calendar.set(java.util.Calendar.HOUR_OF_DAY, 0)
+                calendar.set(java.util.Calendar.MINUTE, 0)
+                calendar.set(java.util.Calendar.SECOND, 0)
+                calendar.set(java.util.Calendar.MILLISECOND, 0)
+                startDate = calendar.time
+                
+                val endCalendar = java.util.Calendar.getInstance()
+                endCalendar.add(java.util.Calendar.YEAR, 1)
+                endDate = endCalendar.time
+            }
+            else -> return
+        }
+        
+        val filterNames = arrayOf("Today", "Yesterday", "This Week", "This Month", "Last Month", "All Time")
+        Log.d("MessagesFragment", "[DATE_FILTER] Applying filter: ${filterNames[filterOption]} from ${java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(startDate)} to ${java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(endDate)}")
+        
+        // Reload transactions with new date range
+        loadTransactionsWithDateRange(startDate, endDate)
+    }
+    
+    private fun loadTransactionsWithDateRange(startDate: java.util.Date, endDate: java.util.Date) {
+        showLoadingState()
+        
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val repository = com.expensemanager.app.data.repository.ExpenseRepository.getInstance(requireContext())
+                val dbTransactions = repository.getTransactionsByDateRange(startDate, endDate)
+                Log.d("MessagesFragment", "[DATA] Found ${dbTransactions.size} transactions for date range")
+                
+                if (dbTransactions.isNotEmpty()) {
+                    processAndDisplayTransactions(dbTransactions, isPartial = false)
+                } else {
+                    withContext(Dispatchers.Main) {
+                        groupedMessagesAdapter.submitList(emptyList())
+                        binding.recyclerMessages.visibility = View.GONE
+                        binding.layoutEmpty.visibility = View.VISIBLE
+                        binding.tvTotalMessages.text = "0"
+                        binding.tvAutoCategorized.text = "0"
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("MessagesFragment", "Error loading transactions with date filter", e)
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(requireContext(), "Error filtering transactions: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
     }
     
     private fun showAmountFilterDialog() {
@@ -880,21 +1020,19 @@ class MessagesFragment : Fragment() {
                 // Use repository to get transactions from database (faster and more reliable)
                 val repository = com.expensemanager.app.data.repository.ExpenseRepository.getInstance(requireContext())
                 
-                // Get current date range (this month for now, but could be expanded)
+                // Get date range from the start of the current month to the current day
                 val calendar = java.util.Calendar.getInstance()
-                calendar.set(java.util.Calendar.DAY_OF_MONTH, 1)
+                calendar.set(java.util.Calendar.DAY_OF_MONTH, 1) // Start of the month
                 calendar.set(java.util.Calendar.HOUR_OF_DAY, 0)
                 calendar.set(java.util.Calendar.MINUTE, 0)
                 calendar.set(java.util.Calendar.SECOND, 0)
                 calendar.set(java.util.Calendar.MILLISECOND, 0)
                 val startDate = calendar.time
+
+                // Set end date to current time to exclude future transactions
+                val endDate = java.util.Calendar.getInstance().time
                 
-                calendar.add(java.util.Calendar.MONTH, 1)
-                calendar.add(java.util.Calendar.DAY_OF_MONTH, -1)
-                calendar.set(java.util.Calendar.HOUR_OF_DAY, 23)
-                calendar.set(java.util.Calendar.MINUTE, 59)
-                calendar.set(java.util.Calendar.SECOND, 59)
-                val endDate = calendar.time
+                Log.d("MessagesFragment", "[DATE_FILTER] Loading transactions for current month from ${java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(startDate)}")
                 
                 // PERFORMANCE: Load transactions with limit for faster initial display
                 val dbTransactions = repository.getTransactionsByDateRange(startDate, endDate)
@@ -1079,8 +1217,21 @@ class MessagesFragment : Fragment() {
                 // Find similar transactions
                 val similarTransactions = categoryManager.getAllSimilarTransactions(messageItem.merchant)
                 
-                // Reload the grouped data to reflect category changes
-                loadHistoricalTransactions()
+                // Invalidate ViewModel's cache to ensure it gets fresh alias data
+                try {
+                    Log.d("MessagesFragment", "[CACHE_SYNC] Invalidating ViewModel cache for category update")
+                    messagesViewModel.invalidateMerchantAliasCache()
+                } catch (e: Exception) {
+                    Log.w("MessagesFragment", "Could not invalidate ViewModel cache for category update", e)
+                }
+                
+                // Trigger ViewModel update to reflect category changes
+                try {
+                    Log.d("MessagesFragment", "[UI_FIX] Using ONLY ViewModel refresh for category update")
+                    messagesViewModel.handleEvent(MessagesUIEvent.LoadMessages)
+                } catch (e: Exception) {
+                    Log.w("MessagesFragment", "Could not trigger ViewModel refresh for category update", e)
+                }
                 
                 // Show feedback
                 MaterialAlertDialogBuilder(requireContext())
@@ -1804,14 +1955,20 @@ class MessagesFragment : Fragment() {
                 when {
                     aliasUpdateSuccess && databaseUpdateSuccess -> {
                         
-                        // Reload data to reflect changes
-                        loadHistoricalTransactions()
-                        
-                        // Also trigger ViewModel update if available
+                        // Invalidate ViewModel's cache to ensure it gets fresh alias data
                         try {
-                            messagesViewModel.handleEvent(MessagesUIEvent.ResyncSMS)
+                            Log.d("MessagesFragment", "[CACHE_SYNC] Invalidating ViewModel cache before refresh")
+                            messagesViewModel.invalidateMerchantAliasCache()
                         } catch (e: Exception) {
-                            Log.w("MessagesFragment", "Could not trigger ViewModel resync", e)
+                            Log.w("MessagesFragment", "Could not invalidate ViewModel cache", e)
+                        }
+                        
+                        // Trigger ViewModel update to reflect changes (respecting date filtering)
+                        try {
+                            Log.d("MessagesFragment", "[UI_FIX] Using ONLY ViewModel refresh to show updated merchant names immediately")
+                            messagesViewModel.handleEvent(MessagesUIEvent.LoadMessages)
+                        } catch (e: Exception) {
+                            Log.w("MessagesFragment", "Could not trigger ViewModel date-aware refresh", e)
                         }
                         
                         // Enhanced success feedback
@@ -1841,8 +1998,21 @@ class MessagesFragment : Fragment() {
                     aliasUpdateSuccess && !databaseUpdateSuccess -> {
                         Log.w("MessagesFragment", "SharedPreferences updated but database failed")
                         
-                        // Still reload data to show UI changes
-                        loadHistoricalTransactions()
+                        // Invalidate ViewModel's cache to ensure it gets fresh alias data
+                        try {
+                            Log.d("MessagesFragment", "[CACHE_SYNC] Invalidating ViewModel cache before partial success refresh")
+                            messagesViewModel.invalidateMerchantAliasCache()
+                        } catch (e: Exception) {
+                            Log.w("MessagesFragment", "Could not invalidate ViewModel cache for partial success", e)
+                        }
+                        
+                        // Trigger ViewModel update to show UI changes (no Fragment data loading)
+                        try {
+                            Log.d("MessagesFragment", "[UI_FIX] Using ONLY ViewModel refresh for partial success case")
+                            messagesViewModel.handleEvent(MessagesUIEvent.LoadMessages)
+                        } catch (e: Exception) {
+                            Log.w("MessagesFragment", "Could not trigger ViewModel refresh for partial success", e)
+                        }
                         
                         Toast.makeText(
                             requireContext(),
@@ -1992,8 +2162,21 @@ class MessagesFragment : Fragment() {
                     merchantAliasManager.removeMerchantAlias(group.merchantName)
                 }
                 
-                // Reload data to reflect changes
-                loadHistoricalTransactions()
+                // Invalidate ViewModel's cache to ensure it gets fresh alias data
+                try {
+                    Log.d("MessagesFragment", "[CACHE_SYNC] Invalidating ViewModel cache for reset operation")
+                    messagesViewModel.invalidateMerchantAliasCache()
+                } catch (e: Exception) {
+                    Log.w("MessagesFragment", "Could not invalidate ViewModel cache for reset", e)
+                }
+                
+                // Trigger ViewModel update to reflect changes
+                try {
+                    Log.d("MessagesFragment", "[UI_FIX] Using ONLY ViewModel refresh for merchant reset operation")
+                    messagesViewModel.handleEvent(MessagesUIEvent.LoadMessages)
+                } catch (e: Exception) {
+                    Log.w("MessagesFragment", "Could not trigger ViewModel refresh for reset", e)
+                }
                 
                 Toast.makeText(
                     requireContext(),
@@ -2297,7 +2480,8 @@ class MessagesFragment : Fragment() {
         val categories = listOf(newCategory, conflict.existingCategory!!).distinct()
         val categoryArray = categories.toTypedArray()
         val affectedMerchantCount = conflict.affectedMerchants.size + 1 // +1 for the current merchant
-        
+        var selectedCategory = categories[0] // Default selection
+
         val enhancedMessage = """
             🎯 Merging Categories for '$displayName'
             
@@ -2307,24 +2491,23 @@ class MessagesFragment : Fragment() {
             
             💡 Choose wisely - this action will reorganize your transaction history!
         """.trimIndent()
-        
+
         // Add emoji indicators for categories
-        val enhancedCategories = categoryArray.map { category ->
-            val emoji = getCategoryEmoji(category)
-            "$emoji $category"
+        val enhancedCategories = categoryArray.map {
+            val emoji = getCategoryEmoji(it)
+            "$emoji $it"
         }.toTypedArray()
-        
+
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("🔄 Merge Categories")
             .setMessage(enhancedMessage)
-            .setSingleChoiceItems(enhancedCategories, 0) { dialog, which ->
-                val selectedCategoryWithEmoji = enhancedCategories[which]
-                val selectedCategory = selectedCategoryWithEmoji.replace(Regex("^[\\p{So}\\p{Cn}]\\s+"), "") // Remove emoji
+            .setSingleChoiceItems(enhancedCategories, 0) { _, which ->
+                // Just update the selection, don't perform the action
+                selectedCategory = categories[which]
+            }
+            .setPositiveButton("Merge") { dialog, _ ->
                 dialog.dismiss()
-                
-                Log.d("MessagesFragment", "[MERGE] User selected category '$selectedCategory' for merging '$displayName'")
-                
-                // Update all merchants with this display name to use the selected category
+                Log.d("MessagesFragment", "[MERGE] User confirmed merge with category '$selectedCategory'")
                 performMerchantAliasUpdateDirectly(group, displayName, selectedCategory)
             }
             .setNegativeButton("❌ Cancel") { dialog, _ ->
@@ -2482,7 +2665,21 @@ class MessagesFragment : Fragment() {
                     )
                     
                     if (databaseUpdateSuccess) {
-                        loadHistoricalTransactions()
+                        // Invalidate ViewModel's cache to ensure it gets fresh alias data
+                        try {
+                            Log.d("MessagesFragment", "[CACHE_SYNC] Invalidating ViewModel cache for database success")
+                            messagesViewModel.invalidateMerchantAliasCache()
+                        } catch (e: Exception) {
+                            Log.w("MessagesFragment", "Could not invalidate ViewModel cache for database success", e)
+                        }
+                        
+                        // Trigger ViewModel update to reflect changes
+                        try {
+                            Log.d("MessagesFragment", "[UI_FIX] Using ONLY ViewModel refresh for database success case")
+                            messagesViewModel.handleEvent(MessagesUIEvent.LoadMessages)
+                        } catch (e: Exception) {
+                            Log.w("MessagesFragment", "Could not trigger ViewModel refresh for database success", e)
+                        }
                         Toast.makeText(
                             requireContext(),
                             "Successfully updated '${group.merchantName}' to '$newDisplayName' in '$newCategory'",

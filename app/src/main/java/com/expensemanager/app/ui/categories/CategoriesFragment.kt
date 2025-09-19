@@ -48,6 +48,15 @@ class CategoriesFragment : Fragment() {
     private lateinit var categoriesAdapter: CategoriesAdapter
     private lateinit var merchantAliasManager: MerchantAliasManager
     private lateinit var categoryManager: CategoryManager
+
+    private val merchantCategoryChangeReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: android.content.Intent?) {
+            if (intent?.action == "com.expensemanager.MERCHANT_CATEGORY_CHANGED") {
+                Log.d("CategoriesFragment", "Received merchant category change broadcast, refreshing categories.")
+                viewModel.handleEvent(CategoriesUIEvent.Refresh)
+            }
+        }
+    }
     
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -263,10 +272,9 @@ class CategoriesFragment : Fragment() {
                     calendar.set(Calendar.SECOND, 0)
                     calendar.set(Calendar.MILLISECOND, 0)
                     val startDate = calendar.time
-                    
-                    calendar.add(Calendar.MONTH, 1)
-                    calendar.add(Calendar.DAY_OF_MONTH, -1)
-                    val endDate = calendar.time
+
+                    // Set end date to current time to exclude future transactions
+                    val endDate = Calendar.getInstance().time
                     
                     val categorySpendingResults = repository.getCategorySpending(startDate, endDate)
                     
@@ -767,9 +775,18 @@ class CategoriesFragment : Fragment() {
             .show()
     }
     
+    override fun onPause() {
+        super.onPause()
+        try {
+            requireContext().unregisterReceiver(merchantCategoryChangeReceiver)
+            Log.d("CategoriesFragment", "Unregistered broadcast receiver for merchant category changes.")
+        } catch (e: Exception) {
+            Log.w("CategoriesFragment", "Broadcast receiver not registered, ignoring unregister.", e)
+        }
+    }
+
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
     }
 }
-

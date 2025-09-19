@@ -89,7 +89,7 @@ class MessagesViewModel @Inject constructor(
         
         viewModelScope.launch {
             try {
-                // Get current date range (this month for now)
+                // Get date range from the start of the current month to the current time
                 val calendar = Calendar.getInstance()
                 calendar.set(Calendar.DAY_OF_MONTH, 1)
                 calendar.set(Calendar.HOUR_OF_DAY, 0)
@@ -97,17 +97,15 @@ class MessagesViewModel @Inject constructor(
                 calendar.set(Calendar.SECOND, 0)
                 calendar.set(Calendar.MILLISECOND, 0)
                 val startDate = calendar.time
+
+                // Set end date to current time to exclude future transactions
+                val endDate = Calendar.getInstance().time
                 
-                calendar.add(Calendar.MONTH, 1)
-                calendar.add(Calendar.DAY_OF_MONTH, -1)
-                calendar.set(Calendar.HOUR_OF_DAY, 23)
-                calendar.set(Calendar.MINUTE, 59)
-                calendar.set(Calendar.SECOND, 59)
-                val endDate = calendar.time
+                Log.d(TAG, "Loading transactions from start of month: ${java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(startDate)}")
                 
                 // Load transactions from SQLite database first
                 val dbTransactions = expenseRepository.getTransactionsByDateRange(startDate, endDate)
-                Log.d(TAG, "Found ${dbTransactions.size} transactions in database")
+                Log.d(TAG, "Found ${dbTransactions.size} transactions in database for the current month")
                 
                 if (dbTransactions.isNotEmpty()) {
                     // Convert to MessageItem format
@@ -901,6 +899,19 @@ class MessagesViewModel @Inject constructor(
             Log.e(TAG, "Error saving group inclusion states", e)
             // Don't show error to user for this - it's not critical
             // The UI state is already updated, this is just persistence
+        }
+    }
+    
+    /**
+     * Invalidate MerchantAliasManager cache to ensure fresh data after external updates
+     * This method should be called after the Fragment updates merchant aliases
+     */
+    fun invalidateMerchantAliasCache() {
+        try {
+            merchantAliasManager.invalidateCache()
+            Log.d(TAG, "[CACHE_SYNC] ViewModel MerchantAliasManager cache invalidated")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error invalidating ViewModel merchant alias cache", e)
         }
     }
 }

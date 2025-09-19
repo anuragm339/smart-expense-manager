@@ -399,7 +399,7 @@ class CategoriesViewModel @Inject constructor(
         return try {
             Log.d(TAG, "Loading category data from repository...")
             
-            // Use the same date range as Dashboard (current month)
+            // Get date range from the start of the current month to the current time
             val calendar = Calendar.getInstance()
             calendar.set(Calendar.DAY_OF_MONTH, 1)
             calendar.set(Calendar.HOUR_OF_DAY, 0)
@@ -407,10 +407,12 @@ class CategoriesViewModel @Inject constructor(
             calendar.set(Calendar.SECOND, 0)
             calendar.set(Calendar.MILLISECOND, 0)
             val startDate = calendar.time
-            
-            calendar.add(Calendar.MONTH, 1)
-            calendar.add(Calendar.DAY_OF_MONTH, -1)
-            val endDate = calendar.time
+
+            // Set end date to current time to exclude future transactions
+            val endDate = Calendar.getInstance().time
+
+            val dateFormatter = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+            Log.d(TAG, "Loading categories from start of month: ${dateFormatter.format(startDate)}")
             
             // Get category spending from repository
             val categorySpendingResults = repository.getCategorySpending(startDate, endDate)
@@ -494,6 +496,7 @@ class CategoriesViewModel @Inject constructor(
             
             if (syncedCount > 0) {
                 // Now load data from repository
+                // Get date range from the start of the current month to the current time
                 val calendar = Calendar.getInstance()
                 calendar.set(Calendar.DAY_OF_MONTH, 1)
                 calendar.set(Calendar.HOUR_OF_DAY, 0)
@@ -501,10 +504,12 @@ class CategoriesViewModel @Inject constructor(
                 calendar.set(Calendar.SECOND, 0)
                 calendar.set(Calendar.MILLISECOND, 0)
                 val startDate = calendar.time
-                
-                calendar.add(Calendar.MONTH, 1)
-                calendar.add(Calendar.DAY_OF_MONTH, -1)
-                val endDate = calendar.time
+
+                // Set end date to current time to exclude future transactions
+                val endDate = Calendar.getInstance().time
+
+                val dateFormatter = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+                Log.d(TAG, "Loading categories fallback from start of month: ${dateFormatter.format(startDate)}")
                 
                 val categorySpendingResults = repository.getCategorySpending(startDate, endDate)
                 
