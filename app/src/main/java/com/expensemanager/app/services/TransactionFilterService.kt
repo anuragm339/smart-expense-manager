@@ -3,8 +3,8 @@ package com.expensemanager.app.services
 import android.content.Context
 import android.content.SharedPreferences
 import com.expensemanager.app.data.dao.MerchantDao
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.data.entities.MerchantEntity
 import com.expensemanager.app.data.entities.TransactionEntity
 import com.expensemanager.app.models.ParsedTransaction
@@ -37,7 +37,7 @@ class TransactionFilterService @Inject constructor(
         private const val TAG = "TransactionFilterService"
         private const val SHARED_PREFS_NAME = "ExpenseManagerPrefs"
         private const val INCLUSION_KEY_PREFIX = "include_"
-        private val logger: Logger = LoggerFactory.getLogger(TAG)
+        // Using Timber for logging
     }
     
     private val sharedPreferences: SharedPreferences by lazy {
@@ -49,7 +49,7 @@ class TransactionFilterService @Inject constructor(
      */
     suspend fun filterTransactionsByExclusions(transactions: List<TransactionEntity>): List<TransactionEntity> = withContext(Dispatchers.IO) {
         try {
-            logger.debug("[FILTER] Starting transaction filtering with ${transactions.size} transactions")
+            Timber.tag(LogConfig.FeatureTags.TRANSACTION).d("[FILTER] Starting transaction filtering with ${transactions.size} transactions")
             
             // 1. Get database exclusions
             val excludedMerchants = merchantDao.getExcludedMerchants()
@@ -58,7 +58,7 @@ class TransactionFilterService @Inject constructor(
             // 2. Get SharedPreferences exclusions (legacy system)
             val sharedPrefsExclusions = getSharedPreferencesExclusions()
             
-            logger.debug("[DEBUG] Filtering with ${excludedNormalizedNames.size} database exclusions and ${sharedPrefsExclusions.size} SharedPrefs exclusions")
+            Timber.tag(LogConfig.FeatureTags.TRANSACTION).d("[DEBUG] Filtering with ${excludedNormalizedNames.size} database exclusions and ${sharedPrefsExclusions.size} SharedPrefs exclusions")
             
             // 3. Filter transactions using BOTH exclusion systems
             val filteredTransactions = transactions.filter { transaction ->
@@ -69,18 +69,18 @@ class TransactionFilterService @Inject constructor(
                 val isIncluded = !isExcludedInDatabase && !isExcludedInSharedPrefs
                 
                 if (!isIncluded) {
-                    logger.debug("[EXCLUDE] ${transaction.rawMerchant} (normalized: ${transaction.normalizedMerchant}) - DB: $isExcludedInDatabase, Prefs: $isExcludedInSharedPrefs")
+                    Timber.tag(LogConfig.FeatureTags.TRANSACTION).d("[EXCLUDE] ${transaction.rawMerchant} (normalized: ${transaction.normalizedMerchant}) - DB: $isExcludedInDatabase, Prefs: $isExcludedInSharedPrefs")
                 }
                 
                 isIncluded
             }
             
-            logger.info("[RESULT] Filtered ${transactions.size} -> ${filteredTransactions.size} transactions (excluded ${transactions.size - filteredTransactions.size})")
+            Timber.tag(LogConfig.FeatureTags.TRANSACTION).i("[RESULT] Filtered ${transactions.size} -> ${filteredTransactions.size} transactions (excluded ${transactions.size - filteredTransactions.size})")
             
             filteredTransactions
             
         } catch (e: Exception) {
-            logger.error("[ERROR] Error filtering transactions by exclusions", e)
+            Timber.tag(LogConfig.FeatureTags.TRANSACTION).e("[ERROR] Error filtering transactions by exclusions", e)
             transactions // Return original list on error
         }
     }
@@ -90,7 +90,7 @@ class TransactionFilterService @Inject constructor(
      */
     suspend fun filterMessageItemsByExclusions(messageItems: List<MessageItem>): List<MessageItem> = withContext(Dispatchers.IO) {
         try {
-            logger.debug("[FILTER] Starting MessageItem filtering with ${messageItems.size} items")
+            Timber.tag(LogConfig.FeatureTags.TRANSACTION).d("[FILTER] Starting MessageItem filtering with ${messageItems.size} items")
             
             // 1. Get database exclusions
             val excludedMerchants = merchantDao.getExcludedMerchants()
@@ -111,18 +111,18 @@ class TransactionFilterService @Inject constructor(
                 val isIncluded = !isExcludedInDatabase && !isExcludedInSharedPrefs
                 
                 if (!isIncluded) {
-                    logger.debug("[EXCLUDE] ${item.merchant} (normalized: $normalizedMerchant) - DB: $isExcludedInDatabase, Prefs: $isExcludedInSharedPrefs")
+                    Timber.tag(LogConfig.FeatureTags.TRANSACTION).d("[EXCLUDE] ${item.merchant} (normalized: $normalizedMerchant) - DB: $isExcludedInDatabase, Prefs: $isExcludedInSharedPrefs")
                 }
                 
                 isIncluded
             }
             
-            logger.info("[RESULT] Filtered ${messageItems.size} -> ${filteredItems.size} MessageItems (excluded ${messageItems.size - filteredItems.size})")
+            Timber.tag(LogConfig.FeatureTags.TRANSACTION).i("[RESULT] Filtered ${messageItems.size} -> ${filteredItems.size} MessageItems (excluded ${messageItems.size - filteredItems.size})")
             
             filteredItems
             
         } catch (e: Exception) {
-            logger.error("[ERROR] Error filtering MessageItems by exclusions", e)
+            Timber.tag(LogConfig.FeatureTags.TRANSACTION).e("[ERROR] Error filtering MessageItems by exclusions", e)
             messageItems // Return original list on error
         }
     }
@@ -132,7 +132,7 @@ class TransactionFilterService @Inject constructor(
      */
     suspend fun filterParsedTransactionsByExclusions(transactions: List<ParsedTransaction>): List<ParsedTransaction> = withContext(Dispatchers.IO) {
         try {
-            logger.debug("[FILTER] Starting ParsedTransaction filtering with ${transactions.size} transactions")
+            Timber.tag(LogConfig.FeatureTags.TRANSACTION).d("[FILTER] Starting ParsedTransaction filtering with ${transactions.size} transactions")
             
             // 1. Get database exclusions
             val excludedMerchants = merchantDao.getExcludedMerchants()
@@ -159,18 +159,18 @@ class TransactionFilterService @Inject constructor(
                 
                 if (!isIncluded) {
                     val rawMerchantInfo = if (transaction.rawMerchant.isNotEmpty()) " (raw: ${transaction.rawMerchant})" else ""
-                    logger.debug("[EXCLUDE] ${transaction.merchant}$rawMerchantInfo - DB: $isExcludedInDatabase, Prefs: $isExcludedInSharedPrefs")
+                    Timber.tag(LogConfig.FeatureTags.TRANSACTION).d("[EXCLUDE] ${transaction.merchant}$rawMerchantInfo - DB: $isExcludedInDatabase, Prefs: $isExcludedInSharedPrefs")
                 }
                 
                 isIncluded
             }
             
-            logger.info("[RESULT] Filtered ${transactions.size} -> ${filteredTransactions.size} ParsedTransactions (excluded ${transactions.size - filteredTransactions.size})")
+            Timber.tag(LogConfig.FeatureTags.TRANSACTION).i("[RESULT] Filtered ${transactions.size} -> ${filteredTransactions.size} ParsedTransactions (excluded ${transactions.size - filteredTransactions.size})")
             
             filteredTransactions
             
         } catch (e: Exception) {
-            logger.error("[ERROR] Error filtering ParsedTransactions by exclusions", e)
+            Timber.tag(LogConfig.FeatureTags.TRANSACTION).e("[ERROR] Error filtering ParsedTransactions by exclusions", e)
             transactions // Return original list on error
         }
     }
@@ -194,28 +194,28 @@ class TransactionFilterService @Inject constructor(
         // Apply amount range filter
         if (minAmount != null) {
             filtered = filtered.filter { it.amount >= minAmount }
-            logger.debug("[FILTER] After minAmount ($minAmount): ${filtered.size} items")
+            Timber.tag(LogConfig.FeatureTags.TRANSACTION).d("[FILTER] After minAmount ($minAmount): ${filtered.size} items")
         }
         
         if (maxAmount != null) {
             filtered = filtered.filter { it.amount <= maxAmount }
-            logger.debug("[FILTER] After maxAmount ($maxAmount): ${filtered.size} items")
+            Timber.tag(LogConfig.FeatureTags.TRANSACTION).d("[FILTER] After maxAmount ($maxAmount): ${filtered.size} items")
         }
         
         // Apply bank filter
         if (selectedBanks.isNotEmpty()) {
             filtered = filtered.filter { selectedBanks.contains(it.bankName) }
-            logger.debug("[FILTER] After banks (${selectedBanks.size} selected): ${filtered.size} items")
+            Timber.tag(LogConfig.FeatureTags.TRANSACTION).d("[FILTER] After banks (${selectedBanks.size} selected): ${filtered.size} items")
         }
         
         // Apply confidence filter
         filtered = filtered.filter { it.confidence >= minConfidence }
-        logger.debug("[FILTER] After confidence (>= $minConfidence%): ${filtered.size} items")
+        Timber.tag(LogConfig.FeatureTags.TRANSACTION).d("[FILTER] After confidence (>= $minConfidence%): ${filtered.size} items")
         
         // Apply date range filter
         if (dateFrom != null || dateTo != null) {
             // Implement date filtering logic if needed
-            logger.debug("[FILTER] Date filtering not implemented yet")
+            Timber.tag(LogConfig.FeatureTags.TRANSACTION).d("[FILTER] Date filtering not implemented yet")
         }
         
         // Apply search query filter
@@ -225,7 +225,7 @@ class TransactionFilterService @Inject constructor(
                 it.bankName.contains(searchQuery, ignoreCase = true) ||
                 it.category.contains(searchQuery, ignoreCase = true)
             }
-            logger.debug("[FILTER] After search ('$searchQuery'): ${filtered.size} items")
+            Timber.tag(LogConfig.FeatureTags.TRANSACTION).d("[FILTER] After search ('$searchQuery'): ${filtered.size} items")
         }
         
         return filtered
@@ -237,17 +237,17 @@ class TransactionFilterService @Inject constructor(
     suspend fun updateMerchantExclusion(normalizedMerchantName: String, isExcluded: Boolean): Boolean {
         return try {
             if (normalizedMerchantName.isBlank()) {
-                logger.warn("[VALIDATION] Cannot update exclusion for blank merchant name")
+                Timber.tag(LogConfig.FeatureTags.TRANSACTION).w("[VALIDATION] Cannot update exclusion for blank merchant name")
                 return false
             }
             
-            logger.debug("[UPDATE] Updating exclusion for '$normalizedMerchantName' to $isExcluded")
+            Timber.tag(LogConfig.FeatureTags.TRANSACTION).d("[UPDATE] Updating exclusion for '$normalizedMerchantName' to $isExcluded")
             merchantDao.updateMerchantExclusion(normalizedMerchantName, isExcluded)
-            logger.info("[SUCCESS] Updated exclusion for '$normalizedMerchantName' to $isExcluded")
+            Timber.tag(LogConfig.FeatureTags.TRANSACTION).i("[SUCCESS] Updated exclusion for '$normalizedMerchantName' to $isExcluded")
             true
             
         } catch (e: Exception) {
-            logger.error("[ERROR] Failed to update merchant exclusion for '$normalizedMerchantName'", e)
+            Timber.tag(LogConfig.FeatureTags.TRANSACTION).e("[ERROR] Failed to update merchant exclusion for '$normalizedMerchantName'", e)
             false
         }
     }
@@ -279,7 +279,7 @@ class TransactionFilterService @Inject constructor(
      */
     private fun getSharedPreferencesExclusions(): Set<String> {
         return try {
-            logger.debug("[PREFS] Loading SharedPreferences exclusions...")
+            Timber.tag(LogConfig.FeatureTags.TRANSACTION).d("[PREFS] Loading SharedPreferences exclusions...")
             
             val currentPrefsExclusions = try {
                 sharedPreferences.all
@@ -289,7 +289,7 @@ class TransactionFilterService @Inject constructor(
                     .map { it.removePrefix(INCLUSION_KEY_PREFIX) }
                     .toSet()
             } catch (e: Exception) {
-                logger.warn("[PREFS] Error reading current preferences format", e)
+                Timber.tag(LogConfig.FeatureTags.TRANSACTION).w("[PREFS] Error reading current preferences format", e)
                 emptySet<String>()
             }
             
@@ -311,26 +311,26 @@ class TransactionFilterService @Inject constructor(
                                     exclusions.add(merchantName)
                                 }
                             } catch (e: Exception) {
-                                logger.warn("[PREFS] Error parsing inclusion state for '$merchantName'", e)
+                                Timber.tag(LogConfig.FeatureTags.TRANSACTION).w("[PREFS] Error parsing inclusion state for '$merchantName'", e)
                             }
                         }
                     } catch (e: Exception) {
-                        logger.warn("[PREFS] Error parsing legacy inclusion states JSON", e)
+                        Timber.tag(LogConfig.FeatureTags.TRANSACTION).w("[PREFS] Error parsing legacy inclusion states JSON", e)
                     }
                 }
                 exclusions
             } catch (e: Exception) {
-                logger.warn("[PREFS] Error reading legacy preferences", e)
+                Timber.tag(LogConfig.FeatureTags.TRANSACTION).w("[PREFS] Error reading legacy preferences", e)
                 emptySet<String>()
             }
             
             val combinedExclusions = currentPrefsExclusions + legacyExclusions
-            logger.debug("[DEBUG] SharedPrefs exclusions - New format: ${currentPrefsExclusions.size}, Legacy format: ${legacyExclusions.size}, Combined: ${combinedExclusions.size}")
+            Timber.tag(LogConfig.FeatureTags.TRANSACTION).d("[DEBUG] SharedPrefs exclusions - New format: ${currentPrefsExclusions.size}, Legacy format: ${legacyExclusions.size}, Combined: ${combinedExclusions.size}")
             
             combinedExclusions
             
         } catch (e: Exception) {
-            logger.error("[ERROR] Critical error reading SharedPreferences exclusions", e)
+            Timber.tag(LogConfig.FeatureTags.TRANSACTION).e("[ERROR] Critical error reading SharedPreferences exclusions", e)
             emptySet()
         }
     }
@@ -346,7 +346,7 @@ class TransactionFilterService @Inject constructor(
                 .keys
                 .map { it.removePrefix(INCLUSION_KEY_PREFIX) }
         } catch (e: Exception) {
-            logger.error("Error reading SharedPreferences exclusions details", e)
+            Timber.tag(LogConfig.FeatureTags.TRANSACTION).e("Error reading SharedPreferences exclusions details", e)
             emptyList()
         }
     }
@@ -381,7 +381,7 @@ class TransactionFilterService @Inject constructor(
             return@withContext dbExcluded || prefsExcluded
             
         } catch (e: Exception) {
-            logger.error("Error checking merchant exclusion status", e)
+            Timber.tag(LogConfig.FeatureTags.TRANSACTION).e("Error checking merchant exclusion status", e)
             false
         }
     }
@@ -393,7 +393,7 @@ class TransactionFilterService @Inject constructor(
         try {
             merchantDao.getExcludedMerchants()
         } catch (e: Exception) {
-            logger.error("Error getting all excluded merchants", e)
+            Timber.tag(LogConfig.FeatureTags.TRANSACTION).e("Error getting all excluded merchants", e)
             emptyList()
         }
     }
@@ -411,10 +411,10 @@ class TransactionFilterService @Inject constructor(
             }
             
             editor.apply()
-            logger.info("[CLEANUP] Cleared ${exclusionKeys.size} SharedPreferences exclusions")
+            Timber.tag(LogConfig.FeatureTags.TRANSACTION).i("[CLEANUP] Cleared ${exclusionKeys.size} SharedPreferences exclusions")
             
         } catch (e: Exception) {
-            logger.error("Error clearing SharedPreferences exclusions", e)
+            Timber.tag(LogConfig.FeatureTags.TRANSACTION).e("Error clearing SharedPreferences exclusions", e)
         }
     }
 }

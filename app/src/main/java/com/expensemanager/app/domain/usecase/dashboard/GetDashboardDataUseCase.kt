@@ -1,6 +1,7 @@
 package com.expensemanager.app.domain.usecase.dashboard
 
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.data.repository.DashboardData
 import com.expensemanager.app.domain.repository.DashboardRepositoryInterface
 import java.util.Date
@@ -16,7 +17,6 @@ class GetDashboardDataUseCase @Inject constructor(
 ) {
     
     companion object {
-        private const val TAG = "GetDashboardDataUseCase"
     }
     
     /**
@@ -26,12 +26,12 @@ class GetDashboardDataUseCase @Inject constructor(
         return try {
             val dashboardData = repository.getDashboardData(startDate, endDate)
             
-            Log.d(TAG, " [USECASE] Dashboard: ${dashboardData.transactionCount} transactions, ₹${dashboardData.totalSpent}")
+            Timber.tag(LogConfig.FeatureTags.DASHBOARD).d(" [USECASE] Dashboard: ${dashboardData.transactionCount} transactions, ₹${dashboardData.totalSpent}")
             
             Result.success(dashboardData)
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting dashboard data", e)
+            Timber.tag(LogConfig.FeatureTags.DASHBOARD).e(e, "Error getting dashboard data")
             Result.failure(e)
         }
     }
@@ -47,7 +47,7 @@ class GetDashboardDataUseCase @Inject constructor(
             Result.success(analysis)
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting dashboard analysis", e)
+            Timber.tag(LogConfig.FeatureTags.DASHBOARD).e(e, "Error getting dashboard analysis")
             Result.failure(e)
         }
     }
@@ -114,7 +114,7 @@ class GetDashboardDataUseCase @Inject constructor(
             Result.success(comparison)
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting dashboard comparison", e)
+            Timber.tag(LogConfig.FeatureTags.DASHBOARD).e(e, "Error getting dashboard comparison")
             Result.failure(e)
         }
     }

@@ -5,8 +5,8 @@ import android.database.Cursor
 import android.net.Uri
 import android.provider.Telephony
 import com.expensemanager.app.models.HistoricalSMS
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.models.ParsedTransaction
 import com.expensemanager.app.utils.MerchantAliasManager
 import kotlinx.coroutines.Dispatchers
@@ -37,7 +37,7 @@ class TransactionParsingService @Inject constructor(
         private const val TAG = "TransactionParsingService"
         private const val MONTHS_TO_SCAN = 6 // Scan last 6 months
         private const val MAX_SMS_TO_PROCESS = 5000 // Limit SMS processing to prevent ANR
-        private val logger: Logger = LoggerFactory.getLogger(TAG)
+        // Using Timber for logging
         
         // Enhanced bank sender patterns (unified from proven logic)
         private val BANK_SENDERS = listOf(
@@ -129,7 +129,7 @@ class TransactionParsingService @Inject constructor(
         val transactions = mutableListOf<ParsedTransaction>()
         
         try {
-            logger.debug("[SCAN] Starting unified SMS scan for transaction parsing")
+            Timber.tag(LogConfig.FeatureTags.TRANSACTION).d("[SCAN] Starting unified SMS scan for transaction parsing")
             
             // Calculate date range for scanning
             val cutoffDate = Calendar.getInstance().apply {
@@ -152,7 +152,7 @@ class TransactionParsingService @Inject constructor(
             
             context.contentResolver.query(uri, projection, selection, selectionArgs, sortOrder)?.use { cursor ->
                 val totalMessages = cursor.count
-                logger.debug("[SCAN] Found $totalMessages SMS messages to process")
+                Timber.tag(LogConfig.FeatureTags.TRANSACTION).d("[SCAN] Found $totalMessages SMS messages to process")
                 
                 progressCallback?.invoke(0, totalMessages, "Scanning SMS messages...")
                 
@@ -177,15 +177,15 @@ class TransactionParsingService @Inject constructor(
                         }
                         
                     } catch (e: Exception) {
-                        logger.warn("Error processing SMS at position $processedCount: ${e.message}")
+                        Timber.tag(LogConfig.FeatureTags.TRANSACTION).w("Error processing SMS at position $processedCount: ${e.message}")
                     }
                 }
             }
             
-            logger.info("[RESULT] SMS scan completed: ${transactions.size} valid transactions found")
+            Timber.tag(LogConfig.FeatureTags.TRANSACTION).i("[RESULT] SMS scan completed: ${transactions.size} valid transactions found")
             
         } catch (e: Exception) {
-            logger.error("[ERROR] Failed to scan SMS", e)
+            Timber.tag(LogConfig.FeatureTags.TRANSACTION).e("[ERROR] Failed to scan SMS", e)
         }
         
         return@withContext transactions
@@ -245,7 +245,7 @@ class TransactionParsingService @Inject constructor(
             )
             
         } catch (e: Exception) {
-            logger.warn("Error parsing SMS transaction: ${e.message}")
+            Timber.tag(LogConfig.FeatureTags.TRANSACTION).w("Error parsing SMS transaction: ${e.message}")
             return null
         }
     }
@@ -268,7 +268,7 @@ class TransactionParsingService @Inject constructor(
                 type = 0 // SMS type
             )
         } catch (e: Exception) {
-            logger.warn("Error extracting SMS from cursor: ${e.message}")
+            Timber.tag(LogConfig.FeatureTags.TRANSACTION).w("Error extracting SMS from cursor: ${e.message}")
             null
         }
     }

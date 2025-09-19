@@ -2359,7 +2359,7 @@ class MessagesFragment : Fragment() {
                         ${logFiles.joinToString("\n") { "- ${it.name} (${it.length()} bytes)" }}
                         
                         Logging Configuration:
-                        ${appLogger.getInitializationStatus()}
+                        Timber logging is active
                         
                         App Version: ${requireContext().packageManager.getPackageInfo(requireContext().packageName, 0).versionName}
                     """.trimIndent()

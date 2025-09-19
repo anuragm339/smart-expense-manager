@@ -1,9 +1,9 @@
 package com.expensemanager.app
 
 import android.app.Application
-import android.util.Log
 import com.expensemanager.app.data.migration.DataMigrationManager
-import com.expensemanager.app.utils.AppLogger
+import com.expensemanager.app.utils.logging.LogConfig
+import com.expensemanager.app.utils.logging.TimberFileTree
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,93 +19,79 @@ class ExpenseManagerApplication : Application() {
     lateinit var dataMigrationManager: DataMigrationManager
     
     @Inject
-    lateinit var appLogger: AppLogger
+    lateinit var logConfig: LogConfig
+    
+    @Inject
+    lateinit var timberFileTree: TimberFileTree
     
     // Application-wide coroutine scope
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     
     companion object {
-        private const val TAG = "ExpenseManagerApp"
+        private const val TAG = "APP"
     }
     
     override fun onCreate() {
         super.onCreate()
         
-        Log.d(TAG, "Application onCreate() starting...")
+        // Initialize enhanced Timber logging system
+        initializeTimber()
         
-        // Initialize both logging systems during transition period
-        initializeLogging()
+        Timber.tag(TAG).d("Application onCreate() starting with enhanced Timber logging...")
+        Timber.tag(TAG).i("Enhanced Timber logging system initialized successfully")
         
-        // Give Logback a moment to finish initialization
-        try {
-            Thread.sleep(100) // Small delay to ensure Logback is ready
-        } catch (e: InterruptedException) {
-            Log.w(TAG, "Interrupted during logging initialization delay")
-        }
-        
-        // Test that logging is working and log startup
-        appLogger.info(TAG, "Application starting up with Logback logging system...")
+        // Log current configuration for debugging
+        Timber.tag(TAG).d("Current logging configuration:\n${logConfig.getCurrentConfig()}")
         
         // Perform data migration in background
         applicationScope.launch {
             try {
-                appLogger.debug(TAG, "Starting data migration check...")
-                
-                // FIXED: Remove debug code that was resetting migration state on every app start
-                // This was causing fresh installs to appear empty because migration would run repeatedly
-                appLogger.debug(TAG, "Checking if migration is needed...")
+                Timber.tag(LogConfig.FeatureTags.MIGRATION).d("Starting data migration check...")
                 
                 val success = dataMigrationManager.performMigrationIfNeeded()
                 
                 if (success) {
-                    appLogger.info(TAG, "App initialization completed successfully")
+                    Timber.tag(LogConfig.FeatureTags.MIGRATION).i("Data migration completed successfully")
+                    Timber.tag(TAG).i("App initialization completed successfully")
                 } else {
-                    appLogger.warn(TAG, "App initialization completed with warnings")
+                    Timber.tag(LogConfig.FeatureTags.MIGRATION).w("Data migration completed with warnings")
+                    Timber.tag(TAG).w("App initialization completed with warnings")
                 }
                 
             } catch (e: Exception) {
-                appLogger.error(TAG, "App initialization failed", e)
-                Log.e(TAG, "App initialization failed (fallback)", e)
+                Timber.tag(LogConfig.FeatureTags.MIGRATION).e(e, "Data migration failed")
+                Timber.tag(TAG).e(e, "App initialization failed")
                 // App can still continue to work, just with degraded functionality
             }
         }
     }
     
     /**
-     * Initialize logging systems - both Logback (primary) and Timber (temporary during transition)
-     */
-    private fun initializeLogging() {
-        Log.d(TAG, "Initializing logging systems...")
-        
-        try {
-            // Initialize Logback (primary logging system)
-            // AppLogger automatically initializes Logback when instantiated via Hilt
-            Log.d(TAG, "AppLogger instance will be initialized by Hilt dependency injection")
-            
-            // Keep Timber for backward compatibility during transition
-            // TODO: Remove Timber after all components are migrated to Logback
-            initializeTimber()
-            
-            Log.d(TAG, "Logging systems initialized - Logback (primary), Timber (legacy)")
-            
-        } catch (e: Exception) {
-            Log.e(TAG, "Error during logging initialization", e)
-        }
-    }
-    
-    /**
-     * Initialize legacy Timber logging framework (temporary during transition)
-     * TODO: Remove this method once migration to Logback is complete
+     * Initialize enhanced Timber logging system with feature-specific control
      */
     private fun initializeTimber() {
-        // For Phase 1, always initialize Timber in debug mode
-        // TODO: Add BuildConfig.DEBUG check in Phase 2
+        // Clear any existing trees
+        Timber.uprootAll()
+        
+        // Plant debug tree for development (always visible in logcat)
         Timber.plant(object : Timber.DebugTree() {
             override fun createStackElementTag(element: StackTraceElement): String {
-                // Format: [ClassName][methodName]
-                return "[${element.className.substringAfterLast('.')}][${element.methodName}]"
+                return "[${element.className.substringAfterLast('.')}:${element.lineNumber}]"
+            }
+            
+            override fun isLoggable(tag: String?, priority: Int): Boolean {
+                // Let debug tree handle logcat filtering
+                return super.isLoggable(tag, priority)
             }
         })
-        Timber.tag(TAG).d("Timber initialized for legacy compatibility")
+        
+        // Plant enhanced file tree for feature-specific logging
+        Timber.plant(timberFileTree)
+        
+        // Log initialization success
+        Timber.tag(TAG).i("Timber logging system initialized with ${Timber.treeCount} trees")
+        Timber.tag(TAG).d("File logging: ${if (logConfig.isFileLoggingEnabled) "ENABLED" else "DISABLED"}")
+        Timber.tag(TAG).d("External logging: ${if (logConfig.isExternalLoggingEnabled) "ENABLED" else "DISABLED"}")
     }
+    
 }

@@ -1,6 +1,7 @@
 package com.expensemanager.app.ui.dashboard
 
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.expensemanager.app.data.repository.DashboardData
@@ -22,7 +23,6 @@ class DashboardViewModel @Inject constructor(
 ) : ViewModel() {
     
     companion object {
-        private const val TAG = "DashboardViewModel"
     }
     
     // Private mutable state
@@ -259,7 +259,7 @@ class DashboardViewModel @Inject constructor(
                     }
                 )
             } catch (e: Exception) {
-                Log.e(TAG, "Error loading custom months data", e)
+                Timber.tag(LogConfig.FeatureTags.DASHBOARD).e(e, "Error loading custom months data")
                 handleDashboardError(e)
             }
         }
@@ -289,12 +289,12 @@ class DashboardViewModel @Inject constructor(
                         )
                     },
                     onFailure = { error ->
-                        Log.e(TAG, "Error loading trend data", error)
+                        Timber.tag(LogConfig.FeatureTags.DASHBOARD).e("Error loading trend data: ${error.message}")
                         // Keep existing trend data if available
                     }
                 )
             } catch (e: Exception) {
-                Log.e(TAG, "Error updating trends", e)
+                Timber.tag(LogConfig.FeatureTags.DASHBOARD).e(e, "Error updating trends")
             }
         }
     }
@@ -324,7 +324,7 @@ class DashboardViewModel @Inject constructor(
                 updateMonthlyComparison()
             },
             onFailure = { throwable ->
-                Log.e(TAG, "Failed to load dashboard data", throwable)
+                Timber.tag(LogConfig.FeatureTags.DASHBOARD).e(throwable, "Failed to load dashboard data")
                 handleDashboardError(throwable)
             }
         )
@@ -402,11 +402,11 @@ class DashboardViewModel @Inject constructor(
                         )
                     },
                     onFailure = { error ->
-                        Log.e(TAG, "Error updating monthly comparison", error)
+                        Timber.tag(LogConfig.FeatureTags.DASHBOARD).e("Error updating monthly comparison: ${error.message}")
                     }
                 )
             } catch (e: Exception) {
-                Log.e(TAG, "Error in monthly comparison update", e)
+                Timber.tag(LogConfig.FeatureTags.DASHBOARD).e(e, "Error in monthly comparison update")
             }
         }
     }

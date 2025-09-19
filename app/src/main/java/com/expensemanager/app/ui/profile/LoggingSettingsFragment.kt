@@ -18,6 +18,8 @@ import androidx.lifecycle.lifecycleScope
 import com.expensemanager.app.R
 import com.expensemanager.app.databinding.FragmentLoggingSettingsBinding
 import com.expensemanager.app.utils.AppLogger
+import com.expensemanager.app.utils.logging.LogConfig
+import timber.log.Timber
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -74,12 +76,12 @@ class LoggingSettingsFragment : Fragment() {
         binding.spinnerLogLevel.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 val logLevel = when (position) {
-                    0 -> AppLogger.LEVEL_ERROR
-                    1 -> AppLogger.LEVEL_WARN
-                    2 -> AppLogger.LEVEL_INFO
-                    3 -> AppLogger.LEVEL_DEBUG
-                    4 -> AppLogger.LEVEL_TRACE
-                    else -> AppLogger.LEVEL_INFO
+                    0 -> LogConfig.LogLevel.ERROR
+                    1 -> LogConfig.LogLevel.WARN
+                    2 -> LogConfig.LogLevel.INFO
+                    3 -> LogConfig.LogLevel.DEBUG
+                    4 -> LogConfig.LogLevel.VERBOSE
+                    else -> LogConfig.LogLevel.INFO
                 }
                 appLogger.setLogLevel(logLevel)
                 appLogger.info(TAG, "Log level changed to: $position")
@@ -132,11 +134,11 @@ class LoggingSettingsFragment : Fragment() {
         // Load current log level
         val currentLevel = appLogger.getLogLevel()
         val spinnerPosition = when (currentLevel) {
-            AppLogger.LEVEL_ERROR -> 0
-            AppLogger.LEVEL_WARN -> 1
-            AppLogger.LEVEL_INFO -> 2
-            AppLogger.LEVEL_DEBUG -> 3
-            AppLogger.LEVEL_TRACE -> 4
+            LogConfig.LogLevel.ERROR -> 0
+            LogConfig.LogLevel.WARN -> 1
+            LogConfig.LogLevel.INFO -> 2
+            LogConfig.LogLevel.DEBUG -> 3
+            LogConfig.LogLevel.VERBOSE -> 4
             else -> 2
         }
         binding.spinnerLogLevel.setSelection(spinnerPosition)

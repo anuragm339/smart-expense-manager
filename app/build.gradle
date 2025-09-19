@@ -86,9 +86,7 @@ dependencies {
     implementation 'com.google.dagger:hilt-android:2.48'
     ksp 'com.google.dagger:hilt-compiler:2.48'
     
-    // Logback for Android - Professional logging framework
-    implementation 'com.github.tony19:logback-android:3.0.0'
-    implementation 'org.slf4j:slf4j-api:2.0.9'
+    
     
     // Keep Timber for now during migration (will be removed later)
     implementation 'com.jakewharton.timber:timber:5.0.1'
