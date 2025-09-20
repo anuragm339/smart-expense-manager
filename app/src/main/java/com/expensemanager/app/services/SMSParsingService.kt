@@ -5,8 +5,8 @@ import android.database.Cursor
 import android.net.Uri
 import android.provider.Telephony
 import com.expensemanager.app.models.HistoricalSMS
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.models.ParsedTransaction
 import com.expensemanager.app.models.RejectedSMS
 import kotlinx.coroutines.Dispatchers
@@ -32,7 +32,7 @@ class SMSParsingService @Inject constructor(
         private const val TAG = "SMSParsingService"
         private const val MONTHS_TO_SCAN = 6 // Scan last 6 months
         private const val MAX_SMS_TO_PROCESS = 5000 // Limit SMS processing to prevent ANR
-        private val logger: Logger = LoggerFactory.getLogger(TAG)
+        // Using Timber for logging
         
         // Enhanced bank sender patterns (from proven SMSHistoryReader logic)
         private val BANK_SENDERS = listOf(
@@ -114,7 +114,7 @@ class SMSParsingService @Inject constructor(
             progressCallback?.invoke(0, 100, "Reading SMS history...")
             
             val historicalSMS = readSMSHistory()
-            logger.debug("[UNIFIED] Found ${historicalSMS.size} historical SMS messages (limited to $MAX_SMS_TO_PROCESS)")
+            Timber.tag(LogConfig.FeatureTags.SMS).d("[UNIFIED] Found %d historical SMS messages (limited to %d)", historicalSMS.size, MAX_SMS_TO_PROCESS)
             
             val totalSMS = historicalSMS.size
             progressCallback?.invoke(0, totalSMS, "Found $totalSMS messages, analyzing...")
@@ -176,7 +176,7 @@ class SMSParsingService @Inject constructor(
 //            logger.info("[UNIFIED] Rejected SMS saved to CSV file for verification")
             
         } catch (e: Exception) {
-            logger.error("[UNIFIED] Error scanning historical SMS", e)
+            Timber.tag(LogConfig.FeatureTags.SMS).e(e, "[UNIFIED] Error scanning historical SMS")
             progressCallback?.invoke(0, 100, "Error: ${e.message}")
         }
         
@@ -236,7 +236,7 @@ class SMSParsingService @Inject constructor(
                 }
             }
         } catch (e: Exception) {
-            logger.error("[UNIFIED] Error reading SMS history", e)
+            Timber.tag(LogConfig.FeatureTags.SMS).e(e, "[UNIFIED] Error reading SMS history")
         } finally {
             cursor?.close()
         }
@@ -365,7 +365,7 @@ class SMSParsingService @Inject constructor(
                 null
             }
         } catch (e: Exception) {
-            logger.error("[UNIFIED] Error parsing transaction: ${sms.body}", e)
+            Timber.tag(LogConfig.FeatureTags.SMS).e(e, "[UNIFIED] Error parsing transaction: %s", sms.body)
             null
         }
     }
@@ -624,7 +624,7 @@ class SMSParsingService @Inject constructor(
         try {
             val externalDir = context.getExternalFilesDir(null)
             if (externalDir == null) {
-                logger.warn("External storage not available for CSV export")
+                Timber.tag(LogConfig.FeatureTags.SMS).w("External storage not available for CSV export")
                 return
             }
             
@@ -651,7 +651,7 @@ class SMSParsingService @Inject constructor(
 //            logger.info("[CSV] You can find this file at: /Android/data/com.expensemanager.app/files/rejected_sms_*.csv")
             
         } catch (e: Exception) {
-            logger.error("[CSV] Error saving rejected SMS to CSV", e)
+            Timber.tag(LogConfig.FeatureTags.SMS).e(e, "[CSV] Error saving rejected SMS to CSV")
         }
     }
 }

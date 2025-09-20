@@ -1,7 +1,8 @@
 package com.expensemanager.app.ui.messages
 
 import android.content.Context
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.expensemanager.app.data.repository.ExpenseRepository
@@ -30,7 +31,6 @@ class MessagesViewModel @Inject constructor(
 ) : ViewModel() {
     
     companion object {
-        private const val TAG = "MessagesViewModel"
     }
     
     // Utility classes
@@ -48,7 +48,7 @@ class MessagesViewModel @Inject constructor(
     private var toggleDebounceJob: Job? = null
     
     init {
-        Log.d(TAG, "ViewModel initialized, loading messages data...")
+        Timber.tag(LogConfig.FeatureTags.SMS).d("ViewModel initialized, loading messages data...")
         loadMessages()
     }
     
@@ -56,7 +56,7 @@ class MessagesViewModel @Inject constructor(
      * Handle UI events from the Fragment
      */
     fun handleEvent(event: MessagesUIEvent) {
-        Log.d(TAG, "Handling event: $event")
+        Timber.tag(LogConfig.FeatureTags.SMS).d("Handling event: $event")
         
         when (event) {
             is MessagesUIEvent.LoadMessages -> loadMessages()
@@ -79,7 +79,7 @@ class MessagesViewModel @Inject constructor(
      * Load messages from database and SMS fallback
      */
     private fun loadMessages() {
-        Log.d(TAG, "Starting messages load...")
+        Timber.tag(LogConfig.FeatureTags.SMS).d("Starting messages load...")
         
         _uiState.value = _uiState.value.copy(
             isLoading = true,
@@ -101,11 +101,11 @@ class MessagesViewModel @Inject constructor(
                 // Set end date to current time to exclude future transactions
                 val endDate = Calendar.getInstance().time
                 
-                Log.d(TAG, "Loading transactions from start of month: ${java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(startDate)}")
+                Timber.tag(LogConfig.FeatureTags.SMS).d("Loading transactions from start of month: ${java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(startDate)}")
                 
                 // Load transactions from SQLite database first
                 val dbTransactions = expenseRepository.getTransactionsByDateRange(startDate, endDate)
-                Log.d(TAG, "Found ${dbTransactions.size} transactions in database for the current month")
+                Timber.tag(LogConfig.FeatureTags.SMS).d("Found ${dbTransactions.size} transactions in database for the current month")
                 
                 if (dbTransactions.isNotEmpty()) {
                     // Convert to MessageItem format
@@ -120,7 +120,7 @@ class MessagesViewModel @Inject constructor(
                             val aliasCategory = merchantAliasManager.getMerchantCategory(transaction.rawMerchant)
                             val aliasCategoryColor = merchantAliasManager.getMerchantCategoryColor(transaction.rawMerchant)
                             
-                            Log.d(TAG, "Database load: rawMerchant='${transaction.rawMerchant}' -> displayName='$displayName', category='$aliasCategory'")
+                            Timber.tag(LogConfig.FeatureTags.SMS).d("Database load: rawMerchant='${transaction.rawMerchant}' -> displayName='$displayName', category='$aliasCategory'")
                             
                             MessageItem(
                                 amount = transaction.amount,
@@ -135,7 +135,7 @@ class MessagesViewModel @Inject constructor(
                                 rawMerchant = transaction.rawMerchant // Pass the original raw merchant name
                             )
                         } catch (e: Exception) {
-                            Log.w(TAG, "Error converting transaction: ${e.message}")
+                            Timber.tag(LogConfig.FeatureTags.SMS).w("Error converting transaction: ${e.message}")
                             null
                         }
                     }.distinctBy { 
@@ -146,14 +146,14 @@ class MessagesViewModel @Inject constructor(
                     updateMessagesState(messageItems)
                 } else {
                     // No database data found - fallback to SMS scanning
-                    Log.d(TAG, "No database transactions found, falling back to SMS scanning...")
+                    Timber.tag(LogConfig.FeatureTags.SMS).d("No database transactions found, falling back to SMS scanning...")
                     loadFromSMSFallback()
                 }
             } catch (e: SecurityException) {
-                Log.w(TAG, "SMS permission denied", e)
+                Timber.tag(LogConfig.FeatureTags.SMS).w(e, "SMS permission denied")
                 handleError("SMS permission required to read transaction messages")
             } catch (e: Exception) {
-                Log.e(TAG, "Error loading messages", e)
+                Timber.tag(LogConfig.FeatureTags.SMS).e(e, "Error loading messages")
                 handleError("Error reading messages: ${e.message ?: "Unknown error"}")
             }
         }
@@ -166,9 +166,9 @@ class MessagesViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val historicalTransactions = smsParsingService.scanHistoricalSMS { current, total, status ->
-                    Log.d(TAG, "[UNIFIED] SMS Fallback progress: $status ($current/$total)")
+                    Timber.tag(LogConfig.FeatureTags.SMS).d("[UNIFIED] SMS Fallback progress: $status ($current/$total)")
                 }
-                Log.d(TAG, "[UNIFIED] SMS Fallback: Found ${historicalTransactions.size} transactions")
+                Timber.tag(LogConfig.FeatureTags.SMS).d("[UNIFIED] SMS Fallback: Found ${historicalTransactions.size} transactions")
                 
                 if (historicalTransactions.isNotEmpty()) {
                     val messageItems = historicalTransactions.map { transaction ->
@@ -202,7 +202,7 @@ class MessagesViewModel @Inject constructor(
                     )
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "[UNIFIED] Error in SMS fallback", e)
+                Timber.tag(LogConfig.FeatureTags.SMS).e(e, "[UNIFIED] Error in SMS fallback")
                 handleError("Error scanning SMS: ${e.message ?: "Unknown error"}")
             }
         }
@@ -224,14 +224,14 @@ class MessagesViewModel @Inject constructor(
         // Apply current filters and sorting
         applyFiltersAndSort()
         
-        Log.d(TAG, "Messages state updated with ${messageItems.size} items")
+        Timber.tag(LogConfig.FeatureTags.SMS).d("Messages state updated with ${messageItems.size} items")
     }
     
     /**
      * Refresh messages (pull-to-refresh)
      */
     private fun refreshMessages() {
-        Log.d(TAG, "Refreshing messages...")
+        Timber.tag(LogConfig.FeatureTags.SMS).d("Refreshing messages...")
         
         _uiState.value = _uiState.value.copy(
             isRefreshing = true,
@@ -249,7 +249,7 @@ class MessagesViewModel @Inject constructor(
                     lastRefreshTime = System.currentTimeMillis()
                 )
             } catch (e: Exception) {
-                Log.e(TAG, "Error refreshing messages", e)
+                Timber.tag(LogConfig.FeatureTags.SMS).e(e, "Error refreshing messages")
                 _uiState.value = _uiState.value.copy(
                     isRefreshing = false,
                     hasError = true,
@@ -263,7 +263,7 @@ class MessagesViewModel @Inject constructor(
      * Resync SMS messages - now using unified SMSParsingService
      */
     private fun resyncSMSMessages() {
-        Log.d(TAG, "[UNIFIED] Starting SMS resync...")
+        Timber.tag(LogConfig.FeatureTags.SMS).d("[UNIFIED] Starting SMS resync...")
         
         _uiState.value = _uiState.value.copy(
             isSyncingSMS = true,
@@ -274,9 +274,9 @@ class MessagesViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val historicalTransactions = smsParsingService.scanHistoricalSMS { current, total, status ->
-                    Log.d(TAG, "[UNIFIED] SMS Resync progress: $status ($current/$total)")
+                    Timber.tag(LogConfig.FeatureTags.SMS).d("[UNIFIED] SMS Resync progress: $status ($current/$total)")
                 }
-                Log.d(TAG, "[UNIFIED] SMS resync found ${historicalTransactions.size} transactions")
+                Timber.tag(LogConfig.FeatureTags.SMS).d("[UNIFIED] SMS resync found ${historicalTransactions.size} transactions")
                 
                 if (historicalTransactions.isNotEmpty()) {
                     val messageItems = historicalTransactions.map { transaction ->
@@ -318,14 +318,14 @@ class MessagesViewModel @Inject constructor(
                     )
                 }
             } catch (e: SecurityException) {
-                Log.w(TAG, "[UNIFIED] SMS permission denied during resync", e)
+                Timber.tag(LogConfig.FeatureTags.SMS).w(e, "[UNIFIED] SMS permission denied during resync")
                 _uiState.value = _uiState.value.copy(
                     isSyncingSMS = false,
                     hasError = true,
                     error = "SMS permission required for resync"
                 )
             } catch (e: Exception) {
-                Log.e(TAG, "[UNIFIED] Error during SMS resync", e)
+                Timber.tag(LogConfig.FeatureTags.SMS).e(e, "[UNIFIED] Error during SMS resync")
                 _uiState.value = _uiState.value.copy(
                     isSyncingSMS = false,
                     hasError = true,
@@ -339,12 +339,12 @@ class MessagesViewModel @Inject constructor(
      * Test SMS scanning functionality - now using unified SMSParsingService
      */
     private fun testSMSScanning() {
-        Log.d(TAG, "[UNIFIED] Starting SMS scanning test...")
+        Timber.tag(LogConfig.FeatureTags.SMS).d("[UNIFIED] Starting SMS scanning test...")
         
         viewModelScope.launch {
             try {
                 val transactions = smsParsingService.scanHistoricalSMS { current, total, status ->
-                    Log.d(TAG, "[UNIFIED] SMS Test progress: $status ($current/$total)")
+                    Timber.tag(LogConfig.FeatureTags.SMS).d("[UNIFIED] SMS Test progress: $status ($current/$total)")
                 }
                 
                 val testResults = buildString {
@@ -378,7 +378,7 @@ class MessagesViewModel @Inject constructor(
                     testResults = testResults
                 )
                 
-                Log.d(TAG, "[UNIFIED] SMS Test: Found ${transactions.size} transactions")
+                Timber.tag(LogConfig.FeatureTags.SMS).d("[UNIFIED] SMS Test: Found ${transactions.size} transactions")
                 
             } catch (e: SecurityException) {
                 _uiState.value = _uiState.value.copy(
@@ -386,7 +386,7 @@ class MessagesViewModel @Inject constructor(
                     error = "SMS permission is required to test SMS scanning"
                 )
             } catch (e: Exception) {
-                Log.e(TAG, "[UNIFIED] SMS test error", e)
+                Timber.tag(LogConfig.FeatureTags.SMS).e(e, "[UNIFIED] SMS test error")
                 _uiState.value = _uiState.value.copy(
                     hasError = true,
                     error = "Error testing SMS scanning: ${e.message}"
@@ -483,7 +483,7 @@ class MessagesViewModel @Inject constructor(
         // Skip individual transaction sorting - let groupTransactionsByMerchant handle the sorting
         // This ensures that the final merchant group sorting is what determines the display order
         val sortOption = currentState.currentSortOption
-        Log.d(TAG, "[DEBUG] Skipping individual transaction sorting - groups will be sorted by ${sortOption.field}")
+        Timber.tag(LogConfig.FeatureTags.SMS).d("[DEBUG] Skipping individual transaction sorting - groups will be sorted by ${sortOption.field}")
         
         // Group by merchant - this will handle the proper sorting
         val groupedMessages = groupTransactionsByMerchant(filtered, sortOption)
@@ -494,7 +494,7 @@ class MessagesViewModel @Inject constructor(
             groupedMessages = groupedMessages
         )
         
-        Log.d(TAG, "Applied filters and sort: ${filtered.size} items, ${groupedMessages.size} groups")
+        Timber.tag(LogConfig.FeatureTags.SMS).d("Applied filters and sort: ${filtered.size} items, ${groupedMessages.size} groups")
     }
     
     /**
@@ -586,7 +586,7 @@ class MessagesViewModel @Inject constructor(
      */
     private fun toggleGroupInclusion(merchantName: String, isIncluded: Boolean) {
         try {
-            Log.d(TAG, "Toggling group inclusion for '$merchantName': $isIncluded")
+            Timber.tag(LogConfig.FeatureTags.SMS).d("Toggling group inclusion for '$merchantName': $isIncluded")
             
             // Cancel any pending toggle operations
             toggleDebounceJob?.cancel()
@@ -617,16 +617,16 @@ class MessagesViewModel @Inject constructor(
                         saveGroupInclusionStates(updatedGroups)
                     }
                     
-                    Log.d(TAG, "Successfully toggled group inclusion for '$merchantName'")
+                    Timber.tag(LogConfig.FeatureTags.SMS).d("Successfully toggled group inclusion for '$merchantName'")
                     
                 } catch (e: Exception) {
-                    Log.e(TAG, "Error in debounced toggle for '$merchantName'", e)
+                    Timber.tag(LogConfig.FeatureTags.SMS).e(e, "Error in debounced toggle for '$merchantName'")
                     handleError("Failed to update merchant exclusion settings. Please try again.")
                 }
             }
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error toggling group inclusion for '$merchantName'", e)
+            Timber.tag(LogConfig.FeatureTags.SMS).e(e, "Error toggling group inclusion for '$merchantName'")
             handleError("Failed to update merchant exclusion settings. Please try again.")
         }
     }
@@ -637,7 +637,7 @@ class MessagesViewModel @Inject constructor(
     private fun updateMerchantGroup(merchantName: String, newDisplayName: String, newCategory: String) {
         viewModelScope.launch {
             try {
-                Log.d(TAG, "Updating merchant group: $merchantName -> $newDisplayName, category: $newCategory")
+                Timber.tag(LogConfig.FeatureTags.SMS).d("Updating merchant group: $merchantName -> $newDisplayName, category: $newCategory")
                 
                 // Find all transactions in this group to get their original merchant names
                 val originalMerchantNames = mutableSetOf<String>()
@@ -678,10 +678,10 @@ class MessagesViewModel @Inject constructor(
                     successMessage = "Updated group '$newDisplayName' in category '$newCategory'"
                 )
                 
-                Log.d(TAG, "Merchant group update completed successfully")
+                Timber.tag(LogConfig.FeatureTags.SMS).d("Merchant group update completed successfully")
                 
             } catch (e: Exception) {
-                Log.e(TAG, "Error updating merchant group", e)
+                Timber.tag(LogConfig.FeatureTags.SMS).e(e, "Error updating merchant group")
                 handleError("Error updating group: ${e.message}")
             }
         }
@@ -711,7 +711,7 @@ class MessagesViewModel @Inject constructor(
                 )
                 
             } catch (e: Exception) {
-                Log.e(TAG, "Error resetting merchant group", e)
+                Timber.tag(LogConfig.FeatureTags.SMS).e(e, "Error resetting merchant group")
                 handleError("Error resetting group: ${e.message}")
             }
         }
@@ -733,7 +733,7 @@ class MessagesViewModel @Inject constructor(
                 )
                 
             } catch (e: Exception) {
-                Log.e(TAG, "Error updating category", e)
+                Timber.tag(LogConfig.FeatureTags.SMS).e(e, "Error updating category")
                 handleError("Failed to update category: ${e.message}")
             }
         }
@@ -868,7 +868,7 @@ class MessagesViewModel @Inject constructor(
     
     private fun saveGroupInclusionStates(groups: List<MerchantGroup>) {
         try {
-            Log.d(TAG, "Saving inclusion states for ${groups.size} groups")
+            Timber.tag(LogConfig.FeatureTags.SMS).d("Saving inclusion states for ${groups.size} groups")
             
             val prefs = context.getSharedPreferences("expense_calculations", Context.MODE_PRIVATE)
             val editor = prefs.edit()
@@ -881,7 +881,7 @@ class MessagesViewModel @Inject constructor(
                     inclusionStates.put(group.merchantName, group.isIncludedInCalculations)
                     savedCount++
                 } catch (e: Exception) {
-                    Log.w(TAG, "Failed to save inclusion state for '${group.merchantName}'", e)
+                    Timber.tag(LogConfig.FeatureTags.SMS).w(e, "Failed to save inclusion state for '${group.merchantName}'")
                 }
             }
             
@@ -889,14 +889,14 @@ class MessagesViewModel @Inject constructor(
             val success = editor.commit()
             
             if (success) {
-                Log.d(TAG, "Successfully saved $savedCount inclusion states")
+                Timber.tag(LogConfig.FeatureTags.SMS).d("Successfully saved $savedCount inclusion states")
             } else {
-                Log.e(TAG, "Failed to commit inclusion states to SharedPreferences")
+                Timber.tag(LogConfig.FeatureTags.SMS).e("Failed to commit inclusion states to SharedPreferences")
                 throw Exception("SharedPreferences commit failed")
             }
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error saving group inclusion states", e)
+            Timber.tag(LogConfig.FeatureTags.SMS).e(e, "Error saving group inclusion states")
             // Don't show error to user for this - it's not critical
             // The UI state is already updated, this is just persistence
         }
@@ -909,9 +909,9 @@ class MessagesViewModel @Inject constructor(
     fun invalidateMerchantAliasCache() {
         try {
             merchantAliasManager.invalidateCache()
-            Log.d(TAG, "[CACHE_SYNC] ViewModel MerchantAliasManager cache invalidated")
+            Timber.tag(LogConfig.FeatureTags.SMS).d("[CACHE_SYNC] ViewModel MerchantAliasManager cache invalidated")
         } catch (e: Exception) {
-            Log.e(TAG, "Error invalidating ViewModel merchant alias cache", e)
+            Timber.tag(LogConfig.FeatureTags.SMS).e(e, "Error invalidating ViewModel merchant alias cache")
         }
     }
 }

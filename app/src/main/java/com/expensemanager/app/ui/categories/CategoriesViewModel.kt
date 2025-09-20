@@ -1,7 +1,8 @@
 package com.expensemanager.app.ui.categories
 
 import android.content.Context
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.expensemanager.app.data.repository.ExpenseRepository
@@ -28,7 +29,6 @@ class CategoriesViewModel @Inject constructor(
 ) : ViewModel() {
     
     companion object {
-        private const val TAG = "CategoriesViewModel"
     }
     
     // Private mutable state
@@ -42,7 +42,7 @@ class CategoriesViewModel @Inject constructor(
     private val merchantAliasManager = MerchantAliasManager(context)
     
     init {
-        Log.d(TAG, "ViewModel initialized, loading categories...")
+        Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("ViewModel initialized, loading categories...")
         loadCategories()
     }
     
@@ -50,7 +50,7 @@ class CategoriesViewModel @Inject constructor(
      * Handle UI events from the Fragment
      */
     fun handleEvent(event: CategoriesUIEvent) {
-        Log.d(TAG, "Handling event: $event")
+        Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("Handling event: $event")
         
         when (event) {
             is CategoriesUIEvent.Refresh -> refreshCategories()
@@ -68,7 +68,7 @@ class CategoriesViewModel @Inject constructor(
      * Initial loading of categories
      */
     private fun loadCategories() {
-        Log.d(TAG, "Starting initial category load...")
+        Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("Starting initial category load...")
         
         _uiState.value = _uiState.value.copy(
             isInitialLoading = true,
@@ -90,7 +90,7 @@ class CategoriesViewModel @Inject constructor(
                 )
                 
             } catch (e: Exception) {
-                Log.e(TAG, "Error loading categories", e)
+                Timber.tag(LogConfig.FeatureTags.CATEGORIES).e(e, "Error loading categories")
                 handleCategoryError(e)
             }
         }
@@ -100,12 +100,12 @@ class CategoriesViewModel @Inject constructor(
      * Refresh categories (pull-to-refresh)
      */
     private fun refreshCategories() {
-        Log.d(TAG, "Refreshing categories...")
+        Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("Refreshing categories...")
         
         // Clear display provider cache to ensure fresh emoji data
         if (categoryDisplayProvider is DefaultCategoryDisplayProvider) {
             categoryDisplayProvider.clearCache()
-            Log.d(TAG, "Cleared CategoryDisplayProvider cache")
+            Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("Cleared CategoryDisplayProvider cache")
         }
         
         _uiState.value = _uiState.value.copy(
@@ -128,7 +128,7 @@ class CategoriesViewModel @Inject constructor(
                 )
                 
             } catch (e: Exception) {
-                Log.e(TAG, "Error refreshing categories", e)
+                Timber.tag(LogConfig.FeatureTags.CATEGORIES).e(e, "Error refreshing categories")
                 handleCategoryError(e)
             }
         }
@@ -138,7 +138,7 @@ class CategoriesViewModel @Inject constructor(
      * Add a new category
      */
     private fun addNewCategory(name: String, emoji: String) {
-        Log.d(TAG, "Adding new category: $name with emoji: $emoji")
+        Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("Adding new category: $name with emoji: $emoji")
         
         viewModelScope.launch {
             try {
@@ -156,7 +156,7 @@ class CategoriesViewModel @Inject constructor(
                     createdAt = java.util.Date()
                 )
                 val categoryId = repository.insertCategory(categoryEntity)
-                Log.d(TAG, "Category '$name' saved to database with ID: $categoryId")
+                Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("Category '$name' saved to database with ID: $categoryId")
                 
                 // Create new category item
                 val newCategory = CategoryItem(
@@ -182,25 +182,25 @@ class CategoriesViewModel @Inject constructor(
                 // Clear display provider cache to ensure new category gets proper icon
                 if (categoryDisplayProvider is DefaultCategoryDisplayProvider) {
                     categoryDisplayProvider.clearCacheForCategory(name)
-                    Log.d(TAG, "Cleared CategoryDisplayProvider cache for '$name' after add")
+                    Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("Cleared CategoryDisplayProvider cache for '$name' after add")
                 }
                 
-                Log.d(TAG, "Category '$name' added successfully")
+                Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("Category '$name' added successfully")
                 
                 // DEBUG: Print all categories from database to verify persistence
                 try {
                     val allDbCategories = repository.getAllCategoriesSync()
-                    Log.d(TAG, "=== ALL CATEGORIES IN DATABASE AFTER CREATION ===")
+                    Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("=== ALL CATEGORIES IN DATABASE AFTER CREATION ===")
                     allDbCategories.forEachIndexed { index, category ->
-                        Log.d(TAG, "DB Category $index: id=${category.id}, name='${category.name}', emoji='${category.emoji}'")
+                        Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("DB Category $index: id=${category.id}, name='${category.name}', emoji='${category.emoji}'")
                     }
-                    Log.d(TAG, "=== END DATABASE CATEGORIES (${allDbCategories.size} total) ===")
+                    Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("=== END DATABASE CATEGORIES (${allDbCategories.size} total) ===")
                 } catch (e: Exception) {
-                    Log.e(TAG, "Error printing database categories", e)
+                    Timber.tag(LogConfig.FeatureTags.CATEGORIES).e(e, "Error printing database categories")
                 }
                 
             } catch (e: Exception) {
-                Log.e(TAG, "Error adding category", e)
+                Timber.tag(LogConfig.FeatureTags.CATEGORIES).e(e, "Error adding category")
                 handleCategoryError(e)
             }
         }
@@ -210,13 +210,13 @@ class CategoriesViewModel @Inject constructor(
      * Delete a category comprehensively across all storage locations
      */
     private fun deleteCategory(categoryName: String) {
-        Log.d(TAG, "Deleting category: $categoryName")
+        Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("Deleting category: $categoryName")
         
         viewModelScope.launch {
             try {
                 // 1. Remove from CategoryManager (SharedPreferences custom categories)
                 categoryManager.removeCustomCategory(categoryName)
-                Log.d(TAG, "Removed '$categoryName' from CategoryManager")
+                Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("Removed '$categoryName' from CategoryManager")
                 
                 // 2. Handle database category deletion
                 val categoryEntity = repository.getCategoryByName(categoryName)
@@ -235,20 +235,20 @@ class CategoriesViewModel @Inject constructor(
                         )
                         repository.insertCategory(otherCategoryEntity)
                         otherCategory = repository.getCategoryByName("Other")
-                        Log.d(TAG, "Created 'Other' category as fallback")
+                        Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("Created 'Other' category as fallback")
                     }
                     
                     if (otherCategory != null) {
                         // Move all merchants with this category to "Other"
                         val movedCount = repository.updateMerchantsByCategory(categoryEntity.id, otherCategory.id)
-                        Log.d(TAG, "Moved $movedCount merchants from '$categoryName' to 'Other' in database")
+                        Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("Moved $movedCount merchants from '$categoryName' to 'Other' in database")
                     }
                     
                     // Delete the category from database
                     repository.deleteCategory(categoryEntity)
-                    Log.d(TAG, "Deleted '$categoryName' from database")
+                    Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("Deleted '$categoryName' from database")
                 } else {
-                    Log.d(TAG, "Category '$categoryName' not found in database, only removing from SharedPreferences")
+                    Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("Category '$categoryName' not found in database, only removing from SharedPreferences")
                 }
                 
                 // 3. Update MerchantAliasManager - change all aliases pointing to this category
@@ -260,16 +260,16 @@ class CategoriesViewModel @Inject constructor(
                 // 5. Clear display provider cache to force icon/emoji refresh
                 if (categoryDisplayProvider is DefaultCategoryDisplayProvider) {
                     categoryDisplayProvider.clearCacheForCategory(categoryName)
-                    Log.d(TAG, "Cleared CategoryDisplayProvider cache for '$categoryName' after delete")
+                    Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("Cleared CategoryDisplayProvider cache for '$categoryName' after delete")
                 }
                 
                 // 6. Refresh categories to get updated data from repository
                 refreshCategories()
                 
-                Log.d(TAG, "Category '$categoryName' deleted successfully from all locations")
+                Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("Category '$categoryName' deleted successfully from all locations")
                 
             } catch (e: Exception) {
-                Log.e(TAG, "Error deleting category", e)
+                Timber.tag(LogConfig.FeatureTags.CATEGORIES).e(e, "Error deleting category")
                 handleCategoryError(e)
             }
         }
@@ -279,14 +279,14 @@ class CategoriesViewModel @Inject constructor(
      * Rename a category comprehensively across all storage locations
      */
     private fun renameCategory(oldName: String, newName: String, newEmoji: String) {
-        Log.d(TAG, "Renaming category from '$oldName' to '$newName' with emoji '$newEmoji'")
+        Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("Renaming category from '$oldName' to '$newName' with emoji '$newEmoji'")
         
         viewModelScope.launch {
             try {
                 // 1. Update CategoryManager (SharedPreferences custom categories)
                 categoryManager.removeCustomCategory(oldName)
                 categoryManager.addCustomCategory(newName)
-                Log.d(TAG, "Updated '$oldName' to '$newName' in CategoryManager")
+                Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("Updated '$oldName' to '$newName' in CategoryManager")
                 
                 // 2. Handle database category rename
                 val categoryEntity = repository.getCategoryByName(oldName)
@@ -297,14 +297,14 @@ class CategoriesViewModel @Inject constructor(
                         emoji = newEmoji.ifEmpty { categoryEntity.emoji }
                     )
                     repository.updateCategory(updatedCategory)
-                    Log.d(TAG, "Updated '$oldName' to '$newName' in database")
+                    Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("Updated '$oldName' to '$newName' in database")
                     
                     // DEBUG: Verify the update worked
                     val verifyCategory = repository.getCategoryByName(newName)
-                    Log.d(TAG, "VERIFY: Category '$newName' now has emoji: '${verifyCategory?.emoji}'")
+                    Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("VERIFY: Category '$newName' now has emoji: '${verifyCategory?.emoji}'")
                 } else {
                     // Category doesn't exist in database, create it
-                    Log.d(TAG, "Category '$oldName' not found in database, creating new entry for '$newName'")
+                    Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("Category '$oldName' not found in database, creating new entry for '$newName'")
                     val newCategoryEntity = com.expensemanager.app.data.entities.CategoryEntity(
                         name = newName,
                         emoji = newEmoji,
@@ -314,11 +314,11 @@ class CategoriesViewModel @Inject constructor(
                         createdAt = java.util.Date()
                     )
                     repository.insertCategory(newCategoryEntity)
-                    Log.d(TAG, "Created new category '$newName' in database")
+                    Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("Created new category '$newName' in database")
                     
                     // DEBUG: Verify the creation worked
                     val verifyCategory = repository.getCategoryByName(newName)
-                    Log.d(TAG, "VERIFY: Created category '$newName' has emoji: '${verifyCategory?.emoji}'")
+                    Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("VERIFY: Created category '$newName' has emoji: '${verifyCategory?.emoji}'")
                 }
                 
                 // 3. Update MerchantAliasManager - change all aliases pointing to old category
@@ -332,25 +332,25 @@ class CategoriesViewModel @Inject constructor(
                     // Clear cache for both old and new category names
                     categoryDisplayProvider.clearCacheForCategory(oldName)
                     categoryDisplayProvider.clearCacheForCategory(newName)
-                    Log.d(TAG, "Cleared CategoryDisplayProvider cache for '$oldName' and '$newName' after rename")
+                    Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("Cleared CategoryDisplayProvider cache for '$oldName' and '$newName' after rename")
                 }
                 
                 // 6. Refresh categories to get updated data from repository
                 refreshCategories()
                 
-                Log.d(TAG, "Category renamed from '$oldName' to '$newName' successfully across all locations")
+                Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("Category renamed from '$oldName' to '$newName' successfully across all locations")
                 
                 // DEBUG: Log that the display provider fix has been applied
-                Log.d(TAG, "=== DISPLAY PROVIDER FIX APPLIED ===")
-                Log.d(TAG, "getCategoryEmoji now uses CategoryDisplayProvider (database-aware)")
-                Log.d(TAG, "refreshCategories now clears display cache")
-                Log.d(TAG, "Expected: UI should show updated emojis immediately")
+                Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("=== DISPLAY PROVIDER FIX APPLIED ===")
+                Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("getCategoryEmoji now uses CategoryDisplayProvider (database-aware)")
+                Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("refreshCategories now clears display cache")
+                Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("Expected: UI should show updated emojis immediately")
                 
                 // COMPREHENSIVE DEBUG: Print all categories from both sources
                 printAllCategoriesFromBothSources()
                 
             } catch (e: Exception) {
-                Log.e(TAG, "Error renaming category", e)
+                Timber.tag(LogConfig.FeatureTags.CATEGORIES).e(e, "Error renaming category")
                 handleCategoryError(e)
             }
         }
@@ -360,7 +360,7 @@ class CategoriesViewModel @Inject constructor(
      * Add quick expense
      */
     private fun addQuickExpense(amount: Double, merchant: String, category: String) {
-        Log.d(TAG, "Adding quick expense: ₹$amount at $merchant ($category)")
+        Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("Adding quick expense: ₹$amount at $merchant ($category)")
         
         viewModelScope.launch {
             try {
@@ -368,7 +368,7 @@ class CategoriesViewModel @Inject constructor(
                 // For now, just refresh categories to show updated data
                 refreshCategories()
             } catch (e: Exception) {
-                Log.e(TAG, "Error adding quick expense", e)
+                Timber.tag(LogConfig.FeatureTags.CATEGORIES).e(e, "Error adding quick expense")
                 handleCategoryError(e)
             }
         }
@@ -378,7 +378,7 @@ class CategoriesViewModel @Inject constructor(
      * Handle category selection for navigation
      */
     private fun handleCategorySelection(categoryName: String) {
-        Log.d(TAG, "Category selected: $categoryName")
+        Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("Category selected: $categoryName")
         // This will be handled by the Fragment for navigation
     }
     
@@ -397,7 +397,7 @@ class CategoriesViewModel @Inject constructor(
      */
     private suspend fun loadCategoryData(): List<CategoryItem> {
         return try {
-            Log.d(TAG, "Loading category data from repository...")
+            Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("Loading category data from repository...")
             
             // Get date range from the start of the current month to the current time
             val calendar = Calendar.getInstance()
@@ -412,12 +412,12 @@ class CategoriesViewModel @Inject constructor(
             val endDate = Calendar.getInstance().time
 
             val dateFormatter = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
-            Log.d(TAG, "Loading categories from start of month: ${dateFormatter.format(startDate)}")
+            Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("Loading categories from start of month: ${dateFormatter.format(startDate)}")
             
             // Get category spending from repository
             val categorySpendingResults = repository.getCategorySpending(startDate, endDate)
             
-            Log.d(TAG, "Repository returned ${categorySpendingResults.size} category results")
+            Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("Repository returned ${categorySpendingResults.size} category results")
             
             if (categorySpendingResults.isNotEmpty()) {
                 // Convert repository results to CategoryItem format
@@ -470,15 +470,15 @@ class CategoriesViewModel @Inject constructor(
                 }
                 
             } else {
-                Log.d(TAG, "No data in repository, falling back to SMS reading...")
+                Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("No data in repository, falling back to SMS reading...")
                 return loadCategoryDataFallback()
             }
             
         } catch (e: SecurityException) {
-            Log.w(TAG, "Permission denied, showing empty state", e)
+            Timber.tag(LogConfig.FeatureTags.CATEGORIES).w(e, "Permission denied, showing empty state")
             return getEmptyCategories()
         } catch (e: Exception) {
-            Log.e(TAG, "Error loading category data, showing empty state", e)
+            Timber.tag(LogConfig.FeatureTags.CATEGORIES).e(e, "Error loading category data, showing empty state")
             return getEmptyCategories()
         }
     }
@@ -488,11 +488,11 @@ class CategoriesViewModel @Inject constructor(
      */
     private suspend fun loadCategoryDataFallback(): List<CategoryItem> {
         return try {
-            Log.d(TAG, "Loading category data from SMS as fallback...")
+            Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("Loading category data from SMS as fallback...")
             
             // Trigger SMS sync if no data exists
             val syncedCount = repository.syncNewSMS()
-            Log.d(TAG, "Synced $syncedCount new transactions from SMS")
+            Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("Synced $syncedCount new transactions from SMS")
             
             if (syncedCount > 0) {
                 // Now load data from repository
@@ -509,7 +509,7 @@ class CategoriesViewModel @Inject constructor(
                 val endDate = Calendar.getInstance().time
 
                 val dateFormatter = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
-                Log.d(TAG, "Loading categories fallback from start of month: ${dateFormatter.format(startDate)}")
+                Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("Loading categories fallback from start of month: ${dateFormatter.format(startDate)}")
                 
                 val categorySpendingResults = repository.getCategorySpending(startDate, endDate)
                 
@@ -567,7 +567,7 @@ class CategoriesViewModel @Inject constructor(
             }
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error in fallback loading, showing empty state", e)
+            Timber.tag(LogConfig.FeatureTags.CATEGORIES).e(e, "Error in fallback loading, showing empty state")
             return getEmptyCategories()
         }
     }
@@ -576,7 +576,7 @@ class CategoriesViewModel @Inject constructor(
      * Get empty categories (only custom categories with ₹0 amounts)
      */
     private fun getEmptyCategories(): List<CategoryItem> {
-        Log.d(TAG, "Showing empty categories state - no dummy data")
+        Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("Showing empty categories state - no dummy data")
         
         // Only show custom categories with ₹0 amounts - no fake data
         val customCategories = categoryManager.getAllCategories()
@@ -672,9 +672,9 @@ class CategoriesViewModel @Inject constructor(
                 updatedCount++
             }
             
-            Log.d(TAG, "Updated $updatedCount merchant aliases from '$oldCategoryName' to '$newCategoryName'")
+            Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("Updated $updatedCount merchant aliases from '$oldCategoryName' to '$newCategoryName'")
         } catch (e: Exception) {
-            Log.e(TAG, "Error updating merchant aliases for category change", e)
+            Timber.tag(LogConfig.FeatureTags.CATEGORIES).e(e, "Error updating merchant aliases for category change")
         }
     }
     
@@ -696,9 +696,9 @@ class CategoriesViewModel @Inject constructor(
                 }
             }
             
-            Log.d(TAG, "Updated $updatedCount learned rules from '$oldCategoryName' to '$newCategoryName'")
+            Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("Updated $updatedCount learned rules from '$oldCategoryName' to '$newCategoryName'")
         } catch (e: Exception) {
-            Log.e(TAG, "Error updating CategoryManager learned rules", e)
+            Timber.tag(LogConfig.FeatureTags.CATEGORIES).e(e, "Error updating CategoryManager learned rules")
         }
     }
     
@@ -709,41 +709,41 @@ class CategoriesViewModel @Inject constructor(
     private fun printAllCategoriesFromBothSources() {
         viewModelScope.launch {
             try {
-                Log.d(TAG, "")
-                Log.d(TAG, "=================== COMPREHENSIVE CATEGORY DEBUG ===================")
-                Log.d(TAG, "")
+                Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("")
+                Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("=================== COMPREHENSIVE CATEGORY DEBUG ===================")
+                Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("")
                 
                 // 1. ROOM DATABASE CATEGORIES
-                Log.d(TAG, "📁 ROOM DATABASE CATEGORIES:")
+                Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("📁 ROOM DATABASE CATEGORIES:")
                 val dbCategories = repository.getAllCategoriesSync()
                 if (dbCategories.isNotEmpty()) {
                     dbCategories.forEachIndexed { index, category ->
-                        Log.d(TAG, "  DB[$index]: id=${category.id} | name='${category.name}' | emoji='${category.emoji}' | color='${category.color}'")
+                        Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("  DB[$index]: id=${category.id} | name='${category.name}' | emoji='${category.emoji}' | color='${category.color}'")
                     }
-                    Log.d(TAG, "  📊 Total DB categories: ${dbCategories.size}")
+                    Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("  📊 Total DB categories: ${dbCategories.size}")
                 } else {
-                    Log.d(TAG, "  ❌ No categories found in Room database")
+                    Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("  ❌ No categories found in Room database")
                 }
                 
-                Log.d(TAG, "")
+                Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("")
                 
                 // 2. CATEGORYMANAGER (SHAREDPREFERENCES) ALL CATEGORIES
-                Log.d(TAG, "💾 CATEGORYMANAGER (SharedPreferences) ALL CATEGORIES:")
+                Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("💾 CATEGORYMANAGER (SharedPreferences) ALL CATEGORIES:")
                 val allCategoryManagerCategories = categoryManager.getAllCategories()
                 if (allCategoryManagerCategories.isNotEmpty()) {
                     allCategoryManagerCategories.forEachIndexed { index, categoryName ->
                         val color = categoryManager.getCategoryColor(categoryName)
-                        Log.d(TAG, "  CM[$index]: name='$categoryName' | color='$color'")
+                        Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("  CM[$index]: name='$categoryName' | color='$color'")
                     }
-                    Log.d(TAG, "  📊 Total CategoryManager categories: ${allCategoryManagerCategories.size}")
+                    Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("  📊 Total CategoryManager categories: ${allCategoryManagerCategories.size}")
                 } else {
-                    Log.d(TAG, "  ❌ No categories found in CategoryManager")
+                    Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("  ❌ No categories found in CategoryManager")
                 }
                 
-                Log.d(TAG, "")
+                Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("")
                 
                 // 3. CATEGORYDISPLAYPROVIDER TEST
-                Log.d(TAG, "🎨 CATEGORY DISPLAY PROVIDER TEST:")
+                Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("🎨 CATEGORY DISPLAY PROVIDER TEST:")
                 val testCategories = listOf("ABc1", "TestCat", "Food & Dining", "Other")
                 testCategories.forEach { testCategory ->
                     val displayIcon = categoryDisplayProvider.getDisplayIcon(testCategory)
@@ -752,15 +752,15 @@ class CategoriesViewModel @Inject constructor(
                         is com.expensemanager.app.ui.categories.CategoryIcon.Emoji -> "Emoji: '${displayIcon.emoji}'"
                         else -> "Other: $displayIcon"
                     }
-                    Log.d(TAG, "  DISP['$testCategory']: $iconType | formatted='$formattedDisplay'")
+                    Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("  DISP['$testCategory']: $iconType | formatted='$formattedDisplay'")
                 }
                 
-                Log.d(TAG, "")
-                Log.d(TAG, "================== END COMPREHENSIVE DEBUG ==================")
-                Log.d(TAG, "")
+                Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("")
+                Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("================== END COMPREHENSIVE DEBUG ==================")
+                Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("")
                 
             } catch (e: Exception) {
-                Log.e(TAG, "Error in comprehensive category debug", e)
+                Timber.tag(LogConfig.FeatureTags.CATEGORIES).e(e, "Error in comprehensive category debug")
             }
         }
     }

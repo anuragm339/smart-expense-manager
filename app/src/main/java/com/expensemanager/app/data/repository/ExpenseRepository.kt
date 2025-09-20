@@ -2,15 +2,15 @@ package com.expensemanager.app.data.repository
 
 import android.content.Context
 import com.expensemanager.app.data.database.ExpenseDatabase
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
+
 import com.expensemanager.app.data.entities.*
 import com.expensemanager.app.data.dao.*
 import com.expensemanager.app.domain.repository.*
 import com.expensemanager.app.services.SMSParsingService
 import com.expensemanager.app.models.ParsedTransaction
 import com.expensemanager.app.services.TransactionFilterService
-import com.expensemanager.app.utils.AppLogger
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.Flow
@@ -29,7 +29,7 @@ class ExpenseRepository @Inject constructor(
     private val syncStateDao: SyncStateDao,
     private val smsParsingService: SMSParsingService,
     private val transactionFilterService: TransactionFilterService? = null,
-    private val appLogger: AppLogger
+    private val logConfig: LogConfig
 ) : TransactionRepositoryInterface, 
     CategoryRepositoryInterface, 
     MerchantRepositoryInterface, 
@@ -37,7 +37,7 @@ class ExpenseRepository @Inject constructor(
     
     companion object {
         private const val TAG = "ExpenseRepository"
-        private val logger: Logger = LoggerFactory.getLogger(TAG)
+        
         
         @Volatile
         private var INSTANCE: ExpenseRepository? = null
@@ -47,7 +47,7 @@ class ExpenseRepository @Inject constructor(
             return INSTANCE ?: synchronized(this) {
                 val database = ExpenseDatabase.getDatabase(context)
                 val smsParsingService = SMSParsingService(context.applicationContext)
-                val appLogger = AppLogger(context.applicationContext)
+                val logConfig = LogConfig(context.applicationContext)
                 val instance = ExpenseRepository(
                     context.applicationContext,
                     database.transactionDao(),
@@ -56,7 +56,7 @@ class ExpenseRepository @Inject constructor(
                     database.syncStateDao(),
                     smsParsingService,
                     null, // transactionFilterService (optional)
-                    appLogger
+                    logConfig
                 )
                 INSTANCE = instance
                 instance
@@ -90,7 +90,7 @@ class ExpenseRepository @Inject constructor(
         return try {
             transactionDao.getCategorySpendingBreakdown(startDate, endDate)
         } catch (e: Exception) {
-            logger.warn("Optimized query failed, falling back to original method", e)
+            Timber.tag(LogConfig.FeatureTags.DATABASE).w(e, "Optimized query failed, falling back to original method")
             
             // Fallback to original method
             val expenseTransactions = getExpenseTransactionsByDateRange(startDate, endDate)
@@ -395,7 +395,7 @@ class ExpenseRepository @Inject constructor(
                     )
                     val newCategoryId = insertCategory(newCategory)
                 } catch (e: Exception) {
-                    logger.error("Failed to create category: $newCategoryName", e)
+                    Timber.tag(LogConfig.FeatureTags.DATABASE).e(e, "Failed to create category: $newCategoryName")
                     return false
                 }
                 
@@ -445,7 +445,7 @@ class ExpenseRepository @Inject constructor(
                     }
                     
                 } catch (e: Exception) {
-                    logger.error("Failed to process merchant '$originalName'", e)
+                    Timber.tag(LogConfig.FeatureTags.DATABASE).e(e, "Failed to process merchant '$originalName'")
                     failedUpdates.add(originalName)
                 }
             }
@@ -453,10 +453,10 @@ class ExpenseRepository @Inject constructor(
             // Final status report
             val totalProcessed = updatedCount + createdCount
             
-            logger.info("Merchant alias update: $totalProcessed/${originalMerchantNames.size} processed ($updatedCount updated, $createdCount created)")
+            Timber.tag(LogConfig.FeatureTags.DATABASE).i("Updated %d merchants, created %d merchants", updatedCount, createdCount)
             
             if (failedUpdates.isNotEmpty()) {
-                logger.warn("Failed to update ${failedUpdates.size} merchants: $failedUpdates")
+                Timber.tag(LogConfig.FeatureTags.DATABASE).w("Failed to update %d merchants: %s", failedUpdates.size, failedUpdates)
             }
             
             // Consider it successful if we updated at least some merchants
@@ -465,7 +465,7 @@ class ExpenseRepository @Inject constructor(
             return isSuccessful
             
         } catch (e: Exception) {
-            logger.error("Critical error during database update", e)
+            Timber.tag(LogConfig.FeatureTags.DATABASE).e(e, "Critical error during database update")
             false
         }
     }
@@ -504,7 +504,7 @@ class ExpenseRepository @Inject constructor(
             val syncState = syncStateDao.getSyncState()
             val lastSyncTimestamp = syncState?.lastSmsSyncTimestamp ?: Date(0)
             
-            logger.debug("Last sync timestamp: $lastSyncTimestamp")
+            Timber.tag(LogConfig.FeatureTags.DATABASE).d("Starting SMS sync - Last sync timestamp: %s", lastSyncTimestamp)
             
             syncStateDao.updateSyncStatus("IN_PROGRESS")
             
@@ -559,12 +559,12 @@ class ExpenseRepository @Inject constructor(
                 )
             }
             
-            logger.debug("  - Distinct merchants found: ${distinctMerchants.size}")
-            logger.debug("  - Merchants: ${distinctMerchants.joinToString(", ")}")
+            Timber.tag(LogConfig.FeatureTags.DATABASE).d("Found %d new transactions to process", newTransactions.size)
+            Timber.tag(LogConfig.FeatureTags.DATABASE).d("SMS sync completed - Inserted: %d, Duplicates: %d, Unique merchants: %d", insertedCount, duplicateCount, distinctMerchants.size)
             insertedCount
             
         } catch (e: Exception) {
-            logger.error("[UNIFIED] Repository-based SMS sync failed", e)
+            Timber.tag(LogConfig.FeatureTags.DATABASE).e(e, "[UNIFIED] Repository-based SMS sync failed")
             syncStateDao.updateSyncStatus("FAILED")
             throw e
         }
@@ -608,7 +608,7 @@ class ExpenseRepository @Inject constructor(
             return@withContext isEmpty
             
         } catch (e: Exception) {
-            logger.error("Error checking if database is empty", e)
+            Timber.tag(LogConfig.FeatureTags.DATABASE).e(e, "Error checking if database is empty")
             return@withContext true // Assume empty on error
         }
     }
@@ -626,9 +626,9 @@ class ExpenseRepository @Inject constructor(
         
         // DEBUG: Get expense transactions BEFORE filtering 
         val expenseTransactionsBeforeFilter = getExpenseTransactionsByDateRange(startDate, endDate)
-        logger.debug("[DEBUG] Raw debit transactions (before filtering): ${expenseTransactionsBeforeFilter.size}")
+        Timber.tag(LogConfig.FeatureTags.DATABASE).d("[DEBUG] Raw debit transactions (before filtering): %d", expenseTransactionsBeforeFilter.size)
         expenseTransactionsBeforeFilter.take(3).forEach { transaction ->
-            logger.debug("[DEBUG] Debit example: ${transaction.rawMerchant} - ₹${transaction.amount} - isDebit: ${transaction.isDebit}")
+            Timber.tag(LogConfig.FeatureTags.DATABASE).d("[DEBUG] Debit example: %s - ₹%.2f - isDebit: %b", transaction.rawMerchant, transaction.amount, transaction.isDebit)
         }
         
         // Get expense-specific data (debits only)
@@ -642,7 +642,7 @@ class ExpenseRepository @Inject constructor(
         
         
         if (rawDebitCount > 0 && transactionCount == 0) {
-            logger.warn("All $rawDebitCount debit transactions were filtered out - check exclusion settings")
+            Timber.tag(LogConfig.FeatureTags.DATABASE).w("WARNING: Raw debit transactions found (%d) but none remain after filtering (%d)", rawDebitCount, transactionCount)
             
             // DEBUG: Show examples of excluded transactions
             expenseTransactionsBeforeFilter.take(3).forEach { transaction ->
@@ -700,7 +700,7 @@ class ExpenseRepository @Inject constructor(
             updatedAt = Date()
         )
         
-        logger.debug("[CONVERSION] ${if (parsedTransaction.isDebit) "DEBIT" else "CREDIT"}: ${parsedTransaction.merchant} - ₹${parsedTransaction.amount}")
+        Timber.tag(LogConfig.FeatureTags.DATABASE).d("[CONVERSION] %s: %s - ₹%.2f", if (parsedTransaction.isDebit) "DEBIT" else "CREDIT", parsedTransaction.merchant, parsedTransaction.amount)
         
         return transactionEntity
     }
@@ -822,19 +822,19 @@ class ExpenseRepository @Inject constructor(
         return try {
             if (transactionFilterService != null) {
                 // UPDATED: Use unified TransactionFilterService for consistent exclusion logic
-                logger.debug("[UNIFIED] Using TransactionFilterService for exclusion filtering")
+                Timber.tag(LogConfig.FeatureTags.DATABASE).d("UNIFIED FILTERING: %d transactions before filtering", transactions.size)
                 val filteredTransactions = transactionFilterService.filterTransactionsByExclusions(transactions)
                 
-                logger.debug("[SUCCESS] UNIFIED FILTERING result: ${filteredTransactions.size}/${transactions.size} transactions included")
+                Timber.tag(LogConfig.FeatureTags.DATABASE).d("UNIFIED FILTERING: %d transactions after filtering", filteredTransactions.size)
                 
                 filteredTransactions
             } else {
                 // Fallback to legacy filtering if service not available
-                logger.debug("[FALLBACK] TransactionFilterService not available, using legacy filtering")
+                Timber.tag(LogConfig.FeatureTags.DATABASE).d("LEGACY FILTERING: Using fallback filtering")
                 filterTransactionsByExclusionsLegacy(transactions)
             }
         } catch (e: Exception) {
-            logger.error("Error in unified filtering", e)
+            Timber.tag(LogConfig.FeatureTags.DATABASE).e(e, "Error in unified filtering")
             transactions // Return all transactions on error
         }
     }
@@ -869,7 +869,7 @@ class ExpenseRepository @Inject constructor(
                         }
                     }
                 } catch (e: Exception) {
-                    logger.warn("Error parsing SharedPreferences inclusion states", e)
+                    Timber.tag(LogConfig.FeatureTags.DATABASE).w("Error parsing inclusion states: %s", e.message)
                 }
             }
             
@@ -883,12 +883,12 @@ class ExpenseRepository @Inject constructor(
                 isIncluded
             }
             
-            logger.debug("[LEGACY] Filtering result: ${filteredTransactions.size}/${transactions.size} transactions included")
+            Timber.tag(LogConfig.FeatureTags.DATABASE).d("Legacy filtering: %d -> %d transactions (excluded %d from DB, %d from SharedPrefs)", transactions.size, filteredTransactions.size, excludedNormalizedNames.size, sharedPrefsExclusions.size)
             
             filteredTransactions
             
         } catch (e: Exception) {
-            logger.error("Error in legacy filtering", e)
+            Timber.tag(LogConfig.FeatureTags.DATABASE).e(e, "Error in legacy filtering")
             transactions
         }
     }
@@ -946,13 +946,13 @@ class ExpenseRepository @Inject constructor(
                         }
                     }
                 } catch (e: Exception) {
-                    logger.warn("Error parsing SharedPreferences for merchants", e)
+                    Timber.tag(LogConfig.FeatureTags.DATABASE).w("Error parsing inclusion states: %s", e.message)
                 }
             }
             
-            logger.debug("[DEBUG] UNIFIED MERCHANT FILTERING: ${merchants.size} merchants")
-            logger.debug("[DEBUG]   - Database exclusions: ${excludedNormalizedNames.size}")
-            logger.debug("[DEBUG]   - SharedPrefs exclusions: ${sharedPrefsExclusions.size}")
+            Timber.tag(LogConfig.FeatureTags.DATABASE).d("[DEBUG] UNIFIED MERCHANT FILTERING: %d merchants", merchants.size)
+            Timber.tag(LogConfig.FeatureTags.DATABASE).d("[DEBUG]   - Database exclusions: %d", excludedNormalizedNames.size)
+            Timber.tag(LogConfig.FeatureTags.DATABASE).d("[DEBUG]   - SharedPrefs exclusions: %d", sharedPrefsExclusions.size)
             
             // 3. Filter merchants using unified system
             val filteredMerchants = merchants.filter { merchant ->
@@ -963,10 +963,10 @@ class ExpenseRepository @Inject constructor(
                 isIncluded
             }
             
-            logger.debug("[SUCCESS] UNIFIED MERCHANT FILTERING result: ${filteredMerchants.size}/${merchants.size} merchants included")
+            Timber.tag(LogConfig.FeatureTags.DATABASE).d("Filtered merchants: %d -> %d", merchants.size, filteredMerchants.size)
             filteredMerchants
         } catch (e: Exception) {
-            logger.error("Error in unified merchant filtering", e)
+            Timber.tag(LogConfig.FeatureTags.DATABASE).e(e, "Error in unified merchant filtering")
             merchants // Return all merchants on error
         }
     }
@@ -997,13 +997,13 @@ class ExpenseRepository @Inject constructor(
                         }
                     }
                 } catch (e: Exception) {
-                    logger.warn("Error parsing SharedPreferences for merchants with category", e)
+                    Timber.tag(LogConfig.FeatureTags.DATABASE).w("Error parsing inclusion states: %s", e.message)
                 }
             }
             
-            logger.debug("[DEBUG] UNIFIED MERCHANT WITH CATEGORY FILTERING: ${merchants.size} merchants")
-            logger.debug("[DEBUG]   - Database exclusions: ${excludedNormalizedNames.size}")
-            logger.debug("[DEBUG]   - SharedPrefs exclusions: ${sharedPrefsExclusions.size}")
+            Timber.tag(LogConfig.FeatureTags.DATABASE).d("[DEBUG] UNIFIED MERCHANT WITH CATEGORY FILTERING: %d merchants", merchants.size)
+            Timber.tag(LogConfig.FeatureTags.DATABASE).d("[DEBUG]   - Database exclusions: %d", excludedNormalizedNames.size)
+            Timber.tag(LogConfig.FeatureTags.DATABASE).d("[DEBUG]   - SharedPrefs exclusions: %d", sharedPrefsExclusions.size)
             
             // 3. Filter merchants using unified system
             val filteredMerchants = merchants.filter { merchant ->
@@ -1014,10 +1014,10 @@ class ExpenseRepository @Inject constructor(
                 isIncluded
             }
             
-            logger.debug("[SUCCESS] UNIFIED MERCHANT WITH CATEGORY FILTERING result: ${filteredMerchants.size}/${merchants.size} merchants included")
+            Timber.tag(LogConfig.FeatureTags.DATABASE).d("Filtered merchants with category: %d -> %d", merchants.size, filteredMerchants.size)
             filteredMerchants
         } catch (e: Exception) {
-            logger.error("Error in unified merchant with category filtering", e)
+            Timber.tag(LogConfig.FeatureTags.DATABASE).e(e, "Error in unified merchant with category filtering")
             merchants // Return all merchants on error
         }
     }
@@ -1028,7 +1028,7 @@ class ExpenseRepository @Inject constructor(
     
     override suspend fun cleanupDuplicateTransactions(): Int = withContext(Dispatchers.IO) {
         try {
-            logger.debug("Starting enhanced database cleanup for duplicate transactions...")
+            Timber.tag(LogConfig.FeatureTags.DATABASE).d("Starting duplicate cleanup")
             
             // Get all transactions grouped by potential duplicate key
             val allTransactions = transactionDao.getAllTransactionsSync()
@@ -1045,7 +1045,7 @@ class ExpenseRepository @Inject constructor(
             var removedCount = 0
             
             for ((key, duplicates) in duplicateGroups) {
-                logger.debug("[DEBUG] Found ${duplicates.size} potential duplicates for key: $key")
+                Timber.tag(LogConfig.FeatureTags.DATABASE).d("Found duplicate group with key: %s (%d transactions)", key, duplicates.size)
                 
                 // Keep the one with the highest confidence score, or most recent if tied
                 val toKeep = duplicates.maxWithOrNull { a, b ->
@@ -1059,22 +1059,22 @@ class ExpenseRepository @Inject constructor(
                 for (duplicate in toRemove) {
                     transactionDao.deleteTransaction(duplicate)
                     removedCount++
-                    logger.debug("[DELETE] Removed duplicate transaction: ${duplicate.rawMerchant} - ₹${duplicate.amount} (SMS: ${duplicate.smsId})")
+                    Timber.tag(LogConfig.FeatureTags.DATABASE).d("Removing duplicate transaction: %s", duplicate.rawMerchant)
                 }
             }
             
-            logger.debug("[SUCCESS] Enhanced database cleanup completed. Removed $removedCount duplicate transactions")
+            Timber.tag(LogConfig.FeatureTags.DATABASE).d("Duplicate cleanup completed - Removed %d transactions", removedCount)
             removedCount
             
         } catch (e: Exception) {
-            logger.error("[ERROR] Database cleanup failed", e)
+            Timber.tag(LogConfig.FeatureTags.DATABASE).e(e, "[ERROR] Database cleanup failed")
             0
         }
     }
     
     override suspend fun removeObviousTestData(): Int = withContext(Dispatchers.IO) {
         try {
-            logger.debug("Starting cleanup of obvious test data...")
+            Timber.tag(LogConfig.FeatureTags.DATABASE).d("Starting test data cleanup")
             
             val testMerchants = listOf(
                 "test", "example", "demo", "sample", "dummy",
@@ -1093,15 +1093,15 @@ class ExpenseRepository @Inject constructor(
                 for (transaction in transactions) {
                     transactionDao.deleteTransaction(transaction)
                     removedCount++
-                    logger.debug("[DELETE] Removed test transaction: ${transaction.rawMerchant} - ₹${transaction.amount}")
+                    Timber.tag(LogConfig.FeatureTags.DATABASE).d("Removing test transaction: %s - ₹%.2f", transaction.rawMerchant, transaction.amount)
                 }
             }
             
-            logger.debug("[SUCCESS] Test data cleanup completed. Removed $removedCount test transactions")
+            Timber.tag(LogConfig.FeatureTags.DATABASE).d("Test data cleanup completed - Removed %d transactions", removedCount)
             removedCount
             
         } catch (e: Exception) {
-            logger.error("[ERROR] Test data cleanup failed", e)
+            Timber.tag(LogConfig.FeatureTags.DATABASE).e(e, "[ERROR] Test data cleanup failed")
             0
         }
     }
