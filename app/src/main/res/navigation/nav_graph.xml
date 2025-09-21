@@ -13,6 +13,9 @@
         <action
             android:id="@+id/action_dashboard_to_merchant_transactions"
             app:destination="@id/navigation_merchant_transactions" />
+        <action
+            android:id="@+id/action_navigation_categories_to_navigation_category_transactions"
+            app:destination="@id/navigation_category_transactions" />
     </fragment>
 
     <fragment

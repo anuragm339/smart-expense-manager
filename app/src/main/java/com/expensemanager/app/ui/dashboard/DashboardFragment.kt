@@ -23,6 +23,11 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.github.mikephil.charting.charts.LineChart
+import com.github.mikephil.charting.data.Entry
+import com.github.mikephil.charting.data.LineData
+import com.github.mikephil.charting.data.LineDataSet
+import com.github.mikephil.charting.components.XAxis
 import com.expensemanager.app.R
 import com.expensemanager.app.MainActivity
 import com.expensemanager.app.databinding.FragmentDashboardBinding
@@ -70,8 +75,6 @@ class DashboardFragment : Fragment() {
     private lateinit var repository: ExpenseRepository
     private lateinit var categoryManager: CategoryManager
     private lateinit var merchantAliasManager: MerchantAliasManager
-    private lateinit var topMerchantsAdapter: TopMerchantsAdapter
-    private lateinit var topCategoriesAdapter: TopCategoriesAdapter
     private var currentTimePeriod = "This Month" // Default time period for weekly trend
     private var currentDashboardPeriod = "This Month" // Default time period for entire dashboard
     
@@ -178,6 +181,11 @@ class DashboardFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         
+        // Force background color to override any theme issues
+        val lightGrayColor = ContextCompat.getColor(requireContext(), R.color.background_light)
+        view.setBackgroundColor(lightGrayColor)
+        binding.root.setBackgroundColor(lightGrayColor)
+        
         // Initialize existing components (parallel approach during migration)
         repository = ExpenseRepository.getInstance(requireContext())
         categoryManager = CategoryManager(requireContext())
@@ -277,6 +285,13 @@ class DashboardFragment : Fragment() {
         // Update spending summary from ViewModel
         binding.tvTotalSpent.text = "₹${String.format("%.0f", state.totalSpent)}"
         
+        // Calculate and update savings (salary-based balance)
+        val savings = if (state.dashboardPeriod == "This Month" && state.hasSalaryData) {
+            state.monthlyBalance
+        } else {
+            state.totalBalance
+        }
+        
         // MONTHLY BALANCE FEATURE: Show salary-based balance for "This Month", regular balance for other periods
         val balanceToShow = if (state.dashboardPeriod == "This Month" && state.hasSalaryData) {
             state.monthlyBalance
@@ -314,8 +329,8 @@ class DashboardFragment : Fragment() {
         binding.tvTotalBalance.text = "₹0"
         binding.tvTotalSpent.text = "₹0"
         binding.tvTransactionCount.text = "0"
-        topMerchantsAdapter.submitList(emptyList())
-        topCategoriesAdapter.submitList(emptyList())
+        updateTopMerchantsTable(emptyList())
+        updateTopCategoriesTable(emptyList())
         Log.d("DashboardFragment", "Showing ViewModel empty state")
     }
     
@@ -327,7 +342,8 @@ class DashboardFragment : Fragment() {
             CategorySpending(
                 categoryName = categoryResult.category_name,
                 amount = categoryResult.total_amount,
-                categoryColor = categoryResult.color
+                categoryColor = categoryResult.color,
+                count = categoryResult.transaction_count
             )
         }
         
@@ -335,7 +351,7 @@ class DashboardFragment : Fragment() {
         val finalCategoryItems = ensureMinimumCategories(categorySpendingItems, 4)
         
         Log.d("DashboardFragment", "ViewModel: Updating top categories: ${finalCategoryItems.map { "${it.categoryName}=₹${String.format("%.0f", it.amount)}" }}")
-        topCategoriesAdapter.submitList(finalCategoryItems)
+        updateTopCategoriesTable(finalCategoryItems)
     }
     
     /**
@@ -371,7 +387,7 @@ class DashboardFragment : Fragment() {
         val finalMerchantItems = ensureMinimumMerchants(filteredMerchantItems, 3)
         
         Log.d("DashboardFragment", "ViewModel: Updating top merchants: ${finalMerchantItems.map { "${it.merchantName}=₹${String.format("%.0f", it.totalAmount)}" }}")
-        topMerchantsAdapter.submitList(finalMerchantItems)
+        updateTopMerchantsTable(finalMerchantItems)
     }
     
     /**
@@ -410,39 +426,185 @@ class DashboardFragment : Fragment() {
         binding.tvTotalSpent.text = "Loading..."
         binding.tvTransactionCount.text = "0"
         
-        // Setup top merchants recycler view
-        setupTopMerchantsRecyclerView()
-        setupTopCategoriesRecyclerView()
+        // Setup top merchants table
+        setupTopMerchantsTable()
+        setupTopCategoriesTable()
         
         // Setup time period filter
         setupTimePeriodFilter()
         
         // Setup dashboard period filter
         setupDashboardPeriodFilter()
+        
+        // Setup weekly trend chart
+        setupWeeklyTrendChart()
     }
     
-    private fun setupTopMerchantsRecyclerView() {
-        topMerchantsAdapter = TopMerchantsAdapter { merchantSpending ->
-            // Navigate to merchant transactions screen
-            val bundle = Bundle().apply {
-                putString("merchantName", merchantSpending.merchantName)
-            }
-            findNavController().navigate(
-                R.id.action_dashboard_to_merchant_transactions,
-                bundle
-            )
+    private fun setupTopMerchantsTable() {
+        // Setup click listeners for merchant rows
+        binding.rowMerchant1.setOnClickListener { navigateToMerchant(binding.tvMerchant1Name.text.toString()) }
+        binding.rowMerchant2.setOnClickListener { navigateToMerchant(binding.tvMerchant2Name.text.toString()) }
+        binding.rowMerchant3.setOnClickListener { navigateToMerchant(binding.tvMerchant3Name.text.toString()) }
+        binding.rowMerchant4.setOnClickListener { navigateToMerchant(binding.tvMerchant4Name.text.toString()) }
+    }
+    
+    private fun navigateToMerchant(merchantName: String) {
+        val bundle = Bundle().apply {
+            putString("merchantName", merchantName)
         }
-        binding.recyclerTopMerchants.apply {
-            adapter = topMerchantsAdapter
-            layoutManager = LinearLayoutManager(requireContext())
+        findNavController().navigate(
+            R.id.action_dashboard_to_merchant_transactions,
+            bundle
+        )
+    }
+    
+    private fun getCategoryEmoji(categoryName: String): String {
+        return when (categoryName.lowercase()) {
+            "food & dining", "food", "dining" -> "🍽️"
+            "groceries", "grocery" -> "🛒"
+            "transportation", "transport" -> "🚗"
+            "shopping" -> "🛍️"
+            "entertainment" -> "🎬"
+            "healthcare", "health", "medical" -> "🏥"
+            "utilities" -> "⚡"
+            "education" -> "📚"
+            "travel" -> "✈️"
+            "bills" -> "💳"
+            "insurance" -> "🛡️"
+            "money", "finance" -> "💰"
+            else -> "📂"
         }
     }
     
-    private fun setupTopCategoriesRecyclerView() {
-        topCategoriesAdapter = TopCategoriesAdapter()
-        binding.recyclerTopCategories.apply {
-            adapter = topCategoriesAdapter
-            layoutManager = androidx.recyclerview.widget.GridLayoutManager(requireContext(), 2)
+    private fun updateTopMerchantsTable(merchants: List<MerchantSpending>) {
+        val merchantViews = listOf(
+            Triple(binding.tvMerchant1Emoji, binding.tvMerchant1Name, binding.tvMerchant1Category) to Triple(binding.tvMerchant1Amount, binding.tvMerchant1Count, binding.rowMerchant1),
+            Triple(binding.tvMerchant2Emoji, binding.tvMerchant2Name, binding.tvMerchant2Category) to Triple(binding.tvMerchant2Amount, binding.tvMerchant2Count, binding.rowMerchant2),
+            Triple(binding.tvMerchant3Emoji, binding.tvMerchant3Name, binding.tvMerchant3Category) to Triple(binding.tvMerchant3Amount, binding.tvMerchant3Count, binding.rowMerchant3),
+            Triple(binding.tvMerchant4Emoji, binding.tvMerchant4Name, binding.tvMerchant4Category) to Triple(binding.tvMerchant4Amount, binding.tvMerchant4Count, binding.rowMerchant4)
+        )
+        
+        // Default merchant data for empty slots
+        val defaultMerchants = listOf(
+            MerchantSpending("Swiggy", 3250.0, 5, "Food & Dining", "#ff5722", 25.4),
+            MerchantSpending("BigBasket", 2180.0, 3, "Groceries", "#4caf50", 18.0),
+            MerchantSpending("Uber", 1950.0, 8, "Transportation", "#3f51b5", 15.2),
+            MerchantSpending("Amazon", 1680.0, 4, "Shopping", "#ff9800", 13.1)
+        )
+        
+        merchantViews.forEachIndexed { index, (infoViews, amountViews) ->
+            val (emojiView, nameView, categoryView) = infoViews
+            val (amountView, countView, rowView) = amountViews
+            
+            val merchant = if (index < merchants.size) merchants[index] else defaultMerchants[index]
+            
+            emojiView.text = getCategoryEmoji(merchant.category)
+            nameView.text = merchant.merchantName
+            categoryView.text = merchant.category
+            amountView.text = "₹${String.format("%.0f", merchant.totalAmount)}"
+            countView.text = "${merchant.transactionCount} transactions"
+            
+            // Show/hide row based on whether we have data
+            rowView.visibility = View.VISIBLE
+        }
+    }
+    
+    private fun setupTopCategoriesTable() {
+        // Setup click listeners for each category row
+        binding.categoryRow1.setOnClickListener {
+            val categoryName = binding.categoryName1.text.toString()
+            navigateToCategoryTransactions(categoryName)
+        }
+        binding.categoryRow2.setOnClickListener {
+            val categoryName = binding.categoryName2.text.toString()
+            navigateToCategoryTransactions(categoryName)
+        }
+        binding.categoryRow3.setOnClickListener {
+            val categoryName = binding.categoryName3.text.toString()
+            navigateToCategoryTransactions(categoryName)
+        }
+        binding.categoryRow4.setOnClickListener {
+            val categoryName = binding.categoryName4.text.toString()
+            navigateToCategoryTransactions(categoryName)
+        }
+    }
+    
+    private fun navigateToCategoryTransactions(categoryName: String) {
+        val bundle = Bundle().apply {
+            putString("categoryName", categoryName)
+        }
+        findNavController().navigate(R.id.action_navigation_categories_to_navigation_category_transactions, bundle)
+    }
+    
+    private fun updateTopCategoriesTable(categoryItems: List<CategorySpending>) {
+        Log.d("DashboardFragment", "Updating top categories table with ${categoryItems.size} items")
+        
+        // Get the category colors
+        val colorMap = mapOf(
+            "Food & Dining" to ContextCompat.getColor(requireContext(), R.color.category_food),
+            "Transport" to ContextCompat.getColor(requireContext(), R.color.category_transport),
+            "Shopping" to ContextCompat.getColor(requireContext(), R.color.category_shopping),
+            "Groceries" to ContextCompat.getColor(requireContext(), R.color.category_groceries),
+            "Entertainment" to ContextCompat.getColor(requireContext(), R.color.category_entertainment),
+            "Healthcare" to ContextCompat.getColor(requireContext(), R.color.category_healthcare),
+            "Utilities" to ContextCompat.getColor(requireContext(), R.color.category_utilities),
+            "Other" to ContextCompat.getColor(requireContext(), R.color.category_other)
+        )
+        
+        // Update first category row
+        if (categoryItems.isNotEmpty()) {
+            val item1 = categoryItems[0]
+            binding.categoryName1.text = item1.categoryName
+            binding.categoryAmount1.text = "₹${String.format("%.0f", item1.amount)}"
+            binding.categoryCount1.text = "${item1.count} transactions"
+            binding.categoryColor1.setBackgroundColor(colorMap[item1.categoryName] ?: ContextCompat.getColor(requireContext(), R.color.category_other))
+        } else {
+            binding.categoryName1.text = "No Data"
+            binding.categoryAmount1.text = "₹0"
+            binding.categoryCount1.text = "0 transactions"
+            binding.categoryColor1.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.category_other))
+        }
+        
+        // Update second category row
+        if (categoryItems.size > 1) {
+            val item2 = categoryItems[1]
+            binding.categoryName2.text = item2.categoryName
+            binding.categoryAmount2.text = "₹${String.format("%.0f", item2.amount)}"
+            binding.categoryCount2.text = "${item2.count} transactions"
+            binding.categoryColor2.setBackgroundColor(colorMap[item2.categoryName] ?: ContextCompat.getColor(requireContext(), R.color.category_other))
+        } else {
+            binding.categoryName2.text = "No Data"
+            binding.categoryAmount2.text = "₹0"
+            binding.categoryCount2.text = "0 transactions"
+            binding.categoryColor2.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.category_other))
+        }
+        
+        // Update third category row
+        if (categoryItems.size > 2) {
+            val item3 = categoryItems[2]
+            binding.categoryName3.text = item3.categoryName
+            binding.categoryAmount3.text = "₹${String.format("%.0f", item3.amount)}"
+            binding.categoryCount3.text = "${item3.count} transactions"
+            binding.categoryColor3.setBackgroundColor(colorMap[item3.categoryName] ?: ContextCompat.getColor(requireContext(), R.color.category_other))
+        } else {
+            binding.categoryName3.text = "No Data"
+            binding.categoryAmount3.text = "₹0"
+            binding.categoryCount3.text = "0 transactions"
+            binding.categoryColor3.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.category_other))
+        }
+        
+        // Update fourth category row
+        if (categoryItems.size > 3) {
+            val item4 = categoryItems[3]
+            binding.categoryName4.text = item4.categoryName
+            binding.categoryAmount4.text = "₹${String.format("%.0f", item4.amount)}"
+            binding.categoryCount4.text = "${item4.count} transactions"
+            binding.categoryColor4.setBackgroundColor(colorMap[item4.categoryName] ?: ContextCompat.getColor(requireContext(), R.color.category_other))
+        } else {
+            binding.categoryName4.text = "No Data"
+            binding.categoryAmount4.text = "₹0"
+            binding.categoryCount4.text = "0 transactions"
+            binding.categoryColor4.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.category_other))
         }
     }
     
@@ -513,8 +675,73 @@ class DashboardFragment : Fragment() {
         }
     }
     
+    private fun setupWeeklyTrendChart() {
+        val chart = binding.chartWeeklyTrend
+        
+        // Basic chart configuration
+        chart.apply {
+            description.isEnabled = false
+            setTouchEnabled(true)
+            isDragEnabled = true
+            setScaleEnabled(false)
+            setPinchZoom(false)
+            legend.isEnabled = false
+            
+            // Customize X-axis
+            xAxis.apply {
+                position = XAxis.XAxisPosition.BOTTOM
+                setDrawGridLines(false)
+                textColor = ContextCompat.getColor(requireContext(), R.color.text_secondary)
+                textSize = 10f
+            }
+            
+            // Customize Y-axis  
+            axisLeft.apply {
+                setDrawGridLines(true)
+                gridColor = ContextCompat.getColor(requireContext(), R.color.divider)
+                textColor = ContextCompat.getColor(requireContext(), R.color.text_secondary)
+                textSize = 10f
+            }
+            
+            axisRight.isEnabled = false
+        }
+        
+        // Load initial chart data
+        updateWeeklyTrendChart()
+    }
+    
+    private fun updateWeeklyTrendChart() {
+        val chart = binding.chartWeeklyTrend
+        
+        // Sample data - replace with actual weekly spending data
+        val entries = listOf(
+            Entry(0f, 1200f), // Monday
+            Entry(1f, 800f),  // Tuesday
+            Entry(2f, 1500f), // Wednesday
+            Entry(3f, 900f),  // Thursday
+            Entry(4f, 2000f), // Friday
+            Entry(5f, 1100f), // Saturday
+            Entry(6f, 700f)   // Sunday
+        )
+        
+        val dataSet = LineDataSet(entries, "Weekly Spending").apply {
+            color = ContextCompat.getColor(requireContext(), R.color.primary)
+            setCircleColor(ContextCompat.getColor(requireContext(), R.color.primary))
+            lineWidth = 2f
+            circleRadius = 4f
+            setDrawFilled(true)
+            fillColor = ContextCompat.getColor(requireContext(), R.color.primary_light)
+            fillAlpha = 50
+            valueTextSize = 9f
+            valueTextColor = ContextCompat.getColor(requireContext(), R.color.text_secondary)
+        }
+        
+        chart.data = LineData(dataSet)
+        chart.invalidate()
+    }
+    
     private fun setupClickListeners() {
-        binding.btnAiInsights.setOnClickListener {
+        binding.cardAiInsights.setOnClickListener {
             findNavController().navigate(R.id.navigation_insights)
         }
         
@@ -544,8 +771,8 @@ class DashboardFragment : Fragment() {
             navigateToTab(R.id.navigation_insights)
         }
         
-        // Make transaction count card clickable
-        binding.cardTransactionCount.setOnClickListener {
+        // Make transaction count section clickable
+        binding.layoutTransactionCount.setOnClickListener {
             // Navigate to messages tab using bottom navigation
             navigateToTab(R.id.navigation_messages)
         }
@@ -1089,6 +1316,13 @@ class DashboardFragment : Fragment() {
         binding.tvTotalSpent.text = "₹${String.format("%.0f", totalSpent)}"
         binding.tvTransactionCount.text = "${dashboardData.transactionCount}"
         
+        // Calculate and update savings
+        val savings = if (currentDashboardPeriod == "This Month" && dashboardData.monthlyBalance.hasSalaryData) {
+            dashboardData.monthlyBalance.remainingBalance
+        } else {
+            kotlin.math.max(0.0, -dashboardData.totalSpent) // Assume positive savings from reduced spending
+        }
+        
         // MONTHLY BALANCE FEATURE: Use salary-based balance for "This Month", regular balance for other periods
         val balanceToShow = if (currentDashboardPeriod == "This Month" && dashboardData.monthlyBalance.hasSalaryData) {
             dashboardData.monthlyBalance.remainingBalance
@@ -1115,7 +1349,8 @@ class DashboardFragment : Fragment() {
             CategorySpending(
                 categoryName = categoryResult.category_name,
                 amount = categoryResult.total_amount,
-                categoryColor = categoryResult.color
+                categoryColor = categoryResult.color,
+                count = categoryResult.transaction_count
             )
         }
         
@@ -1123,7 +1358,7 @@ class DashboardFragment : Fragment() {
         val finalCategoryItems = ensureMinimumCategories(categorySpendingItems, 4)
         
         Log.d("DashboardFragment", "Updating top categories: ${finalCategoryItems.map { "${it.categoryName}=₹${String.format("%.0f", it.amount)}" }}")
-        topCategoriesAdapter.submitList(finalCategoryItems)
+        updateTopCategoriesTable(finalCategoryItems)
         
         // Update top merchants with repository data using NEW category information
         val allMerchantItems = dashboardData.topMerchantsWithCategory.map { merchantResult ->
@@ -1154,7 +1389,7 @@ class DashboardFragment : Fragment() {
         val finalMerchantItems = ensureMinimumMerchants(filteredMerchantItems, 3)
         
         Log.d("DashboardFragment", "Updating top merchants: ${finalMerchantItems.map { "${it.merchantName}=₹${String.format("%.0f", it.totalAmount)}" }}")
-        topMerchantsAdapter.submitList(finalMerchantItems)
+        updateTopMerchantsTable(finalMerchantItems)
         
         // Update monthly comparison based on selected period
         updateMonthlyComparisonFromRepository(startDate, endDate, currentDashboardPeriod)
@@ -1638,27 +1873,15 @@ class DashboardFragment : Fragment() {
             CategorySpending(
                 categoryName = categoryName,
                 amount = amount,
-                categoryColor = categoryColor
+                categoryColor = categoryColor,
+                count = 1 // Default count for this data source
             )
         }
         
         Log.d("DashboardFragment", "Submitting ${categoryItems.size} items to categories adapter")
-        topCategoriesAdapter.submitList(categoryItems)
-        Log.d("DashboardFragment", "Categories adapter item count after submit: ${topCategoriesAdapter.itemCount}")
+        updateTopCategoriesTable(categoryItems)
+        Log.d("DashboardFragment", "Updated top categories table")
         
-        // Debug RecyclerView dimensions
-        binding.recyclerTopCategories.post {
-            Log.d("DashboardFragment", "RecyclerView dimensions: ${binding.recyclerTopCategories.width}x${binding.recyclerTopCategories.height}")
-            Log.d("DashboardFragment", "RecyclerView visibility: ${binding.recyclerTopCategories.visibility}, child count: ${binding.recyclerTopCategories.childCount}")
-        }
-        
-        // Check if RecyclerView is properly set up
-        try {
-            val recyclerView = binding.recyclerTopCategories
-            Log.d("DashboardFragment", "RecyclerView visibility: ${recyclerView.visibility}, adapter: ${recyclerView.adapter}, layoutManager: ${recyclerView.layoutManager}")
-        } catch (e: Exception) {
-            Log.e("DashboardFragment", "Error checking RecyclerView: ${e.message}")
-        }
     }
     
     private fun findAmountTextView(layout: LinearLayout): TextView? {
@@ -1718,7 +1941,7 @@ class DashboardFragment : Fragment() {
             .take(5)
         
         Log.d("DashboardFragment", "Submitting ${merchantSpending.size} merchants to adapter")
-        topMerchantsAdapter.submitList(merchantSpending)
+        updateTopMerchantsTable(merchantSpending)
         Log.d("DashboardFragment", "Top merchants: ${merchantSpending.map { "${it.merchantName}: ₹${String.format("%.0f", it.totalAmount)}" }}")
         
         // If we have less than 3 merchants from real data, add some sample data for better UI
@@ -1733,7 +1956,7 @@ class DashboardFragment : Fragment() {
             ).take(5 - merchantSpending.size)
             
             val combinedMerchants = merchantSpending + sampleMerchants
-            topMerchantsAdapter.submitList(combinedMerchants)
+            updateTopMerchantsTable(combinedMerchants)
             Log.d("DashboardFragment", "Total merchants displayed: ${combinedMerchants.size}")
         }
     }
@@ -1745,8 +1968,8 @@ class DashboardFragment : Fragment() {
         binding.tvTransactionCount.text = "0"
         
         // Clear all adapters to show truly empty state
-        topMerchantsAdapter.submitList(emptyList())
-        topCategoriesAdapter.submitList(emptyList())
+        updateTopMerchantsTable(emptyList())
+        updateTopCategoriesTable(emptyList())
         
         // Clear monthly comparison
         updateMonthlyComparisonUI("This Month", "Last Month", 0.0, 0.0)
@@ -1761,7 +1984,7 @@ class DashboardFragment : Fragment() {
         binding.tvTotalBalance.text = "Permission Required"
         binding.tvTotalSpent.text = "₹0"
         binding.tvTransactionCount.text = "0"
-        topMerchantsAdapter.submitList(emptyList())
+        updateTopMerchantsTable(emptyList())
     }
     
     private fun updateDashboardWithError() {
@@ -1774,7 +1997,7 @@ class DashboardFragment : Fragment() {
         binding.tvTotalBalance.text = "Error Loading"
         binding.tvTotalSpent.text = "₹0"
         binding.tvTransactionCount.text = "0"
-        topMerchantsAdapter.submitList(emptyList())
+        updateTopMerchantsTable(emptyList())
     }
     
     private fun updateWeeklyTrend(transactions: List<ProcessedTransaction>) {
@@ -1800,8 +2023,8 @@ class DashboardFragment : Fragment() {
         }
         
         // Update the weekly trend chart placeholder with simple text summary
-        val weeklyTrendLayout = binding.root.findViewById<FrameLayout>(R.id.frame_weekly_chart)
-        val placeholderTextView = weeklyTrendLayout?.getChildAt(0) as? TextView
+        val weeklyTrendChart = binding.chartWeeklyTrend
+        val placeholderTextView = weeklyTrendChart?.getChildAt(0) as? TextView
         
         if (placeholderTextView != null) {
             val thisWeekSpending = weeklySpending[0] ?: 0.0
@@ -1922,8 +2145,8 @@ class DashboardFragment : Fragment() {
     }
     
     private fun updateWeeklyTrendUI(trendText: String) {
-        val weeklyTrendLayout = binding.root.findViewById<FrameLayout>(R.id.frame_weekly_chart)
-        val placeholderTextView = weeklyTrendLayout?.getChildAt(0) as? TextView
+        val weeklyTrendChart = binding.chartWeeklyTrend
+        val placeholderTextView = weeklyTrendChart?.getChildAt(0) as? TextView
         placeholderTextView?.text = trendText
         
         Log.d("DashboardFragment", "[ANALYTICS] Weekly trend updated with consistent data: $trendText")
@@ -1935,19 +2158,19 @@ class DashboardFragment : Fragment() {
     // REMOVED: getTransactionsForPeriod() - no more period-based SMS filtering
     
     private fun updateTrendDisplayForPeriod(transactions: List<ProcessedTransaction>, period: String) {
-        val weeklyTrendLayout = binding.root.findViewById<FrameLayout>(R.id.frame_weekly_chart)
-        val placeholderTextView = weeklyTrendLayout?.getChildAt(0) as? TextView
+        val weeklyTrendChart = binding.chartWeeklyTrend
+        val placeholderTextView = weeklyTrendChart?.getChildAt(0) as? TextView
         
         if (placeholderTextView != null) {
             val totalSpent = transactions.sumOf { it.amount }
-            val transactionCount = transactions.size
+            val count = transactions.size
             
             val trendText = buildString {
                 when (period) {
                     "Last Week" -> {
                         appendLine("Last Week Summary")
                         appendLine("Total: ₹${String.format("%.0f", totalSpent)}")
-                        append("Transactions: $transactionCount")
+                        append("Transactions: $count")
                     }
                     
                     "This Month" -> {
@@ -1958,7 +2181,7 @@ class DashboardFragment : Fragment() {
                         appendLine("This Month")
                         appendLine("Total: ₹${String.format("%.0f", totalSpent)}")
                         appendLine("Daily avg: ₹${String.format("%.0f", dailyAverage)}")
-                        append("Transactions: $transactionCount")
+                        append("Transactions: $count")
                     }
                     
                     "Last Month" -> {
@@ -1970,7 +2193,7 @@ class DashboardFragment : Fragment() {
                         appendLine("Last Month")
                         appendLine("Total: ₹${String.format("%.0f", totalSpent)}")
                         appendLine("Daily avg: ₹${String.format("%.0f", dailyAverage)}")
-                        append("Transactions: $transactionCount")
+                        append("Transactions: $count")
                     }
                     
                     "Last 3 Months" -> {
@@ -1978,7 +2201,7 @@ class DashboardFragment : Fragment() {
                         appendLine("Last 3 Months")
                         appendLine("Total: ₹${String.format("%.0f", totalSpent)}")
                         appendLine("Monthly avg: ₹${String.format("%.0f", monthlyAverage)}")
-                        append("Transactions: $transactionCount")
+                        append("Transactions: $count")
                     }
                     
                     "Last 6 Months" -> {
@@ -1986,7 +2209,7 @@ class DashboardFragment : Fragment() {
                         appendLine("Last 6 Months")
                         appendLine("Total: ₹${String.format("%.0f", totalSpent)}")
                         appendLine("Monthly avg: ₹${String.format("%.0f", monthlyAverage)}")
-                        append("Transactions: $transactionCount")
+                        append("Transactions: $count")
                     }
                     
                     "This Year" -> {
@@ -1996,13 +2219,13 @@ class DashboardFragment : Fragment() {
                         appendLine("This Year")
                         appendLine("Total: ₹${String.format("%.0f", totalSpent)}")
                         appendLine("Monthly avg: ₹${String.format("%.0f", monthlyAverage)}")
-                        append("Transactions: $transactionCount")
+                        append("Transactions: $count")
                     }
                     
                     else -> {
                         appendLine("Period: $period")
                         appendLine("Total: ₹${String.format("%.0f", totalSpent)}")
-                        append("Transactions: $transactionCount")
+                        append("Transactions: $count")
                     }
                 }
             }

@@ -11,10 +11,13 @@ import com.expensemanager.app.R
 data class CategorySpending(
     val categoryName: String,
     val amount: Double,
-    val categoryColor: String
+    val categoryColor: String,
+    val count: Int = 0
 )
 
-class TopCategoriesAdapter : RecyclerView.Adapter<TopCategoriesAdapter.CategoryViewHolder>() {
+class TopCategoriesAdapter(
+    private val onCategoryClick: (CategorySpending) -> Unit = {}
+) : RecyclerView.Adapter<TopCategoriesAdapter.CategoryViewHolder>() {
     
     private var categories = listOf<CategorySpending>()
     
@@ -41,7 +44,7 @@ class TopCategoriesAdapter : RecyclerView.Adapter<TopCategoriesAdapter.CategoryV
     
     override fun getItemCount(): Int = categories.size
     
-    class CategoryViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+    inner class CategoryViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         
         private val tvCategoryName = itemView.findViewById<TextView>(R.id.tv_category_name)
         private val tvAmount = itemView.findViewById<TextView>(R.id.tv_amount)
@@ -57,6 +60,11 @@ class TopCategoriesAdapter : RecyclerView.Adapter<TopCategoriesAdapter.CategoryV
             } catch (e: Exception) {
                 // Fallback to default color
                 viewCategoryColor.setBackgroundColor(Color.parseColor("#9e9e9e"))
+            }
+            
+            // Set click listener
+            itemView.setOnClickListener {
+                onCategoryClick(category)
             }
             
             // Debug logging for view dimensions
