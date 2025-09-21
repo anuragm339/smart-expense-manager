@@ -320,6 +320,14 @@ class DashboardFragment : Fragment() {
         // Update monthly comparison from ViewModel
         updateMonthlyComparisonFromViewModel(state.monthlyComparison)
         
+        // CRITICAL FIX: Update weekly trend from ViewModel data - this was missing!
+        // Calculate date range for current period and update weekly trend
+        lifecycleScope.launch {
+            val (startDate, endDate) = getDateRangeForPeriod(state.dashboardPeriod)
+            updateWeeklyTrendFromRepository(startDate, endDate)
+            Log.d("DashboardFragment", "[WEEKLY_TREND_FIX] Updated weekly trend from ViewModel for period: ${state.dashboardPeriod}")
+        }
+        
     }
     
     /**
@@ -358,15 +366,20 @@ class DashboardFragment : Fragment() {
      * Update top merchants from ViewModel data
      */
     private fun updateTopMerchantsFromViewModel(dashboardData: DashboardData) {
-        val totalSpent = dashboardData.totalSpent
+        // CRITICAL FIX: Calculate total from merchants data like Top Categories do
+        // Don't trust dashboardData.totalSpent as it can be inconsistent across different periods
+        val merchantsTotal = dashboardData.topMerchantsWithCategory.sumOf { it.total_amount }
+        
+        Log.d("DashboardFragment", "[MERCHANTS_TOTAL_FIX] ViewModel: Using merchants total: ₹${String.format("%.0f", merchantsTotal)} instead of dashboard total: ₹${String.format("%.0f", dashboardData.totalSpent)}")
+        
         val allMerchantItems = dashboardData.topMerchantsWithCategory.map { merchantResult ->
             // FIXED: Use merchantAliasManager for consistent merchant name display like Messages screen
             val displayName = merchantAliasManager.getDisplayName(merchantResult.normalized_merchant)
             Log.d("DashboardFragment", "[MERCHANT] Top Merchant Display Name: '${merchantResult.normalized_merchant}' -> '$displayName'")
             
-            // FIXED: Calculate proper percentage instead of hardcoded 0.0
-            val percentage = if (totalSpent > 0) (merchantResult.total_amount / totalSpent) * 100 else 0.0
-            Log.d("DashboardFragment", "[PERCENTAGE] ViewModel: ${displayName} = ${String.format("%.1f", percentage)}% (₹${merchantResult.total_amount} / ₹${totalSpent})")
+            // CRITICAL FIX: Calculate percentage using merchants total, not dashboard total (like Top Categories)
+            val percentage = if (merchantsTotal > 0) (merchantResult.total_amount / merchantsTotal) * 100 else 0.0
+            Log.d("DashboardFragment", "[PERCENTAGE] ViewModel: ${displayName} = ${String.format("%.1f", percentage)}% (₹${merchantResult.total_amount} / ₹${merchantsTotal})")
             Log.d("DashboardFragment", "[CATEGORY] ViewModel: ${displayName} category: '${merchantResult.category_name}' color: '${merchantResult.category_color}'")
             
             MerchantSpending(
@@ -664,11 +677,14 @@ class DashboardFragment : Fragment() {
                         currentTimePeriod = selectedPeriod
                         binding.btnTimeFilter.text = selectedPeriod
                         
-                        // Use ViewModel for dashboard period change
+                        // Use ViewModel for dashboard period change - primary approach
                         viewModel.handleEvent(DashboardUIEvent.ChangePeriod(selectedPeriod))
                         
-                        // Also keep existing approach for parallel testing
-                        loadDashboardDataForPeriod(selectedPeriod)
+                        // COMMENT: Disabling parallel approach to prevent conflicts and ensure consistent data filtering
+                        // The ViewModel approach should handle all data loading including Top Merchants and Top Categories consistently
+                        // loadDashboardDataForPeriod(selectedPeriod)
+                        
+                        Log.d("DashboardFragment", "[PERIOD_CHANGE] Period changed to: $selectedPeriod using ViewModel approach only")
                     }
                 }
                 .show()
@@ -1361,15 +1377,20 @@ class DashboardFragment : Fragment() {
         updateTopCategoriesTable(finalCategoryItems)
         
         // Update top merchants with repository data using NEW category information
+        // CRITICAL FIX: Calculate total from merchants data like Top Categories do (Repository approach)
+        val merchantsTotal = dashboardData.topMerchantsWithCategory.sumOf { it.total_amount }
+        
+        Log.d("DashboardFragment", "[MERCHANTS_TOTAL_FIX] Repository: Using merchants total: ₹${String.format("%.0f", merchantsTotal)} instead of dashboard total: ₹${String.format("%.0f", totalSpent)}")
+        
         val allMerchantItems = dashboardData.topMerchantsWithCategory.map { merchantResult ->
             // FIXED: Use merchantAliasManager for consistent merchant name display like Messages screen
             val displayName = merchantAliasManager.getDisplayName(merchantResult.normalized_merchant)
             Log.d("DashboardFragment", "[MERCHANT] Repository Top Merchant Display Name: '${merchantResult.normalized_merchant}' -> '$displayName'")
             Log.d("DashboardFragment", "[CATEGORY] Repository: ${displayName} category: '${merchantResult.category_name}' color: '${merchantResult.category_color}'")
             
-            // FIXED: Calculate proper percentage instead of hardcoded 0.0
-            val percentage = if (totalSpent > 0) (merchantResult.total_amount / totalSpent) * 100 else 0.0
-            Log.d("DashboardFragment", "[PERCENTAGE] Repository: ${displayName} = ${String.format("%.1f", percentage)}% (₹${merchantResult.total_amount} / ₹${totalSpent})")
+            // CRITICAL FIX: Calculate percentage using merchants total, not dashboard total (like Top Categories)
+            val percentage = if (merchantsTotal > 0) (merchantResult.total_amount / merchantsTotal) * 100 else 0.0
+            Log.d("DashboardFragment", "[PERCENTAGE] Repository: ${displayName} = ${String.format("%.1f", percentage)}% (₹${merchantResult.total_amount} / ₹${merchantsTotal})")
             
             MerchantSpending(
                 merchantName = displayName,
@@ -2053,9 +2074,11 @@ class DashboardFragment : Fragment() {
         try {
             // FIXED: Use same filtering logic as monthly comparison for consistency
             Log.d("DashboardFragment", "[ANALYTICS] Weekly Trend: Using consistent filtering like monthly comparison")
+            Log.d("DashboardFragment", "[WEEKLY_TREND] Updating trend for period: $currentDashboardPeriod, dates: $startDate to $endDate")
             
             // Calculate current period total (matches monthly comparison)
             val currentPeriodTotal = repository.getTotalSpent(startDate, endDate)
+            Log.d("DashboardFragment", "[WEEKLY_TREND] Current period total: ₹${String.format("%.0f", currentPeriodTotal)}")
             
             // Calculate previous period for comparison (like monthly comparison logic)
             val calendar = Calendar.getInstance()
