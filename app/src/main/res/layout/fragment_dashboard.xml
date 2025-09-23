@@ -972,18 +972,6 @@
 
                     </LinearLayout>
 
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btn_time_filter"
-                        android:layout_width="130dp"
-                        android:layout_height="40dp"
-                        android:text="This Month"
-                        android:textSize="12sp"
-                        android:minHeight="40dp"
-                        style="@style/Widget.Material3.Button.OutlinedButton"
-                        app:iconTint="@color/primary"
-                        app:icon="@drawable/ic_expand_more"
-                        app:cornerRadius="8dp" />
-
                 </LinearLayout>
 
                 <!-- Weekly Trend Chart -->

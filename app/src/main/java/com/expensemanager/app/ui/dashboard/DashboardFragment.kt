@@ -28,10 +28,15 @@ import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
 import com.github.mikephil.charting.components.XAxis
+import com.github.mikephil.charting.formatter.ValueFormatter
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.util.Locale
 import com.expensemanager.app.R
 import com.expensemanager.app.MainActivity
 import com.expensemanager.app.databinding.FragmentDashboardBinding
 import com.expensemanager.app.data.repository.ExpenseRepository
+import com.expensemanager.app.data.entities.TransactionEntity
 import com.expensemanager.app.data.repository.DashboardData
 import com.expensemanager.app.ui.dashboard.MerchantSpending
 import com.expensemanager.app.utils.CategoryManager
@@ -75,7 +80,6 @@ class DashboardFragment : Fragment() {
     private lateinit var repository: ExpenseRepository
     private lateinit var categoryManager: CategoryManager
     private lateinit var merchantAliasManager: MerchantAliasManager
-    private var currentTimePeriod = "This Month" // Default time period for weekly trend
     private var currentDashboardPeriod = "This Month" // Default time period for entire dashboard
     
     // Custom month selection variables
@@ -320,12 +324,12 @@ class DashboardFragment : Fragment() {
         // Update monthly comparison from ViewModel
         updateMonthlyComparisonFromViewModel(state.monthlyComparison)
         
-        // CRITICAL FIX: Update weekly trend from ViewModel data - this was missing!
-        // Calculate date range for current period and update weekly trend
+        // CRITICAL FIX: Update weekly trend chart with real data
+        // Calculate date range for current period and update weekly trend chart
         lifecycleScope.launch {
             val (startDate, endDate) = getDateRangeForPeriod(state.dashboardPeriod)
-            updateWeeklyTrendFromRepository(startDate, endDate)
-            Log.d("DashboardFragment", "[WEEKLY_TREND_FIX] Updated weekly trend from ViewModel for period: ${state.dashboardPeriod}")
+            updateWeeklyTrendWithRealData(startDate, endDate)
+            Log.d("DashboardFragment", "[WEEKLY_CHART_FIX] Updated weekly trend chart from ViewModel for period: ${state.dashboardPeriod}")
         }
         
     }
@@ -443,8 +447,6 @@ class DashboardFragment : Fragment() {
         setupTopMerchantsTable()
         setupTopCategoriesTable()
         
-        // Setup time period filter
-        setupTimePeriodFilter()
         
         // Setup dashboard period filter
         setupDashboardPeriodFilter()
@@ -621,36 +623,6 @@ class DashboardFragment : Fragment() {
         }
     }
     
-    private fun setupTimePeriodFilter() {
-        val timePeriods = listOf(
-            "Last Week",
-            "This Month", 
-            "Last Month",
-            "Last 3 Months",
-            "Last 6 Months",
-            "This Year"
-        )
-        
-        binding.btnTimeFilter.text = currentTimePeriod
-        binding.btnTimeFilter.setOnClickListener {
-            MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Select Time Period")
-                .setItems(timePeriods.toTypedArray()) { _, which ->
-                    val selectedPeriod = timePeriods[which]
-                    if (selectedPeriod != currentTimePeriod) {
-                        currentTimePeriod = selectedPeriod
-                        binding.btnTimeFilter.text = selectedPeriod
-                        
-                        // Use ViewModel for time period change
-                        viewModel.handleEvent(DashboardUIEvent.ChangeTimePeriod(selectedPeriod))
-                        
-                        // Also keep existing approach for parallel testing
-                        loadDashboardData()
-                    }
-                }
-                .show()
-        }
-    }
     
     private fun setupDashboardPeriodFilter() {
         // Enhanced: Single month periods + Custom month selection
@@ -673,9 +645,6 @@ class DashboardFragment : Fragment() {
                         currentDashboardPeriod = selectedPeriod
                         binding.btnDashboardPeriod.text = selectedPeriod
                         
-                        // Also update the weekly trend period to match
-                        currentTimePeriod = selectedPeriod
-                        binding.btnTimeFilter.text = selectedPeriod
                         
                         // Use ViewModel for dashboard period change - primary approach
                         viewModel.handleEvent(DashboardUIEvent.ChangePeriod(selectedPeriod))
@@ -727,32 +696,427 @@ class DashboardFragment : Fragment() {
     }
     
     private fun updateWeeklyTrendChart() {
+        // This method will be called after chart is properly updated with real data
+        // The real chart update happens in updateWeeklyTrendWithRealData()
+        lifecycleScope.launch {
+            val (startDate, endDate) = getDateRangeForPeriod(currentDashboardPeriod)
+            updateWeeklyTrendWithRealData(startDate, endDate)
+        }
+    }
+    
+    private suspend fun updateWeeklyTrendWithRealData(startDate: Date, endDate: Date) {
+        try {
+            Log.d("DashboardFragment", "[WEEKLY_CHART] Updating chart for period: $currentDashboardPeriod")
+            Log.d("DashboardFragment", "[WEEKLY_CHART] Dashboard period range: $startDate to $endDate")
+            
+            // Always show last 7 days for simplicity and consistency
+            // Calculate the last 7 days ending at the endDate of the selected period
+            val calendar = Calendar.getInstance()
+            calendar.time = endDate
+            
+            // Set to end of day for the end date
+            calendar.set(Calendar.HOUR_OF_DAY, 23)
+            calendar.set(Calendar.MINUTE, 59)
+            calendar.set(Calendar.SECOND, 59)
+            calendar.set(Calendar.MILLISECOND, 999)
+            val chartEndDate = calendar.time
+            
+            // Go back 6 days to get 7 days total
+            calendar.add(Calendar.DAY_OF_YEAR, -6)
+            calendar.set(Calendar.HOUR_OF_DAY, 0)
+            calendar.set(Calendar.MINUTE, 0)
+            calendar.set(Calendar.SECOND, 0)
+            calendar.set(Calendar.MILLISECOND, 0)
+            val chartStartDate = calendar.time
+            
+            Log.d("DashboardFragment", "[WEEKLY_CHART] Chart showing last 7 days: ${SimpleDateFormat("MMM dd", Locale.getDefault()).format(chartStartDate)} to ${SimpleDateFormat("MMM dd", Locale.getDefault()).format(chartEndDate)}")
+            
+            // Fetch transactions for the 7-day period
+            val transactions = repository.getTransactionsByDateRange(chartStartDate, chartEndDate)
+            Log.d("DashboardFragment", "[WEEKLY_CHART] Found ${transactions.size} transactions in 7-day range")
+            
+            // Always use the simple 7-day calculation with specific date range
+            val chartData = calculateLast7DaysDataWithRange(transactions, chartStartDate, chartEndDate)
+            
+            // Update the chart on main thread
+            withContext(Dispatchers.Main) {
+                updateChartWithData(chartData)
+            }
+            
+        } catch (e: Exception) {
+            Log.e("DashboardFragment", "[WEEKLY_CHART] Error updating chart", e)
+            withContext(Dispatchers.Main) {
+                showEmptyChart("Chart Error")
+            }
+        }
+    }
+    
+    private fun calculateLast7DaysData(transactions: List<TransactionEntity>): List<ChartDataPoint> {
+        val calendar = Calendar.getInstance()
+        val dailyData = mutableListOf<ChartDataPoint>()
+        
+        // Get last 7 days data
+        for (i in 6 downTo 0) {
+            calendar.time = Date()
+            calendar.add(Calendar.DAY_OF_YEAR, -i)
+            
+            val dayStart = Calendar.getInstance().apply {
+                time = calendar.time
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }.time
+            
+            val dayEnd = Calendar.getInstance().apply {
+                time = calendar.time
+                set(Calendar.HOUR_OF_DAY, 23)
+                set(Calendar.MINUTE, 59)
+                set(Calendar.SECOND, 59)
+                set(Calendar.MILLISECOND, 999)
+            }.time
+            
+            val daySpending = transactions.filter { 
+                it.transactionDate >= dayStart && it.transactionDate <= dayEnd 
+            }.sumOf { it.amount }
+            
+            val dayFormat = SimpleDateFormat("MMM dd", Locale.getDefault())
+            dailyData.add(ChartDataPoint(
+                index = (6 - i).toFloat(),
+                value = daySpending.toFloat(),
+                label = dayFormat.format(calendar.time)
+            ))
+        }
+        
+        return dailyData
+    }
+    
+    private fun calculateLast7DaysDataWithRange(transactions: List<TransactionEntity>, startDate: Date, endDate: Date): List<ChartDataPoint> {
+        val calendar = Calendar.getInstance()
+        val dailyData = mutableListOf<ChartDataPoint>()
+        
+        Log.d("DashboardFragment", "[WEEKLY_CHART] Calculating 7 days from ${SimpleDateFormat("MMM dd", Locale.getDefault()).format(startDate)} to ${SimpleDateFormat("MMM dd", Locale.getDefault()).format(endDate)}")
+        
+        // Generate 7 days of data using the provided date range
+        for (i in 0 until 7) {
+            calendar.time = startDate
+            calendar.add(Calendar.DAY_OF_YEAR, i)
+            
+            val dayStart = Calendar.getInstance().apply {
+                time = calendar.time
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }.time
+            
+            val dayEnd = Calendar.getInstance().apply {
+                time = calendar.time
+                set(Calendar.HOUR_OF_DAY, 23)
+                set(Calendar.MINUTE, 59)
+                set(Calendar.SECOND, 59)
+                set(Calendar.MILLISECOND, 999)
+            }.time
+            
+            val daySpending = transactions.filter { 
+                it.transactionDate >= dayStart && it.transactionDate <= dayEnd 
+            }.sumOf { it.amount }
+            
+            val dayFormat = SimpleDateFormat("MMM dd", Locale.getDefault())
+            val dayLabel = dayFormat.format(calendar.time)
+            
+            dailyData.add(ChartDataPoint(
+                index = i.toFloat(),
+                value = daySpending.toFloat(),
+                label = dayLabel
+            ))
+            
+            Log.d("DashboardFragment", "[WEEKLY_CHART] Day ${i + 1}: $dayLabel = ₹$daySpending")
+        }
+        
+        Log.d("DashboardFragment", "[WEEKLY_CHART] Generated ${dailyData.size} daily data points")
+        return dailyData
+    }
+    
+    private fun calculateDailyDataForPeriod(transactions: List<TransactionEntity>, startDate: Date, endDate: Date): List<ChartDataPoint> {
+        val calendar = Calendar.getInstance()
+        val dailyData = mutableListOf<ChartDataPoint>()
+        
+        // Calculate days between start and end date
+        val daysBetween = ((endDate.time - startDate.time) / (1000 * 60 * 60 * 24)).toInt() + 1
+        
+        Log.d("DashboardFragment", "[WEEKLY_CHART] Calculating daily data for $daysBetween days")
+        
+        // Get daily spending for each day in the period
+        for (i in 0 until daysBetween) {
+            calendar.time = startDate
+            calendar.add(Calendar.DAY_OF_YEAR, i)
+            
+            val dayStart = Calendar.getInstance().apply {
+                time = calendar.time
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }.time
+            
+            val dayEnd = Calendar.getInstance().apply {
+                time = calendar.time
+                set(Calendar.HOUR_OF_DAY, 23)
+                set(Calendar.MINUTE, 59)
+                set(Calendar.SECOND, 59)
+                set(Calendar.MILLISECOND, 999)
+            }.time
+            
+            val daySpending = transactions.filter { 
+                it.transactionDate >= dayStart && it.transactionDate <= dayEnd 
+            }.sumOf { it.amount }
+            
+            val dayFormat = SimpleDateFormat("MMM dd", Locale.getDefault())
+            dailyData.add(ChartDataPoint(
+                index = i.toFloat(),
+                value = daySpending.toFloat(),
+                label = dayFormat.format(calendar.time)
+            ))
+            
+            Log.d("DashboardFragment", "[WEEKLY_CHART] Day ${i + 1}: ${dayFormat.format(calendar.time)} = ₹$daySpending")
+        }
+        
+        Log.d("DashboardFragment", "[WEEKLY_CHART] Generated ${dailyData.size} daily data points")
+        return dailyData
+    }
+    
+    private fun calculateDailyDataWithContext(transactions: List<TransactionEntity>, startDate: Date, endDate: Date): List<ChartDataPoint> {
+        val calendar = Calendar.getInstance()
+        val dailyData = mutableListOf<ChartDataPoint>()
+        
+        // For better context, show a week's worth of data (7 days)
+        // Start from 6 days before the start date to show context
+        calendar.time = startDate
+        calendar.add(Calendar.DAY_OF_YEAR, -6)
+        val contextStartDate = calendar.time
+        
+        Log.d("DashboardFragment", "[WEEKLY_CHART] Calculating daily data with context from ${SimpleDateFormat("MMM dd", Locale.getDefault()).format(contextStartDate)} to ${SimpleDateFormat("MMM dd", Locale.getDefault()).format(endDate)}")
+        
+        // Show 7 days of data for context
+        for (i in 0 until 7) {
+            calendar.time = contextStartDate
+            calendar.add(Calendar.DAY_OF_YEAR, i)
+            
+            val dayStart = Calendar.getInstance().apply {
+                time = calendar.time
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }.time
+            
+            val dayEnd = Calendar.getInstance().apply {
+                time = calendar.time
+                set(Calendar.HOUR_OF_DAY, 23)
+                set(Calendar.MINUTE, 59)
+                set(Calendar.SECOND, 59)
+                set(Calendar.MILLISECOND, 999)
+            }.time
+            
+            // Count all transactions for this day (including context days)
+            val daySpending = transactions.filter { 
+                it.transactionDate >= dayStart && it.transactionDate <= dayEnd
+            }.sumOf { it.amount }
+            
+            val dayFormat = SimpleDateFormat("MMM dd", Locale.getDefault())
+            val dayLabel = dayFormat.format(calendar.time)
+            
+            // Mark current month days differently
+            val isCurrentPeriod = calendar.time >= startDate && calendar.time <= endDate
+            
+            dailyData.add(ChartDataPoint(
+                index = i.toFloat(),
+                value = daySpending.toFloat(),
+                label = if (isCurrentPeriod) dayLabel else "($dayLabel)" // Mark non-current days with parentheses
+            ))
+            
+            Log.d("DashboardFragment", "[WEEKLY_CHART] Day ${i + 1}: $dayLabel = ₹$daySpending ${if (isCurrentPeriod) "(current period)" else "(context)"}")
+        }
+        
+        Log.d("DashboardFragment", "[WEEKLY_CHART] Generated ${dailyData.size} daily data points with context")
+        return dailyData
+    }
+    
+    private fun calculateMonthlyWeeklyData(transactions: List<TransactionEntity>, startDate: Date, endDate: Date): List<ChartDataPoint> {
+        val calendar = Calendar.getInstance()
+        calendar.time = startDate
+        
+        val weeklyData = mutableListOf<ChartDataPoint>()
+        var weekIndex = 0f
+        
+        while (calendar.time <= endDate) {
+            val weekStart = calendar.time
+            calendar.add(Calendar.DAY_OF_YEAR, 6)
+            val weekEnd = if (calendar.time > endDate) endDate else calendar.time
+            
+            val weekSpending = transactions.filter { 
+                it.transactionDate >= weekStart && it.transactionDate <= weekEnd 
+            }.sumOf { it.amount }
+            
+            val weekFormat = SimpleDateFormat("MMM dd", Locale.getDefault())
+            weeklyData.add(ChartDataPoint(
+                index = weekIndex,
+                value = weekSpending.toFloat(),
+                label = "Week ${weekFormat.format(weekStart)}"
+            ))
+            
+            calendar.add(Calendar.DAY_OF_YEAR, 1)
+            weekIndex++
+        }
+        
+        return weeklyData
+    }
+    
+    private fun calculateMultiMonthData(transactions: List<TransactionEntity>, startDate: Date, endDate: Date): List<ChartDataPoint> {
+        val calendar = Calendar.getInstance()
+        calendar.time = startDate
+        calendar.set(Calendar.DAY_OF_MONTH, 1)
+        
+        val monthlyData = mutableListOf<ChartDataPoint>()
+        var monthIndex = 0f
+        
+        while (calendar.time <= endDate) {
+            val monthStart = calendar.time
+            calendar.add(Calendar.MONTH, 1)
+            calendar.add(Calendar.DAY_OF_MONTH, -1)
+            val monthEnd = if (calendar.time > endDate) endDate else calendar.time
+            
+            val monthSpending = transactions.filter { 
+                it.transactionDate >= monthStart && it.transactionDate <= monthEnd 
+            }.sumOf { it.amount }
+            
+            val monthFormat = SimpleDateFormat("MMM yyyy", Locale.getDefault())
+            monthlyData.add(ChartDataPoint(
+                index = monthIndex,
+                value = monthSpending.toFloat(),
+                label = monthFormat.format(monthStart)
+            ))
+            
+            calendar.add(Calendar.DAY_OF_MONTH, 1)
+            monthIndex++
+        }
+        
+        return monthlyData
+    }
+    
+    private fun calculateYearlyMonthlyData(transactions: List<TransactionEntity>, startDate: Date, endDate: Date): List<ChartDataPoint> {
+        val calendar = Calendar.getInstance()
+        calendar.time = startDate
+        calendar.set(Calendar.DAY_OF_MONTH, 1)
+        
+        val monthlyData = mutableListOf<ChartDataPoint>()
+        var monthIndex = 0f
+        
+        while (calendar.time <= endDate) {
+            val monthStart = calendar.time
+            calendar.add(Calendar.MONTH, 1)
+            calendar.add(Calendar.DAY_OF_MONTH, -1)
+            val monthEnd = if (calendar.time > endDate) endDate else calendar.time
+            
+            val monthSpending = transactions.filter { 
+                it.transactionDate >= monthStart && it.transactionDate <= monthEnd 
+            }.sumOf { it.amount }
+            
+            val monthFormat = SimpleDateFormat("MMM", Locale.getDefault())
+            monthlyData.add(ChartDataPoint(
+                index = monthIndex,
+                value = monthSpending.toFloat(),
+                label = monthFormat.format(monthStart)
+            ))
+            
+            calendar.add(Calendar.DAY_OF_MONTH, 1)
+            monthIndex++
+        }
+        
+        return monthlyData
+    }
+    
+    private fun updateChartWithData(chartData: List<ChartDataPoint>) {
         val chart = binding.chartWeeklyTrend
         
-        // Sample data - replace with actual weekly spending data
-        val entries = listOf(
-            Entry(0f, 1200f), // Monday
-            Entry(1f, 800f),  // Tuesday
-            Entry(2f, 1500f), // Wednesday
-            Entry(3f, 900f),  // Thursday
-            Entry(4f, 2000f), // Friday
-            Entry(5f, 1100f), // Saturday
-            Entry(6f, 700f)   // Sunday
-        )
+        if (chartData.isEmpty()) {
+            showEmptyChart("No Data Available")
+            return
+        }
         
-        val dataSet = LineDataSet(entries, "Weekly Spending").apply {
+        Log.d("DashboardFragment", "[WEEKLY_CHART] Updating chart with ${chartData.size} data points")
+        
+        // Create chart entries
+        val entries = chartData.map { Entry(it.index, it.value) }
+        
+        val dataSet = LineDataSet(entries, "Spending Trend").apply {
             color = ContextCompat.getColor(requireContext(), R.color.primary)
             setCircleColor(ContextCompat.getColor(requireContext(), R.color.primary))
-            lineWidth = 2f
-            circleRadius = 4f
+            lineWidth = 3f
+            circleRadius = 5f
             setDrawFilled(true)
             fillColor = ContextCompat.getColor(requireContext(), R.color.primary_light)
-            fillAlpha = 50
-            valueTextSize = 9f
+            fillAlpha = 30
+            valueTextSize = 10f
             valueTextColor = ContextCompat.getColor(requireContext(), R.color.text_secondary)
+            setDrawValues(true)
+            valueFormatter = object : ValueFormatter() {
+                override fun getFormattedValue(value: Float): String {
+                    return "₹${String.format("%.0f", value)}"
+                }
+            }
         }
         
         chart.data = LineData(dataSet)
+        
+        // Configure X-axis with proper labels
+        chart.xAxis.apply {
+            valueFormatter = object : ValueFormatter() {
+                override fun getFormattedValue(value: Float): String {
+                    val index = value.toInt()
+                    return if (index >= 0 && index < chartData.size) {
+                        chartData[index].label
+                    } else {
+                        ""
+                    }
+                }
+            }
+            position = XAxis.XAxisPosition.BOTTOM
+            setDrawGridLines(true)
+            gridColor = ContextCompat.getColor(requireContext(), R.color.divider)
+            textColor = ContextCompat.getColor(requireContext(), R.color.text_secondary)
+            textSize = 10f
+            labelRotationAngle = -45f
+        }
+        
+        // Configure Y-axis with proper currency formatting
+        chart.axisLeft.apply {
+            valueFormatter = object : ValueFormatter() {
+                override fun getFormattedValue(value: Float): String {
+                    return "₹${String.format("%.0f", value)}"
+                }
+            }
+            setDrawGridLines(true)
+            gridColor = ContextCompat.getColor(requireContext(), R.color.divider)
+            textColor = ContextCompat.getColor(requireContext(), R.color.text_secondary)
+            textSize = 10f
+        }
+        
+        chart.axisRight.isEnabled = false
+        chart.legend.isEnabled = false
+        chart.description.isEnabled = false
+        
+        chart.invalidate()
+        
+        Log.d("DashboardFragment", "[WEEKLY_CHART] Chart updated successfully")
+    }
+    
+    private fun showEmptyChart(message: String) {
+        val chart = binding.chartWeeklyTrend
+        chart.clear()
+        chart.setNoDataText(message)
+        chart.setNoDataTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary))
         chart.invalidate()
     }
     
@@ -1415,8 +1779,8 @@ class DashboardFragment : Fragment() {
         // Update monthly comparison based on selected period
         updateMonthlyComparisonFromRepository(startDate, endDate, currentDashboardPeriod)
         
-        // Update weekly trend with repository data
-        updateWeeklyTrendFromRepository(startDate, endDate)
+        // Update weekly trend chart with repository data
+        updateWeeklyTrendWithRealData(startDate, endDate)
         
         Log.d("DashboardFragment", "[SUCCESS] Dashboard UI updated successfully with repository data")
     }
@@ -2411,4 +2775,13 @@ data class ProcessedTransaction(
     val categoryColor: String,
     val date: Date,
     val bankName: String
+)
+
+/**
+ * Data class for chart data points with proper labels
+ */
+data class ChartDataPoint(
+    val index: Float,
+    val value: Float,
+    val label: String
 )
