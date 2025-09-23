@@ -8,4 +8,29 @@
         <item>@string/log_level_debug</item>
         <item>@string/log_level_trace</item>
     </string-array>
+    
+    <!-- Analytics Filters -->
+    <array name="default_amount_range">
+        <item>0</item>
+        <item>10000</item>
+    </array>
+    
+    <!-- Time Period Options -->
+    <string-array name="time_periods">
+        <item>Daily</item>
+        <item>Weekly</item>
+        <item>Monthly</item>
+        <item>Quarterly</item>
+        <item>Yearly</item>
+    </string-array>
+    
+    <!-- Date Range Options -->
+    <string-array name="date_ranges">
+        <item>Last 7 Days</item>
+        <item>Last 30 Days</item>
+        <item>Last 3 Months</item>
+        <item>Last 6 Months</item>
+        <item>This Year</item>
+        <item>Custom Range</item>
+    </string-array>
 </resources>

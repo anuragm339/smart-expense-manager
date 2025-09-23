@@ -71,13 +71,30 @@ class GetCategorySpendingUseCase @Inject constructor(
     }
     
     /**
-     * Get last 30 days category spending
+     * Get current month category spending (updated to match Dashboard logic)
      */
     suspend fun getLastThirtyDaysSpending(): Result<List<CategorySpendingResult>> {
-        val thirtyDaysAgo = Date(System.currentTimeMillis() - (30 * 24 * 60 * 60 * 1000))
-        val today = Date()
+        // Use current month instead of 30-day hardcoded period to match Dashboard
+        val calendar = Calendar.getInstance()
         
-        return execute(thirtyDaysAgo, today)
+        // Start of current month
+        calendar.set(Calendar.DAY_OF_MONTH, 1)
+        calendar.set(Calendar.HOUR_OF_DAY, 0)
+        calendar.set(Calendar.MINUTE, 0)
+        calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
+        val startOfMonth = calendar.time
+        
+        // End of current month  
+        calendar.add(Calendar.MONTH, 1)
+        calendar.add(Calendar.DAY_OF_MONTH, -1)
+        calendar.set(Calendar.HOUR_OF_DAY, 23)
+        calendar.set(Calendar.MINUTE, 59)
+        calendar.set(Calendar.SECOND, 59)
+        calendar.set(Calendar.MILLISECOND, 999)
+        val endOfMonth = calendar.time
+        
+        return execute(startOfMonth, endOfMonth)
     }
     
     /**
