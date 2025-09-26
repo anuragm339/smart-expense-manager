@@ -98,6 +98,116 @@ class GetCategorySpendingUseCase @Inject constructor(
     }
     
     /**
+     * Get last 7 days category spending
+     */
+    suspend fun getLast7DaysSpending(): Result<List<CategorySpendingResult>> {
+        val calendar = Calendar.getInstance()
+        calendar.set(Calendar.HOUR_OF_DAY, 23)
+        calendar.set(Calendar.MINUTE, 59)
+        calendar.set(Calendar.SECOND, 59)
+        calendar.set(Calendar.MILLISECOND, 999)
+        val endDate = calendar.time
+        
+        calendar.add(Calendar.DAY_OF_MONTH, -6) // Go back 6 days to include today = 7 days total
+        calendar.set(Calendar.HOUR_OF_DAY, 0)
+        calendar.set(Calendar.MINUTE, 0)
+        calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
+        val startDate = calendar.time
+        
+        Log.d(TAG, "Getting last 7 days spending from $startDate to $endDate")
+        return execute(startDate, endDate)
+    }
+    
+    /**
+     * Get last 30 days category spending (actual 30 days, not current month)
+     */
+    suspend fun getLast30DaysSpending(): Result<List<CategorySpendingResult>> {
+        val calendar = Calendar.getInstance()
+        calendar.set(Calendar.HOUR_OF_DAY, 23)
+        calendar.set(Calendar.MINUTE, 59)
+        calendar.set(Calendar.SECOND, 59)
+        calendar.set(Calendar.MILLISECOND, 999)
+        val endDate = calendar.time
+        
+        calendar.add(Calendar.DAY_OF_MONTH, -29) // Go back 29 days to include today = 30 days total
+        calendar.set(Calendar.HOUR_OF_DAY, 0)
+        calendar.set(Calendar.MINUTE, 0)
+        calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
+        val startDate = calendar.time
+        
+        Log.d(TAG, "Getting last 30 days spending from $startDate to $endDate")
+        return execute(startDate, endDate)
+    }
+    
+    /**
+     * Get last 3 months category spending
+     */
+    suspend fun getLast3MonthsSpending(): Result<List<CategorySpendingResult>> {
+        val calendar = Calendar.getInstance()
+        calendar.set(Calendar.HOUR_OF_DAY, 23)
+        calendar.set(Calendar.MINUTE, 59)
+        calendar.set(Calendar.SECOND, 59)
+        calendar.set(Calendar.MILLISECOND, 999)
+        val endDate = calendar.time
+        
+        calendar.add(Calendar.MONTH, -3)
+        calendar.set(Calendar.HOUR_OF_DAY, 0)
+        calendar.set(Calendar.MINUTE, 0)
+        calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
+        val startDate = calendar.time
+        
+        Log.d(TAG, "Getting last 3 months spending from $startDate to $endDate")
+        return execute(startDate, endDate)
+    }
+    
+    /**
+     * Get last 6 months category spending
+     */
+    suspend fun getLast6MonthsSpending(): Result<List<CategorySpendingResult>> {
+        val calendar = Calendar.getInstance()
+        calendar.set(Calendar.HOUR_OF_DAY, 23)
+        calendar.set(Calendar.MINUTE, 59)
+        calendar.set(Calendar.SECOND, 59)
+        calendar.set(Calendar.MILLISECOND, 999)
+        val endDate = calendar.time
+        
+        calendar.add(Calendar.MONTH, -6)
+        calendar.set(Calendar.HOUR_OF_DAY, 0)
+        calendar.set(Calendar.MINUTE, 0)
+        calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
+        val startDate = calendar.time
+        
+        Log.d(TAG, "Getting last 6 months spending from $startDate to $endDate")
+        return execute(startDate, endDate)
+    }
+    
+    /**
+     * Get this year category spending
+     */
+    suspend fun getThisYearSpending(): Result<List<CategorySpendingResult>> {
+        val calendar = Calendar.getInstance()
+        
+        // End date - current time
+        val endDate = calendar.time
+        
+        // Start date - beginning of this year
+        calendar.set(Calendar.MONTH, Calendar.JANUARY)
+        calendar.set(Calendar.DAY_OF_MONTH, 1)
+        calendar.set(Calendar.HOUR_OF_DAY, 0)
+        calendar.set(Calendar.MINUTE, 0)
+        calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
+        val startDate = calendar.time
+        
+        Log.d(TAG, "Getting this year spending from $startDate to $endDate")
+        return execute(startDate, endDate)
+    }
+    
+    /**
      * Get category spending comparison between two periods
      */
     suspend fun getSpendingComparison(
