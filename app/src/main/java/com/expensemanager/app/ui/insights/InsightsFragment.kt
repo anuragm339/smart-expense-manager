@@ -2100,13 +2100,104 @@ class InsightsFragment : Fragment() {
         }
     }
 
+    /**
+     * PIE_CHART_FILTER_FIX: Enhanced category spending calculation with proper filter support
+     * Uses the same date range logic as BAR chart to ensure consistency
+     */
     private suspend fun getFilteredCategorySpending(expenseRepository: ExpenseRepository): List<com.expensemanager.app.data.dao.CategorySpendingResult> {
-        currentFilters.startDate?.let { startDate ->
-            currentFilters.endDate?.let { endDate ->
-                return expenseRepository.getCategorySpending(startDate, endDate)
+        try {
+            Log.d(TAG, "PIE_CHART_FILTER_FIX: Getting category spending data for period: ${currentFilters.timePeriod}")
+            
+            // Use the same period calculation logic as BAR chart
+            val (startDate, endDate) = calculateDateRangeForFilter()
+            
+            Log.d(TAG, "PIE_CHART_FILTER_FIX: Calculated date range: $startDate to $endDate")
+            Log.d(TAG, "PIE_CHART_FILTER_FIX: Fetching category data from $startDate to $endDate")
+            
+            return expenseRepository.getCategorySpending(startDate, endDate)
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "PIE_CHART_FILTER_FIX: Error getting filtered category spending", e)
+            return emptyList()
+        }
+    }
+    
+    /**
+     * PIE_CHART_FILTER_FIX: Calculate date range for current filter using same logic as BAR chart
+     */
+    private fun calculateDateRangeForFilter(): Pair<Date, Date> {
+        // Determine period count based on date range filter (same logic as getTimeSeriesSpendingData)
+        val periodCount = when (currentFilters.timePeriod) {
+            "Last 7 Days" -> 7
+            "Last 30 Days" -> 30
+            "This Month", "Current Month" -> 1
+            "Last 3 Months" -> 3
+            "Last 6 Months" -> 6  // PIE_CHART_FILTER_FIX: Added support for Last 6 Months
+            "Last Year" -> 12
+            "This Year" -> 1
+            else -> 1 // Default to current month
+        }
+        
+        Log.d(TAG, "PIE_CHART_FILTER_FIX: Period count for '${currentFilters.timePeriod}': $periodCount")
+        
+        // If we have explicit dates from filters, use them
+        if (currentFilters.startDate != null && currentFilters.endDate != null) {
+            Log.d(TAG, "PIE_CHART_FILTER_FIX: Using explicit filter dates")
+            return Pair(currentFilters.startDate!!, currentFilters.endDate!!)
+        }
+        
+        // Calculate date range based on period (same logic as BAR chart)
+        return when (currentFilters.timePeriod) {
+            "Last 7 Days", "Last 30 Days" -> {
+                val cal = Calendar.getInstance()
+                val end = cal.time
+                cal.add(Calendar.DAY_OF_MONTH, -periodCount)
+                Pair(cal.time, end)
+            }
+            "This Month", "Current Month" -> {
+                val cal = Calendar.getInstance()
+                val end = cal.time
+                cal.set(Calendar.DAY_OF_MONTH, 1)
+                cal.set(Calendar.HOUR_OF_DAY, 0)
+                cal.set(Calendar.MINUTE, 0)
+                cal.set(Calendar.SECOND, 0)
+                cal.set(Calendar.MILLISECOND, 0)
+                Pair(cal.time, end)
+            }
+            "Last 3 Months", "Last 6 Months" -> {
+                val cal = Calendar.getInstance()
+                val end = cal.time
+                cal.add(Calendar.MONTH, -periodCount)
+                Pair(cal.time, end)
+            }
+            "Last Year" -> {
+                val cal = Calendar.getInstance()
+                val end = cal.time
+                cal.add(Calendar.YEAR, -1)
+                Pair(cal.time, end)
+            }
+            "This Year" -> {
+                val cal = Calendar.getInstance()
+                val end = cal.time
+                cal.set(Calendar.DAY_OF_YEAR, 1)
+                cal.set(Calendar.HOUR_OF_DAY, 0)
+                cal.set(Calendar.MINUTE, 0)
+                cal.set(Calendar.SECOND, 0)
+                cal.set(Calendar.MILLISECOND, 0)
+                Pair(cal.time, end)
+            }
+            else -> {
+                // Default: current month
+                val cal = Calendar.getInstance()
+                val end = cal.time
+                cal.set(Calendar.DAY_OF_MONTH, 1)
+                cal.set(Calendar.HOUR_OF_DAY, 0)
+                cal.set(Calendar.MINUTE, 0)
+                cal.set(Calendar.SECOND, 0)
+                cal.set(Calendar.MILLISECOND, 0)
+                Pair(cal.time, end)
             }
         }
-        return emptyList()
     }
 
 
