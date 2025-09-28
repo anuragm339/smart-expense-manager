@@ -793,4 +793,176 @@ class DateRangeService @Inject constructor() {
     fun isDateRangeEqual(range1: Pair<Date, Date>, range2: Pair<Date, Date>): Boolean {
         return range1.first.time == range2.first.time && range1.second.time == range2.second.time
     }
+    
+    /**
+     * Generate periods with special handling for specific date range + time aggregation combinations
+     * This implements the enhanced behavior requested for sophisticated scenarios
+     */
+    fun generatePeriodsWithSpecialHandling(
+        dateRangeFilter: String,
+        aggregationType: TimeAggregation,
+        startDate: Date,
+        endDate: Date
+    ): List<Pair<Date, Date>> {
+        Timber.d("ENHANCED_DATE_RANGE: Generating periods with special handling")
+        Timber.d("ENHANCED_DATE_RANGE: Date filter: $dateRangeFilter, Aggregation: $aggregationType")
+        Timber.d("ENHANCED_DATE_RANGE: Range: $startDate to $endDate")
+        
+        return when {
+            // Special case 1: "This Month" + "Weekly" → Show weeks within current month only
+            dateRangeFilter == "This Month" && aggregationType == TimeAggregation.WEEKLY -> {
+                Timber.d("ENHANCED_DATE_RANGE: Applying 'This Month + Weekly' special handling")
+                generateWeeksWithinCurrentMonth()
+            }
+            
+            // Special case 2: "Last 30 Days" + "Monthly" → Show multiple months if span crosses months
+            dateRangeFilter == "Last 30 Days" && aggregationType == TimeAggregation.MONTHLY -> {
+                Timber.d("ENHANCED_DATE_RANGE: Applying 'Last 30 Days + Monthly' special handling")
+                generateMonthsWithinLast30Days(startDate, endDate)
+            }
+            
+            // Default case: Use standard period generation
+            else -> {
+                Timber.d("ENHANCED_DATE_RANGE: Using standard period generation")
+                generatePeriodsInRange(aggregationType, startDate, endDate)
+            }
+        }
+    }
+    
+    /**
+     * Generate weeks within the current month only
+     * Used for "This Month" + "Weekly" combination
+     */
+    private fun generateWeeksWithinCurrentMonth(): List<Pair<Date, Date>> {
+        Timber.d("ENHANCED_DATE_RANGE: Generating weeks within current month")
+        
+        val calendar = Calendar.getInstance()
+        val currentMonth = calendar.get(Calendar.MONTH)
+        val currentYear = calendar.get(Calendar.YEAR)
+        
+        // Get current month boundaries
+        val monthStart = Calendar.getInstance().apply {
+            set(Calendar.YEAR, currentYear)
+            set(Calendar.MONTH, currentMonth)
+            set(Calendar.DAY_OF_MONTH, 1)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        
+        val monthEnd = Calendar.getInstance().apply {
+            set(Calendar.YEAR, currentYear)
+            set(Calendar.MONTH, currentMonth)
+            set(Calendar.DAY_OF_MONTH, getActualMaximum(Calendar.DAY_OF_MONTH))
+            set(Calendar.HOUR_OF_DAY, 23)
+            set(Calendar.MINUTE, 59)
+            set(Calendar.SECOND, 59)
+            set(Calendar.MILLISECOND, 999)
+        }
+        
+        Timber.d("ENHANCED_DATE_RANGE: Current month boundaries: ${monthStart.time} to ${monthEnd.time}")
+        
+        val periods = mutableListOf<Pair<Date, Date>>()
+        val weekCalendar = Calendar.getInstance()
+        weekCalendar.time = monthStart.time
+        
+        // Find the first Monday of the month (or go back to previous Monday if month doesn't start on Monday)
+        val dayOfWeek = weekCalendar.get(Calendar.DAY_OF_WEEK)
+        val daysFromMonday = if (dayOfWeek == Calendar.SUNDAY) 6 else dayOfWeek - Calendar.MONDAY
+        weekCalendar.add(Calendar.DAY_OF_MONTH, -daysFromMonday)
+        
+        while (weekCalendar.time.before(monthEnd.time) || weekCalendar.time.equals(monthEnd.time)) {
+            val weekStart = weekCalendar.time
+            
+            // Calculate week end
+            val weekEndCalendar = weekCalendar.clone() as Calendar
+            weekEndCalendar.add(Calendar.DAY_OF_MONTH, 6)
+            weekEndCalendar.set(Calendar.HOUR_OF_DAY, 23)
+            weekEndCalendar.set(Calendar.MINUTE, 59)
+            weekEndCalendar.set(Calendar.SECOND, 59)
+            weekEndCalendar.set(Calendar.MILLISECOND, 999)
+            
+            // Clamp week start and end to month boundaries
+            val actualWeekStart = if (weekStart.before(monthStart.time)) monthStart.time else weekStart
+            val actualWeekEnd = if (weekEndCalendar.time.after(monthEnd.time)) monthEnd.time else weekEndCalendar.time
+            
+            // Only include weeks that have at least one day in the current month
+            if (actualWeekStart.before(monthEnd.time) || actualWeekStart.equals(monthEnd.time)) {
+                periods.add(Pair(actualWeekStart, actualWeekEnd))
+                Timber.d("ENHANCED_DATE_RANGE: Generated month-bounded week: $actualWeekStart to $actualWeekEnd")
+            }
+            
+            // Move to next week
+            weekCalendar.add(Calendar.WEEK_OF_YEAR, 1)
+        }
+        
+        Timber.d("ENHANCED_DATE_RANGE: Generated ${periods.size} weeks within current month")
+        return periods
+    }
+    
+    /**
+     * Generate months within the last 30 days period
+     * Used for "Last 30 Days" + "Monthly" combination
+     */
+    private fun generateMonthsWithinLast30Days(startDate: Date, endDate: Date): List<Pair<Date, Date>> {
+        Timber.d("ENHANCED_DATE_RANGE: Generating months within last 30 days period")
+        Timber.d("ENHANCED_DATE_RANGE: 30-day period: $startDate to $endDate")
+        
+        val periods = mutableListOf<Pair<Date, Date>>()
+        val calendar = Calendar.getInstance()
+        calendar.time = startDate
+        
+        // Find all months that overlap with the 30-day period
+        val startMonth = calendar.get(Calendar.MONTH)
+        val startYear = calendar.get(Calendar.YEAR)
+        
+        calendar.time = endDate
+        val endMonth = calendar.get(Calendar.MONTH)
+        val endYear = calendar.get(Calendar.YEAR)
+        
+        // Generate month periods
+        val monthCalendar = Calendar.getInstance()
+        monthCalendar.set(Calendar.YEAR, startYear)
+        monthCalendar.set(Calendar.MONTH, startMonth)
+        monthCalendar.set(Calendar.DAY_OF_MONTH, 1)
+        monthCalendar.set(Calendar.HOUR_OF_DAY, 0)
+        monthCalendar.set(Calendar.MINUTE, 0)
+        monthCalendar.set(Calendar.SECOND, 0)
+        monthCalendar.set(Calendar.MILLISECOND, 0)
+        
+        while (true) {
+            val monthStart = monthCalendar.time
+            
+            // Calculate month end
+            val monthEndCalendar = monthCalendar.clone() as Calendar
+            monthEndCalendar.set(Calendar.DAY_OF_MONTH, monthEndCalendar.getActualMaximum(Calendar.DAY_OF_MONTH))
+            monthEndCalendar.set(Calendar.HOUR_OF_DAY, 23)
+            monthEndCalendar.set(Calendar.MINUTE, 59)
+            monthEndCalendar.set(Calendar.SECOND, 59)
+            monthEndCalendar.set(Calendar.MILLISECOND, 999)
+            val monthEnd = monthEndCalendar.time
+            
+            // Check if this month overlaps with our 30-day period
+            if (monthStart.after(endDate)) {
+                break // We've gone past the end date
+            }
+            
+            // Calculate the intersection of month period with 30-day period
+            val actualStart = if (monthStart.before(startDate)) startDate else monthStart
+            val actualEnd = if (monthEnd.after(endDate)) endDate else monthEnd
+            
+            // Only add if there's actual overlap
+            if (actualStart.before(actualEnd) || actualStart.equals(actualEnd)) {
+                periods.add(Pair(actualStart, actualEnd))
+                Timber.d("ENHANCED_DATE_RANGE: Generated month period: $actualStart to $actualEnd")
+            }
+            
+            // Move to next month
+            monthCalendar.add(Calendar.MONTH, 1)
+        }
+        
+        Timber.d("ENHANCED_DATE_RANGE: Generated ${periods.size} months within last 30 days")
+        return periods
+    }
 }

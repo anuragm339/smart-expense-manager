@@ -77,6 +77,9 @@ class InsightsFragment : Fragment() {
     // Filter conditions for charts
     private var currentFilters = ChartFilterConditions()
     
+    // Flag to track if user has explicitly set time aggregation
+    private var userHasSetTimeAggregation = false
+    
     companion object {
         private const val TAG = "InsightsFragment"
     }
@@ -1045,9 +1048,14 @@ class InsightsFragment : Fragment() {
                 currentFilters.startDate = startDate
                 currentFilters.endDate = endDate
 
-                // Update smart time aggregation for BAR_CHART when date range changes
-                currentFilters.timeAggregation = getSmartTimeAggregation(startDate, endDate)
-                binding.root.findViewById<TextView>(R.id.btnTimePeriod)?.text = currentFilters.timeAggregation
+                // WEEKLY_FIX: Only apply smart aggregation if user hasn't explicitly set time aggregation
+                if (!userHasSetTimeAggregation) {
+                    currentFilters.timeAggregation = getSmartTimeAggregation(startDate, endDate)
+                    binding.root.findViewById<TextView>(R.id.btnTimePeriod)?.text = currentFilters.timeAggregation
+                    Log.d(TAG, "BAR_CHART_FIX: Applied smart time aggregation: ${currentFilters.timeAggregation}")
+                } else {
+                    Log.d(TAG, "BAR_CHART_FIX: Preserving user-selected time aggregation: ${currentFilters.timeAggregation}")
+                }
 
                 Log.d(TAG, "BAR_CHART_FIX: Applied ${dateRange} filter: ${startDate} to ${endDate}")
                 Log.d(TAG, "BAR_CHART_FIX: Updated time aggregation to: ${currentFilters.timeAggregation}")
@@ -1075,6 +1083,7 @@ class InsightsFragment : Fragment() {
         
         // User can override smart aggregation - this takes precedence
         currentFilters.timeAggregation = timePeriod
+        userHasSetTimeAggregation = true  // Mark that user explicitly set this
         
         // Log for debugging
         Log.d(TAG, "BAR_CHART_USER_OVERRIDE: User manually set timeAggregation to: ${currentFilters.timeAggregation}")
@@ -1293,7 +1302,13 @@ class InsightsFragment : Fragment() {
                 holeRadius = 40f
                 transparentCircleRadius = 45f
                 animateY(1000)
-                invalidate()
+                
+                // CHART_REFRESH_FIX: Force pie chart refresh after setup
+                post {
+                    notifyDataSetChanged()
+                    invalidate()
+                    Log.d(TAG, "CHART_REFRESH_FIX: Pie chart explicitly refreshed")
+                }
             }
             
             // Setup legend/category list
@@ -1471,41 +1486,50 @@ class InsightsFragment : Fragment() {
                         // Switch to bar chart page (index 1)
                         chartView.currentItem = 1
                         
-                        // Post delayed to ensure fragment is created and view is inflated
+                        // CHART_REFRESH_FIX: Improved ViewPager2 chart refresh
                         chartView.post {
                             // Try to find the actual BarChart in the current fragment
                             val currentFragment = childFragmentManager.findFragmentByTag("f1") // ViewPager2 uses "f{position}" tags
                             val barChart = currentFragment?.view?.findViewById<BarChart>(R.id.barChartMonthly)
                             
                             if (barChart != null && chartData.isNotEmpty()) {
-                                Log.d(TAG, "BAR_CHART_FIX: Found BarChart in ViewPager2 fragment")
+                                Log.d(TAG, "CHART_REFRESH_FIX: Found BarChart in ViewPager2 fragment, setting up chart")
                                 val success = chartConfigurationService.setupTimeSeriesBarChart(
                                     barChart, 
                                     chartData, 
                                     currentFilters.timeAggregation ?: "Monthly"
                                 )
-                                Log.d(TAG, "BAR_CHART_FIX: ChartConfigurationService setup result: $success")
+                                Log.d(TAG, "CHART_REFRESH_FIX: ChartConfigurationService setup result: $success")
                                 
                                 if (success) {
-                                    // Footer removed - no summary updates needed
+                                    // CHART_REFRESH_FIX: Force chart refresh after setup
+                                    barChart.post {
+                                        barChart.notifyDataSetChanged()
+                                        barChart.invalidate()
+                                        Log.d(TAG, "CHART_REFRESH_FIX: Bar chart explicitly refreshed")
+                                    }
                                 }
                             } else {
-                                Log.w(TAG, "BAR_CHART_FIX: BarChart not found in ViewPager2 fragment or no data")
+                                Log.w(TAG, "CHART_REFRESH_FIX: BarChart not found in ViewPager2 fragment or no data")
                             }
                         }
                     } else if (chartView is BarChart && chartData.isNotEmpty()) {
                         // Direct BarChart (fallback case)
-                        Log.d(TAG, "BAR_CHART_FIX: Using chartView directly as BarChart")
+                        Log.d(TAG, "CHART_REFRESH_FIX: Using chartView directly as BarChart")
                         val success = chartConfigurationService.setupTimeSeriesBarChart(
                             chartView, 
                             chartData, 
                             currentFilters.timeAggregation ?: "Monthly"
                         )
-                        Log.d(TAG, "BAR_CHART_FIX: ChartConfigurationService setup result: $success")
+                        Log.d(TAG, "CHART_REFRESH_FIX: ChartConfigurationService setup result: $success")
                         
                         if (success) {
-                            // Update summary statistics  
-                            // Footer removed - no summary updates needed
+                            // CHART_REFRESH_FIX: Force chart refresh after setup
+                            chartView.post {
+                                chartView.notifyDataSetChanged()
+                                chartView.invalidate()
+                                Log.d(TAG, "CHART_REFRESH_FIX: Direct bar chart explicitly refreshed")
+                            }
                         }
                     } else {
                         Log.w(TAG, "BAR_CHART_FIX: chartView is not BarChart/ViewPager2 or no data available")
@@ -1722,12 +1746,27 @@ class InsightsFragment : Fragment() {
                     endDate
                 }
                 
-                timeSeriesAggregationService.generateTimeSeriesDataInRange(
-                    filteredTransactions,
-                    aggregationType,
-                    startDate,
-                    actualEndDate
-                )
+                // ENHANCED_DATE_RANGE: Use enhanced logic for special combinations
+                if ((currentFilters.timePeriod == "This Month" && aggregationType == TimeAggregation.WEEKLY) ||
+                    (currentFilters.timePeriod == "Last 30 Days" && aggregationType == TimeAggregation.MONTHLY)) {
+                    Log.d(TAG, "ENHANCED_DATE_RANGE: Using enhanced date range logic for special combination")
+                    Log.d(TAG, "ENHANCED_DATE_RANGE: Date filter: ${currentFilters.timePeriod}, Aggregation: $aggregationType")
+                    
+                    timeSeriesAggregationService.generateTimeSeriesDataWithEnhancedRanges(
+                        filteredTransactions,
+                        currentFilters.timePeriod ?: "Unknown",
+                        aggregationType,
+                        startDate,
+                        actualEndDate
+                    )
+                } else {
+                    timeSeriesAggregationService.generateTimeSeriesDataInRange(
+                        filteredTransactions,
+                        aggregationType,
+                        startDate,
+                        actualEndDate
+                    )
+                }
             } else {
                 // For predefined periods, use the count-based method
                 Log.d(TAG, "TIME_PERIOD_FILTER: Using count-based generation for period: ${currentFilters.timePeriod}")
@@ -1926,7 +1965,13 @@ class InsightsFragment : Fragment() {
                 setPinchZoom(true)
                 
                 animateX(1000)
-                invalidate()
+                
+                // CHART_REFRESH_FIX: Force line chart refresh after setup
+                post {
+                    notifyDataSetChanged()
+                    invalidate()
+                    Log.d(TAG, "CHART_REFRESH_FIX: Line chart explicitly refreshed")
+                }
             }
             
             // Update trend analysis
@@ -1970,17 +2015,7 @@ class InsightsFragment : Fragment() {
                 else -> ContextCompat.getColor(requireContext(), R.color.info)
             }
             
-            // Update UI
-            chartView.findViewById<TextView>(R.id.tvAvgDailySpend)?.text = 
-                "₹${String.format("%.0f", avgDaily)}"
-                
-            chartView.findViewById<TextView>(R.id.tvPeakDay)?.text = 
-                "₹${String.format("%.0f", peakDay?.amount ?: 0.0)}"
-                
-            chartView.findViewById<TextView>(R.id.tvTrendDirection)?.apply {
-                text = trendDirection
-                setTextColor(trendColor)
-            }
+            // Footer removed - no trend UI updates needed
             
             Log.d(TAG, "LINE_CHART: Updated trend analysis - Avg: ₹$avgDaily, Peak: ₹${peakDay?.amount}, Trend: $trendDirection")
             
@@ -2037,9 +2072,32 @@ class InsightsFragment : Fragment() {
     }
 
     private fun updateChartsWithFilteredData() {
-        showMonthlyBarChart()
-        showCategoryPieChart()
-        showTrendLineChart()
+        // CHART_REFRESH_FIX: Only refresh the currently visible chart to avoid conflicts
+        Log.d(TAG, "CHART_REFRESH_FIX: Updating charts with filtered data")
+        
+        val tabLayout = binding.root.findViewById<com.google.android.material.tabs.TabLayout>(R.id.tabLayoutCharts)
+        val currentTab = tabLayout?.selectedTabPosition ?: 0
+        
+        Log.d(TAG, "CHART_REFRESH_FIX: Current tab position: $currentTab")
+        
+        when (currentTab) {
+            0 -> {
+                Log.d(TAG, "CHART_REFRESH_FIX: Refreshing PIE chart")
+                showCategoryPieChart()
+            }
+            1 -> {
+                Log.d(TAG, "CHART_REFRESH_FIX: Refreshing BAR chart")
+                showMonthlyBarChart()
+            }
+            2 -> {
+                Log.d(TAG, "CHART_REFRESH_FIX: Refreshing LINE chart")
+                showTrendLineChart()
+            }
+            else -> {
+                Log.w(TAG, "CHART_REFRESH_FIX: Unknown tab position: $currentTab, defaulting to PIE chart")
+                showCategoryPieChart()
+            }
+        }
     }
 
     private suspend fun getFilteredCategorySpending(expenseRepository: ExpenseRepository): List<com.expensemanager.app.data.dao.CategorySpendingResult> {

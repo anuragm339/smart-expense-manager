@@ -475,6 +475,71 @@ class TimeSeriesAggregationService @Inject constructor(
     )
     
     /**
+     * Generate time series data with enhanced date range handling for special combinations
+     * This method supports sophisticated scenarios like "This Month + Weekly" and "Last 30 Days + Monthly"
+     */
+    fun generateTimeSeriesDataWithEnhancedRanges(
+        transactions: List<TransactionEntity>,
+        dateRangeFilter: String,
+        aggregationType: TimeAggregation,
+        startDate: Date,
+        endDate: Date
+    ): List<TimeSeriesData> {
+        Timber.d("ENHANCED_TIME_SERIES: Generating time series data with enhanced ranges")
+        Timber.d("ENHANCED_TIME_SERIES: Date filter: $dateRangeFilter, Aggregation: $aggregationType")
+        Timber.d("ENHANCED_TIME_SERIES: Range: $startDate to $endDate, Transactions: ${transactions.size}")
+        
+        val periods = dateRangeService.generatePeriodsWithSpecialHandling(
+            dateRangeFilter, aggregationType, startDate, endDate
+        )
+        val timeSeriesData = mutableListOf<TimeSeriesData>()
+        
+        for ((periodStart, periodEnd) in periods) {
+            val periodTransactions = transactions.filter { transaction ->
+                transaction.transactionDate.time >= periodStart.time && 
+                transaction.transactionDate.time <= periodEnd.time
+            }
+            
+            val totalAmount = periodTransactions.sumOf { it.amount }
+            val transactionCount = periodTransactions.size
+            
+            val label = when (aggregationType) {
+                TimeAggregation.DAILY -> SimpleDateFormat("MMM dd", Locale.getDefault()).format(periodStart)
+                TimeAggregation.WEEKLY -> "${SimpleDateFormat("MMM dd", Locale.getDefault()).format(periodStart)} - ${SimpleDateFormat("MMM dd", Locale.getDefault()).format(periodEnd)}"
+                TimeAggregation.MONTHLY -> SimpleDateFormat("MMM yyyy", Locale.getDefault()).format(periodStart)
+                TimeAggregation.QUARTERLY -> {
+                    val calendar = Calendar.getInstance()
+                    calendar.time = periodStart
+                    val year = calendar.get(Calendar.YEAR)
+                    val month = calendar.get(Calendar.MONTH)
+                    val quarter = when (month) {
+                        in Calendar.JANUARY..Calendar.MARCH -> "Q1"
+                        in Calendar.APRIL..Calendar.JUNE -> "Q2"
+                        in Calendar.JULY..Calendar.SEPTEMBER -> "Q3"
+                        else -> "Q4"
+                    }
+                    "$quarter $year"
+                }
+                TimeAggregation.YEARLY -> SimpleDateFormat("yyyy", Locale.getDefault()).format(periodStart)
+            }
+            
+            timeSeriesData.add(TimeSeriesData(
+                label = label,
+                amount = totalAmount,
+                transactionCount = transactionCount,
+                date = periodStart,
+                startDate = periodStart,
+                endDate = periodEnd
+            ))
+            
+            Timber.d("ENHANCED_TIME_SERIES: Period: $label - ₹$totalAmount ($transactionCount transactions)")
+        }
+        
+        Timber.d("ENHANCED_TIME_SERIES: Generated ${timeSeriesData.size} enhanced time series data points")
+        return timeSeriesData
+    }
+
+    /**
      * Enum for trend direction
      */
     enum class TrendDirection {
