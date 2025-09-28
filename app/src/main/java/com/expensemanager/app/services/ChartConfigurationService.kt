@@ -164,17 +164,28 @@ class ChartConfigurationService @Inject constructor(
                 BarEntry(index.toFloat(), timeData.amount.toFloat())
             }
             
-            // Create dataset
+            // Create dataset with proper color configuration
             val dataSet = BarDataSet(barEntries, title).apply {
-                colors = getTimeSeriesColors(data.size)
-                valueTextSize = 10f
-                valueTextColor = getChartColors().text
+                // Apply distinct colors to each bar
+                val timeSeriesColors = getTimeSeriesColors(data.size)
+                colors = timeSeriesColors
+                
+                // Improve bar appearance
+                valueTextSize = 14f
+                valueTextColor = Color.WHITE
+                setDrawValues(true)
+                
+                // Add some visual enhancement
+                barBorderWidth = 1f
+                barBorderColor = getChartColors().primary
                 
                 valueFormatter = object : ValueFormatter() {
                     override fun getFormattedValue(value: Float): String {
-                        return "₹${String.format("%.0f", value)}"
+                        return if (value > 0) "₹${String.format("%.0f", value)}" else ""
                     }
                 }
+                
+                Timber.d("Applied ${timeSeriesColors.size} colors to ${barEntries.size} bars")
             }
             
             // Create bar data
@@ -202,7 +213,8 @@ class ChartConfigurationService @Inject constructor(
                             } else ""
                         }
                     }
-                    textColor = getChartColors().text
+                    textColor = Color.WHITE
+                    textSize = 12f
                 }
                 
                 // Y-axis configuration
@@ -214,7 +226,8 @@ class ChartConfigurationService @Inject constructor(
                             return "₹${String.format("%.0f", value)}"
                         }
                     }
-                    textColor = getChartColors().text
+                    textColor = Color.WHITE
+                    textSize = 12f
                 }
                 
                 axisRight.isEnabled = false
@@ -308,7 +321,8 @@ class ChartConfigurationService @Inject constructor(
                             } else ""
                         }
                     }
-                    textColor = getChartColors().text
+                    textColor = Color.WHITE
+                    textSize = 12f
                 }
                 
                 // Y-axis configuration
@@ -320,7 +334,8 @@ class ChartConfigurationService @Inject constructor(
                             return "₹${String.format("%.0f", value)}"
                         }
                     }
-                    textColor = getChartColors().text
+                    textColor = Color.WHITE
+                    textSize = 12f
                 }
                 
                 axisRight.isEnabled = false
@@ -388,21 +403,31 @@ class ChartConfigurationService @Inject constructor(
     }
     
     /**
-     * Get time series colors (gradient effect)
+     * Get time series colors with better distribution
      */
     private fun getTimeSeriesColors(count: Int): List<Int> {
         val colors = getChartColors()
+        
+        // Use a more diverse color palette for better visual distinction
         val baseColors = listOf(
-            colors.primary,
-            colors.secondary,
-            colors.info,
-            colors.success,
-            colors.warning,
-            colors.error
+            colors.primary,      // Blue
+            colors.secondary,    // Orange
+            colors.success,      // Green
+            colors.error,        // Red
+            colors.warning,      // Yellow/Orange
+            colors.info          // Light Blue
         )
         
-        return (0 until count).map { index ->
-            baseColors[index % baseColors.size]
+        // For small datasets, use predefined colors to ensure good contrast
+        return if (count <= baseColors.size) {
+            baseColors.take(count)
+        } else {
+            // For larger datasets, cycle through colors
+            (0 until count).map { index ->
+                baseColors[index % baseColors.size]
+            }
+        }.also {
+            Timber.d("Generated ${it.size} colors for $count data points")
         }
     }
     

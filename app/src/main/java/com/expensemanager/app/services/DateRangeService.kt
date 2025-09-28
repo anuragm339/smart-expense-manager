@@ -563,7 +563,7 @@ class DateRangeService @Inject constructor() {
     }
     
     /**
-     * Get periods for time series aggregation
+     * Get periods for time series aggregation (backwards from end date)
      */
     fun generatePeriods(
         aggregationType: TimeAggregation,
@@ -641,6 +641,133 @@ class DateRangeService @Inject constructor() {
             }
         }
         
+        return periods
+    }
+
+    /**
+     * Generate periods within a specific date range (for custom date ranges)
+     */
+    fun generatePeriodsInRange(
+        aggregationType: TimeAggregation,
+        startDate: Date,
+        endDate: Date
+    ): List<Pair<Date, Date>> {
+        Timber.d("Generating periods in range: $startDate to $endDate with aggregation: $aggregationType")
+        
+        val periods = mutableListOf<Pair<Date, Date>>()
+        val calendar = Calendar.getInstance()
+        calendar.time = startDate
+        
+        // Normalize start date to the beginning of the period
+        when (aggregationType) {
+            TimeAggregation.DAILY -> {
+                calendar.set(Calendar.HOUR_OF_DAY, 0)
+                calendar.set(Calendar.MINUTE, 0)
+                calendar.set(Calendar.SECOND, 0)
+                calendar.set(Calendar.MILLISECOND, 0)
+            }
+            TimeAggregation.WEEKLY -> {
+                val dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
+                val daysFromMonday = if (dayOfWeek == Calendar.SUNDAY) 6 else dayOfWeek - Calendar.MONDAY
+                calendar.add(Calendar.DAY_OF_MONTH, -daysFromMonday)
+                calendar.set(Calendar.HOUR_OF_DAY, 0)
+                calendar.set(Calendar.MINUTE, 0)
+                calendar.set(Calendar.SECOND, 0)
+                calendar.set(Calendar.MILLISECOND, 0)
+            }
+            TimeAggregation.MONTHLY -> {
+                calendar.set(Calendar.DAY_OF_MONTH, 1)
+                calendar.set(Calendar.HOUR_OF_DAY, 0)
+                calendar.set(Calendar.MINUTE, 0)
+                calendar.set(Calendar.SECOND, 0)
+                calendar.set(Calendar.MILLISECOND, 0)
+            }
+            TimeAggregation.QUARTERLY -> {
+                val month = calendar.get(Calendar.MONTH)
+                val quarterStartMonth = when (month) {
+                    in Calendar.JANUARY..Calendar.MARCH -> Calendar.JANUARY
+                    in Calendar.APRIL..Calendar.JUNE -> Calendar.APRIL
+                    in Calendar.JULY..Calendar.SEPTEMBER -> Calendar.JULY
+                    else -> Calendar.OCTOBER
+                }
+                calendar.set(Calendar.MONTH, quarterStartMonth)
+                calendar.set(Calendar.DAY_OF_MONTH, 1)
+                calendar.set(Calendar.HOUR_OF_DAY, 0)
+                calendar.set(Calendar.MINUTE, 0)
+                calendar.set(Calendar.SECOND, 0)
+                calendar.set(Calendar.MILLISECOND, 0)
+            }
+            TimeAggregation.YEARLY -> {
+                calendar.set(Calendar.MONTH, Calendar.JANUARY)
+                calendar.set(Calendar.DAY_OF_MONTH, 1)
+                calendar.set(Calendar.HOUR_OF_DAY, 0)
+                calendar.set(Calendar.MINUTE, 0)
+                calendar.set(Calendar.SECOND, 0)
+                calendar.set(Calendar.MILLISECOND, 0)
+            }
+        }
+        
+        while (calendar.time.before(endDate) || calendar.time.equals(endDate)) {
+            val periodStart = calendar.time
+            
+            // Calculate period end
+            val periodEndCalendar = calendar.clone() as Calendar
+            when (aggregationType) {
+                TimeAggregation.DAILY -> {
+                    periodEndCalendar.set(Calendar.HOUR_OF_DAY, 23)
+                    periodEndCalendar.set(Calendar.MINUTE, 59)
+                    periodEndCalendar.set(Calendar.SECOND, 59)
+                    periodEndCalendar.set(Calendar.MILLISECOND, 999)
+                }
+                TimeAggregation.WEEKLY -> {
+                    periodEndCalendar.add(Calendar.DAY_OF_MONTH, 6)
+                    periodEndCalendar.set(Calendar.HOUR_OF_DAY, 23)
+                    periodEndCalendar.set(Calendar.MINUTE, 59)
+                    periodEndCalendar.set(Calendar.SECOND, 59)
+                    periodEndCalendar.set(Calendar.MILLISECOND, 999)
+                }
+                TimeAggregation.MONTHLY -> {
+                    periodEndCalendar.set(Calendar.DAY_OF_MONTH, periodEndCalendar.getActualMaximum(Calendar.DAY_OF_MONTH))
+                    periodEndCalendar.set(Calendar.HOUR_OF_DAY, 23)
+                    periodEndCalendar.set(Calendar.MINUTE, 59)
+                    periodEndCalendar.set(Calendar.SECOND, 59)
+                    periodEndCalendar.set(Calendar.MILLISECOND, 999)
+                }
+                TimeAggregation.QUARTERLY -> {
+                    periodEndCalendar.add(Calendar.MONTH, 2)
+                    periodEndCalendar.set(Calendar.DAY_OF_MONTH, periodEndCalendar.getActualMaximum(Calendar.DAY_OF_MONTH))
+                    periodEndCalendar.set(Calendar.HOUR_OF_DAY, 23)
+                    periodEndCalendar.set(Calendar.MINUTE, 59)
+                    periodEndCalendar.set(Calendar.SECOND, 59)
+                    periodEndCalendar.set(Calendar.MILLISECOND, 999)
+                }
+                TimeAggregation.YEARLY -> {
+                    periodEndCalendar.set(Calendar.MONTH, Calendar.DECEMBER)
+                    periodEndCalendar.set(Calendar.DAY_OF_MONTH, 31)
+                    periodEndCalendar.set(Calendar.HOUR_OF_DAY, 23)
+                    periodEndCalendar.set(Calendar.MINUTE, 59)
+                    periodEndCalendar.set(Calendar.SECOND, 59)
+                    periodEndCalendar.set(Calendar.MILLISECOND, 999)
+                }
+            }
+            
+            val periodEnd = if (periodEndCalendar.time.after(endDate)) endDate else periodEndCalendar.time
+            
+            periods.add(Pair(periodStart, periodEnd))
+            
+            Timber.d("Generated period: $periodStart to $periodEnd")
+            
+            // Move to next period
+            when (aggregationType) {
+                TimeAggregation.DAILY -> calendar.add(Calendar.DAY_OF_MONTH, 1)
+                TimeAggregation.WEEKLY -> calendar.add(Calendar.WEEK_OF_YEAR, 1)
+                TimeAggregation.MONTHLY -> calendar.add(Calendar.MONTH, 1)
+                TimeAggregation.QUARTERLY -> calendar.add(Calendar.MONTH, 3)
+                TimeAggregation.YEARLY -> calendar.add(Calendar.YEAR, 1)
+            }
+        }
+        
+        Timber.d("Generated ${periods.size} periods in range")
         return periods
     }
     

@@ -55,6 +55,9 @@ class InsightsFragment : Fragment() {
     
     private lateinit var viewModel: InsightsViewModel
     
+    // Chart setup state tracking to prevent duplicates
+    private var isChartSetupInProgress = false
+    
     // Service dependencies
     private lateinit var dateRangeService: DateRangeService
     private lateinit var timeSeriesAggregationService: TimeSeriesAggregationService
@@ -1161,7 +1164,13 @@ class InsightsFragment : Fragment() {
      * Show category pie chart
      */
     private fun showCategoryPieChart() {
+        if (isChartSetupInProgress) {
+            Log.d(TAG, "PIE_CHART: Chart setup already in progress, skipping duplicate call")
+            return
+        }
+        
         Log.d(TAG, "PIE_CHART: FILTER_ENABLED Showing category pie chart with applied filters")
+        isChartSetupInProgress = true
         
         viewLifecycleOwner.lifecycleScope.launch {
             try {
@@ -1188,6 +1197,8 @@ class InsightsFragment : Fragment() {
             } catch (e: Exception) {
                 Log.e(TAG, "PIE_CHART: Error loading filtered category data", e)
                 showEmptyPieChart()
+            } finally {
+                isChartSetupInProgress = false
             }
         }
     }
@@ -1288,8 +1299,8 @@ class InsightsFragment : Fragment() {
             // Setup legend/category list
             setupCategoryLegend(chartView, categorySpendingResults, totalAmount)
             
-            // Update footer statistics with real data
-            updateChartSummaryStats(categorySpendingResults)
+            // Update chart summary stats in the current fragment
+            updateCategoryChartSummaryStats(chartView, categorySpendingResults)
             
             Log.d(TAG, "PIE_CHART: Pie chart setup completed successfully")
             
@@ -1421,7 +1432,13 @@ class InsightsFragment : Fragment() {
      * Show monthly bar chart
      */
     private fun showMonthlyBarChart() {
+        if (isChartSetupInProgress) {
+            Log.d(TAG, "BAR_CHART: Chart setup already in progress, skipping duplicate call")
+            return
+        }
+        
         Log.d(TAG, "BAR_CHART: Showing monthly bar chart with filters")
+        isChartSetupInProgress = true
         
         viewLifecycleOwner.lifecycleScope.launch {
             try {
@@ -1470,10 +1487,7 @@ class InsightsFragment : Fragment() {
                                 Log.d(TAG, "BAR_CHART_FIX: ChartConfigurationService setup result: $success")
                                 
                                 if (success) {
-                                    // Update summary statistics
-                                    currentFragment.view?.let { fragmentView ->
-                                        updateTimeSeriesChartSummary(fragmentView, chartData)
-                                    }
+                                    // Footer removed - no summary updates needed
                                 }
                             } else {
                                 Log.w(TAG, "BAR_CHART_FIX: BarChart not found in ViewPager2 fragment or no data")
@@ -1491,7 +1505,7 @@ class InsightsFragment : Fragment() {
                         
                         if (success) {
                             // Update summary statistics  
-                            updateTimeSeriesChartSummary(chartView, chartData)
+                            // Footer removed - no summary updates needed
                         }
                     } else {
                         Log.w(TAG, "BAR_CHART_FIX: chartView is not BarChart/ViewPager2 or no data available")
@@ -1504,10 +1518,69 @@ class InsightsFragment : Fragment() {
                 
             } catch (e: Exception) {
                 Log.e(TAG, "BAR_CHART: Error loading monthly data", e)
+            } finally {
+                isChartSetupInProgress = false
             }
         }
     }
     
+    /**
+     * Calculate the number of periods for a given date range and aggregation type
+     */
+    private fun calculatePeriodCount(startDate: Date, endDate: Date, aggregationType: TimeAggregation): Int {
+        val calendar = Calendar.getInstance()
+        calendar.time = startDate
+        val startCalendar = calendar.clone() as Calendar
+        
+        calendar.time = endDate
+        val endCalendar = calendar.clone() as Calendar
+        
+        return when (aggregationType) {
+            TimeAggregation.DAILY -> {
+                val diffInMillis = endDate.time - startDate.time
+                val diffInDays = (diffInMillis / (24 * 60 * 60 * 1000)).toInt() + 1 // +1 to include both start and end dates
+                Log.d(TAG, "CALCULATE_PERIOD_COUNT: Daily - Start: $startDate, End: $endDate, Days: $diffInDays")
+                diffInDays
+            }
+            TimeAggregation.WEEKLY -> {
+                var weeks = 0
+                while (startCalendar.before(endCalendar) || startCalendar.equals(endCalendar)) {
+                    weeks++
+                    startCalendar.add(Calendar.WEEK_OF_YEAR, 1)
+                }
+                Log.d(TAG, "CALCULATE_PERIOD_COUNT: Weekly - Weeks: $weeks")
+                weeks
+            }
+            TimeAggregation.MONTHLY -> {
+                var months = 0
+                while (startCalendar.before(endCalendar) || startCalendar.equals(endCalendar)) {
+                    months++
+                    startCalendar.add(Calendar.MONTH, 1)
+                }
+                Log.d(TAG, "CALCULATE_PERIOD_COUNT: Monthly - Months: $months")
+                months
+            }
+            TimeAggregation.QUARTERLY -> {
+                var quarters = 0
+                while (startCalendar.before(endCalendar) || startCalendar.equals(endCalendar)) {
+                    quarters++
+                    startCalendar.add(Calendar.MONTH, 3)
+                }
+                Log.d(TAG, "CALCULATE_PERIOD_COUNT: Quarterly - Quarters: $quarters")
+                quarters
+            }
+            TimeAggregation.YEARLY -> {
+                var years = 0
+                while (startCalendar.before(endCalendar) || startCalendar.equals(endCalendar)) {
+                    years++
+                    startCalendar.add(Calendar.YEAR, 1)
+                }
+                Log.d(TAG, "CALCULATE_PERIOD_COUNT: Yearly - Years: $years")
+                years
+            }
+        }
+    }
+
     /**
      * Get time series spending data based on current time aggregation and date range filters
      * Now uses TimeSeriesAggregationService to eliminate ~400 lines of duplicated logic
@@ -1557,12 +1630,20 @@ class InsightsFragment : Fragment() {
                     TimeAggregation.YEARLY -> 1
                     else -> 12
                 }
-                else -> when (aggregationType) {
-                    TimeAggregation.DAILY -> 30
-                    TimeAggregation.WEEKLY -> 4
-                    TimeAggregation.MONTHLY -> 6
-                    TimeAggregation.QUARTERLY -> 2
-                    TimeAggregation.YEARLY -> 1
+                else -> {
+                    // For custom date ranges or unknown filters, calculate actual period count
+                    if (currentFilters.startDate != null && currentFilters.endDate != null) {
+                        calculatePeriodCount(currentFilters.startDate!!, currentFilters.endDate!!, aggregationType)
+                    } else {
+                        // Default fallback values
+                        when (aggregationType) {
+                            TimeAggregation.DAILY -> 30
+                            TimeAggregation.WEEKLY -> 4
+                            TimeAggregation.MONTHLY -> 6
+                            TimeAggregation.QUARTERLY -> 2
+                            TimeAggregation.YEARLY -> 1
+                        }
+                    }
                 }
             }
             
@@ -1622,11 +1703,40 @@ class InsightsFragment : Fragment() {
             Log.d(TAG, "TIME_PERIOD_FILTER: Retrieved ${allTransactions.size} transactions, filtered to ${filteredTransactions.size}")
             
             // Use TimeSeriesAggregationService to generate time series data
-            val timeSeriesData = timeSeriesAggregationService.generateTimeSeriesData(
-                filteredTransactions,
-                aggregationType,
-                periodCount
-            )
+            val timeSeriesData = if (currentFilters.startDate != null && currentFilters.endDate != null) {
+                // For custom date ranges, use the new range-based method
+                Log.d(TAG, "TIME_PERIOD_FILTER: Using range-based generation for custom date range")
+                
+                // BAR_CHART_SMART_FIX: When using smart aggregation with Daily mode, cap end date to today
+                // This ensures we show only bars for days that have actually elapsed
+                val actualEndDate = if (aggregationType == TimeAggregation.DAILY && 
+                                      currentFilters.timePeriod == "This Month") {
+                    val today = Date()
+                    if (endDate.after(today)) {
+                        Log.d(TAG, "BAR_CHART_SMART_FIX: Capping end date from $endDate to today: $today")
+                        today
+                    } else {
+                        endDate
+                    }
+                } else {
+                    endDate
+                }
+                
+                timeSeriesAggregationService.generateTimeSeriesDataInRange(
+                    filteredTransactions,
+                    aggregationType,
+                    startDate,
+                    actualEndDate
+                )
+            } else {
+                // For predefined periods, use the count-based method
+                Log.d(TAG, "TIME_PERIOD_FILTER: Using count-based generation for period: ${currentFilters.timePeriod}")
+                timeSeriesAggregationService.generateTimeSeriesData(
+                    filteredTransactions,
+                    aggregationType,
+                    periodCount
+                )
+            }
             
             Log.d(TAG, "TIME_PERIOD_FILTER: Generated ${timeSeriesData.size} time series data points")
             return timeSeriesData
@@ -1637,151 +1747,8 @@ class InsightsFragment : Fragment() {
         }
     }
     
-    /**
-     * Setup time series bar chart with actual data (supports Daily, Weekly, Monthly, Quarterly, Yearly)
-     */
-    private fun setupTimeSeriesBarChart(chartView: View, timeSeriesData: List<TimeSeriesData>) {
-        try {
-            showBarChartLayout()
-            val barChart = chartView.findViewById<BarChart>(R.id.barChartMonthly)
-            if (barChart == null) {
-                Log.e(TAG, "BAR_CHART: BarChart component not found in layout")
-                return
-            }
-            
-            Log.d(TAG, "BAR_CHART_RENDER_DEBUG: Setting up bar chart with ${timeSeriesData.size} data points for ${currentFilters.timeAggregation}")
-            Log.d(TAG, "BAR_CHART_RENDER_DEBUG: TimeSeriesData: ${timeSeriesData.map { "${it.label}: ₹${it.amount}" }}")
-            
-            // Check if we have valid data
-            if (timeSeriesData.isEmpty()) {
-                Log.w(TAG, "BAR_CHART_RENDER_DEBUG: No data available for chart")
-                return
-            }
-            
-            // Create bar entries
-            val barEntries = timeSeriesData.mapIndexed {
-                index, data ->
-                Log.d(TAG, "BAR_CHART_RENDER_DEBUG: Creating BarEntry[$index] = ${data.amount} for ${data.label}")
-                BarEntry(index.toFloat(), data.amount.toFloat())
-            }
-            
-            Log.d(TAG, "BAR_CHART_RENDER_DEBUG: Created ${barEntries.size} bar entries: ${barEntries.map { "x=${it.x}, y=${it.y}" }}")
-            
-            // Create dataset
-            val dataSet = BarDataSet(barEntries, "Monthly Spending").apply {
-                colors = listOf(
-                    ContextCompat.getColor(requireContext(), R.color.primary),
-                    ContextCompat.getColor(requireContext(), R.color.secondary),
-                    ContextCompat.getColor(requireContext(), R.color.info),
-                    ContextCompat.getColor(requireContext(), R.color.success),
-                    ContextCompat.getColor(requireContext(), R.color.warning),
-                    ContextCompat.getColor(requireContext(), R.color.error)
-                )
-                valueTextSize = 12f
-                valueTextColor = Color.WHITE
-            }
-            
-            // Create bar data
-            val barData = BarData(dataSet).apply {
-                setValueFormatter(object : ValueFormatter() {
-                    override fun getFormattedValue(value: Float): String {
-                        return "₹${String.format("%.0f", value)}"
-                    }
-                })
-                barWidth = 0.8f
-            }
-            
-            // Configure bar chart
-            barChart.apply {
-                data = barData
-                description.isEnabled = false
-                legend.isEnabled = false
-                
-                // X-axis configuration
-                xAxis.apply {
-                    position = XAxis.XAxisPosition.BOTTOM
-                    setDrawGridLines(false)
-                    granularity = 1f
-                    valueFormatter = object : ValueFormatter() {
-                        override fun getFormattedValue(value: Float): String {
-                            val index = value.toInt()
-                            return if (index >= 0 && index < timeSeriesData.size) {
-                                timeSeriesData[index].label
-                            } else ""
-                        }
-                    }
-                    textColor = ContextCompat.getColor(requireContext(), R.color.text_primary)
-                }
-                
-                // Y-axis configuration
-                axisLeft.apply {
-                    setDrawGridLines(true)
-                    axisMinimum = 0f
-                    valueFormatter = object : ValueFormatter() {
-                        override fun getFormattedValue(value: Float): String {
-                            return "₹${String.format("%.0f", value)}"
-                        }
-                    }
-                    textColor = ContextCompat.getColor(requireContext(), R.color.text_primary)
-                }
-                
-                axisRight.isEnabled = false
-                
-                animateY(1000)
-                invalidate()
-            }
-            
-            // Update summary statistics
-            updateTimeSeriesChartSummary(chartView, timeSeriesData)
-            
-            Log.d(TAG, "BAR_CHART_RENDER_DEBUG: Chart setup completed successfully")
-            Log.d(TAG, "BAR_CHART_RENDER_DEBUG: Chart data count: ${barChart.data?.entryCount ?: 0}")
-            Log.d(TAG, "BAR_CHART_RENDER_DEBUG: Chart visibility: ${barChart.visibility}")
-            Log.d(TAG, "BAR_CHART_RENDER_DEBUG: Chart isEmpty: ${barChart.isEmpty}")
-            
-        } catch (e: Exception) {
-            Log.e(TAG, "BAR_CHART_RENDER_DEBUG: Error setting up bar chart", e)
-        }
-    }
+    // Old setupTimeSeriesBarChart function removed - now using ChartConfigurationService
     
-    /**
-     * Update monthly chart summary statistics
-     */
-    private fun updateTimeSeriesChartSummary(chartView: View, timeSeriesData: List<TimeSeriesData>) {
-        try {
-            val currentPeriod = timeSeriesData.lastOrNull()
-            val previousPeriod = if (timeSeriesData.size >= 2) timeSeriesData[timeSeriesData.size - 2] else null
-            
-            // Current period
-            chartView.findViewById<TextView>(R.id.tvCurrentMonth)?.text = 
-                "₹${String.format("%.0f", currentPeriod?.amount ?: 0.0)}"
-                
-            // Previous period  
-            chartView.findViewById<TextView>(R.id.tvLastMonth)?.text = 
-                "₹${String.format("%.0f", previousPeriod?.amount ?: 0.0)}"
-                
-            // Calculate trend percentage
-            val trendPercentage = if (currentPeriod != null && previousPeriod != null && previousPeriod.amount > 0) {
-                ((currentPeriod.amount - previousPeriod.amount) / previousPeriod.amount * 100)
-            } else 0.0
-            
-            val trendColor = when {
-                trendPercentage > 0 -> ContextCompat.getColor(requireContext(), R.color.error)
-                trendPercentage < 0 -> ContextCompat.getColor(requireContext(), R.color.success)
-                else -> ContextCompat.getColor(requireContext(), R.color.text_secondary)
-            }
-            
-            chartView.findViewById<TextView>(R.id.tvTrendPercentage)?.apply {
-                text = "${if (trendPercentage >= 0) "+" else ""}${String.format("%.1f", trendPercentage)}%"
-                setTextColor(trendColor)
-            }
-            
-            Log.d(TAG, "TIME_PERIOD_FILTER: Updated time series summary - Current: ₹${currentPeriod?.amount}, Previous: ₹${previousPeriod?.amount}, Trend: $trendPercentage%")
-            
-        } catch (e: Exception) {
-            Log.e(TAG, "BAR_CHART: Error updating monthly summary", e)
-        }
-    }
     
     /**
      * Show bar chart layout
@@ -2040,12 +2007,32 @@ class InsightsFragment : Fragment() {
     }
 
     private fun getSmartTimeAggregation(startDate: Date, endDate: Date): String {
-        val diff = endDate.time - startDate.time
+        // BAR_CHART_SMART_FIX: Use actual elapsed time (start to TODAY) instead of full range
+        val today = Date()
+        val actualEndDate = if (endDate.after(today)) today else endDate
+        
+        val diff = actualEndDate.time - startDate.time
         val days = diff / (1000 * 60 * 60 * 24)
+        
+        Log.d(TAG, "BAR_CHART_SMART_FIX: Smart aggregation calculation")
+        Log.d(TAG, "BAR_CHART_SMART_FIX: Start date: $startDate")
+        Log.d(TAG, "BAR_CHART_SMART_FIX: Original end date: $endDate")
+        Log.d(TAG, "BAR_CHART_SMART_FIX: Actual end date (capped to today): $actualEndDate")
+        Log.d(TAG, "BAR_CHART_SMART_FIX: Actual days elapsed: $days")
+        
         return when {
-            days <= 7 -> "Daily"
-            days <= 31 -> "Weekly"
-            else -> "Monthly"
+            days <= 7 -> {
+                Log.d(TAG, "BAR_CHART_SMART_FIX: Selected Daily aggregation (${days} days)")
+                "Daily"
+            }
+            days <= 35 -> {
+                Log.d(TAG, "BAR_CHART_SMART_FIX: Selected Weekly aggregation (${days} days)")
+                "Weekly"
+            }
+            else -> {
+                Log.d(TAG, "BAR_CHART_SMART_FIX: Selected Monthly aggregation (${days} days)")
+                "Monthly"
+            }
         }
     }
 
@@ -2065,10 +2052,45 @@ class InsightsFragment : Fragment() {
     }
 
 
-    private fun updateChartSummaryStats(categoryData: List<com.expensemanager.app.data.dao.CategorySpendingResult> = emptyList()) {
-        Log.d(TAG, "Updating chart summary statistics with ${categoryData.size} categories")
+    /**
+     * Update category chart summary stats in the chart fragment
+     */
+    private fun updateCategoryChartSummaryStats(chartView: View, categoryData: List<com.expensemanager.app.data.dao.CategorySpendingResult> = emptyList()) {
+        Log.d(TAG, "Updating category chart summary statistics with ${categoryData.size} categories")
 
         try {
+            // Update total categories
+            chartView.findViewById<TextView>(R.id.tvTotalCategories)?.text = "${categoryData.size}"
+
+            // Update top category (highest spending)
+            val topCategory = categoryData.maxByOrNull { it.total_amount }
+            if (topCategory != null) {
+                chartView.findViewById<TextView>(R.id.tvTopCategoryAmount)?.text = "₹${String.format("%.0f", topCategory.total_amount)}"
+                chartView.findViewById<TextView>(R.id.tvTopCategoryName)?.text = topCategory.category_name
+            } else {
+                chartView.findViewById<TextView>(R.id.tvTopCategoryAmount)?.text = "₹0"
+                chartView.findViewById<TextView>(R.id.tvTopCategoryName)?.text = "No Data"
+            }
+
+            // Calculate and update average transaction amount
+            val totalAmount = categoryData.sumOf { it.total_amount }
+            val totalTransactions = categoryData.sumOf { it.transaction_count }
+            val avgTransactionAmount = if (totalTransactions > 0) totalAmount / totalTransactions else 0.0
+            
+            chartView.findViewById<TextView>(R.id.tvAvgTransaction)?.text = "₹${String.format("%.0f", avgTransactionAmount)}"
+            
+            Log.d(TAG, "Category summary stats updated: ${categoryData.size} categories, top: ${topCategory?.category_name}, avg: ₹${String.format("%.0f", avgTransactionAmount)}")
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Error updating category chart summary statistics", e)
+        }
+    }
+
+    private fun updateChartSummaryStats(categoryData: List<com.expensemanager.app.data.dao.CategorySpendingResult> = emptyList()) {
+        Log.d(TAG, "Updating chart summary statistics with ${categoryData.size} categories - DEPRECATED, should use chart-specific functions")
+
+        try {
+            // This function is now deprecated as summary stats are in individual chart fragments
             // Update total categories
             binding.root.findViewById<android.widget.TextView>(R.id.tvTotalCategories)?.text = "${categoryData.size}"
 
