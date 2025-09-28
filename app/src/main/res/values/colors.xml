@@ -61,6 +61,19 @@
     <color name="suggestion_medium_confidence">#ff9800</color>
     <color name="suggestion_low_confidence">#e0e0e0</color>
     
+    <!-- Chart Colors for Analytics -->
+    <color name="chart_color_1">#3f51b5</color>
+    <color name="chart_color_2">#ff6b35</color>
+    <color name="chart_color_3">#4caf50</color>
+    <color name="chart_color_4">#e91e63</color>
+    <color name="chart_color_5">#ff9800</color>
+    <color name="chart_color_6">#9c27b0</color>
+    <color name="chart_color_7">#607d8b</color>
+    <color name="chart_color_8">#795548</color>
+    
+    <!-- Surface Variant for Material 3 -->
+    <color name="surface_variant">#2a2a2a</color>
+    
     <!-- Standard Colors -->
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>

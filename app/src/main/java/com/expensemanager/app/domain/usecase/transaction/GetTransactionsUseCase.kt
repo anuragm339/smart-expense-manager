@@ -5,6 +5,7 @@ import com.expensemanager.app.data.entities.TransactionEntity
 import com.expensemanager.app.domain.repository.TransactionRepositoryInterface
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import java.util.Calendar
 import java.util.Date
 import javax.inject.Inject
 
@@ -90,12 +91,30 @@ class GetTransactionsUseCase @Inject constructor(
     }
     
     /**
-     * Get recent transactions (last 30 days)
+     * Get recent transactions (current month - updated to match Dashboard logic)
      */
     suspend fun getRecentTransactions(): Result<List<TransactionEntity>> {
-        val thirtyDaysAgo = Date(System.currentTimeMillis() - (30 * 24 * 60 * 60 * 1000))
-        val today = Date()
-        return getTransactionsByDateRange(thirtyDaysAgo, today)
+        // Use current month instead of 30-day hardcoded period to match Dashboard
+        val calendar = Calendar.getInstance()
+        
+        // Start of current month
+        calendar.set(Calendar.DAY_OF_MONTH, 1)
+        calendar.set(Calendar.HOUR_OF_DAY, 0)
+        calendar.set(Calendar.MINUTE, 0)
+        calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
+        val startOfMonth = calendar.time
+        
+        // End of current month  
+        calendar.add(Calendar.MONTH, 1)
+        calendar.add(Calendar.DAY_OF_MONTH, -1)
+        calendar.set(Calendar.HOUR_OF_DAY, 23)
+        calendar.set(Calendar.MINUTE, 59)
+        calendar.set(Calendar.SECOND, 59)
+        calendar.set(Calendar.MILLISECOND, 999)
+        val endOfMonth = calendar.time
+        
+        return getTransactionsByDateRange(startOfMonth, endOfMonth)
     }
     
     /**

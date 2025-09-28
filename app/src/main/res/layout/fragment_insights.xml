@@ -38,11 +38,201 @@
                     style="@style/HeaderTextStyle"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="AI Financial Insights"
+                    android:text="AI Financial Analytics"
                     android:layout_marginBottom="16dp"
                     android:drawableStart="@drawable/ic_insights"
                     android:drawablePadding="12dp"
                     android:drawableTint="@color/secondary" />
+
+                <!-- Advanced Filters Panel -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardFilters"
+                    style="@style/CardStyle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="16dp"
+                    app:strokeColor="@color/primary"
+                    app:strokeWidth="1dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="16dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Analytics Filters"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/primary"
+                            android:layout_marginBottom="12dp"
+                            android:drawableStart="@drawable/ic_sort"
+                            android:drawablePadding="8dp"
+                            android:drawableTint="@color/primary" />
+
+                        <!-- Filter Row 1: Date Range & Period -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginBottom="12dp">
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnDateRange"
+                                android:layout_width="0dp"
+                                android:layout_height="40dp"
+                                android:layout_weight="1"
+                                android:text="Last 30 Days"
+                                android:textSize="12sp"
+                                style="@style/Widget.Material3.Button.OutlinedButton"
+                                app:icon="@drawable/ic_calendar"
+                                app:iconSize="16dp"
+                                app:cornerRadius="8dp"
+                                android:layout_marginEnd="8dp" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnTimePeriod"
+                                android:layout_width="0dp"
+                                android:layout_height="40dp"
+                                android:layout_weight="1"
+                                android:text="Monthly"
+                                android:textSize="12sp"
+                                style="@style/Widget.Material3.Button.OutlinedButton"
+                                app:icon="@drawable/ic_chart"
+                                app:iconSize="16dp"
+                                app:cornerRadius="8dp" />
+
+                        </LinearLayout>
+
+                        <!-- Filter Row 2: Category & Merchant -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginBottom="12dp">
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnCategoryFilter"
+                                android:layout_width="0dp"
+                                android:layout_height="40dp"
+                                android:layout_weight="1"
+                                android:text="All Categories"
+                                android:textSize="12sp"
+                                style="@style/Widget.Material3.Button.OutlinedButton"
+                                app:icon="@drawable/ic_category"
+                                app:iconSize="16dp"
+                                app:cornerRadius="8dp"
+                                android:layout_marginEnd="8dp" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnMerchantFilter"
+                                android:layout_width="0dp"
+                                android:layout_height="40dp"
+                                android:layout_weight="1"
+                                android:text="All Merchants"
+                                android:textSize="12sp"
+                                style="@style/Widget.Material3.Button.OutlinedButton"
+                                app:icon="@drawable/ic_store"
+                                app:iconSize="16dp"
+                                app:cornerRadius="8dp" />
+
+                        </LinearLayout>
+
+                        <!-- Amount Range Filter -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Amount: ₹"
+                                android:textSize="12sp"
+                                android:textColor="@color/text_secondary" />
+
+                            <com.google.android.material.slider.RangeSlider
+                                android:id="@+id/rangeSliderAmount"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:valueFrom="0"
+                                android:valueTo="10000"
+                                app:values="@array/default_amount_range"
+                                app:thumbColor="@color/primary"
+                                app:trackColorActive="@color/primary"
+                                app:trackColorInactive="@color/text_hint" />
+
+                            <TextView
+                                android:id="@+id/tvAmountRange"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="0-10K"
+                                android:textSize="12sp"
+                                android:textColor="@color/text_secondary"
+                                android:layout_marginStart="8dp" />
+
+                        </LinearLayout>
+
+                    </LinearLayout>
+
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- Interactive Charts Section -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardCharts"
+                    style="@style/CardStyle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="16dp"
+                    app:strokeColor="@color/secondary"
+                    app:strokeWidth="1dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="20dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Visual Analytics"
+                            android:textSize="18sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/secondary"
+                            android:layout_marginBottom="16dp"
+                            android:drawableStart="@drawable/ic_chart"
+                            android:drawablePadding="8dp"
+                            android:drawableTint="@color/secondary" />
+
+                        <!-- Chart Type Selector -->
+                        <com.google.android.material.tabs.TabLayout
+                            android:id="@+id/tabLayoutCharts"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="16dp"
+                            app:tabMode="fixed"
+                            app:tabGravity="fill"
+                            app:tabIndicatorColor="@color/secondary"
+                            app:tabSelectedTextColor="@color/secondary"
+                            app:tabTextColor="@color/text_secondary" />
+
+                        <!-- Chart Container -->
+                        <androidx.viewpager2.widget.ViewPager2
+                            android:id="@+id/viewPagerCharts"
+                            android:layout_width="match_parent"
+                            android:layout_height="480dp"
+                            android:layout_marginBottom="16dp" />
+
+                        <!-- Chart Summary Stats will be shown within each chart fragment -->
+
+                    </LinearLayout>
+
+                </com.google.android.material.card.MaterialCardView>
 
                 <!-- Spending Forecast -->
                 <com.google.android.material.card.MaterialCardView

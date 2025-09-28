@@ -3,8 +3,9 @@ package com.expensemanager.app.domain.usecase.category
 import android.util.Log
 import com.expensemanager.app.data.dao.CategorySpendingResult
 import com.expensemanager.app.domain.repository.CategoryRepositoryInterface
+import com.expensemanager.app.services.DateRangeService
+import com.expensemanager.app.services.DateRangeService.Companion.DateRangeType
 import java.util.Date
-import java.util.Calendar
 import javax.inject.Inject
 
 /**
@@ -12,7 +13,8 @@ import javax.inject.Inject
  * Handles spending calculations, filtering, and analysis
  */
 class GetCategorySpendingUseCase @Inject constructor(
-    private val repository: CategoryRepositoryInterface
+    private val repository: CategoryRepositoryInterface,
+    private val dateRangeService: DateRangeService
 ) {
     
     companion object {
@@ -57,27 +59,62 @@ class GetCategorySpendingUseCase @Inject constructor(
      * Get current month category spending
      */
     suspend fun getCurrentMonthSpending(): Result<List<CategorySpendingResult>> {
-        val calendar = Calendar.getInstance()
-        calendar.set(Calendar.DAY_OF_MONTH, 1)
-        calendar.set(Calendar.HOUR_OF_DAY, 0)
-        calendar.set(Calendar.MINUTE, 0)
-        calendar.set(Calendar.SECOND, 0)
-        calendar.set(Calendar.MILLISECOND, 0)
-        
-        val startDate = calendar.time
-        val endDate = Date()
-        
+        val (startDate, endDate) = dateRangeService.getDateRange(DateRangeType.CURRENT_MONTH)
         return execute(startDate, endDate)
     }
     
     /**
-     * Get last 30 days category spending
+     * Get current month category spending (updated to match Dashboard logic)
      */
     suspend fun getLastThirtyDaysSpending(): Result<List<CategorySpendingResult>> {
-        val thirtyDaysAgo = Date(System.currentTimeMillis() - (30 * 24 * 60 * 60 * 1000))
-        val today = Date()
-        
-        return execute(thirtyDaysAgo, today)
+        // Use current month instead of 30-day hardcoded period to match Dashboard
+        val (startDate, endDate) = dateRangeService.getDateRange(DateRangeType.CURRENT_MONTH)
+        return execute(startDate, endDate)
+    }
+    
+    /**
+     * Get last 7 days category spending
+     */
+    suspend fun getLast7DaysSpending(): Result<List<CategorySpendingResult>> {
+        val (startDate, endDate) = dateRangeService.getDateRange(DateRangeType.LAST_7_DAYS)
+        Log.d(TAG, "Getting last 7 days spending from $startDate to $endDate")
+        return execute(startDate, endDate)
+    }
+    
+    /**
+     * Get last 30 days category spending (actual 30 days, not current month)
+     */
+    suspend fun getLast30DaysSpending(): Result<List<CategorySpendingResult>> {
+        val (startDate, endDate) = dateRangeService.getDateRange(DateRangeType.LAST_30_DAYS)
+        Log.d(TAG, "Getting last 30 days spending from $startDate to $endDate")
+        return execute(startDate, endDate)
+    }
+    
+    /**
+     * Get last 3 months category spending
+     */
+    suspend fun getLast3MonthsSpending(): Result<List<CategorySpendingResult>> {
+        val (startDate, endDate) = dateRangeService.getDateRange(DateRangeType.LAST_3_MONTHS)
+        Log.d(TAG, "Getting last 3 months spending from $startDate to $endDate")
+        return execute(startDate, endDate)
+    }
+    
+    /**
+     * Get last 6 months category spending
+     */
+    suspend fun getLast6MonthsSpending(): Result<List<CategorySpendingResult>> {
+        val (startDate, endDate) = dateRangeService.getDateRange(DateRangeType.LAST_6_MONTHS)
+        Log.d(TAG, "Getting last 6 months spending from $startDate to $endDate")
+        return execute(startDate, endDate)
+    }
+    
+    /**
+     * Get this year category spending
+     */
+    suspend fun getThisYearSpending(): Result<List<CategorySpendingResult>> {
+        val (startDate, endDate) = dateRangeService.getDateRange(DateRangeType.THIS_YEAR)
+        Log.d(TAG, "Getting this year spending from $startDate to $endDate")
+        return execute(startDate, endDate)
     }
     
     /**
