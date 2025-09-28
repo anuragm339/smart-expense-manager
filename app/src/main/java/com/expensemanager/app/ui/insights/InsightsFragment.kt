@@ -21,6 +21,12 @@ import com.expensemanager.app.databinding.FragmentInsightsBinding
 import com.expensemanager.app.domain.insights.GetAIInsightsUseCase
 import com.expensemanager.app.domain.insights.InsightsUseCaseFactory
 import com.expensemanager.app.domain.usecase.category.GetCategorySpendingUseCase
+import com.expensemanager.app.services.DateRangeService
+import com.expensemanager.app.services.DateRangeService.Companion.DateRangeType
+import com.expensemanager.app.services.TimeSeriesAggregationService
+import com.expensemanager.app.services.TimeSeriesAggregationService.TimeSeriesData
+import com.expensemanager.app.services.DateRangeService.Companion.TimeAggregation
+import com.expensemanager.app.services.ChartConfigurationService
 import com.facebook.shimmer.ShimmerFrameLayout
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
@@ -49,6 +55,11 @@ class InsightsFragment : Fragment() {
     
     private lateinit var viewModel: InsightsViewModel
     
+    // Service dependencies
+    private lateinit var dateRangeService: DateRangeService
+    private lateinit var timeSeriesAggregationService: TimeSeriesAggregationService
+    private lateinit var chartConfigurationService: ChartConfigurationService
+    
     // State management views
     private lateinit var swipeRefreshLayout: SwipeRefreshLayout
     private lateinit var shimmerLoading: View
@@ -74,6 +85,21 @@ class InsightsFragment : Fragment() {
     ): View {
         _binding = FragmentInsightsBinding.inflate(inflater, container, false)
         return binding.root
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        initializeViews()
+        setupViewModel()
+        setupUI()
+        observeUIState()
+        setupClickListeners()
+        setupAnalyticsFilters()
+        setupInteractiveCharts()
+        setupDefaultFilters()
+
+        forceInitialRefresh()
     }
     
     
@@ -101,6 +127,16 @@ class InsightsFragment : Fragment() {
             val expenseRepository = ExpenseRepository.getInstance(requireContext())
             val aiInsightsRepository = AIInsightsRepository.getInstance(requireContext(), expenseRepository)
             val getAIInsightsUseCase = InsightsUseCaseFactory.createGetAIInsightsUseCase(aiInsightsRepository)
+            
+            // Create service dependencies
+            val dateRangeService = DateRangeService()
+            val timeSeriesAggregationService = TimeSeriesAggregationService(dateRangeService)
+            val chartConfigurationService = ChartConfigurationService(requireContext())
+            
+            // Store services for use in fragment
+            this.dateRangeService = dateRangeService
+            this.timeSeriesAggregationService = timeSeriesAggregationService
+            this.chartConfigurationService = chartConfigurationService
             
             // Create ViewModel
             val factory = InsightsViewModelFactory(getAIInsightsUseCase)
@@ -632,6 +668,26 @@ class InsightsFragment : Fragment() {
             viewModel.handleEvent(InsightsUIEvent.Refresh)
         }
     }
+
+    private fun setupDefaultFilters() {
+        val calendar = Calendar.getInstance()
+        val currentDay = calendar.get(Calendar.DAY_OF_MONTH)
+
+        // Default to This Month
+        currentFilters.timePeriod = "This Month"
+        binding.root.findViewById<TextView>(R.id.btnDateRange)?.text = "This Month"
+
+        // Smart aggregation for This Month
+        currentFilters.timeAggregation = if (currentDay <= 7) {
+            "Daily"
+        } else {
+            "Weekly"
+        }
+        binding.root.findViewById<TextView>(R.id.btnTimePeriod)?.text = currentFilters.timeAggregation
+
+        // Apply the default filters
+        applyDateRangeFilter("This Month")
+    }
     
     /**
      * Handle refresh action (connected to pull-to-refresh)
@@ -741,7 +797,8 @@ class InsightsFragment : Fragment() {
         // Amount Range Slider
         val rangeSlider = binding.root.findViewById<com.google.android.material.slider.RangeSlider>(R.id.rangeSliderAmount)
         if (rangeSlider != null) {
-            rangeSlider.addOnChangeListener { _, _, _ ->
+            rangeSlider.addOnChangeListener {
+                _, _, _ ->
                 updateAmountRangeDisplay(rangeSlider.values)
                 
                 // Update filter conditions
@@ -782,6 +839,17 @@ class InsightsFragment : Fragment() {
      * Show time period selection dialog
      */
     private fun showTimePeriodDialog() {
+        // PIE_CHART_FIX: Check if we're currently in PIE Chart tab (position 0)
+        val tabLayout = binding.root.findViewById<com.google.android.material.tabs.TabLayout>(R.id.tabLayoutCharts)
+        val currentTab = tabLayout?.selectedTabPosition ?: 0
+        
+        if (currentTab == 0) {
+            // We're in PIE chart tab - time period doesn't apply to pie charts
+            Log.d(TAG, "PIE_CHART_FIX: Time period dialog blocked - currently in PIE Chart tab")
+            return
+        }
+        
+        Log.d(TAG, "TIME_PERIOD_FILTER: Showing time period dialog for tab position: $currentTab")
         val timePeriods = resources.getStringArray(R.array.time_periods)
         
         androidx.appcompat.app.AlertDialog.Builder(requireContext())
@@ -806,6 +874,11 @@ class InsightsFragment : Fragment() {
             try {
                 val expenseRepository = ExpenseRepository.getInstance(requireContext())
                 val categories = expenseRepository.getAllCategoriesSync()
+                
+                Log.d(TAG, "PIE_CHART_FIX: Loading categories from DB - Found ${categories.size} categories")
+                categories.forEach { category ->
+                    Log.d(TAG, "PIE_CHART_FIX: Category from DB: ${category.name} (ID: ${category.id})")
+                }
                 
                 val categoryNames = categories.map { category -> category.name }.toTypedArray()
                 val selectedItems = BooleanArray(categoryNames.size) { index ->
@@ -947,69 +1020,61 @@ class InsightsFragment : Fragment() {
     }
     
     /**
-     * Apply date range filter
+     * Apply date range filter with smart time aggregation update
      */
     private fun applyDateRangeFilter(dateRange: String) {
         Log.d(TAG, "FILTER: Applying date range filter: $dateRange")
-        
-        val calendar = Calendar.getInstance()
-        when (dateRange) {
-            "Last 7 Days" -> {
-                currentFilters.startDate = Calendar.getInstance().apply {
-                    add(Calendar.DAY_OF_MONTH, -7)
-                }.time
-                currentFilters.endDate = Date()
+
+        try {
+            val dateRangeType = when (dateRange) {
+                "This Month" -> DateRangeType.CURRENT_MONTH
+                "Last Month" -> DateRangeType.LAST_MONTH
+                "Last 7 Days" -> DateRangeType.LAST_7_DAYS
+                "Last 30 Days" -> DateRangeType.LAST_30_DAYS
+                "Last 3 Months" -> DateRangeType.LAST_3_MONTHS
+                "Last 6 Months" -> DateRangeType.LAST_6_MONTHS
+                "This Year" -> DateRangeType.THIS_YEAR
+                else -> null
             }
-            "Last 30 Days" -> {
-                currentFilters.startDate = Calendar.getInstance().apply {
-                    add(Calendar.DAY_OF_MONTH, -30)
-                }.time
-                currentFilters.endDate = Date()
-            }
-            "Last 3 Months" -> {
-                currentFilters.startDate = Calendar.getInstance().apply {
-                    add(Calendar.MONTH, -3)
-                }.time
-                currentFilters.endDate = Date()
-            }
-            "Last 6 Months" -> {
-                currentFilters.startDate = Calendar.getInstance().apply {
-                    add(Calendar.MONTH, -6)
-                }.time
-                currentFilters.endDate = Date()
-            }
-            "Current Month" -> {
-                val startOfMonth = Calendar.getInstance().apply {
-                    set(Calendar.DAY_OF_MONTH, 1)
-                    set(Calendar.HOUR_OF_DAY, 0)
-                    set(Calendar.MINUTE, 0)
-                    set(Calendar.SECOND, 0)
-                    set(Calendar.MILLISECOND, 0)
-                }
-                currentFilters.startDate = startOfMonth.time
-                currentFilters.endDate = Date()
-            }
-            else -> {
+
+            if (dateRangeType != null) {
+                val (startDate, endDate) = dateRangeService.getDateRange(dateRangeType)
+                currentFilters.startDate = startDate
+                currentFilters.endDate = endDate
+
+                // Update smart time aggregation for BAR_CHART when date range changes
+                currentFilters.timeAggregation = getSmartTimeAggregation(startDate, endDate)
+                binding.root.findViewById<TextView>(R.id.btnTimePeriod)?.text = currentFilters.timeAggregation
+
+                Log.d(TAG, "BAR_CHART_FIX: Applied ${dateRange} filter: ${startDate} to ${endDate}")
+                Log.d(TAG, "BAR_CHART_FIX: Updated time aggregation to: ${currentFilters.timeAggregation}")
+            } else {
                 currentFilters.startDate = null
                 currentFilters.endDate = null
+                Log.d(TAG, "FILTER: No specific date range filter applied for: $dateRange")
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "FILTER: Error applying date range filter", e)
+            currentFilters.startDate = null
+            currentFilters.endDate = null
         }
-        
+
         currentFilters.timePeriod = dateRange
+        binding.root.findViewById<TextView>(R.id.btnDateRange)?.text = dateRange
         applyFiltersAndRefresh()
     }
     
     /**
-     * Apply time period filter
+     * Apply time period filter (user override of smart aggregation)
      */
     private fun applyTimePeriodFilter(timePeriod: String) {
-        Log.d(TAG, "TIME_PERIOD_FILTER: Applying time period filter: $timePeriod")
+        Log.d(TAG, "TIME_PERIOD_FILTER: User overriding time period filter: $timePeriod")
         
-        // Update the current filters
+        // User can override smart aggregation - this takes precedence
         currentFilters.timeAggregation = timePeriod
         
         // Log for debugging
-        Log.d(TAG, "TIME_PERIOD_FILTER: Updated currentFilters.timeAggregation to: ${currentFilters.timeAggregation}")
+        Log.d(TAG, "BAR_CHART_USER_OVERRIDE: User manually set timeAggregation to: ${currentFilters.timeAggregation}")
         
         // Apply the filter and refresh the charts
         applyFiltersAndRefresh()
@@ -1107,6 +1172,12 @@ class InsightsFragment : Fragment() {
                 Log.d(TAG, "PIE_CHART: Retrieved ${categorySpendingResults.size} categories with filters applied")
                 Log.d(TAG, "FILTER: Active filters - Categories: ${currentFilters.selectedCategories.joinToString()}, Amount: ₹${currentFilters.minAmount}-₹${currentFilters.maxAmount}")
                 
+                // PIE_CHART_FIX: Debug which categories are coming from spending data
+                Log.d(TAG, "PIE_CHART_FIX: Categories from spending data:")
+                categorySpendingResults.forEach { category ->
+                    Log.d(TAG, "PIE_CHART_FIX: Spending category: ${category.category_name} - ₹${category.total_amount} (${category.transaction_count} transactions)")
+                }
+                
                 if (categorySpendingResults.isNotEmpty()) {
                     setupCategoryPieChart(categorySpendingResults)
                 } else {
@@ -1177,10 +1248,10 @@ class InsightsFragment : Fragment() {
             Log.d(TAG, "PIE_CHART: Total amount: ₹${String.format("%.2f", totalAmount)}")
             
             // Create pie entries
-            val pieEntries = categorySpendingResults.map { categoryResult ->
+            val pieEntries = categorySpendingResults.map {
                 PieEntry(
-                    categoryResult.total_amount.toFloat(),
-                    categoryResult.category_name
+                    it.total_amount.toFloat(),
+                    it.category_name
                 )
             }
             
@@ -1292,7 +1363,8 @@ class InsightsFragment : Fragment() {
      * Get appropriate colors for categories
      */
     private fun getCategoryColors(categorySpendingResults: List<com.expensemanager.app.data.dao.CategorySpendingResult>): List<Int> {
-        return categorySpendingResults.mapIndexed { index, categoryResult ->
+        return categorySpendingResults.mapIndexed {
+            index, categoryResult ->
             try {
                 // Try to parse category color from database
                 Color.parseColor(categoryResult.color)
@@ -1313,13 +1385,13 @@ class InsightsFragment : Fragment() {
                 Log.d(TAG, "PIE_CHART: Setting up category legend with ${categorySpendingResults.size} items")
                 
                 // Create legend items
-                val legendItems = categorySpendingResults.map { categoryResult ->
+                val legendItems = categorySpendingResults.map {
                     CategoryLegendItem(
-                        name = categoryResult.category_name,
-                        amount = categoryResult.total_amount,
-                        percentage = (categoryResult.total_amount / totalAmount * 100),
-                        color = try { Color.parseColor(categoryResult.color) } catch (e: Exception) { Color.BLUE },
-                        transactionCount = categoryResult.transaction_count
+                        name = it.category_name,
+                        amount = it.total_amount,
+                        percentage = (it.total_amount / totalAmount * 100),
+                        color = try { Color.parseColor(it.color) } catch (e: Exception) { Color.BLUE },
+                        transactionCount = it.transaction_count
                     )
                 }
                 
@@ -1360,12 +1432,74 @@ class InsightsFragment : Fragment() {
                 // Get monthly spending data based on current filter
                 val chartData = getTimeSeriesSpendingData(expenseRepository)
                 
+                Log.d(TAG, "BAR_CHART_FLOW_DEBUG: getTimeSeriesSpendingData returned ${chartData.size} data points")
+                Log.d(TAG, "BAR_CHART_FLOW_DEBUG: Data points: ${chartData.map { "${it.label}: ₹${it.amount}" }}")
+                
                 val chartView = findChartView()
+                Log.d(TAG, "BAR_CHART_FLOW_DEBUG: findChartView() returned: ${chartView != null}")
+                
                 if (chartView != null) {
                     showBarChartLayout()
-                    setupTimeSeriesBarChart(chartView, chartData)
+                    Log.d(TAG, "BAR_CHART_FLOW_DEBUG: About to call setupTimeSeriesBarChart with ${chartData.size} data points")
+                    
+                    // BAR_CHART_FIX: For ViewPager2, we need to get the current fragment's BarChart
+                    if (chartView is androidx.viewpager2.widget.ViewPager2) {
+                        Log.d(TAG, "BAR_CHART_FIX: chartView is ViewPager2, setting up adapter and finding BarChart")
+                        
+                        // Set up ViewPager2 adapter if not already set
+                        if (chartView.adapter == null) {
+                            chartView.adapter = ChartPagerAdapter(this@InsightsFragment)
+                        }
+                        
+                        // Switch to bar chart page (index 1)
+                        chartView.currentItem = 1
+                        
+                        // Post delayed to ensure fragment is created and view is inflated
+                        chartView.post {
+                            // Try to find the actual BarChart in the current fragment
+                            val currentFragment = childFragmentManager.findFragmentByTag("f1") // ViewPager2 uses "f{position}" tags
+                            val barChart = currentFragment?.view?.findViewById<BarChart>(R.id.barChartMonthly)
+                            
+                            if (barChart != null && chartData.isNotEmpty()) {
+                                Log.d(TAG, "BAR_CHART_FIX: Found BarChart in ViewPager2 fragment")
+                                val success = chartConfigurationService.setupTimeSeriesBarChart(
+                                    barChart, 
+                                    chartData, 
+                                    currentFilters.timeAggregation ?: "Monthly"
+                                )
+                                Log.d(TAG, "BAR_CHART_FIX: ChartConfigurationService setup result: $success")
+                                
+                                if (success) {
+                                    // Update summary statistics
+                                    currentFragment.view?.let { fragmentView ->
+                                        updateTimeSeriesChartSummary(fragmentView, chartData)
+                                    }
+                                }
+                            } else {
+                                Log.w(TAG, "BAR_CHART_FIX: BarChart not found in ViewPager2 fragment or no data")
+                            }
+                        }
+                    } else if (chartView is BarChart && chartData.isNotEmpty()) {
+                        // Direct BarChart (fallback case)
+                        Log.d(TAG, "BAR_CHART_FIX: Using chartView directly as BarChart")
+                        val success = chartConfigurationService.setupTimeSeriesBarChart(
+                            chartView, 
+                            chartData, 
+                            currentFilters.timeAggregation ?: "Monthly"
+                        )
+                        Log.d(TAG, "BAR_CHART_FIX: ChartConfigurationService setup result: $success")
+                        
+                        if (success) {
+                            // Update summary statistics  
+                            updateTimeSeriesChartSummary(chartView, chartData)
+                        }
+                    } else {
+                        Log.w(TAG, "BAR_CHART_FIX: chartView is not BarChart/ViewPager2 or no data available")
+                        Log.e(TAG, "BAR_CHART_FIX: chartView type: ${chartView?.javaClass?.simpleName}")
+                        Log.e(TAG, "BAR_CHART_FIX: chartData size: ${chartData.size}")
+                    }
                 } else {
-                    Log.e(TAG, "BAR_CHART: Chart view not found")
+                    Log.e(TAG, "BAR_CHART_FLOW_DEBUG: Chart view not found - cannot setup chart")
                 }
                 
             } catch (e: Exception) {
@@ -1376,324 +1510,131 @@ class InsightsFragment : Fragment() {
     
     /**
      * Get time series spending data based on current time aggregation and date range filters
+     * Now uses TimeSeriesAggregationService to eliminate ~400 lines of duplicated logic
      */
     private suspend fun getTimeSeriesSpendingData(repository: ExpenseRepository): List<TimeSeriesData> {
         Log.d(TAG, "TIME_PERIOD_FILTER: Getting time series data for aggregation: ${currentFilters.timeAggregation}")
         
-        return when (currentFilters.timeAggregation) {
-            "Daily" -> getDailySpendingData(repository)
-            "Weekly" -> getWeeklySpendingData(repository) 
-            "Quarterly" -> getQuarterlySpendingData(repository)
-            "Yearly" -> getYearlySpendingData(repository)
-            else -> getMonthlySpendingDataInternal(repository) // Default to monthly
-        }
-    }
-    
-    /**
-     * Get monthly spending data based on current date range filter (internal implementation)
-     */
-    private suspend fun getMonthlySpendingDataInternal(repository: ExpenseRepository): List<TimeSeriesData> {
-        val timeSeriesData = mutableListOf<TimeSeriesData>()
-        val calendar = Calendar.getInstance()
-        
-        // Determine how many months to show based on date range filter
-        val monthsToShow = when (currentFilters.timePeriod) {
-            "Last 3 Months" -> 3
-            "Last 6 Months" -> 6
-            "This Year" -> {
-                // Calculate months from January to current month
-                val currentMonth = Calendar.getInstance().get(Calendar.MONTH)
-                currentMonth + 1 // January is 0, so add 1
+        try {
+            // Map UI filter strings to TimeAggregation enum
+            val aggregationType = when (currentFilters.timeAggregation) {
+                "Daily" -> TimeAggregation.DAILY
+                "Weekly" -> TimeAggregation.WEEKLY 
+                "Quarterly" -> TimeAggregation.QUARTERLY
+                "Yearly" -> TimeAggregation.YEARLY
+                else -> TimeAggregation.MONTHLY // Default to monthly
             }
-            "Last 7 Days", "Last 30 Days" -> {
-                // For short periods, show current month only
-                1
+            
+            // Determine period count based on date range filter
+            val periodCount = when (currentFilters.timePeriod) {
+                "Last 7 Days" -> if (aggregationType == TimeAggregation.DAILY) 7 else 1
+                "Last 30 Days" -> when (aggregationType) {
+                    TimeAggregation.DAILY -> 30
+                    TimeAggregation.WEEKLY -> 4
+                    else -> 1
+                }
+                "This Month", "Current Month" -> 1
+                "Last 3 Months" -> when (aggregationType) {
+                    TimeAggregation.DAILY -> 90
+                    TimeAggregation.WEEKLY -> 12
+                    TimeAggregation.MONTHLY -> 3
+                    else -> 1
+                }
+                "Last 6 Months" -> when (aggregationType) {
+                    TimeAggregation.MONTHLY -> 6
+                    TimeAggregation.QUARTERLY -> 2
+                    else -> 6
+                }
+                "This Year" -> when (aggregationType) {
+                    TimeAggregation.MONTHLY -> {
+                        val currentMonth = Calendar.getInstance().get(Calendar.MONTH)
+                        currentMonth + 1 // January is 0, so add 1
+                    }
+                    TimeAggregation.QUARTERLY -> {
+                        val currentMonth = Calendar.getInstance().get(Calendar.MONTH)
+                        (currentMonth / 3) + 1
+                    }
+                    TimeAggregation.YEARLY -> 1
+                    else -> 12
+                }
+                else -> when (aggregationType) {
+                    TimeAggregation.DAILY -> 30
+                    TimeAggregation.WEEKLY -> 4
+                    TimeAggregation.MONTHLY -> 6
+                    TimeAggregation.QUARTERLY -> 2
+                    TimeAggregation.YEARLY -> 1
+                }
             }
-            "Current Month" -> 1
-            else -> 6 // Default to 6 months
-        }
-        
-        Log.d(TAG, "TIME_PERIOD_FILTER: Showing $monthsToShow months for filter: ${currentFilters.timePeriod}")
-        
-        // Get data for the determined number of months
-        for (i in (monthsToShow - 1) downTo 0) {
-            calendar.time = Date()
-            calendar.add(Calendar.MONTH, -i)
             
-            val startOfMonth = calendar.clone() as Calendar
-            startOfMonth.set(Calendar.DAY_OF_MONTH, 1)
-            startOfMonth.set(Calendar.HOUR_OF_DAY, 0)
-            startOfMonth.set(Calendar.MINUTE, 0)
-            startOfMonth.set(Calendar.SECOND, 0)
-            startOfMonth.set(Calendar.MILLISECOND, 0)
+            Log.d(TAG, "TIME_PERIOD_FILTER: Using aggregation: $aggregationType, periods: $periodCount")
             
-            val endOfMonth = calendar.clone() as Calendar
-            endOfMonth.set(Calendar.DAY_OF_MONTH, endOfMonth.getActualMaximum(Calendar.DAY_OF_MONTH))
-            endOfMonth.set(Calendar.HOUR_OF_DAY, 23)
-            endOfMonth.set(Calendar.MINUTE, 59)
-            endOfMonth.set(Calendar.SECOND, 59)
-            endOfMonth.set(Calendar.MILLISECOND, 999)
+            // Use the existing date range from filters if available, otherwise calculate based on aggregation
+            val (startDate, endDate) = if (currentFilters.startDate != null && currentFilters.endDate != null) {
+                Log.d(TAG, "BAR_CHART: Using filter date range: ${currentFilters.startDate} to ${currentFilters.endDate}")
+                Pair(currentFilters.startDate!!, currentFilters.endDate!!)
+            } else {
+                // Fallback to calculated date range for backward compatibility
+                Log.d(TAG, "BAR_CHART: No filter date range set, calculating based on aggregation")
+                when (aggregationType) {
+                    TimeAggregation.DAILY -> {
+                        val cal = Calendar.getInstance()
+                        val end = cal.time
+                        cal.add(Calendar.DAY_OF_MONTH, -periodCount + 1)
+                        Pair(cal.time, end)
+                    }
+                    TimeAggregation.WEEKLY -> {
+                        val cal = Calendar.getInstance()
+                        val end = cal.time
+                        cal.add(Calendar.WEEK_OF_YEAR, -periodCount + 1)
+                        Pair(cal.time, end)
+                    }
+                    TimeAggregation.MONTHLY -> {
+                        val cal = Calendar.getInstance()
+                        val end = cal.time
+                        cal.add(Calendar.MONTH, -periodCount + 1)
+                        Pair(cal.time, end)
+                    }
+                    TimeAggregation.QUARTERLY -> {
+                        val cal = Calendar.getInstance()
+                        val end = cal.time
+                        cal.add(Calendar.MONTH, -(periodCount * 3) + 3)
+                        Pair(cal.time, end)
+                    }
+                    TimeAggregation.YEARLY -> {
+                        val cal = Calendar.getInstance()
+                        val end = cal.time
+                        cal.add(Calendar.YEAR, -periodCount + 1)
+                        Pair(cal.time, end)
+                    }
+                }
+            }
+            
+            // Get all transactions in the period
+            val allTransactions = repository.getExpenseTransactionsByDateRange(startDate, endDate)
             
             // Apply filters if any
-            val transactions = if (currentFilters.hasFilters()) {
-                applyFiltersToTransactions(
-                    repository.getExpenseTransactionsByDateRange(startOfMonth.time, endOfMonth.time),
-                    currentFilters
-                )
+            val filteredTransactions = if (currentFilters.hasFilters()) {
+                applyFiltersToTransactions(allTransactions, currentFilters)
             } else {
-                repository.getExpenseTransactionsByDateRange(startOfMonth.time, endOfMonth.time)
+                allTransactions
             }
             
-            val totalAmount = transactions.sumOf { transaction -> transaction.amount }
-            val monthName = SimpleDateFormat("MMM", Locale.getDefault()).format(calendar.time)
+            Log.d(TAG, "TIME_PERIOD_FILTER: Retrieved ${allTransactions.size} transactions, filtered to ${filteredTransactions.size}")
             
-            timeSeriesData.add(TimeSeriesData(
-                label = monthName,
-                amount = totalAmount,
-                transactionCount = transactions.size,
-                date = calendar.time
-            ))
+            // Use TimeSeriesAggregationService to generate time series data
+            val timeSeriesData = timeSeriesAggregationService.generateTimeSeriesData(
+                filteredTransactions,
+                aggregationType,
+                periodCount
+            )
             
-            Log.d(TAG, "TIME_PERIOD_FILTER: $monthName - ₹${String.format("%.0f", totalAmount)} (${transactions.size} transactions)")
+            Log.d(TAG, "TIME_PERIOD_FILTER: Generated ${timeSeriesData.size} time series data points")
+            return timeSeriesData
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "TIME_PERIOD_FILTER: Error generating time series data", e)
+            return emptyList()
         }
-        
-        return timeSeriesData
-    }
-    
-    /**
-     * Get daily spending data
-     */
-    private suspend fun getDailySpendingData(repository: ExpenseRepository): List<TimeSeriesData> {
-        val dailyData = mutableListOf<TimeSeriesData>()
-        val calendar = Calendar.getInstance()
-        
-        // Determine how many days to show based on date range filter
-        val daysToShow = when (currentFilters.timePeriod) {
-            "Last 7 Days" -> 7
-            "Last 30 Days" -> 30
-            "Current Month" -> {
-                val today = Calendar.getInstance()
-                today.get(Calendar.DAY_OF_MONTH)
-            }
-            else -> 30 // Default to 30 days
-        }
-        
-        Log.d(TAG, "TIME_PERIOD_FILTER: Daily - Showing $daysToShow days")
-        
-        for (i in (daysToShow - 1) downTo 0) {
-            calendar.time = Date()
-            calendar.add(Calendar.DAY_OF_MONTH, -i)
-            
-            val startOfDay = calendar.clone() as Calendar
-            startOfDay.set(Calendar.HOUR_OF_DAY, 0)
-            startOfDay.set(Calendar.MINUTE, 0)
-            startOfDay.set(Calendar.SECOND, 0)
-            startOfDay.set(Calendar.MILLISECOND, 0)
-            
-            val endOfDay = calendar.clone() as Calendar
-            endOfDay.set(Calendar.HOUR_OF_DAY, 23)
-            endOfDay.set(Calendar.MINUTE, 59)
-            endOfDay.set(Calendar.SECOND, 59)
-            endOfDay.set(Calendar.MILLISECOND, 999)
-            
-            val transactions = if (currentFilters.hasFilters()) {
-                applyFiltersToTransactions(
-                    repository.getExpenseTransactionsByDateRange(startOfDay.time, endOfDay.time),
-                    currentFilters
-                )
-            } else {
-                repository.getExpenseTransactionsByDateRange(startOfDay.time, endOfDay.time)
-            }
-            
-            val totalAmount = transactions.sumOf { it.amount }
-            val dayLabel = SimpleDateFormat("dd/MM", Locale.getDefault()).format(calendar.time)
-            
-            dailyData.add(TimeSeriesData(
-                label = dayLabel,
-                amount = totalAmount,
-                transactionCount = transactions.size,
-                date = calendar.time
-            ))
-        }
-        
-        return dailyData
-    }
-    
-    /**
-     * Get weekly spending data
-     */
-    private suspend fun getWeeklySpendingData(repository: ExpenseRepository): List<TimeSeriesData> {
-        val weeklyData = mutableListOf<TimeSeriesData>()
-        val calendar = Calendar.getInstance()
-        
-        // Determine how many weeks to show
-        val weeksToShow = when (currentFilters.timePeriod) {
-            "Last 30 Days" -> 4
-            "Last 3 Months" -> 12
-            "Last 6 Months" -> 24
-            else -> 8 // Default to 8 weeks
-        }
-        
-        Log.d(TAG, "TIME_PERIOD_FILTER: Weekly - Showing $weeksToShow weeks")
-        
-        for (i in (weeksToShow - 1) downTo 0) {
-            calendar.time = Date()
-            calendar.add(Calendar.WEEK_OF_YEAR, -i)
-            
-            // Start of week (Monday)
-            val startOfWeek = calendar.clone() as Calendar
-            startOfWeek.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
-            startOfWeek.set(Calendar.HOUR_OF_DAY, 0)
-            startOfWeek.set(Calendar.MINUTE, 0)
-            startOfWeek.set(Calendar.SECOND, 0)
-            startOfWeek.set(Calendar.MILLISECOND, 0)
-            
-            // End of week (Sunday)
-            val endOfWeek = calendar.clone() as Calendar
-            endOfWeek.set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY)
-            endOfWeek.set(Calendar.HOUR_OF_DAY, 23)
-            endOfWeek.set(Calendar.MINUTE, 59)
-            endOfWeek.set(Calendar.SECOND, 59)
-            endOfWeek.set(Calendar.MILLISECOND, 999)
-            
-            val transactions = if (currentFilters.hasFilters()) {
-                applyFiltersToTransactions(
-                    repository.getExpenseTransactionsByDateRange(startOfWeek.time, endOfWeek.time),
-                    currentFilters
-                )
-            } else {
-                repository.getExpenseTransactionsByDateRange(startOfWeek.time, endOfWeek.time)
-            }
-            
-            val totalAmount = transactions.sumOf { it.amount }
-            val weekLabel = "Week ${calendar.get(Calendar.WEEK_OF_YEAR)}"
-            
-            weeklyData.add(TimeSeriesData(
-                label = weekLabel,
-                amount = totalAmount,
-                transactionCount = transactions.size,
-                date = calendar.time
-            ))
-        }
-        
-        return weeklyData
-    }
-    
-    /**
-     * Get quarterly spending data
-     */
-    private suspend fun getQuarterlySpendingData(repository: ExpenseRepository): List<TimeSeriesData> {
-        val quarterlyData = mutableListOf<TimeSeriesData>()
-        val calendar = Calendar.getInstance()
-        
-        // Show last 4 quarters
-        val quartersToShow = 4
-        
-        Log.d(TAG, "TIME_PERIOD_FILTER: Quarterly - Showing $quartersToShow quarters")
-        
-        for (i in (quartersToShow - 1) downTo 0) {
-            calendar.time = Date()
-            calendar.add(Calendar.MONTH, -i * 3)
-            
-            // Start of quarter
-            val currentMonth = calendar.get(Calendar.MONTH)
-            val quarterStartMonth = (currentMonth / 3) * 3
-            val startOfQuarter = calendar.clone() as Calendar
-            startOfQuarter.set(Calendar.MONTH, quarterStartMonth)
-            startOfQuarter.set(Calendar.DAY_OF_MONTH, 1)
-            startOfQuarter.set(Calendar.HOUR_OF_DAY, 0)
-            startOfQuarter.set(Calendar.MINUTE, 0)
-            startOfQuarter.set(Calendar.SECOND, 0)
-            startOfQuarter.set(Calendar.MILLISECOND, 0)
-            
-            // End of quarter
-            val endOfQuarter = calendar.clone() as Calendar
-            endOfQuarter.set(Calendar.MONTH, quarterStartMonth + 2)
-            endOfQuarter.set(Calendar.DAY_OF_MONTH, endOfQuarter.getActualMaximum(Calendar.DAY_OF_MONTH))
-            endOfQuarter.set(Calendar.HOUR_OF_DAY, 23)
-            endOfQuarter.set(Calendar.MINUTE, 59)
-            endOfQuarter.set(Calendar.SECOND, 59)
-            endOfQuarter.set(Calendar.MILLISECOND, 999)
-            
-            val transactions = if (currentFilters.hasFilters()) {
-                applyFiltersToTransactions(
-                    repository.getExpenseTransactionsByDateRange(startOfQuarter.time, endOfQuarter.time),
-                    currentFilters
-                )
-            } else {
-                repository.getExpenseTransactionsByDateRange(startOfQuarter.time, endOfQuarter.time)
-            }
-            
-            val totalAmount = transactions.sumOf { it.amount }
-            val quarter = (quarterStartMonth / 3) + 1
-            val quarterLabel = "Q$quarter ${calendar.get(Calendar.YEAR)}"
-            
-            quarterlyData.add(TimeSeriesData(
-                label = quarterLabel,
-                amount = totalAmount,
-                transactionCount = transactions.size,
-                date = calendar.time
-            ))
-        }
-        
-        return quarterlyData
-    }
-    
-    /**
-     * Get yearly spending data
-     */
-    private suspend fun getYearlySpendingData(repository: ExpenseRepository): List<TimeSeriesData> {
-        val yearlyData = mutableListOf<TimeSeriesData>()
-        val calendar = Calendar.getInstance()
-        
-        // Show last 3 years
-        val yearsToShow = 3
-        
-        Log.d(TAG, "TIME_PERIOD_FILTER: Yearly - Showing $yearsToShow years")
-        
-        for (i in (yearsToShow - 1) downTo 0) {
-            calendar.time = Date()
-            calendar.add(Calendar.YEAR, -i)
-            
-            // Start of year
-            val startOfYear = calendar.clone() as Calendar
-            startOfYear.set(Calendar.MONTH, Calendar.JANUARY)
-            startOfYear.set(Calendar.DAY_OF_MONTH, 1)
-            startOfYear.set(Calendar.HOUR_OF_DAY, 0)
-            startOfYear.set(Calendar.MINUTE, 0)
-            startOfYear.set(Calendar.SECOND, 0)
-            startOfYear.set(Calendar.MILLISECOND, 0)
-            
-            // End of year
-            val endOfYear = calendar.clone() as Calendar
-            endOfYear.set(Calendar.MONTH, Calendar.DECEMBER)
-            endOfYear.set(Calendar.DAY_OF_MONTH, 31)
-            endOfYear.set(Calendar.HOUR_OF_DAY, 23)
-            endOfYear.set(Calendar.MINUTE, 59)
-            endOfYear.set(Calendar.SECOND, 59)
-            endOfYear.set(Calendar.MILLISECOND, 999)
-            
-            val transactions = if (currentFilters.hasFilters()) {
-                applyFiltersToTransactions(
-                    repository.getExpenseTransactionsByDateRange(startOfYear.time, endOfYear.time),
-                    currentFilters
-                )
-            } else {
-                repository.getExpenseTransactionsByDateRange(startOfYear.time, endOfYear.time)
-            }
-            
-            val totalAmount = transactions.sumOf { it.amount }
-            val yearLabel = calendar.get(Calendar.YEAR).toString()
-            
-            yearlyData.add(TimeSeriesData(
-                label = yearLabel,
-                amount = totalAmount,
-                transactionCount = transactions.size,
-                date = calendar.time
-            ))
-        }
-        
-        return yearlyData
     }
     
     /**
@@ -1708,12 +1649,23 @@ class InsightsFragment : Fragment() {
                 return
             }
             
-            Log.d(TAG, "TIME_PERIOD_FILTER: Setting up bar chart with ${timeSeriesData.size} data points for ${currentFilters.timeAggregation}")
+            Log.d(TAG, "BAR_CHART_RENDER_DEBUG: Setting up bar chart with ${timeSeriesData.size} data points for ${currentFilters.timeAggregation}")
+            Log.d(TAG, "BAR_CHART_RENDER_DEBUG: TimeSeriesData: ${timeSeriesData.map { "${it.label}: ₹${it.amount}" }}")
+            
+            // Check if we have valid data
+            if (timeSeriesData.isEmpty()) {
+                Log.w(TAG, "BAR_CHART_RENDER_DEBUG: No data available for chart")
+                return
+            }
             
             // Create bar entries
-            val barEntries = timeSeriesData.mapIndexed { index, data ->
+            val barEntries = timeSeriesData.mapIndexed {
+                index, data ->
+                Log.d(TAG, "BAR_CHART_RENDER_DEBUG: Creating BarEntry[$index] = ${data.amount} for ${data.label}")
                 BarEntry(index.toFloat(), data.amount.toFloat())
             }
+            
+            Log.d(TAG, "BAR_CHART_RENDER_DEBUG: Created ${barEntries.size} bar entries: ${barEntries.map { "x=${it.x}, y=${it.y}" }}")
             
             // Create dataset
             val dataSet = BarDataSet(barEntries, "Monthly Spending").apply {
@@ -1782,10 +1734,13 @@ class InsightsFragment : Fragment() {
             // Update summary statistics
             updateTimeSeriesChartSummary(chartView, timeSeriesData)
             
-            Log.d(TAG, "BAR_CHART: Monthly bar chart setup completed successfully")
+            Log.d(TAG, "BAR_CHART_RENDER_DEBUG: Chart setup completed successfully")
+            Log.d(TAG, "BAR_CHART_RENDER_DEBUG: Chart data count: ${barChart.data?.entryCount ?: 0}")
+            Log.d(TAG, "BAR_CHART_RENDER_DEBUG: Chart visibility: ${barChart.visibility}")
+            Log.d(TAG, "BAR_CHART_RENDER_DEBUG: Chart isEmpty: ${barChart.isEmpty}")
             
         } catch (e: Exception) {
-            Log.e(TAG, "BAR_CHART: Error setting up bar chart", e)
+            Log.e(TAG, "BAR_CHART_RENDER_DEBUG: Error setting up bar chart", e)
         }
     }
     
@@ -1938,7 +1893,8 @@ class InsightsFragment : Fragment() {
             Log.d(TAG, "LINE_CHART: Setting up line chart with ${dailyData.size} days")
             
             // Create line entries
-            val lineEntries = dailyData.mapIndexed { index, data ->
+            val lineEntries = dailyData.mapIndexed {
+                index, data ->
                 Entry(index.toFloat(), data.amount.toFloat())
             }
             
@@ -2082,17 +2038,40 @@ class InsightsFragment : Fragment() {
             Log.e(TAG, "LINE_CHART: Error setting up chart layout", e)
         }
     }
-    
-    /**
-     * Update chart summary statistics with real data
-     */
+
+    private fun getSmartTimeAggregation(startDate: Date, endDate: Date): String {
+        val diff = endDate.time - startDate.time
+        val days = diff / (1000 * 60 * 60 * 24)
+        return when {
+            days <= 7 -> "Daily"
+            days <= 31 -> "Weekly"
+            else -> "Monthly"
+        }
+    }
+
+    private fun updateChartsWithFilteredData() {
+        showMonthlyBarChart()
+        showCategoryPieChart()
+        showTrendLineChart()
+    }
+
+    private suspend fun getFilteredCategorySpending(expenseRepository: ExpenseRepository): List<com.expensemanager.app.data.dao.CategorySpendingResult> {
+        currentFilters.startDate?.let { startDate ->
+            currentFilters.endDate?.let { endDate ->
+                return expenseRepository.getCategorySpending(startDate, endDate)
+            }
+        }
+        return emptyList()
+    }
+
+
     private fun updateChartSummaryStats(categoryData: List<com.expensemanager.app.data.dao.CategorySpendingResult> = emptyList()) {
         Log.d(TAG, "Updating chart summary statistics with ${categoryData.size} categories")
-        
+
         try {
             // Update total categories
             binding.root.findViewById<android.widget.TextView>(R.id.tvTotalCategories)?.text = "${categoryData.size}"
-            
+
             // Update top category (highest spending)
             val topCategory = categoryData.maxByOrNull { it.total_amount }
             if (topCategory != null) {
@@ -2103,290 +2082,27 @@ class InsightsFragment : Fragment() {
                 binding.root.findViewById<android.widget.TextView>(R.id.tvTopCategoryAmount)?.text = "₹0"
                 binding.root.findViewById<android.widget.TextView>(R.id.tvTopCategoryName)?.text = "No Data"
             }
-            
+
             // Update average transaction (total amount / total transaction count)
             val totalAmount = categoryData.sumOf { data -> data.total_amount }
             val totalTransactions = categoryData.sumOf { data -> data.transaction_count }
             val avgPerTransaction = if (totalTransactions > 0) totalAmount / totalTransactions else 0.0
-            
+
             binding.root.findViewById<android.widget.TextView>(R.id.tvAvgTransaction)?.text = "₹${String.format("%.0f", avgPerTransaction)}"
-            
+
             Log.d(TAG, "PIE_CHART: Summary stats - Categories: ${categoryData.size}, Total: ₹$totalAmount, Avg: ₹$avgPerTransaction")
-            
+
         } catch (e: Exception) {
             Log.e(TAG, "Error updating chart summary stats", e)
             // Fallback to zero values on error
             binding.root.findViewById<android.widget.TextView>(R.id.tvTotalCategories)?.text = "0"
             binding.root.findViewById<android.widget.TextView>(R.id.tvTopCategoryAmount)?.text = "₹0"
             binding.root.findViewById<android.widget.TextView>(R.id.tvTopCategoryName)?.text = "No Data"
-            binding.root.findViewById<android.widget.TextView>(R.id.tvAvgTransaction)?.text = "₹0"
-        }
-    }
-    
-    /**
-     * Get filtered category spending data based on current filter conditions
-     */
-    private suspend fun getFilteredCategorySpending(expenseRepository: ExpenseRepository): List<com.expensemanager.app.data.dao.CategorySpendingResult> {
-        return try {
-            val getCategorySpendingUseCase = GetCategorySpendingUseCase(expenseRepository)
-            
-            // Get data based on date range filter
-            val result = when {
-                currentFilters.startDate != null && currentFilters.endDate != null -> {
-                    // Use custom date range
-                    Log.d(TAG, "FILTER: Using custom date range: ${currentFilters.startDate} to ${currentFilters.endDate}")
-                    getCategorySpendingUseCase.execute(
-                        currentFilters.startDate!!, 
-                        currentFilters.endDate!!
-                    )
-                }
-                currentFilters.timePeriod == "Last 7 Days" -> {
-                    Log.d(TAG, "FILTER: Using last 7 days data")
-                    getCategorySpendingUseCase.getLast7DaysSpending()
-                }
-                currentFilters.timePeriod == "Last 30 Days" -> {
-                    Log.d(TAG, "FILTER: Using last 30 days data")
-                    getCategorySpendingUseCase.getLast30DaysSpending()
-                }
-                currentFilters.timePeriod == "Last 3 Months" -> {
-                    Log.d(TAG, "FILTER: Using last 3 months data")
-                    getCategorySpendingUseCase.getLast3MonthsSpending()
-                }
-                currentFilters.timePeriod == "This Year" -> {
-                    Log.d(TAG, "FILTER: Using this year data")
-                    getCategorySpendingUseCase.getThisYearSpending()
-                }
-                else -> {
-                    Log.d(TAG, "FILTER: Using current month data (default)")
-                    getCategorySpendingUseCase.getCurrentMonthSpending()
-                }
-            }
-            
-            val allCategorySpending = result.getOrNull() ?: emptyList()
-            Log.d(TAG, "FILTER: Retrieved ${allCategorySpending.size} categories for period: ${currentFilters.timePeriod}")
-            
-            // Apply category filter if any categories are selected
-            val filteredCategories = if (currentFilters.selectedCategories.isNotEmpty()) {
-                val filtered = allCategorySpending.filter { categoryResult ->
-                    currentFilters.selectedCategories.contains(categoryResult.category_name)
-                }
-                Log.d(TAG, "FILTER: ${filtered.size} categories after category filter (${currentFilters.selectedCategories.joinToString()})")
-                filtered
-            } else {
-                allCategorySpending
-            }
-            
-            // Apply amount filter
-            val amountFilteredCategories = filteredCategories.filter { categoryResult ->
-                categoryResult.total_amount >= currentFilters.minAmount && 
-                categoryResult.total_amount <= currentFilters.maxAmount
-            }
-            
-            Log.d(TAG, "FILTER: ${amountFilteredCategories.size} categories after amount filter (₹${currentFilters.minAmount}-₹${currentFilters.maxAmount})")
-            
-            amountFilteredCategories
-        } catch (e: Exception) {
-            Log.e(TAG, "FILTER: Error getting filtered category spending", e)
-            emptyList()
         }
     }
 
-    /**
-     * Update charts with filtered data
-     */
-    private fun updateChartsWithFilteredData() {
-        Log.d(TAG, "FILTER: Updating charts with filtered data")
-        Log.d(TAG, "FILTER: Current filters - Categories: ${currentFilters.selectedCategories.size}, Merchants: ${currentFilters.selectedMerchants.size}, Amount: ₹${currentFilters.minAmount}-₹${currentFilters.maxAmount}")
-        
-        // Refresh current chart with filtered data
-        val tabLayout = binding.root.findViewById<com.google.android.material.tabs.TabLayout>(R.id.tabLayoutCharts)
-        val selectedTab = tabLayout?.selectedTabPosition ?: 0
-        updateChartViewPager(selectedTab)
-        
-        // Also update the chart summary statistics with filtered data
-        updateChartSummaryStats()
-    }
-    
-    /**
-     * Initialize enhanced analytics features
-     */
-    private fun setupEnhancedAnalytics() {
-        Log.d(TAG, "Setting up enhanced analytics features")
-        
-        // Setup filters
-        setupAnalyticsFilters()
-        
-        // Setup interactive charts
-        setupInteractiveCharts()
-    }
-    
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-        Log.d(TAG, "Fragment view created")
-        
-        initializeViews()
-        setupViewModel()
-        setupUI()
-        observeUIState()
-        setupClickListeners()
-        
-        // Setup enhanced analytics features
-        setupEnhancedAnalytics()
-        
-        // Force initial refresh when fragment is created
-        forceInitialRefresh()
-        
-        // Auto-load pie chart on fragment load
-        autoLoadPieChart()
-    }
-    
-    /**
-     * Trigger pie chart setup from child fragment
-     */
-    fun triggerPieChartSetup(chartView: View) {
-        Log.d(TAG, "PIE_CHART: CLAUDE_FIXED_VERSION Triggered from child fragment with system date context")
-        
-        viewLifecycleOwner.lifecycleScope.launch {
-            try {
-                val expenseRepository = ExpenseRepository.getInstance(requireContext())
-                val getCategorySpendingUseCase = GetCategorySpendingUseCase(expenseRepository)
-                
-                Log.d(TAG, "PIE_CHART: Child fragment using current month data via UseCase (consistent with Dashboard)")
-                
-                // Get category spending data using UseCase for consistency with Dashboard
-                val result = getCategorySpendingUseCase.getCurrentMonthSpending()
-                val categorySpendingResults = result.getOrNull() ?: emptyList()
-                Log.d(TAG, "PIE_CHART: Retrieved ${categorySpendingResults.size} categories")
-                
-                if (categorySpendingResults.isNotEmpty()) {
-                    setupPieChartWithView(chartView, categorySpendingResults)
-                } else {
-                    Log.d(TAG, "PIE_CHART: No category data available for current period, showing empty state")
-                    showEmptyPieChartWithView(chartView)
-                }
-                
-            } catch (e: Exception) {
-                Log.e(TAG, "PIE_CHART: Error loading category data", e)
-                showEmptyPieChartWithView(chartView)
-            }
-        }
-    }
-    
-    /**
-     * Setup pie chart with specific view
-     */
-    private fun setupPieChartWithView(chartView: View, categorySpendingResults: List<com.expensemanager.app.data.dao.CategorySpendingResult>) {
-        Log.d(TAG, "PIE_CHART: Setting up pie chart with specific view and ${categorySpendingResults.size} categories")
-        
-        try {
-            // Find PieChart component in the provided view
-            val pieChart = chartView.findViewById<PieChart>(R.id.pieChartCategories)
-            if (pieChart == null) {
-                Log.e(TAG, "PIE_CHART: PieChart component not found in provided view")
-                return
-            }
-            
-            // Calculate total for percentages
-            val totalAmount = categorySpendingResults.sumOf { result -> result.total_amount }
-            Log.d(TAG, "PIE_CHART: Total amount: ₹${String.format("%.2f", totalAmount)}")
-            
-            // Create pie entries
-            val pieEntries = categorySpendingResults.map { categoryResult ->
-                PieEntry(
-                    categoryResult.total_amount.toFloat(),
-                    categoryResult.category_name
-                )
-            }
-            
-            // Create dataset
-            val dataSet = PieDataSet(pieEntries, "Categories").apply {
-                colors = getCategoryColors(categorySpendingResults)
-                valueTextSize = 12f
-                valueTextColor = Color.WHITE
-                sliceSpace = 2f
-                selectionShift = 8f
-            }
-            
-            // Create pie data
-            val pieData = PieData(dataSet).apply {
-                setValueFormatter(PercentFormatter(pieChart))
-                setValueTextSize(12f)
-                setValueTextColor(Color.WHITE)
-            }
-            
-            // Configure pie chart
-            pieChart.apply {
-                data = pieData
-                description.isEnabled = false
-                legend.isEnabled = false
-                setUsePercentValues(true)
-                setDrawEntryLabels(false)
-                setHoleColor(Color.TRANSPARENT)
-                holeRadius = 40f
-                transparentCircleRadius = 45f
-                animateY(1000)
-                invalidate()
-            }
-            
-            // Setup legend/category list
-            setupCategoryLegend(chartView, categorySpendingResults, totalAmount)
-            
-            // Update footer statistics with real data
-            updateChartSummaryStats(categorySpendingResults)
-            
-            Log.d(TAG, "PIE_CHART: Pie chart setup completed successfully with specific view")
-            
-        } catch (e: Exception) {
-            Log.e(TAG, "PIE_CHART: Error setting up pie chart with specific view", e)
-        }
-    }
-    
-    /**
-     * Show empty pie chart with specific view
-     */
-    private fun showEmptyPieChartWithView(chartView: View) {
-        Log.d(TAG, "PIE_CHART: Showing empty pie chart state with specific view")
-        
-        try {
-            val pieChart = chartView.findViewById<PieChart>(R.id.pieChartCategories)
-            pieChart?.apply {
-                clear()
-                setNoDataText("No category data available for the selected period")
-                setNoDataTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary))
-                invalidate()
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "PIE_CHART: Error showing empty state with specific view", e)
-        }
-    }
-    
-    /**
-     * Auto-load pie chart on fragment load
-     */
-    private fun autoLoadPieChart() {
-        Log.d(TAG, "PIE_CHART: Auto-loading pie chart on fragment creation")
-        
-        // Delay to ensure ViewPager2 is ready
-        view?.postDelayed({
-            try {
-                val viewPager = binding.root.findViewById<androidx.viewpager2.widget.ViewPager2>(R.id.viewPagerCharts)
-                if (viewPager != null) {
-                    Log.d(TAG, "PIE_CHART: Auto-setting ViewPager to Categories tab (position 0)")
-                    viewPager.currentItem = 0
-                    
-                    // Set the TabLayout to match
-                    val tabLayout = binding.root.findViewById<com.google.android.material.tabs.TabLayout>(R.id.tabLayoutCharts)
-                    tabLayout?.selectTab(tabLayout.getTabAt(0))
-                    
-                    // Trigger the pie chart setup
-                    showCategoryPieChart()
-                } else {
-                    Log.w(TAG, "PIE_CHART: ViewPager2 not found for auto-load")
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "PIE_CHART: Error auto-loading pie chart", e)
-            }
-        }, 500) // 500ms delay to ensure UI is ready
+    fun triggerPieChartSetup() {
+        showCategoryPieChart()
     }
 }
 
@@ -2411,7 +2127,7 @@ data class ChartFilterConditions(
     var selectedMerchants: List<String> = emptyList(),
     var minAmount: Double = 0.0,
     var maxAmount: Double = Double.MAX_VALUE,
-    var timePeriod: String = "Current Month", // Current Month, Last 3 Months, Last 6 Months, Custom
+    var timePeriod: String = "This Month", // This Month/Current Month, Last 3 Months, Last 6 Months, Custom
     var timeAggregation: String = "Monthly" // Daily, Weekly, Monthly, Quarterly, Yearly
 ) {
     fun hasFilters(): Boolean {
@@ -2436,12 +2152,6 @@ data class MonthlySpendingData(
 /**
  * Generic time series data class that supports Daily, Weekly, Monthly, Quarterly, Yearly aggregations
  */
-data class TimeSeriesData(
-    val label: String, // e.g. "Jan", "Week 1", "Q1 2024", "2024", "01/25"
-    val amount: Double,
-    val transactionCount: Int,
-    val date: Date
-)
 
 /**
  * Data class for daily trend data
@@ -2554,7 +2264,7 @@ class ChartFragment : Fragment() {
         if (chartType == "pie_category") {
             // Find parent InsightsFragment and trigger pie chart setup
             val parentFragment = parentFragment as? InsightsFragment
-            parentFragment?.triggerPieChartSetup(view)
+            parentFragment?.triggerPieChartSetup()
         }
     }
 }

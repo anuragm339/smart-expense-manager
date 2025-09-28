@@ -27,12 +27,15 @@
         android:layout_height="200dp"
         android:layout_marginBottom="16dp" />
 
-    <!-- Legend/Category List -->
+    <!-- Legend/Category List (Scrollable) -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerCategoryLegend"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:nestedScrollingEnabled="false"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:nestedScrollingEnabled="true"
+        android:scrollbars="vertical"
+        android:maxHeight="200dp"
         app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
 
 </LinearLayout>

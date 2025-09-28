@@ -26,6 +26,7 @@
     
     <!-- Date Range Options -->
     <string-array name="date_ranges">
+        <item>This Month</item>
         <item>Last 7 Days</item>
         <item>Last 30 Days</item>
         <item>Last 3 Months</item>

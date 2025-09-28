@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.os.Build
 import android.util.Log
 import com.expensemanager.app.data.api.insights.*
 import com.expensemanager.app.data.models.AIInsight
@@ -362,12 +363,17 @@ class AIInsightsRepository @Inject constructor(
     private fun isNetworkAvailable(): Boolean {
         return try {
             val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-            val network = connectivityManager.activeNetwork ?: return false
-            val networkCapabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
-            
-            networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) || 
-            networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
-            networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val network = connectivityManager.activeNetwork ?: return false
+                val networkCapabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+                
+                networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) || 
+                networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
+                networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+            } else {
+                val activeNetworkInfo = connectivityManager.activeNetworkInfo
+                activeNetworkInfo != null && activeNetworkInfo.isConnected
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Error checking network availability", e)
             false

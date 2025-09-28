@@ -3,8 +3,9 @@ package com.expensemanager.app.domain.usecase.category
 import android.util.Log
 import com.expensemanager.app.data.dao.CategorySpendingResult
 import com.expensemanager.app.domain.repository.CategoryRepositoryInterface
+import com.expensemanager.app.services.DateRangeService
+import com.expensemanager.app.services.DateRangeService.Companion.DateRangeType
 import java.util.Date
-import java.util.Calendar
 import javax.inject.Inject
 
 /**
@@ -12,7 +13,8 @@ import javax.inject.Inject
  * Handles spending calculations, filtering, and analysis
  */
 class GetCategorySpendingUseCase @Inject constructor(
-    private val repository: CategoryRepositoryInterface
+    private val repository: CategoryRepositoryInterface,
+    private val dateRangeService: DateRangeService
 ) {
     
     companion object {
@@ -57,16 +59,7 @@ class GetCategorySpendingUseCase @Inject constructor(
      * Get current month category spending
      */
     suspend fun getCurrentMonthSpending(): Result<List<CategorySpendingResult>> {
-        val calendar = Calendar.getInstance()
-        calendar.set(Calendar.DAY_OF_MONTH, 1)
-        calendar.set(Calendar.HOUR_OF_DAY, 0)
-        calendar.set(Calendar.MINUTE, 0)
-        calendar.set(Calendar.SECOND, 0)
-        calendar.set(Calendar.MILLISECOND, 0)
-        
-        val startDate = calendar.time
-        val endDate = Date()
-        
+        val (startDate, endDate) = dateRangeService.getDateRange(DateRangeType.CURRENT_MONTH)
         return execute(startDate, endDate)
     }
     
@@ -75,46 +68,15 @@ class GetCategorySpendingUseCase @Inject constructor(
      */
     suspend fun getLastThirtyDaysSpending(): Result<List<CategorySpendingResult>> {
         // Use current month instead of 30-day hardcoded period to match Dashboard
-        val calendar = Calendar.getInstance()
-        
-        // Start of current month
-        calendar.set(Calendar.DAY_OF_MONTH, 1)
-        calendar.set(Calendar.HOUR_OF_DAY, 0)
-        calendar.set(Calendar.MINUTE, 0)
-        calendar.set(Calendar.SECOND, 0)
-        calendar.set(Calendar.MILLISECOND, 0)
-        val startOfMonth = calendar.time
-        
-        // End of current month  
-        calendar.add(Calendar.MONTH, 1)
-        calendar.add(Calendar.DAY_OF_MONTH, -1)
-        calendar.set(Calendar.HOUR_OF_DAY, 23)
-        calendar.set(Calendar.MINUTE, 59)
-        calendar.set(Calendar.SECOND, 59)
-        calendar.set(Calendar.MILLISECOND, 999)
-        val endOfMonth = calendar.time
-        
-        return execute(startOfMonth, endOfMonth)
+        val (startDate, endDate) = dateRangeService.getDateRange(DateRangeType.CURRENT_MONTH)
+        return execute(startDate, endDate)
     }
     
     /**
      * Get last 7 days category spending
      */
     suspend fun getLast7DaysSpending(): Result<List<CategorySpendingResult>> {
-        val calendar = Calendar.getInstance()
-        calendar.set(Calendar.HOUR_OF_DAY, 23)
-        calendar.set(Calendar.MINUTE, 59)
-        calendar.set(Calendar.SECOND, 59)
-        calendar.set(Calendar.MILLISECOND, 999)
-        val endDate = calendar.time
-        
-        calendar.add(Calendar.DAY_OF_MONTH, -6) // Go back 6 days to include today = 7 days total
-        calendar.set(Calendar.HOUR_OF_DAY, 0)
-        calendar.set(Calendar.MINUTE, 0)
-        calendar.set(Calendar.SECOND, 0)
-        calendar.set(Calendar.MILLISECOND, 0)
-        val startDate = calendar.time
-        
+        val (startDate, endDate) = dateRangeService.getDateRange(DateRangeType.LAST_7_DAYS)
         Log.d(TAG, "Getting last 7 days spending from $startDate to $endDate")
         return execute(startDate, endDate)
     }
@@ -123,20 +85,7 @@ class GetCategorySpendingUseCase @Inject constructor(
      * Get last 30 days category spending (actual 30 days, not current month)
      */
     suspend fun getLast30DaysSpending(): Result<List<CategorySpendingResult>> {
-        val calendar = Calendar.getInstance()
-        calendar.set(Calendar.HOUR_OF_DAY, 23)
-        calendar.set(Calendar.MINUTE, 59)
-        calendar.set(Calendar.SECOND, 59)
-        calendar.set(Calendar.MILLISECOND, 999)
-        val endDate = calendar.time
-        
-        calendar.add(Calendar.DAY_OF_MONTH, -29) // Go back 29 days to include today = 30 days total
-        calendar.set(Calendar.HOUR_OF_DAY, 0)
-        calendar.set(Calendar.MINUTE, 0)
-        calendar.set(Calendar.SECOND, 0)
-        calendar.set(Calendar.MILLISECOND, 0)
-        val startDate = calendar.time
-        
+        val (startDate, endDate) = dateRangeService.getDateRange(DateRangeType.LAST_30_DAYS)
         Log.d(TAG, "Getting last 30 days spending from $startDate to $endDate")
         return execute(startDate, endDate)
     }
@@ -145,20 +94,7 @@ class GetCategorySpendingUseCase @Inject constructor(
      * Get last 3 months category spending
      */
     suspend fun getLast3MonthsSpending(): Result<List<CategorySpendingResult>> {
-        val calendar = Calendar.getInstance()
-        calendar.set(Calendar.HOUR_OF_DAY, 23)
-        calendar.set(Calendar.MINUTE, 59)
-        calendar.set(Calendar.SECOND, 59)
-        calendar.set(Calendar.MILLISECOND, 999)
-        val endDate = calendar.time
-        
-        calendar.add(Calendar.MONTH, -3)
-        calendar.set(Calendar.HOUR_OF_DAY, 0)
-        calendar.set(Calendar.MINUTE, 0)
-        calendar.set(Calendar.SECOND, 0)
-        calendar.set(Calendar.MILLISECOND, 0)
-        val startDate = calendar.time
-        
+        val (startDate, endDate) = dateRangeService.getDateRange(DateRangeType.LAST_3_MONTHS)
         Log.d(TAG, "Getting last 3 months spending from $startDate to $endDate")
         return execute(startDate, endDate)
     }
@@ -167,20 +103,7 @@ class GetCategorySpendingUseCase @Inject constructor(
      * Get last 6 months category spending
      */
     suspend fun getLast6MonthsSpending(): Result<List<CategorySpendingResult>> {
-        val calendar = Calendar.getInstance()
-        calendar.set(Calendar.HOUR_OF_DAY, 23)
-        calendar.set(Calendar.MINUTE, 59)
-        calendar.set(Calendar.SECOND, 59)
-        calendar.set(Calendar.MILLISECOND, 999)
-        val endDate = calendar.time
-        
-        calendar.add(Calendar.MONTH, -6)
-        calendar.set(Calendar.HOUR_OF_DAY, 0)
-        calendar.set(Calendar.MINUTE, 0)
-        calendar.set(Calendar.SECOND, 0)
-        calendar.set(Calendar.MILLISECOND, 0)
-        val startDate = calendar.time
-        
+        val (startDate, endDate) = dateRangeService.getDateRange(DateRangeType.LAST_6_MONTHS)
         Log.d(TAG, "Getting last 6 months spending from $startDate to $endDate")
         return execute(startDate, endDate)
     }
@@ -189,20 +112,7 @@ class GetCategorySpendingUseCase @Inject constructor(
      * Get this year category spending
      */
     suspend fun getThisYearSpending(): Result<List<CategorySpendingResult>> {
-        val calendar = Calendar.getInstance()
-        
-        // End date - current time
-        val endDate = calendar.time
-        
-        // Start date - beginning of this year
-        calendar.set(Calendar.MONTH, Calendar.JANUARY)
-        calendar.set(Calendar.DAY_OF_MONTH, 1)
-        calendar.set(Calendar.HOUR_OF_DAY, 0)
-        calendar.set(Calendar.MINUTE, 0)
-        calendar.set(Calendar.SECOND, 0)
-        calendar.set(Calendar.MILLISECOND, 0)
-        val startDate = calendar.time
-        
+        val (startDate, endDate) = dateRangeService.getDateRange(DateRangeType.THIS_YEAR)
         Log.d(TAG, "Getting this year spending from $startDate to $endDate")
         return execute(startDate, endDate)
     }

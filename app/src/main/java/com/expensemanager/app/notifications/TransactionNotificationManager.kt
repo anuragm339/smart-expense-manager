@@ -11,6 +11,8 @@ import androidx.core.app.NotificationManagerCompat
 import com.expensemanager.app.MainActivity
 import com.expensemanager.app.R
 import com.expensemanager.app.data.models.Transaction
+import androidx.core.content.ContextCompat
+import android.util.Log
 
 class TransactionNotificationManager(private val context: Context) {
     
@@ -95,6 +97,15 @@ class TransactionNotificationManager(private val context: Context) {
             .addAction(createCategoryAction)
             .build()
         
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) != 
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            // In a real app, you would request the permission here.
+            // For this example, we'll just log it.
+            Log.w("TransactionNotificationManager", "POST_NOTIFICATIONS permission not granted")
+            return
+        }
         notificationManager.notify(notificationId, notification)
     }
     
@@ -155,6 +166,15 @@ class TransactionNotificationManager(private val context: Context) {
             .setTimeoutAfter(3000) // Auto dismiss after 3 seconds
             .build()
         
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) != 
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            // In a real app, you would request the permission here.
+            // For this example, we'll just log it.
+            Log.w("TransactionNotificationManager", "POST_NOTIFICATIONS permission not granted")
+            return
+        }
         notificationManager.notify(notificationId, notification)
     }
     
@@ -192,6 +212,15 @@ class TransactionNotificationManager(private val context: Context) {
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
         
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) != 
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            // In a real app, you would request the permission here.
+            // For this example, we'll just log it.
+            Log.w("TransactionNotificationManager", "POST_NOTIFICATIONS permission not granted")
+            return
+        }
         notificationManager.notify(notificationId, notification)
     }
     

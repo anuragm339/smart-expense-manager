@@ -2,6 +2,7 @@ package com.expensemanager.app.services
 
 import android.content.Context
 import android.net.Uri
+import android.os.Build
 import com.expensemanager.app.data.repository.ExpenseRepository
 import com.expensemanager.app.utils.AppLogger
 import kotlinx.coroutines.Dispatchers
@@ -133,14 +134,18 @@ class DataExportService @Inject constructor(
                 val merchantWithCategory = repository.getMerchantWithCategory(transaction.normalizedMerchant)
                 val category = merchantWithCategory?.category_name ?: "Other"
                 
+                val dateString = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(transaction.transactionDate)
+                val merchantString = transaction.rawMerchant.replace("\"", "\"\"")
+                val typeString = if (transaction.isDebit) "Debit" else "Credit"
+                
                 csvContent.appendLine(
-                    "${SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(transaction.transactionDate)}," +
-                    "${transaction.amount}," +
-                    "\"${transaction.rawMerchant.replace("\"", "\"\"")}\"," +
+                    "\"$dateString\"," +
+                    "\"${transaction.amount}\"," +
+                    "\"$merchantString\"," +
                     "\"${transaction.bankName}\"," +
-                    "${if (transaction.isDebit) "Debit" else "Credit"}," +
+                    "\"$typeString\"," +
                     "\"$category\"," +
-                    "${transaction.confidenceScore}," +
+                    "\"${transaction.confidenceScore}\"," +
                     "\"${transaction.smsId}\""
                 )
             }
@@ -217,14 +222,18 @@ class DataExportService @Inject constructor(
                         val merchantWithCategory = repository.getMerchantWithCategory(transaction.normalizedMerchant)
                         val category = merchantWithCategory?.category_name ?: "Other"
                         
+                        val dateString = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(transaction.transactionDate)
+                        val merchantString = transaction.rawMerchant.replace("\"", "\"\"")
+                        val typeString = if (transaction.isDebit) "Debit" else "Credit"
+                        
                         csvContent.appendLine(
-                            "${SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(transaction.transactionDate)}," +
-                            "${transaction.amount}," +
-                            "\"${transaction.rawMerchant.replace("\"", "\"\"")}\"," +
+                            "\"$dateString\"," +
+                            "\"${transaction.amount}\"," +
+                            "\"$merchantString\"," +
                             "\"${transaction.bankName}\"," +
-                            "${if (transaction.isDebit) "Debit" else "Credit"}," +
+                            "\"$typeString\"," +
                             "\"$category\"," +
-                            "${transaction.confidenceScore}"
+                            "\"${transaction.confidenceScore}\""
                         )
                     }
                     
@@ -252,7 +261,11 @@ class DataExportService @Inject constructor(
     private fun getAppVersion(context: Context): String {
         return try {
             val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-            "${packageInfo.versionName} (${packageInfo.longVersionCode})"
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                "${packageInfo.versionName} (${packageInfo.longVersionCode})"
+            } else {
+                "${packageInfo.versionName} (${packageInfo.versionCode})"
+            }
         } catch (e: Exception) {
             "Unknown"
         }
