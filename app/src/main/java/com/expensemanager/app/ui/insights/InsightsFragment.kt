@@ -1133,7 +1133,7 @@ class InsightsFragment : Fragment() {
             tabs.removeAllTabs()
             tabs.addTab(tabs.newTab().setText("Categories").setIcon(R.drawable.ic_chart))
             tabs.addTab(tabs.newTab().setText("Monthly").setIcon(R.drawable.ic_chart))
-            tabs.addTab(tabs.newTab().setText("Trends").setIcon(R.drawable.ic_chart))
+            // UI_SIMPLIFICATION: Hide Trends tab to keep only PIE and BAR charts
             
             tabs.addOnTabSelectedListener(object : com.google.android.material.tabs.TabLayout.OnTabSelectedListener {
                 override fun onTabSelected(tab: com.google.android.material.tabs.TabLayout.Tab?) {
@@ -1160,12 +1160,12 @@ class InsightsFragment : Fragment() {
      * Update chart ViewPager
      */
     private fun updateChartViewPager(position: Int) {
-        Log.d(TAG, "Updating chart ViewPager to position: $position")
-        // Switch between different chart types
+        Log.d(TAG, "UI_SIMPLIFICATION: Updating chart ViewPager to position: $position")
+        // Switch between PIE and BAR charts only (Trends tab removed)
         when (position) {
             0 -> showCategoryPieChart()
             1 -> showMonthlyBarChart()
-            2 -> showTrendLineChart()
+            // UI_SIMPLIFICATION: Removed Trends chart case (position 2)
         }
     }
     
@@ -1248,7 +1248,7 @@ class InsightsFragment : Fragment() {
         Log.d(TAG, "PIE_CHART: Setting up pie chart with ${categorySpendingResults.size} categories")
         
         try {
-            // Find the pie chart in the current chart layout
+            // LAYOUT_FIX: Find the pie chart with ViewPager2 support
             val chartView = findChartView()
             if (chartView == null) {
                 Log.e(TAG, "PIE_CHART: Could not find chart view")
@@ -1257,11 +1257,65 @@ class InsightsFragment : Fragment() {
             
             // Show pie chart layout and find PieChart component
             showPieChartLayout()
-            val pieChart = chartView.findViewById<PieChart>(R.id.pieChartCategories)
+            
+            // LAYOUT_FIX: Handle ViewPager2 properly like BAR chart does
+            val pieChart = if (chartView is androidx.viewpager2.widget.ViewPager2) {
+                Log.d(TAG, "PIE_CHART_LAYOUT_FIX: chartView is ViewPager2, setting up adapter and finding PieChart")
+                
+                // Set up ViewPager2 adapter if not already set
+                if (chartView.adapter == null) {
+                    chartView.adapter = ChartPagerAdapter(this@InsightsFragment)
+                }
+                
+                // Switch to pie chart page (index 0)
+                chartView.currentItem = 0
+                
+                // Give time for the ViewPager2 to settle and then find the PieChart
+                chartView.post {
+                    try {
+                        Log.d(TAG, "PIE_CHART_LAYOUT_FIX: Looking for PieChart in ViewPager2 at position 0")
+                        val currentFragment = chartView.getChildAt(0)
+                        currentFragment?.findViewById<PieChart>(R.id.pieChartCategories)?.let { chart ->
+                            Log.d(TAG, "PIE_CHART_LAYOUT_FIX: Found PieChart in ViewPager2")
+                            setupPieChartData(chart, categorySpendingResults)
+                        } ?: run {
+                            Log.e(TAG, "PIE_CHART_LAYOUT_FIX: PieChart not found in ViewPager2 fragment")
+                            // Try direct lookup as fallback
+                            binding.root.findViewById<PieChart>(R.id.pieChartCategories)?.let { chart ->
+                                Log.d(TAG, "PIE_CHART_LAYOUT_FIX: Found PieChart via direct lookup fallback")
+                                setupPieChartData(chart, categorySpendingResults)
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "PIE_CHART_LAYOUT_FIX: Error in ViewPager2 post block", e)
+                    }
+                }
+                
+                return // Exit early for ViewPager2 case
+            } else {
+                // Direct layout case
+                chartView.findViewById<PieChart>(R.id.pieChartCategories)
+            }
+            
             if (pieChart == null) {
                 Log.e(TAG, "PIE_CHART: PieChart component not found in layout")
                 return
             }
+            
+            // Setup chart data for direct layout case
+            setupPieChartData(pieChart, categorySpendingResults)
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "PIE_CHART: Error setting up pie chart", e)
+        }
+    }
+    
+    /**
+     * LAYOUT_FIX: Setup pie chart data - extracted to separate method for ViewPager2 compatibility
+     */
+    private fun setupPieChartData(pieChart: PieChart, categorySpendingResults: List<com.expensemanager.app.data.dao.CategorySpendingResult>) {
+        try {
+            Log.d(TAG, "PIE_CHART_LAYOUT_FIX: Setting up pie chart data for ${categorySpendingResults.size} categories")
             
             // Calculate total for percentages
             val totalAmount = categorySpendingResults.sumOf { result -> result.total_amount }
@@ -1311,16 +1365,17 @@ class InsightsFragment : Fragment() {
                 }
             }
             
-            // Setup legend/category list
-            setupCategoryLegend(chartView, categorySpendingResults, totalAmount)
+            // Setup legend/category list - try to find chart view for context
+            val chartView = findChartView()
+            if (chartView != null) {
+                setupCategoryLegend(chartView, categorySpendingResults, totalAmount)
+                updateCategoryChartSummaryStats(chartView, categorySpendingResults)
+            }
             
-            // Update chart summary stats in the current fragment
-            updateCategoryChartSummaryStats(chartView, categorySpendingResults)
-            
-            Log.d(TAG, "PIE_CHART: Pie chart setup completed successfully")
+            Log.d(TAG, "PIE_CHART_LAYOUT_FIX: Pie chart data setup completed successfully")
             
         } catch (e: Exception) {
-            Log.e(TAG, "PIE_CHART: Error setting up pie chart", e)
+            Log.e(TAG, "PIE_CHART_LAYOUT_FIX: Error setting up pie chart data", e)
         }
     }
     
@@ -2089,10 +2144,7 @@ class InsightsFragment : Fragment() {
                 Log.d(TAG, "CHART_REFRESH_FIX: Refreshing BAR chart")
                 showMonthlyBarChart()
             }
-            2 -> {
-                Log.d(TAG, "CHART_REFRESH_FIX: Refreshing LINE chart")
-                showTrendLineChart()
-            }
+            // UI_SIMPLIFICATION: Removed case 2 (LINE chart) - Trends tab is hidden
             else -> {
                 Log.w(TAG, "CHART_REFRESH_FIX: Unknown tab position: $currentTab, defaulting to PIE chart")
                 showCategoryPieChart()
