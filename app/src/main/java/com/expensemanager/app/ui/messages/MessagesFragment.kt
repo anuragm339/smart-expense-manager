@@ -60,6 +60,16 @@ class MessagesFragment : Fragment() {
     private var _binding: FragmentMessagesBinding? = null
     private val binding get() = _binding!!
     
+    // UI elements from included layouts
+    private lateinit var tvTotalMessages: TextView
+    private lateinit var tvAutoCategorized: TextView
+    private lateinit var tvUniqueMerchants: TextView
+    private lateinit var tvUniqueBanks: TextView
+    private lateinit var tvAvgConfidence: TextView
+    private lateinit var btnSort: com.google.android.material.button.MaterialButton
+    private lateinit var btnFilter: com.google.android.material.button.MaterialButton
+    private lateinit var btnDownloadLogs: com.google.android.material.button.MaterialButton
+    
     // ViewModel injection
     private val messagesViewModel: MessagesViewModel by viewModels()
     
@@ -148,6 +158,9 @@ class MessagesFragment : Fragment() {
         categoryManager = CategoryManager(requireContext())
         merchantAliasManager = MerchantAliasManager(requireContext())
         
+        // Initialize UI elements from included layouts
+        initializeIncludedLayoutViews()
+        
         // Setup UI components
         setupRecyclerView()
         setupClickListeners()
@@ -157,6 +170,23 @@ class MessagesFragment : Fragment() {
         
         // Check permissions and setup legacy UI (parallel approach)
         checkPermissionsAndSetupUI()
+    }
+    
+    /**
+     * Initialize UI elements from included layouts
+     */
+    private fun initializeIncludedLayoutViews() {
+        // Elements from layout_messages_summary.xml
+        tvTotalMessages = binding.root.findViewById(R.id.tv_total_messages)
+        tvAutoCategorized = binding.root.findViewById(R.id.tv_auto_categorized)
+        tvUniqueMerchants = binding.root.findViewById(R.id.tv_unique_merchants)
+        tvUniqueBanks = binding.root.findViewById(R.id.tv_unique_banks)
+        tvAvgConfidence = binding.root.findViewById(R.id.tv_avg_confidence)
+        
+        // Elements from layout_messages_header.xml
+        btnSort = binding.root.findViewById(R.id.btn_sort)
+        btnFilter = binding.root.findViewById(R.id.btn_filter)
+        btnDownloadLogs = binding.root.findViewById(R.id.btn_download_logs)
     }
     
     /**
@@ -185,8 +215,8 @@ class MessagesFragment : Fragment() {
         }
         
         // Update message counts
-        binding.tvTotalMessages.text = state.totalMessagesCount.toString()
-        binding.tvAutoCategorized.text = state.autoCategorizedCount.toString()
+        tvTotalMessages.text = state.totalMessagesCount.toString()
+        tvAutoCategorized.text = state.autoCategorizedCount.toString()
         
         // Update adapter with grouped messages - let adapter handle timing and safety
         if (state.groupedMessages.isNotEmpty()) {
@@ -200,10 +230,10 @@ class MessagesFragment : Fragment() {
         }
         
         // Update sort button
-        binding.btnSort.text = "Sort: ${state.currentSortOption.displayText}"
+        btnSort.text = "Sort: ${state.currentSortOption.displayText}"
         
         // Update filter button
-        binding.btnFilter.text = if (state.hasActiveFilters) {
+        btnFilter.text = if (state.hasActiveFilters) {
             "Filter (${state.activeFilterCount})"
         } else {
             "Filter"
@@ -270,8 +300,8 @@ class MessagesFragment : Fragment() {
         binding.layoutEmpty.visibility = View.VISIBLE
         
         // Update the empty state message for permissions
-        binding.tvTotalMessages.text = "0"
-        binding.tvAutoCategorized.text = "0"
+        tvTotalMessages.text = "0"
+        tvAutoCategorized.text = "0"
     }
     
     private fun setupRecyclerView() {
@@ -319,20 +349,20 @@ class MessagesFragment : Fragment() {
     }
     
     private fun setupUI() {
-        binding.tvTotalMessages.text = "0"
-        binding.tvAutoCategorized.text = "0"
+        tvTotalMessages.text = "0"
+        tvAutoCategorized.text = "0"
     }
     
     private fun setupClickListeners() {
-        binding.btnSort.setOnClickListener {
+        btnSort.setOnClickListener {
             showSortMenu()
         }
         
-        binding.btnFilter.setOnClickListener {
+        btnFilter.setOnClickListener {
             showFilterDialog()
         }
         
-        binding.btnDownloadLogs.setOnClickListener {
+        btnDownloadLogs.setOnClickListener {
             // Disable button temporarily to prevent rapid clicks
             it.isEnabled = false
             
@@ -458,7 +488,7 @@ class MessagesFragment : Fragment() {
                 
                 // Keep legacy for fallback
                 currentSortOption = SortOption(newSortOption.name, newSortOption.field, newSortOption.ascending)
-                binding.btnSort.text = "Sort: ${currentSortOption.name.split(" ")[0]}"
+                btnSort.text = "Sort: ${currentSortOption.name.split(" ")[0]}"
                 applyFiltersAndSort()
                 
                 dialog.dismiss()
@@ -529,13 +559,13 @@ class MessagesFragment : Fragment() {
                     if (currentFilterOptions.dateFrom != null || currentFilterOptions.dateTo != null) "Date" else null
                 )
                 
-                binding.btnFilter.text = if (activeFilters.isEmpty()) "Filter" else "Filter (${activeFilters.size})"
+                btnFilter.text = if (activeFilters.isEmpty()) "Filter" else "Filter (${activeFilters.size})"
                 
                 applyFiltersAndSort()
             }
             .setNegativeButton("Reset") { _, _ ->
                 currentFilterOptions = FilterOptions()
-                binding.btnFilter.text = "Filter"
+                btnFilter.text = "Filter"
                 applyFiltersAndSort()
             }
             .setNeutralButton("Cancel", null)
@@ -648,9 +678,9 @@ class MessagesFragment : Fragment() {
     }
     
     private fun updateSummaryStats(messageItems: List<MessageItem>) {
-        binding.tvTotalMessages.text = messageItems.size.toString()
+        tvTotalMessages.text = messageItems.size.toString()
         val autoCategorized = messageItems.count { it.category != "Other" && it.confidence >= 80 }
-        binding.tvAutoCategorized.text = autoCategorized.toString()
+        tvAutoCategorized.text = autoCategorized.toString()
     }
     
     private fun resyncSMSMessages() {
@@ -974,8 +1004,8 @@ class MessagesFragment : Fragment() {
                         groupedMessagesAdapter.submitList(emptyList())
                         binding.recyclerMessages.visibility = View.GONE
                         binding.layoutEmpty.visibility = View.VISIBLE
-                        binding.tvTotalMessages.text = "0"
-                        binding.tvAutoCategorized.text = "0"
+                        tvTotalMessages.text = "0"
+                        tvAutoCategorized.text = "0"
                     }
                 }
             } catch (e: Exception) {
@@ -1075,8 +1105,8 @@ class MessagesFragment : Fragment() {
                 groupedMessagesAdapter.submitList(emptyList())
                 binding.recyclerMessages.visibility = View.GONE
                 binding.layoutEmpty.visibility = View.VISIBLE
-                binding.tvTotalMessages.text = "0"
-                binding.tvAutoCategorized.text = "0"
+                tvTotalMessages.text = "0"
+                tvAutoCategorized.text = "0"
                 
                 Toast.makeText(
                     requireContext(),
@@ -1148,8 +1178,8 @@ class MessagesFragment : Fragment() {
         binding.layoutEmpty.visibility = View.VISIBLE
         
         // Reset counters to zero
-        binding.tvTotalMessages.text = "0"
-        binding.tvAutoCategorized.text = "0"
+        tvTotalMessages.text = "0"
+        tvAutoCategorized.text = "0"
         
         // Clear internal data structures
         allMessageItems = emptyList()
@@ -1159,7 +1189,7 @@ class MessagesFragment : Fragment() {
         binding.etSearch.setText("")
         currentSearchQuery = ""
         currentFilterOptions = FilterOptions()
-        binding.btnFilter.text = "Filter"
+        btnFilter.text = "Filter"
         
         Log.d("MessagesFragment", "[INFO] Showing proper empty state - all data cleared")
     }
@@ -1486,8 +1516,8 @@ class MessagesFragment : Fragment() {
             }
             
             // Update Messages UI
-            binding.tvTotalMessages.text = totalMessages.toString()
-            binding.tvAutoCategorized.text = autoCategorized.toString()
+            tvTotalMessages.text = totalMessages.toString()
+            tvAutoCategorized.text = autoCategorized.toString()
             
             // Store the inclusion state in SharedPreferences for other screens to use
             saveGroupInclusionStates(currentGroups)

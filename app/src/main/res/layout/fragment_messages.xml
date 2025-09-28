@@ -8,162 +8,48 @@
     android:background="@color/background"
     tools:context=".ui.messages.MessagesFragment">
 
-    <!-- Header -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:padding="16dp"
-        android:gravity="center_vertical">
+    <!-- Enhanced Header -->
+    <include layout="@layout/layout_messages_header" />
 
-        <TextView
-            style="@style/HeaderTextStyle"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="SMS Transactions"
-            android:drawableStart="@drawable/ic_messages"
-            android:drawablePadding="12dp"
-            android:drawableTint="@color/primary" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_sort"
-            android:layout_width="wrap_content"
-            android:layout_height="36dp"
-            android:text="Sort"
-            android:textSize="12sp"
-            style="@style/Widget.Material3.Button.TextButton"
-            app:strokeColor="@color/primary"
-            app:strokeWidth="1dp"
-            app:cornerRadius="18dp"
-            android:layout_marginEnd="8dp" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_filter"
-            android:layout_width="wrap_content"
-            android:layout_height="36dp"
-            android:text="Filter"
-            android:textSize="12sp"
-            style="@style/Widget.Material3.Button.TextButton"
-            app:strokeColor="@color/primary"
-            app:strokeWidth="1dp"
-            app:cornerRadius="18dp"
-            android:layout_marginEnd="8dp" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_download_logs"
-            android:layout_width="wrap_content"
-            android:layout_height="36dp"
-            android:text="📥 Logs"
-            android:textSize="12sp"
-            style="@style/Widget.Material3.Button.TextButton"
-            app:strokeColor="@color/info"
-            app:strokeWidth="1dp"
-            app:cornerRadius="18dp" />
-
-    </LinearLayout>
-
-    <!-- Search Bar -->
-    <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/til_search"
+    <!-- Enhanced Search Bar -->
+    <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginHorizontal="16dp"
-        android:layout_marginBottom="16dp"
-        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
-        app:startIconDrawable="@drawable/ic_search"
-        app:endIconMode="clear_text"
-        app:hintEnabled="true"
-        android:hint="Search transactions...">
+        android:layout_marginBottom="8dp"
+        app:cardElevation="1dp"
+        app:cardCornerRadius="20dp"
+        app:strokeWidth="1dp"
+        app:strokeColor="@color/divider">
 
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/et_search"
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/til_search"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:inputType="text"
-            android:imeOptions="actionSearch" />
+            style="@style/Widget.Material3.TextInputLayout.FilledBox"
+            app:startIconDrawable="@android:drawable/ic_menu_search"
+            app:endIconMode="clear_text"
+            app:hintEnabled="true"
+            app:boxStrokeWidth="0dp"
+            app:boxStrokeWidthFocused="0dp"
+            app:boxBackgroundColor="@android:color/transparent"
+            android:hint="Search transactions, merchants, amounts...">
 
-    </com.google.android.material.textfield.TextInputLayout>
-
-    <!-- Summary Stats -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginHorizontal="16dp"
-        android:layout_marginBottom="16dp">
-
-        <com.google.android.material.card.MaterialCardView
-            style="@style/CardStyle"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginEnd="8dp">
-
-            <LinearLayout
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/et_search"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="12dp"
-                android:gravity="center">
+                android:inputType="text"
+                android:imeOptions="actionSearch"
+                android:paddingVertical="12dp"
+                android:background="@android:color/transparent" />
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/recent_transactions"
-                    android:textSize="12sp"
-                    android:textColor="@color/text_secondary" />
+        </com.google.android.material.textfield.TextInputLayout>
 
-                <TextView
-                    android:id="@+id/tv_total_messages"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="127"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/primary" />
+    </com.google.android.material.card.MaterialCardView>
 
-            </LinearLayout>
-
-        </com.google.android.material.card.MaterialCardView>
-
-        <com.google.android.material.card.MaterialCardView
-            style="@style/CardStyle"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginStart="8dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="12dp"
-                android:gravity="center">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/auto_categorized"
-                    android:textSize="12sp"
-                    android:textColor="@color/text_secondary" />
-
-                <TextView
-                    android:id="@+id/tv_auto_categorized"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="124"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/success" />
-
-            </LinearLayout>
-
-        </com.google.android.material.card.MaterialCardView>
-
-    </LinearLayout>
+    <!-- Enhanced Summary Stats -->
+    <include layout="@layout/layout_messages_summary" />
 
     <!-- Messages List -->
     <androidx.recyclerview.widget.RecyclerView
@@ -178,7 +64,7 @@
         android:fadeScrollbars="false"
         tools:listitem="@layout/item_message" />
 
-    <!-- Empty State (Initially hidden) -->
+    <!-- Empty State -->
     <LinearLayout
         android:id="@+id/layout_empty"
         android:layout_width="match_parent"
