@@ -1,5 +1,9 @@
 package com.expensemanager.app.ui.dashboard
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import timber.log.Timber
 import com.expensemanager.app.utils.logging.LogConfig
 import androidx.lifecycle.ViewModel
@@ -7,6 +11,7 @@ import androidx.lifecycle.viewModelScope
 import com.expensemanager.app.data.repository.DashboardData
 import com.expensemanager.app.domain.usecase.dashboard.GetDashboardDataUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
@@ -19,8 +24,19 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val getDashboardDataUseCase: GetDashboardDataUseCase
 ) : ViewModel() {
+    
+    // Data change broadcast receiver for automatic refresh
+    private val dataChangeReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == "com.expensemanager.app.DATA_CHANGED") {
+                Timber.tag(LogConfig.FeatureTags.DASHBOARD).d("[DATA_SYNC] Received data change broadcast, refreshing dashboard")
+                refreshDashboard()
+            }
+        }
+    }
     
     companion object {
     }
@@ -32,7 +48,26 @@ class DashboardViewModel @Inject constructor(
     val uiState: StateFlow<DashboardUIState> = _uiState.asStateFlow()
     
     init {
+        // Register for data change broadcasts
+        try {
+            val filter = IntentFilter("com.expensemanager.app.DATA_CHANGED")
+            context.registerReceiver(dataChangeReceiver, filter)
+            Timber.tag(LogConfig.FeatureTags.DASHBOARD).d("[DATA_SYNC] Registered for data change broadcasts")
+        } catch (e: Exception) {
+            Timber.tag(LogConfig.FeatureTags.DASHBOARD).e(e, "[DATA_SYNC] Failed to register data change receiver")
+        }
+        
         loadDashboardData()
+    }
+    
+    override fun onCleared() {
+        super.onCleared()
+        try {
+            context.unregisterReceiver(dataChangeReceiver)
+            Timber.tag(LogConfig.FeatureTags.DASHBOARD).d("[DATA_SYNC] Unregistered data change receiver")
+        } catch (e: Exception) {
+            Timber.tag(LogConfig.FeatureTags.DASHBOARD).e(e, "[DATA_SYNC] Failed to unregister data change receiver")
+        }
     }
 
     /**
@@ -106,9 +141,11 @@ class DashboardViewModel @Inject constructor(
     }
     
     /**
-     * Refresh dashboard data (pull-to-refresh)
+     * Refresh dashboard data (pull-to-refresh or automatic refresh)
      */
     private fun refreshDashboard() {
+        Timber.tag(LogConfig.FeatureTags.DASHBOARD).d("[REFRESH] Starting dashboard refresh")
+        
         _uiState.value = _uiState.value.copy(
             isRefreshing = true,
             hasError = false,
@@ -121,6 +158,8 @@ class DashboardViewModel @Inject constructor(
             
             val result = getDashboardDataUseCase.execute(startDate, endDate)
             handleDashboardResult(result, isRefresh = true)
+            
+            Timber.tag(LogConfig.FeatureTags.DASHBOARD).d("[REFRESH] Dashboard refresh completed")
         }
     }
     
@@ -309,6 +348,9 @@ class DashboardViewModel @Inject constructor(
     ) {
         result.fold(
             onSuccess = { dashboardData ->
+                Timber.tag(LogConfig.FeatureTags.DASHBOARD).d("[SUCCESS] Dashboard data loaded - Spent: ₹%.2f, Transactions: %d", 
+                    dashboardData.totalSpent, dashboardData.transactionCount)
+                
                 _uiState.value = _uiState.value.copy(
                     isInitialLoading = false,
                     isRefreshing = false,

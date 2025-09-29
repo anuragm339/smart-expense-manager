@@ -341,8 +341,7 @@ class BudgetGoalsFragment : Fragment() {
         try {
             val mainActivity = activity as? MainActivity
             if (mainActivity != null) {
-                val bottomNavigation = mainActivity.findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.bottom_navigation)
-                bottomNavigation?.selectedItemId = tabId
+                // Bottom navigation removed for space - navigation disabled
                 Log.d("BudgetGoalsFragment", "[SUCCESS] Successfully navigated to tab: $tabId")
             } else {
                 Log.w("BudgetGoalsFragment", "[WARNING] MainActivity not available, using fallback navigation")

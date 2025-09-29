@@ -37,6 +37,7 @@ import com.expensemanager.app.services.TransactionParsingService
 import com.expensemanager.app.services.TransactionFilterService
 import androidx.appcompat.app.AlertDialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.tabs.TabLayout
 import com.google.android.material.textfield.TextInputEditText
 import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
@@ -69,6 +70,7 @@ class MessagesFragment : Fragment() {
     private lateinit var btnSort: com.google.android.material.button.MaterialButton
     private lateinit var btnFilter: com.google.android.material.button.MaterialButton
     private lateinit var btnDownloadLogs: com.google.android.material.button.MaterialButton
+    private lateinit var tabLayoutFilter: TabLayout
     
     // ViewModel injection
     private val messagesViewModel: MessagesViewModel by viewModels()
@@ -187,6 +189,9 @@ class MessagesFragment : Fragment() {
         btnSort = binding.root.findViewById(R.id.btn_sort)
         btnFilter = binding.root.findViewById(R.id.btn_filter)
         btnDownloadLogs = binding.root.findViewById(R.id.btn_download_logs)
+        
+        // Filter tabs
+        tabLayoutFilter = binding.root.findViewById(R.id.tab_layout_filter)
     }
     
     /**
@@ -237,6 +242,14 @@ class MessagesFragment : Fragment() {
             "Filter (${state.activeFilterCount})"
         } else {
             "Filter"
+        }
+        
+        // Update filter tab selection
+        updateFilterTabSelection(state.currentFilterTab)
+        
+        // Update adapter's filter tab state for toggle synchronization
+        if (::groupedMessagesAdapter.isInitialized) {
+            groupedMessagesAdapter.updateFilterTab(state.currentFilterTab)
         }
         
         // Handle error states
@@ -312,10 +325,15 @@ class MessagesFragment : Fragment() {
             onGroupToggle = { group, isIncluded ->
                 try {
                     Log.d("MessagesFragment", "Group toggle requested: '${group.merchantName}' -> $isIncluded")
-                    // Use ViewModel event
+                    
+                    // CRITICAL FIX: Use ViewModel event which now handles database sync + data refresh
                     messagesViewModel.handleEvent(MessagesUIEvent.ToggleGroupInclusion(group.merchantName, isIncluded))
-                    // Keep legacy method for fallback
+                    
+                    // Update local UI calculations immediately
                     updateExpenseCalculations()
+                    
+                    Log.d("MessagesFragment", "[DATA_SYNC] Toggle completed, data refresh triggered")
+                    
                 } catch (e: Exception) {
                     Log.e("MessagesFragment", "Error handling group toggle", e)
                     Toast.makeText(
@@ -362,6 +380,9 @@ class MessagesFragment : Fragment() {
             showFilterDialog()
         }
         
+        // Setup filter tab listener
+        setupFilterTabListener()
+        
         btnDownloadLogs.setOnClickListener {
             // Disable button temporarily to prevent rapid clicks
             it.isEnabled = false
@@ -400,6 +421,39 @@ class MessagesFragment : Fragment() {
                 applyFiltersAndSort()
             }
         })
+    }
+    
+    /**
+     * Setup filter tab listener for ALL/INCLUDED/EXCLUDED tabs
+     */
+    private fun setupFilterTabListener() {
+        tabLayoutFilter.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
+            override fun onTabSelected(tab: TabLayout.Tab?) {
+                tab?.position?.let { position ->
+                    val filterTab = TransactionFilterTab.fromIndex(position)
+                    Log.d("MessagesFragment", "Filter tab selected: ${filterTab.displayName} (position: $position)")
+                    messagesViewModel.handleEvent(MessagesUIEvent.ApplyFilterTab(filterTab))
+                }
+            }
+            
+            override fun onTabUnselected(tab: TabLayout.Tab?) {
+                // No action needed
+            }
+            
+            override fun onTabReselected(tab: TabLayout.Tab?) {
+                // No action needed
+            }
+        })
+    }
+    
+    /**
+     * Update filter tab selection based on current state
+     */
+    private fun updateFilterTabSelection(currentFilterTab: TransactionFilterTab) {
+        // Only update if the tab selection is different to avoid triggering listener
+        if (tabLayoutFilter.selectedTabPosition != currentFilterTab.index) {
+            tabLayoutFilter.getTabAt(currentFilterTab.index)?.select()
+        }
     }
     
     private fun showFilterMenu() {
@@ -1522,11 +1576,14 @@ class MessagesFragment : Fragment() {
             // Store the inclusion state in SharedPreferences for other screens to use
             saveGroupInclusionStates(currentGroups)
             
-            // FIXED: Notify other screens about inclusion state changes
-            val intent = Intent("com.expensemanager.INCLUSION_STATE_CHANGED")
+            // CRITICAL FIX: Notify other screens about data changes using correct broadcast action
+            val intent = Intent("com.expensemanager.app.DATA_CHANGED")
             intent.putExtra("included_count", totalMessages)
             intent.putExtra("total_amount", includedGroups.sumOf { it.totalAmount })
+            intent.putExtra("source", "messages_exclusion_change")
             requireContext().sendBroadcast(intent)
+            
+            Log.d("MessagesFragment", "[DATA_SYNC] Broadcast sent to refresh Dashboard after exclusion change")
             
             // Log for debugging
             val totalIncludedAmount = includedGroups.sumOf { it.totalAmount }

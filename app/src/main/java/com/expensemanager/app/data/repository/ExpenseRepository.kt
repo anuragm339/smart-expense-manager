@@ -352,7 +352,21 @@ class ExpenseRepository @Inject constructor(
     }
     
     override suspend fun updateMerchantExclusion(normalizedMerchantName: String, isExcluded: Boolean) {
-        merchantDao.updateMerchantExclusion(normalizedMerchantName, isExcluded)
+        try {
+            Timber.tag(LogConfig.FeatureTags.DATABASE).d("[EXCLUSION] Updating merchant exclusion: '$normalizedMerchantName' -> $isExcluded")
+            
+            merchantDao.updateMerchantExclusion(normalizedMerchantName, isExcluded)
+            
+            // CRITICAL FIX: Broadcast data change to notify dependent components
+            val intent = android.content.Intent("com.expensemanager.app.DATA_CHANGED")
+            context.sendBroadcast(intent)
+            
+            Timber.tag(LogConfig.FeatureTags.DATABASE).i("[EXCLUSION] Successfully updated exclusion and broadcast data change")
+            
+        } catch (e: Exception) {
+            Timber.tag(LogConfig.FeatureTags.DATABASE).e(e, "[EXCLUSION] Failed to update merchant exclusion for '$normalizedMerchantName'")
+            throw e
+        }
     }
     
     suspend fun updateMerchantsByCategory(oldCategoryId: Long, newCategoryId: Long): Int {
@@ -618,6 +632,8 @@ class ExpenseRepository @Inject constructor(
     // =======================
     
     override suspend fun getDashboardData(startDate: Date, endDate: Date): DashboardData {
+        Timber.tag(LogConfig.FeatureTags.DATABASE).d("[DASHBOARD] Loading dashboard data for range: %s to %s", startDate, endDate)
+        
         // Get raw data counts from database (all transactions including credits)
         val allTransactions = getTransactionsByDateRange(startDate, endDate)
         val rawTransactionCount = allTransactions.size
@@ -631,7 +647,7 @@ class ExpenseRepository @Inject constructor(
             Timber.tag(LogConfig.FeatureTags.DATABASE).d("[DEBUG] Debit example: %s - ₹%.2f - isDebit: %b", transaction.rawMerchant, transaction.amount, transaction.isDebit)
         }
         
-        // Get expense-specific data (debits only)
+        // CRITICAL FIX: Apply exclusion filtering consistently
         val totalSpent = getTotalSpent(startDate, endDate)
         val transactionCount = getTransactionCount(startDate, endDate)  // This applies filtering to debits only
         val categorySpending = getCategorySpending(startDate, endDate)
@@ -640,21 +656,25 @@ class ExpenseRepository @Inject constructor(
         val totalCredits = getTotalCredits(startDate, endDate)
         val actualBalance = getActualBalance(startDate, endDate)
         
+        Timber.tag(LogConfig.FeatureTags.DATABASE).d("[DASHBOARD] Calculated totals - Spent: ₹%.2f, Credits: ₹%.2f, Count: %d", totalSpent, totalCredits, transactionCount)
         
         if (rawDebitCount > 0 && transactionCount == 0) {
             Timber.tag(LogConfig.FeatureTags.DATABASE).w("WARNING: Raw debit transactions found (%d) but none remain after filtering (%d)", rawDebitCount, transactionCount)
             
             // DEBUG: Show examples of excluded transactions
             expenseTransactionsBeforeFilter.take(3).forEach { transaction ->
+                Timber.tag(LogConfig.FeatureTags.DATABASE).d("[DEBUG] Potentially excluded: %s", transaction.rawMerchant)
             }
             
             // DEBUG: Get exclusion states
             if (transactionFilterService != null) {
                 val exclusionDebugInfo = transactionFilterService.getExclusionStatesDebugInfo()
+                Timber.tag(LogConfig.FeatureTags.DATABASE).d("[DEBUG] Exclusion states: %s", exclusionDebugInfo)
             }
         }
         
         if (rawCreditCount > 0) {
+            Timber.tag(LogConfig.FeatureTags.DATABASE).d("[DEBUG] Found %d credit transactions totaling ₹%.2f", rawCreditCount, totalCredits)
         }
         
         // FIXED: Request more merchants to ensure consistent display after exclusion filtering
@@ -664,7 +684,7 @@ class ExpenseRepository @Inject constructor(
         // Calculate monthly balance (Last Salary - Current Period Expenses)
         val monthlyBalance = getMonthlyBudgetBalance(startDate, endDate)
         
-        return DashboardData(
+        val dashboardData = DashboardData(
             totalSpent = totalSpent,
             totalCredits = totalCredits,
             actualBalance = actualBalance,
@@ -674,6 +694,11 @@ class ExpenseRepository @Inject constructor(
             topMerchantsWithCategory = topMerchantsWithCategory.take(5), // New field with category information
             monthlyBalance = monthlyBalance
         )
+        
+        Timber.tag(LogConfig.FeatureTags.DATABASE).i("[DASHBOARD] Dashboard data loaded successfully - Spent: ₹%.2f, Transactions: %d, Categories: %d", 
+            dashboardData.totalSpent, dashboardData.transactionCount, dashboardData.topCategories.size)
+        
+        return dashboardData
     }
     
     // =======================

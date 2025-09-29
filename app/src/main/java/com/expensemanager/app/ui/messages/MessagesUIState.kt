@@ -1,6 +1,21 @@
 package com.expensemanager.app.ui.messages
 
 /**
+ * Filter tab states for transaction filtering
+ */
+enum class TransactionFilterTab(val index: Int, val displayName: String) {
+    ALL(0, "ALL"),
+    INCLUDED(1, "INCLUDED"),
+    EXCLUDED(2, "EXCLUDED");
+    
+    companion object {
+        fun fromIndex(index: Int): TransactionFilterTab {
+            return values().find { it.index == index } ?: ALL
+        }
+    }
+}
+
+/**
  * UI State for Messages screen
  */
 data class MessagesUIState(
@@ -18,6 +33,7 @@ data class MessagesUIState(
     val searchQuery: String = "",
     val currentSortOption: SortOption = SortOption("Date (Newest First)", "date", false),
     val currentFilterOptions: FilterOptions = FilterOptions(),
+    val currentFilterTab: TransactionFilterTab = TransactionFilterTab.ALL,
     
     // State flags
     val isEmpty: Boolean = false,
@@ -174,6 +190,7 @@ sealed class MessagesUIEvent {
     data class Search(val query: String) : MessagesUIEvent()
     data class ApplySort(val sortOption: SortOption) : MessagesUIEvent()
     data class ApplyFilter(val filterOptions: FilterOptions) : MessagesUIEvent()
+    data class ApplyFilterTab(val filterTab: TransactionFilterTab) : MessagesUIEvent()
     data class ToggleGroupInclusion(val merchantName: String, val isIncluded: Boolean) : MessagesUIEvent()
     
     data class UpdateMerchantGroup(
