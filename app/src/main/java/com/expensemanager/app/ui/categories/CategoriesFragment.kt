@@ -381,10 +381,6 @@ class CategoriesFragment : Fragment() {
     }
     
     private fun setupClickListeners() {
-        binding.btnAddCategory.setOnClickListener {
-            showAddCategoryDialog()
-        }
-        
         binding.fabQuickExpense.setOnClickListener {
             showQuickAddDialog()
         }

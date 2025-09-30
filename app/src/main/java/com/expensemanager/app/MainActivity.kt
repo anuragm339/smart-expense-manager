@@ -12,8 +12,6 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.NavHostFragment
-import androidx.navigation.ui.AppBarConfiguration
-import androidx.navigation.ui.setupActionBarWithNavController
 import androidx.navigation.ui.setupWithNavController
 import com.expensemanager.app.databinding.ActivityMainBinding
 import com.expensemanager.app.notifications.TransactionNotificationManager
@@ -65,17 +63,7 @@ class MainActivity : AppCompatActivity() {
         val navController = navHostFragment.navController
         
         // Configure top-level destinations (no back button)
-        val appBarConfiguration = AppBarConfiguration(
-            setOf(
-                R.id.navigation_dashboard,
-                R.id.navigation_insights,
-                R.id.navigation_messages,
-                R.id.navigation_categories,
-                R.id.navigation_profile
-            )
-        )
         
-        setupActionBarWithNavController(navController, appBarConfiguration)
         binding.bottomNavigation.setupWithNavController(navController)
     }
     

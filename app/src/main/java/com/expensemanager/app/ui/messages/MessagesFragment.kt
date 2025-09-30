@@ -67,9 +67,6 @@ class MessagesFragment : Fragment() {
     private lateinit var tvUniqueMerchants: TextView
     private lateinit var tvUniqueBanks: TextView
     private lateinit var tvAvgConfidence: TextView
-    private lateinit var btnSort: com.google.android.material.button.MaterialButton
-    private lateinit var btnFilter: com.google.android.material.button.MaterialButton
-    private lateinit var btnDownloadLogs: com.google.android.material.button.MaterialButton
     private lateinit var tabLayoutFilter: TabLayout
     
     // ViewModel injection
@@ -185,10 +182,6 @@ class MessagesFragment : Fragment() {
         tvUniqueBanks = binding.root.findViewById(R.id.tv_unique_banks)
         tvAvgConfidence = binding.root.findViewById(R.id.tv_avg_confidence)
         
-        // Elements from layout_messages_header.xml
-        btnSort = binding.root.findViewById(R.id.btn_sort)
-        btnFilter = binding.root.findViewById(R.id.btn_filter)
-        btnDownloadLogs = binding.root.findViewById(R.id.btn_download_logs)
         
         // Filter tabs
         tabLayoutFilter = binding.root.findViewById(R.id.tab_layout_filter)
@@ -234,15 +227,6 @@ class MessagesFragment : Fragment() {
             binding.layoutEmpty.visibility = View.VISIBLE
         }
         
-        // Update sort button
-        btnSort.text = "Sort: ${state.currentSortOption.displayText}"
-        
-        // Update filter button
-        btnFilter.text = if (state.hasActiveFilters) {
-            "Filter (${state.activeFilterCount})"
-        } else {
-            "Filter"
-        }
         
         // Update filter tab selection
         updateFilterTabSelection(state.currentFilterTab)
@@ -372,33 +356,8 @@ class MessagesFragment : Fragment() {
     }
     
     private fun setupClickListeners() {
-        btnSort.setOnClickListener {
-            showSortMenu()
-        }
-        
-        btnFilter.setOnClickListener {
-            showFilterDialog()
-        }
-        
         // Setup filter tab listener
         setupFilterTabListener()
-        
-        btnDownloadLogs.setOnClickListener {
-            // Disable button temporarily to prevent rapid clicks
-            it.isEnabled = false
-            
-            // Use post to avoid any potential layout conflicts
-            android.os.Handler(android.os.Looper.getMainLooper()).post {
-                try {
-                    downloadLogs()
-                } finally {
-                    // Re-enable button after a delay
-                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                        it.isEnabled = true
-                    }, 2000)
-                }
-            }
-        }
         
         binding.btnGrantPermissions.setOnClickListener {
             // Open app settings to grant permissions
@@ -542,7 +501,6 @@ class MessagesFragment : Fragment() {
                 
                 // Keep legacy for fallback
                 currentSortOption = SortOption(newSortOption.name, newSortOption.field, newSortOption.ascending)
-                btnSort.text = "Sort: ${currentSortOption.name.split(" ")[0]}"
                 applyFiltersAndSort()
                 
                 dialog.dismiss()
@@ -612,14 +570,11 @@ class MessagesFragment : Fragment() {
                     if (currentFilterOptions.minConfidence > 0) "Confidence" else null,
                     if (currentFilterOptions.dateFrom != null || currentFilterOptions.dateTo != null) "Date" else null
                 )
-                
-                btnFilter.text = if (activeFilters.isEmpty()) "Filter" else "Filter (${activeFilters.size})"
-                
+
                 applyFiltersAndSort()
             }
             .setNegativeButton("Reset") { _, _ ->
                 currentFilterOptions = FilterOptions()
-                btnFilter.text = "Filter"
                 applyFiltersAndSort()
             }
             .setNeutralButton("Cancel", null)
@@ -1243,8 +1198,7 @@ class MessagesFragment : Fragment() {
         binding.etSearch.setText("")
         currentSearchQuery = ""
         currentFilterOptions = FilterOptions()
-        btnFilter.text = "Filter"
-        
+
         Log.d("MessagesFragment", "[INFO] Showing proper empty state - all data cleared")
     }
     

@@ -8,8 +8,6 @@
     android:background="@color/background"
     tools:context=".ui.messages.MessagesFragment">
 
-    <!-- Enhanced Header -->
-    <include layout="@layout/layout_messages_header" />
 
     <!-- Enhanced Search Bar -->
     <com.google.android.material.card.MaterialCardView

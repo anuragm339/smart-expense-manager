@@ -33,16 +33,6 @@
                 android:paddingBottom="24dp"
                 android:visibility="gone">
 
-                <!-- Header -->
-                <TextView
-                    style="@style/HeaderTextStyle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="AI Financial Analytics"
-                    android:layout_marginBottom="16dp"
-                    android:drawableStart="@drawable/ic_insights"
-                    android:drawablePadding="12dp"
-                    android:drawableTint="@color/secondary" />
 
                 <!-- Advanced Filters Panel -->
                 <com.google.android.material.card.MaterialCardView
