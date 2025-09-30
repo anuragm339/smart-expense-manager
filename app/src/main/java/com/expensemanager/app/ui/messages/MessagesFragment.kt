@@ -68,6 +68,8 @@ class MessagesFragment : Fragment() {
     private lateinit var tvUniqueBanks: TextView
     private lateinit var tvAvgConfidence: TextView
     private lateinit var tabLayoutFilter: TabLayout
+    private lateinit var btnSort: com.google.android.material.button.MaterialButton
+    private lateinit var btnFilter: com.google.android.material.button.MaterialButton
     
     // ViewModel injection
     private val messagesViewModel: MessagesViewModel by viewModels()
@@ -181,8 +183,11 @@ class MessagesFragment : Fragment() {
         tvUniqueMerchants = binding.root.findViewById(R.id.tv_unique_merchants)
         tvUniqueBanks = binding.root.findViewById(R.id.tv_unique_banks)
         tvAvgConfidence = binding.root.findViewById(R.id.tv_avg_confidence)
-        
-        
+
+        // Sort and Filter buttons
+        btnSort = binding.root.findViewById(R.id.btn_sort)
+        btnFilter = binding.root.findViewById(R.id.btn_filter)
+
         // Filter tabs
         tabLayoutFilter = binding.root.findViewById(R.id.tab_layout_filter)
     }
@@ -226,8 +231,17 @@ class MessagesFragment : Fragment() {
             binding.recyclerMessages.visibility = View.GONE
             binding.layoutEmpty.visibility = View.VISIBLE
         }
-        
-        
+
+        // Update sort button
+        btnSort.text = "Sort: ${state.currentSortOption.displayText}"
+
+        // Update filter button
+        btnFilter.text = if (state.hasActiveFilters) {
+            "Filter (${state.activeFilterCount})"
+        } else {
+            "Filter"
+        }
+
         // Update filter tab selection
         updateFilterTabSelection(state.currentFilterTab)
         
@@ -356,6 +370,14 @@ class MessagesFragment : Fragment() {
     }
     
     private fun setupClickListeners() {
+        btnSort.setOnClickListener {
+            showSortMenu()
+        }
+
+        btnFilter.setOnClickListener {
+            showFilterDialog()
+        }
+
         // Setup filter tab listener
         setupFilterTabListener()
         

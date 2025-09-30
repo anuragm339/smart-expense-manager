@@ -727,6 +727,16 @@ class InsightsFragment : Fragment() {
         if (::shimmerLoading.isInitialized && shimmerLoading.visibility == View.VISIBLE) {
             startAllShimmerAnimations(shimmerLoading)
         }
+
+        // Refresh charts when fragment becomes visible if content is already loaded
+        if (::viewModel.isInitialized && ::contentLayout.isInitialized && contentLayout.visibility == View.VISIBLE) {
+            Log.d(TAG, "Fragment resumed with content visible - refreshing charts to ensure proper rendering")
+            viewLifecycleOwner.lifecycleScope.launch {
+                // Small delay to ensure fragment is fully visible
+                kotlinx.coroutines.delay(100)
+                updateChartsWithFilteredData()
+            }
+        }
         
         // Force refresh if no data is currently displayed
         if (::viewModel.isInitialized && viewModel.uiState.value.insights.isEmpty()) {

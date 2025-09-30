@@ -8,6 +8,45 @@
     android:background="@color/background"
     tools:context=".ui.messages.MessagesFragment">
 
+    <!-- Action Buttons Row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="16dp"
+        android:gravity="center_vertical">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_sort"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:text="Sort"
+            android:textSize="14sp"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            app:strokeColor="@color/primary"
+            app:strokeWidth="1dp"
+            app:cornerRadius="20dp"
+            android:drawableStart="@android:drawable/ic_menu_sort_by_size"
+            android:drawablePadding="8dp"
+            android:layout_marginEnd="8dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_filter"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:text="Filter"
+            android:textSize="14sp"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            app:strokeColor="@color/primary"
+            app:strokeWidth="1dp"
+            app:cornerRadius="20dp"
+            android:drawableStart="@android:drawable/ic_menu_search"
+            android:drawablePadding="8dp"
+            android:layout_marginStart="8dp" />
+
+    </LinearLayout>
 
     <!-- Enhanced Search Bar -->
     <com.google.android.material.card.MaterialCardView
