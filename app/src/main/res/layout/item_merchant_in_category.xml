@@ -17,7 +17,7 @@
         android:padding="16dp"
         android:gravity="center_vertical">
 
-        <!-- Category Icon & Color -->
+        <!-- Merchant Initial Icon -->
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -25,25 +25,28 @@
             android:gravity="center"
             android:layout_marginEnd="16dp">
 
-            <View
-                android:id="@+id/view_category_icon"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:background="@drawable/circle_shape"
-                android:backgroundTint="@color/category_food" />
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="0dp"
+                app:cardBackgroundColor="@color/primary_light">
 
-            <TextView
-                android:id="@+id/tv_category_emoji"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="-26dp"
-                android:text="🍽️"
-                android:textSize="18sp"
-                android:gravity="center" />
+                <TextView
+                    android:id="@+id/tv_merchant_initial"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:text="H"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/primary"
+                    android:gravity="center" />
+
+            </com.google.android.material.card.MaterialCardView>
 
         </LinearLayout>
 
-        <!-- Category Info -->
+        <!-- Merchant Info -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -51,13 +54,15 @@
             android:orientation="vertical">
 
             <TextView
-                android:id="@+id/tv_category_name"
+                android:id="@+id/tv_merchant_name"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Food &amp; Dining"
+                android:text="HungerBox"
                 android:textSize="16sp"
                 android:textStyle="bold"
-                android:textColor="@color/text_primary" />
+                android:textColor="@color/text_primary"
+                android:ellipsize="end"
+                android:maxLines="1" />
 
             <LinearLayout
                 android:layout_width="wrap_content"
@@ -69,7 +74,7 @@
                     android:id="@+id/tv_transaction_count"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="23 transactions"
+                    android:text="15 transactions"
                     android:textSize="12sp"
                     android:textColor="@color/text_secondary" />
 
@@ -84,23 +89,42 @@
                     android:id="@+id/tv_last_transaction"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="2 hours ago"
+                    android:text="2 days ago"
                     android:textSize="12sp"
                     android:textColor="@color/text_secondary" />
 
             </LinearLayout>
 
-            <!-- Progress Bar -->
-            <ProgressBar
-                android:id="@+id/progress_spending"
+            <!-- Spending Progress Bar -->
+            <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="4dp"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
                 android:layout_marginTop="8dp"
                 android:layout_marginEnd="16dp"
-                style="?android:attr/progressBarStyleHorizontal"
-                android:progress="65"
-                android:progressTint="@color/category_food"
-                android:progressBackgroundTint="@color/text_hint" />
+                android:gravity="center_vertical">
+
+                <ProgressBar
+                    android:id="@+id/progress_spending"
+                    android:layout_width="0dp"
+                    android:layout_height="4dp"
+                    android:layout_weight="1"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:progress="35"
+                    android:progressTint="@color/primary"
+                    android:progressBackgroundTint="@color/surface_variant" />
+
+                <TextView
+                    android:id="@+id/tv_percentage"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="35%"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/text_secondary" />
+
+            </LinearLayout>
 
         </LinearLayout>
 
@@ -112,38 +136,27 @@
             android:gravity="end">
 
             <TextView
-                android:id="@+id/tv_category_amount"
+                android:id="@+id/tv_merchant_amount"
                 style="@style/AmountTextStyle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="₹4,250"
-                android:textColor="@color/error" />
-
-            <TextView
-                android:id="@+id/tv_percentage"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text="34%"
-                android:textSize="12sp"
-                android:textStyle="bold"
-                android:textColor="@color/text_secondary" />
+                android:text="₹1,250"
+                android:textColor="@color/error"
+                android:textSize="16sp" />
 
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_view_merchants"
+                android:id="@+id/btn_change_category"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                android:text="View Merchants"
+                android:text="Change"
                 android:textSize="10sp"
                 android:minWidth="0dp"
                 android:minHeight="0dp"
                 android:paddingHorizontal="8dp"
                 android:paddingVertical="4dp"
                 style="@style/Widget.Material3.Button.TextButton"
-                app:cornerRadius="12dp"
-                app:icon="@drawable/ic_store"
-                app:iconSize="12dp" />
+                app:cornerRadius="12dp" />
 
         </LinearLayout>
 

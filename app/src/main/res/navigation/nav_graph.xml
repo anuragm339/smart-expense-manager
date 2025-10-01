@@ -42,6 +42,9 @@
         <action
             android:id="@+id/action_navigation_categories_to_navigation_category_transactions"
             app:destination="@id/navigation_category_transactions" />
+        <action
+            android:id="@+id/action_categories_to_category_detail"
+            app:destination="@id/navigation_category_detail" />
     </fragment>
 
     <fragment
@@ -58,6 +61,22 @@
         <action
             android:id="@+id/action_navigation_profile_to_navigation_export_data"
             app:destination="@id/navigation_export_data" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/navigation_category_detail"
+        android:name="com.expensemanager.app.ui.categories.CategoryDetailFragment"
+        android:label="Category Detail"
+        tools:layout="@layout/fragment_category_detail">
+        <argument
+            android:name="categoryName"
+            app:argType="string" />
+        <action
+            android:id="@+id/action_category_detail_to_merchant_transactions"
+            app:destination="@id/navigation_merchant_transactions" />
+        <action
+            android:id="@+id/action_category_detail_to_category_transactions"
+            app:destination="@id/navigation_category_transactions" />
     </fragment>
 
     <fragment
