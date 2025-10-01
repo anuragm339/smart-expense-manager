@@ -10,7 +10,8 @@ import com.expensemanager.app.databinding.ItemCategoryBinding
 
 class CategoriesAdapter(
     private val onCategoryClick: (CategoryItem) -> Unit = {},
-    private val onCategoryLongClick: (CategoryItem, android.view.View) -> Unit = { _, _ -> }
+    private val onCategoryLongClick: (CategoryItem, android.view.View) -> Unit = { _, _ -> },
+    private val onViewMerchantsClick: (CategoryItem) -> Unit = {}
 ) : ListAdapter<CategoryItem, CategoriesAdapter.CategoryViewHolder>(CategoryDiffCallback()) {
     
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): CategoryViewHolder {
@@ -23,41 +24,59 @@ class CategoriesAdapter(
     }
     
     override fun onBindViewHolder(holder: CategoryViewHolder, position: Int) {
-        holder.bind(getItem(position), onCategoryClick, onCategoryLongClick)
+        holder.bind(getItem(position), onCategoryClick, onCategoryLongClick, onViewMerchantsClick)
     }
     
     class CategoryViewHolder(
         private val binding: ItemCategoryBinding
     ) : RecyclerView.ViewHolder(binding.root) {
         
-        fun bind(item: CategoryItem, onCategoryClick: (CategoryItem) -> Unit, onCategoryLongClick: (CategoryItem, android.view.View) -> Unit) {
+        fun bind(item: CategoryItem, onCategoryClick: (CategoryItem) -> Unit, onCategoryLongClick: (CategoryItem, android.view.View) -> Unit, onViewMerchantsClick: (CategoryItem) -> Unit) {
             with(binding) {
                 tvCategoryName.text = item.name
                 tvCategoryEmoji.text = item.emoji
                 tvCategoryAmount.text = "₹${String.format("%.0f", item.amount)}"
                 tvTransactionCount.text = "${item.transactionCount} transactions"
-                tvLastTransaction.text = item.lastTransaction
+
+                // Handle last transaction display
+                if (item.lastTransaction.isNotEmpty()) {
+                    tvLastTransaction.text = item.lastTransaction
+                    tvLastTransaction.visibility = android.view.View.VISIBLE
+                    tvBulletSeparator.visibility = android.view.View.VISIBLE
+                } else {
+                    tvLastTransaction.visibility = android.view.View.GONE
+                    tvBulletSeparator.visibility = android.view.View.GONE
+                }
+
                 tvPercentage.text = "${item.percentage}%"
                 progressSpending.progress = item.progress
-                
+
                 // Set category color
                 try {
                     val color = Color.parseColor(item.color)
-                    viewCategoryIcon.setBackgroundColor(color)
+                    viewCategoryIcon.backgroundTintList = android.content.res.ColorStateList.valueOf(color)
                     progressSpending.progressTintList = android.content.res.ColorStateList.valueOf(color)
                 } catch (e: Exception) {
                     // Fallback to default color if parsing fails
+                    val fallbackColor = Color.parseColor("#3f51b5") // primary color
+                    viewCategoryIcon.backgroundTintList = android.content.res.ColorStateList.valueOf(fallbackColor)
+                    progressSpending.progressTintList = android.content.res.ColorStateList.valueOf(fallbackColor)
                 }
-                
+
                 // Set click listener for category item
                 root.setOnClickListener {
                     onCategoryClick(item)
                 }
-                
+
                 // Set long click listener for delete/rename actions
                 root.setOnLongClickListener {
                     onCategoryLongClick(item, root)
                     true
+                }
+
+                // Set click listener for View Merchants button
+                btnViewMerchants.setOnClickListener {
+                    onViewMerchantsClick(item)
                 }
             }
         }

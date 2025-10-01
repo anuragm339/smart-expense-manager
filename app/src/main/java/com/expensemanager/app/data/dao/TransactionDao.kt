@@ -173,6 +173,20 @@ interface TransactionDao {
         ORDER BY total_amount DESC
     """)
     suspend fun getCategorySpendingBreakdown(startDate: Date, endDate: Date): List<CategorySpendingResult>
+
+    // Get all merchants in a specific category with their transaction statistics
+    @Query("""
+        SELECT m.display_name as displayName, m.normalized_name as normalizedName,
+               SUM(t.amount) as totalAmount, COUNT(t.id) as transactionCount,
+               MAX(t.transaction_date) as lastTransactionDate
+        FROM merchants m
+        LEFT JOIN transactions t ON m.normalized_name = t.normalized_merchant AND t.is_debit = 1
+        WHERE m.category_id = :categoryId
+        GROUP BY m.id, m.display_name, m.normalized_name
+        HAVING transactionCount > 0
+        ORDER BY totalAmount DESC
+    """)
+    suspend fun getMerchantsInCategoryWithStats(categoryId: Long): List<MerchantCategoryStats>
 }
 
 // Data classes for query results
@@ -202,4 +216,12 @@ data class CategorySpendingResult(
     val total_amount: Double,
     val transaction_count: Int,
     val last_transaction_date: Date?
+)
+
+data class MerchantCategoryStats(
+    val displayName: String,
+    val normalizedName: String,
+    val totalAmount: Double,
+    val transactionCount: Int,
+    val lastTransactionDate: Date
 )

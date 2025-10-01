@@ -6,6 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
@@ -20,6 +21,7 @@ import com.expensemanager.app.R
 import com.expensemanager.app.databinding.FragmentCategoriesBinding
 import com.expensemanager.app.constants.Categories
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.card.MaterialCardView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
 import com.expensemanager.app.data.repository.ExpenseRepository
@@ -33,6 +35,8 @@ import kotlinx.coroutines.launch
 import java.util.*
 import android.content.Context
 import android.util.Log
+import androidx.core.widget.addTextChangedListener
+import com.google.android.material.tabs.TabLayout
 
 @AndroidEntryPoint
 class CategoriesFragment : Fragment() {
@@ -86,7 +90,7 @@ class CategoriesFragment : Fragment() {
             onCategoryClick = { categoryItem ->
                 // Notify ViewModel of category selection for any business logic
                 viewModel.handleEvent(CategoriesUIEvent.CategorySelected(categoryItem.name))
-                
+
                 // Navigate to category transactions
                 val bundle = Bundle().apply {
                     putString("categoryName", categoryItem.name)
@@ -98,6 +102,16 @@ class CategoriesFragment : Fragment() {
             },
             onCategoryLongClick = { categoryItem, view ->
                 showCategoryActionDialog(categoryItem, view)
+            },
+            onViewMerchantsClick = { categoryItem ->
+                // Navigate to category detail screen to show merchants
+                val bundle = Bundle().apply {
+                    putString("categoryName", categoryItem.name)
+                }
+                findNavController().navigate(
+                    R.id.action_categories_to_category_detail,
+                    bundle
+                )
             }
         )
         binding.recyclerCategories.apply {
@@ -154,6 +168,11 @@ class CategoriesFragment : Fragment() {
         if (uiState.shouldShowEmptyState) {
             binding.tvTotalSpending.text = "₹0"
             binding.tvCategoriesCount.text = "0 Categories"
+            binding.recyclerCategories.visibility = View.GONE
+            binding.layoutEmptyCategories.visibility = View.VISIBLE
+        } else {
+            binding.recyclerCategories.visibility = View.VISIBLE
+            binding.layoutEmptyCategories.visibility = View.GONE
         }
     }
     
@@ -185,7 +204,7 @@ class CategoriesFragment : Fragment() {
                 if (categorySpendingResults.isNotEmpty()) {
                     // Convert repository results to CategoryItem format
                     val transactionCategoryData = categorySpendingResults.map { categoryResult ->
-                        val lastTransactionText = categoryResult.last_transaction_date?.let { formatLastTransaction(it) } ?: "No transactions"
+                        val lastTransactionText = categoryResult.last_transaction_date?.let { formatLastTransaction(it) } ?: ""
                         
                         Log.d("CategoriesFragment", "Repository Category: ${categoryResult.category_name}, Amount: ₹${String.format("%.0f", categoryResult.total_amount)}, Count: ${categoryResult.transaction_count}")
                         
@@ -212,7 +231,7 @@ class CategoriesFragment : Fragment() {
                                 color = getRandomCategoryColor(),
                                 amount = 0.0,
                                 transactionCount = 0,
-                                lastTransaction = "No transactions yet",
+                                lastTransaction = "",
                                 percentage = 0,
                                 progress = 0
                             )
@@ -281,7 +300,7 @@ class CategoriesFragment : Fragment() {
                     if (categorySpendingResults.isNotEmpty()) {
                         // Convert repository results to CategoryItem format
                         val transactionCategoryData = categorySpendingResults.map { categoryResult ->
-                            val lastTransactionText = categoryResult.last_transaction_date?.let { formatLastTransaction(it) } ?: "No transactions"
+                            val lastTransactionText = categoryResult.last_transaction_date?.let { formatLastTransaction(it) } ?: ""
                             
                             CategoryItem(
                                 name = categoryResult.category_name,
@@ -306,7 +325,7 @@ class CategoriesFragment : Fragment() {
                                     color = getRandomCategoryColor(),
                                     amount = 0.0,
                                     transactionCount = 0,
-                                    lastTransaction = "No transactions yet",
+                                    lastTransaction = "",
                                     percentage = 0,
                                     progress = 0
                                 )
@@ -381,12 +400,44 @@ class CategoriesFragment : Fragment() {
     }
     
     private fun setupClickListeners() {
-        binding.btnAddCategory.setOnClickListener {
-            showAddCategoryDialog()
-        }
-        
         binding.fabQuickExpense.setOnClickListener {
             showQuickAddDialog()
+        }
+
+        binding.fabAddCategory.setOnClickListener {
+            showAddCategoryDialog()
+        }
+
+        // Action buttons
+        binding.btnSortCategories.setOnClickListener {
+            showSortOptions()
+        }
+
+        binding.btnFilterCategories.setOnClickListener {
+            showFilterOptions()
+        }
+
+        // Search functionality
+        binding.etSearchCategories.addTextChangedListener { text ->
+            filterCategories(text.toString())
+        }
+
+        // Tab layout functionality
+        binding.tabLayoutCategoryFilter.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
+            override fun onTabSelected(tab: TabLayout.Tab?) {
+                when (tab?.position) {
+                    0 -> filterCategoriesByType("ALL")
+                    1 -> filterCategoriesByType("HIGH_SPEND")
+                    2 -> filterCategoriesByType("CUSTOM")
+                }
+            }
+            override fun onTabUnselected(tab: TabLayout.Tab?) {}
+            override fun onTabReselected(tab: TabLayout.Tab?) {}
+        })
+
+        // Empty state button
+        binding.btnCreateFirstCategory.setOnClickListener {
+            showAddCategoryDialog()
         }
     }
     
@@ -397,8 +448,11 @@ class CategoriesFragment : Fragment() {
         )
         
         val dialog = MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Add New Category")
             .setView(dialogView)
+            .setBackgroundInsetStart(16)
+            .setBackgroundInsetEnd(16)
+            .setBackgroundInsetTop(64)
+            .setBackgroundInsetBottom(64)
             .create()
         
         // Set up emoji quick selection
@@ -550,7 +604,7 @@ class CategoriesFragment : Fragment() {
                 color = getRandomCategoryColor(),
                 amount = 0.0,
                 transactionCount = 0,
-                lastTransaction = "No transactions yet",
+                lastTransaction = "",
                 percentage = 0,
                 progress = 0
             )
@@ -600,50 +654,17 @@ class CategoriesFragment : Fragment() {
         }
         
         try {
-            // Use BottomSheetDialog for better UX and proper positioning
-            showCategoryActionBottomSheet(categoryItem)
-            
+            // Use custom styled dialog
+            showCustomCategoryActionDialog(categoryItem)
+            Log.d("CategoriesFragment", "Custom dialog shown")
         } catch (e: Exception) {
-            Log.e("CategoriesFragment", "PopupMenu failed, trying fallback dialog", e)
-            
-            // Fallback to a simple bottom sheet style dialog
-            try {
-                val options = arrayOf("Rename Category", "Delete Category", "Cancel")
-                
-                MaterialAlertDialogBuilder(requireContext())
-                    .setTitle("${categoryItem.name} Actions")
-                    .setItems(options) { dialog, which ->
-                        Log.d("CategoriesFragment", "Fallback dialog action selected: $which")
-                        when (which) {
-                            0 -> {
-                                Log.d("CategoriesFragment", "Rename selected from fallback")
-                                showRenameCategoryDialog(categoryItem)
-                            }
-                            1 -> {
-                                Log.d("CategoriesFragment", "Delete selected from fallback")  
-                                showDeleteCategoryDialog(categoryItem)
-                            }
-                            2 -> {
-                                Log.d("CategoriesFragment", "Cancel selected from fallback")
-                                dialog.dismiss()
-                            }
-                        }
-                    }
-                    .setCancelable(true)
-                    .show()
-                    
-                Log.d("CategoriesFragment", "Fallback dialog shown")
-                
-            } catch (fallbackError: Exception) {
-                Log.e("CategoriesFragment", "Both popup and fallback dialog failed", fallbackError)
-                
-                // Last resort - Toast with instructions
-                Toast.makeText(
-                    requireContext(),
-                    "Long press detected on ${categoryItem.name}. Use menu options to rename/delete.",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
+            Log.e("CategoriesFragment", "Custom dialog failed", e)
+            // Last resort - Toast with instructions
+            Toast.makeText(
+                requireContext(),
+                "Long press detected on ${categoryItem.name}. Use menu options to rename/delete.",
+                Toast.LENGTH_LONG
+            ).show()
         }
     }
     
@@ -678,7 +699,43 @@ class CategoriesFragment : Fragment() {
         
         Log.d("CategoriesFragment", "BottomSheet dialog shown for category: ${categoryItem.name}")
     }
-    
+
+    private fun showCustomCategoryActionDialog(categoryItem: CategoryItem) {
+        val dialogView = LayoutInflater.from(requireContext()).inflate(
+            R.layout.dialog_category_actions,
+            null
+        )
+
+        val dialog = MaterialAlertDialogBuilder(requireContext())
+            .setView(dialogView)
+            .setBackgroundInsetStart(16)
+            .setBackgroundInsetEnd(16)
+            .setBackgroundInsetTop(64)
+            .setBackgroundInsetBottom(64)
+            .create()
+
+        // Set category info
+        dialogView.findViewById<TextView>(R.id.tv_category_name).text = categoryItem.name
+        dialogView.findViewById<TextView>(R.id.tv_category_emoji).text = categoryItem.emoji
+
+        // Set up click listeners
+        dialogView.findViewById<MaterialCardView>(R.id.card_rename).setOnClickListener {
+            dialog.dismiss()
+            showRenameCategoryDialog(categoryItem)
+        }
+
+        dialogView.findViewById<MaterialCardView>(R.id.card_delete).setOnClickListener {
+            dialog.dismiss()
+            showDeleteCategoryDialog(categoryItem)
+        }
+
+        dialogView.findViewById<MaterialButton>(R.id.btn_cancel).setOnClickListener {
+            dialog.dismiss()
+        }
+
+        dialog.show()
+    }
+
     private fun showRenameCategoryDialog(categoryItem: CategoryItem) {
         val dialogView = LayoutInflater.from(requireContext()).inflate(
             R.layout.dialog_add_category, 
@@ -782,6 +839,53 @@ class CategoriesFragment : Fragment() {
             Log.d("CategoriesFragment", "Unregistered broadcast receiver for merchant category changes.")
         } catch (e: Exception) {
             Log.w("CategoriesFragment", "Broadcast receiver not registered, ignoring unregister.", e)
+        }
+    }
+
+    private fun showSortOptions() {
+        val options = arrayOf("Amount (High to Low)", "Amount (Low to High)", "Name (A-Z)", "Name (Z-A)", "Recent Activity")
+
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Sort Categories")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> viewModel.handleEvent(CategoriesUIEvent.SortCategories("amount_desc"))
+                    1 -> viewModel.handleEvent(CategoriesUIEvent.SortCategories("amount_asc"))
+                    2 -> viewModel.handleEvent(CategoriesUIEvent.SortCategories("name_asc"))
+                    3 -> viewModel.handleEvent(CategoriesUIEvent.SortCategories("name_desc"))
+                    4 -> viewModel.handleEvent(CategoriesUIEvent.SortCategories("recent_activity"))
+                }
+                Toast.makeText(requireContext(), "Sorted by ${options[which]}", Toast.LENGTH_SHORT).show()
+            }
+            .show()
+    }
+
+    private fun showFilterOptions() {
+        val options = arrayOf("Show All", "Has Transactions Only", "Empty Categories Only", "Custom Categories Only")
+
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Filter Categories")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> viewModel.handleEvent(CategoriesUIEvent.FilterCategories("all"))
+                    1 -> viewModel.handleEvent(CategoriesUIEvent.FilterCategories("has_transactions"))
+                    2 -> viewModel.handleEvent(CategoriesUIEvent.FilterCategories("empty"))
+                    3 -> viewModel.handleEvent(CategoriesUIEvent.FilterCategories("custom"))
+                }
+                Toast.makeText(requireContext(), "Filtered by ${options[which]}", Toast.LENGTH_SHORT).show()
+            }
+            .show()
+    }
+
+    private fun filterCategories(query: String) {
+        viewModel.handleEvent(CategoriesUIEvent.SearchCategories(query))
+    }
+
+    private fun filterCategoriesByType(type: String) {
+        when (type) {
+            "ALL" -> viewModel.handleEvent(CategoriesUIEvent.FilterCategories("all"))
+            "HIGH_SPEND" -> viewModel.handleEvent(CategoriesUIEvent.FilterCategories("high_spend"))
+            "CUSTOM" -> viewModel.handleEvent(CategoriesUIEvent.FilterCategories("custom"))
         }
     }
 

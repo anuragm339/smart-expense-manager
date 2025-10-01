@@ -4,21 +4,43 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
+    android:background="@color/surface"
     android:padding="24dp">
+
+    <!-- Dialog Title -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Add New Category"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:textColor="@color/text_primary"
+        android:gravity="center"
+        android:layout_marginBottom="24dp" />
 
     <com.google.android.material.textfield.TextInputLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:hint="Category Name"
         android:layout_marginBottom="16dp"
-        app:helperText="Enter a unique category name">
+        android:textColorHint="@color/text_secondary"
+        app:helperText="Enter a unique category name"
+        app:boxStrokeColor="@color/primary"
+        app:hintTextColor="@color/primary"
+        app:boxBackgroundColor="@color/background_light"
+        app:boxStrokeWidth="2dp"
+        app:boxStrokeWidthFocused="3dp">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/et_category_name"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:inputType="textCapWords"
-            android:maxLines="1" />
+            android:maxLines="1"
+            android:textColor="@color/white"
+            android:textColorHint="@color/text_secondary"
+            android:textSize="16sp"
+            android:padding="16dp" />
 
     </com.google.android.material.textfield.TextInputLayout>
 
@@ -27,7 +49,13 @@
         android:layout_height="wrap_content"
         android:hint="Emoji (Optional)"
         android:layout_marginBottom="24dp"
-        app:helperText="Choose an emoji to represent this category">
+        android:textColorHint="@color/text_secondary"
+        app:helperText="Choose an emoji to represent this category"
+        app:boxStrokeColor="@color/primary"
+        app:hintTextColor="@color/primary"
+        app:boxBackgroundColor="@color/background_light"
+        app:boxStrokeWidth="2dp"
+        app:boxStrokeWidthFocused="3dp">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/et_emoji"
@@ -35,7 +63,12 @@
             android:layout_height="wrap_content"
             android:inputType="text"
             android:maxLines="1"
-            android:text="📂" />
+            android:text="📂"
+            android:textColor="@color/white"
+            android:textColorHint="@color/text_secondary"
+            android:textSize="20sp"
+            android:padding="16dp"
+            android:gravity="center" />
 
     </com.google.android.material.textfield.TextInputLayout>
 
@@ -63,6 +96,8 @@
             android:layout_marginEnd="4dp"
             android:text="🍽️"
             android:textSize="20sp"
+            app:strokeColor="@color/text_hint"
+            app:rippleColor="@color/primary_light"
             style="@style/Widget.Material3.Button.OutlinedButton" />
 
         <com.google.android.material.button.MaterialButton
@@ -73,6 +108,8 @@
             android:layout_marginHorizontal="4dp"
             android:text="🚗"
             android:textSize="20sp"
+            app:strokeColor="@color/text_hint"
+            app:rippleColor="@color/primary_light"
             style="@style/Widget.Material3.Button.OutlinedButton" />
 
         <com.google.android.material.button.MaterialButton
@@ -83,6 +120,8 @@
             android:layout_marginHorizontal="4dp"
             android:text="🛒"
             android:textSize="20sp"
+            app:strokeColor="@color/text_hint"
+            app:rippleColor="@color/primary_light"
             style="@style/Widget.Material3.Button.OutlinedButton" />
 
         <com.google.android.material.button.MaterialButton
@@ -93,6 +132,8 @@
             android:layout_marginHorizontal="4dp"
             android:text="🏥"
             android:textSize="20sp"
+            app:strokeColor="@color/text_hint"
+            app:rippleColor="@color/primary_light"
             style="@style/Widget.Material3.Button.OutlinedButton" />
 
         <com.google.android.material.button.MaterialButton
@@ -103,6 +144,8 @@
             android:layout_marginStart="4dp"
             android:text="🎬"
             android:textSize="20sp"
+            app:strokeColor="@color/text_hint"
+            app:rippleColor="@color/primary_light"
             style="@style/Widget.Material3.Button.OutlinedButton" />
 
     </LinearLayout>
@@ -120,6 +163,8 @@
             android:layout_height="wrap_content"
             android:layout_marginEnd="8dp"
             android:text="Cancel"
+            android:textColor="@color/text_secondary"
+            app:rippleColor="@color/text_hint"
             style="@style/Widget.Material3.Button.TextButton" />
 
         <com.google.android.material.button.MaterialButton
@@ -127,7 +172,11 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Add Category"
+            android:textColor="@color/white"
             app:icon="@drawable/ic_add"
+            app:iconTint="@color/white"
+            app:backgroundTint="@color/primary"
+            app:rippleColor="@color/primary_light"
             style="@style/Widget.Material3.Button" />
 
     </LinearLayout>

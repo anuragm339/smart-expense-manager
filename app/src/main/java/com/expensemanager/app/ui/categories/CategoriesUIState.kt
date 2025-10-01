@@ -60,6 +60,9 @@ sealed class CategoriesUIEvent {
         val category: String
     ) : CategoriesUIEvent()
     data class CategorySelected(val categoryName: String) : CategoriesUIEvent()
+    data class SearchCategories(val query: String) : CategoriesUIEvent()
+    data class SortCategories(val sortType: String) : CategoriesUIEvent()
+    data class FilterCategories(val filterType: String) : CategoriesUIEvent()
 }
 
 /**

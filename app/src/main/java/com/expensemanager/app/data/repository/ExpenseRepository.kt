@@ -352,7 +352,21 @@ class ExpenseRepository @Inject constructor(
     }
     
     override suspend fun updateMerchantExclusion(normalizedMerchantName: String, isExcluded: Boolean) {
-        merchantDao.updateMerchantExclusion(normalizedMerchantName, isExcluded)
+        try {
+            Timber.tag(LogConfig.FeatureTags.DATABASE).d("[EXCLUSION] Updating merchant exclusion: '$normalizedMerchantName' -> $isExcluded")
+            
+            merchantDao.updateMerchantExclusion(normalizedMerchantName, isExcluded)
+            
+            // CRITICAL FIX: Broadcast data change to notify dependent components
+            val intent = android.content.Intent("com.expensemanager.app.DATA_CHANGED")
+            context.sendBroadcast(intent)
+            
+            Timber.tag(LogConfig.FeatureTags.DATABASE).i("[EXCLUSION] Successfully updated exclusion and broadcast data change")
+            
+        } catch (e: Exception) {
+            Timber.tag(LogConfig.FeatureTags.DATABASE).e(e, "[EXCLUSION] Failed to update merchant exclusion for '$normalizedMerchantName'")
+            throw e
+        }
     }
     
     suspend fun updateMerchantsByCategory(oldCategoryId: Long, newCategoryId: Long): Int {
@@ -618,6 +632,8 @@ class ExpenseRepository @Inject constructor(
     // =======================
     
     override suspend fun getDashboardData(startDate: Date, endDate: Date): DashboardData {
+        Timber.tag(LogConfig.FeatureTags.DATABASE).d("[DASHBOARD] Loading dashboard data for range: %s to %s", startDate, endDate)
+        
         // Get raw data counts from database (all transactions including credits)
         val allTransactions = getTransactionsByDateRange(startDate, endDate)
         val rawTransactionCount = allTransactions.size
@@ -631,7 +647,7 @@ class ExpenseRepository @Inject constructor(
             Timber.tag(LogConfig.FeatureTags.DATABASE).d("[DEBUG] Debit example: %s - ₹%.2f - isDebit: %b", transaction.rawMerchant, transaction.amount, transaction.isDebit)
         }
         
-        // Get expense-specific data (debits only)
+        // CRITICAL FIX: Apply exclusion filtering consistently
         val totalSpent = getTotalSpent(startDate, endDate)
         val transactionCount = getTransactionCount(startDate, endDate)  // This applies filtering to debits only
         val categorySpending = getCategorySpending(startDate, endDate)
@@ -640,21 +656,25 @@ class ExpenseRepository @Inject constructor(
         val totalCredits = getTotalCredits(startDate, endDate)
         val actualBalance = getActualBalance(startDate, endDate)
         
+        Timber.tag(LogConfig.FeatureTags.DATABASE).d("[DASHBOARD] Calculated totals - Spent: ₹%.2f, Credits: ₹%.2f, Count: %d", totalSpent, totalCredits, transactionCount)
         
         if (rawDebitCount > 0 && transactionCount == 0) {
             Timber.tag(LogConfig.FeatureTags.DATABASE).w("WARNING: Raw debit transactions found (%d) but none remain after filtering (%d)", rawDebitCount, transactionCount)
             
             // DEBUG: Show examples of excluded transactions
             expenseTransactionsBeforeFilter.take(3).forEach { transaction ->
+                Timber.tag(LogConfig.FeatureTags.DATABASE).d("[DEBUG] Potentially excluded: %s", transaction.rawMerchant)
             }
             
             // DEBUG: Get exclusion states
             if (transactionFilterService != null) {
                 val exclusionDebugInfo = transactionFilterService.getExclusionStatesDebugInfo()
+                Timber.tag(LogConfig.FeatureTags.DATABASE).d("[DEBUG] Exclusion states: %s", exclusionDebugInfo)
             }
         }
         
         if (rawCreditCount > 0) {
+            Timber.tag(LogConfig.FeatureTags.DATABASE).d("[DEBUG] Found %d credit transactions totaling ₹%.2f", rawCreditCount, totalCredits)
         }
         
         // FIXED: Request more merchants to ensure consistent display after exclusion filtering
@@ -664,7 +684,7 @@ class ExpenseRepository @Inject constructor(
         // Calculate monthly balance (Last Salary - Current Period Expenses)
         val monthlyBalance = getMonthlyBudgetBalance(startDate, endDate)
         
-        return DashboardData(
+        val dashboardData = DashboardData(
             totalSpent = totalSpent,
             totalCredits = totalCredits,
             actualBalance = actualBalance,
@@ -674,6 +694,11 @@ class ExpenseRepository @Inject constructor(
             topMerchantsWithCategory = topMerchantsWithCategory.take(5), // New field with category information
             monthlyBalance = monthlyBalance
         )
+        
+        Timber.tag(LogConfig.FeatureTags.DATABASE).i("[DASHBOARD] Dashboard data loaded successfully - Spent: ₹%.2f, Transactions: %d, Categories: %d", 
+            dashboardData.totalSpent, dashboardData.transactionCount, dashboardData.topCategories.size)
+        
+        return dashboardData
     }
     
     // =======================
@@ -1104,6 +1129,177 @@ class ExpenseRepository @Inject constructor(
             Timber.tag(LogConfig.FeatureTags.DATABASE).e(e, "[ERROR] Test data cleanup failed")
             0
         }
+    }
+
+    // =======================
+    // CATEGORY DETAIL METHODS
+    // =======================
+
+    /**
+     * Get all merchants within a specific category with their transaction statistics
+     */
+    suspend fun getMerchantsInCategory(categoryName: String): List<com.expensemanager.app.ui.categories.MerchantInCategory> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val category = getCategoryByName(categoryName)
+                if (category == null) {
+                    Timber.tag(LogConfig.FeatureTags.DATABASE).w("Category not found: %s", categoryName)
+                    return@withContext emptyList()
+                }
+
+                // Get all merchants in this category with their transaction data
+                val merchantsWithStats = transactionDao.getMerchantsInCategoryWithStats(category.id)
+
+                // Calculate total spending for percentage calculation
+                val totalCategorySpending = merchantsWithStats.sumOf { it.totalAmount }
+
+                // Convert to MerchantInCategory objects
+                merchantsWithStats.map { merchantStats ->
+                    val percentage = if (totalCategorySpending > 0) {
+                        ((merchantStats.totalAmount / totalCategorySpending) * 100).toFloat()
+                    } else 0f
+
+                    com.expensemanager.app.ui.categories.MerchantInCategory(
+                        merchantName = merchantStats.displayName,
+                        transactionCount = merchantStats.transactionCount,
+                        totalAmount = merchantStats.totalAmount,
+                        lastTransactionDate = merchantStats.lastTransactionDate,
+                        currentCategory = categoryName,
+                        percentage = percentage
+                    )
+                }.sortedByDescending { it.totalAmount } // Sort by spending amount
+
+            } catch (e: Exception) {
+                Timber.tag(LogConfig.FeatureTags.DATABASE).e(e, "Failed to get merchants in category: %s", categoryName)
+                emptyList()
+            }
+        }
+    }
+
+    /**
+     * Change a merchant's category
+     */
+    suspend fun changeMerchantCategory(merchantName: String, newCategoryName: String, applyToFuture: Boolean): Boolean {
+        return withContext(Dispatchers.IO) {
+            try {
+                // Get the new category
+                val newCategory = getCategoryByName(newCategoryName)
+                if (newCategory == null) {
+                    Timber.tag(LogConfig.FeatureTags.DATABASE).w("Target category not found: %s", newCategoryName)
+                    return@withContext false
+                }
+
+                // Get the merchant by normalized name
+                val normalizedMerchantName = normalizeMerchantName(merchantName)
+                val merchant = getMerchantByNormalizedName(normalizedMerchantName)
+                if (merchant == null) {
+                    Timber.tag(LogConfig.FeatureTags.DATABASE).w("Merchant not found: %s", merchantName)
+                    return@withContext false
+                }
+
+                // Update the merchant's category
+                val updatedMerchant = merchant.copy(
+                    categoryId = newCategory.id
+                )
+                merchantDao.updateMerchant(updatedMerchant)
+
+                // If applyToFuture is false, we might need to update existing transactions
+                // For now, we'll keep the existing logic simple and just update the merchant
+
+                Timber.tag(LogConfig.FeatureTags.DATABASE).d("Changed merchant %s to category %s", merchantName, newCategoryName)
+                true
+
+            } catch (e: Exception) {
+                Timber.tag(LogConfig.FeatureTags.DATABASE).e(e, "Failed to change merchant category: %s -> %s", merchantName, newCategoryName)
+                false
+            }
+        }
+    }
+
+    /**
+     * Rename a category (for custom categories)
+     */
+    suspend fun renameCategory(oldName: String, newName: String, newEmoji: String): Boolean {
+        return withContext(Dispatchers.IO) {
+            try {
+                val category = getCategoryByName(oldName)
+                if (category == null) {
+                    Timber.tag(LogConfig.FeatureTags.DATABASE).w("Category not found for rename: %s", oldName)
+                    return@withContext false
+                }
+
+                // Check if new name already exists
+                val existingCategory = getCategoryByName(newName)
+                if (existingCategory != null && existingCategory.id != category.id) {
+                    Timber.tag(LogConfig.FeatureTags.DATABASE).w("Category name already exists: %s", newName)
+                    return@withContext false
+                }
+
+                // Update the category
+                val updatedCategory = category.copy(
+                    name = newName,
+                    emoji = newEmoji
+                )
+                categoryDao.updateCategory(updatedCategory)
+
+                Timber.tag(LogConfig.FeatureTags.DATABASE).d("Renamed category %s to %s", oldName, newName)
+                true
+
+            } catch (e: Exception) {
+                Timber.tag(LogConfig.FeatureTags.DATABASE).e(e, "Failed to rename category: %s -> %s", oldName, newName)
+                false
+            }
+        }
+    }
+
+    /**
+     * Delete a category and reassign its merchants to another category
+     */
+    suspend fun deleteCategory(categoryName: String, reassignToCategoryName: String): Boolean {
+        return withContext(Dispatchers.IO) {
+            try {
+                val categoryToDelete = getCategoryByName(categoryName)
+                val reassignCategory = getCategoryByName(reassignToCategoryName)
+
+                if (categoryToDelete == null || reassignCategory == null) {
+                    Timber.tag(LogConfig.FeatureTags.DATABASE).w("Category not found for deletion or reassignment")
+                    return@withContext false
+                }
+
+                // Check if it's a system category (shouldn't be deletable)
+                if (com.expensemanager.app.constants.Categories.isSystemCategory(categoryName)) {
+                    Timber.tag(LogConfig.FeatureTags.DATABASE).w("Cannot delete system category: %s", categoryName)
+                    return@withContext false
+                }
+
+                // Reassign all merchants to the new category
+                val merchantsInCategory = merchantDao.getMerchantsByCategory(categoryToDelete.id)
+                merchantsInCategory.forEach { merchant ->
+                    val updatedMerchant = merchant.copy(
+                        categoryId = reassignCategory.id
+                    )
+                    merchantDao.updateMerchant(updatedMerchant)
+                }
+
+                // Delete the category
+                categoryDao.deleteCategory(categoryToDelete)
+
+                Timber.tag(LogConfig.FeatureTags.DATABASE).d("Deleted category %s and reassigned %d merchants to %s",
+                    categoryName, merchantsInCategory.size, reassignToCategoryName)
+                true
+
+            } catch (e: Exception) {
+                Timber.tag(LogConfig.FeatureTags.DATABASE).e(e, "Failed to delete category: %s", categoryName)
+                false
+            }
+        }
+    }
+
+    /**
+     * Check if a category is a system category
+     */
+    suspend fun isSystemCategory(categoryName: String): Boolean {
+        return com.expensemanager.app.constants.Categories.isSystemCategory(categoryName)
     }
 }
 

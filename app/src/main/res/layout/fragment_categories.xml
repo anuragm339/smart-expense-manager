@@ -1,14 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     android:background="@color/background"
     tools:context=".ui.categories.CategoriesFragment">
 
-    <!-- Header -->
+<LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <!-- Action Buttons Row -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -16,36 +20,85 @@
         android:padding="16dp"
         android:gravity="center_vertical">
 
-        <TextView
-            style="@style/HeaderTextStyle"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Expense Categories"
-            android:drawableStart="@drawable/ic_categories"
-            android:drawablePadding="12dp"
-            android:drawableTint="@color/primary" />
-
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_add_category"
-            android:layout_width="wrap_content"
-            android:layout_height="36dp"
-            android:text="+ Add"
-            android:textSize="12sp"
-            style="@style/Widget.Material3.Button.TextButton"
+            android:id="@+id/btn_sort_categories"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:text="Sort"
+            android:textSize="14sp"
+            style="@style/Widget.Material3.Button.OutlinedButton"
             app:strokeColor="@color/primary"
             app:strokeWidth="1dp"
-            app:cornerRadius="18dp" />
+            app:cornerRadius="20dp"
+            android:drawableStart="@android:drawable/ic_menu_sort_by_size"
+            android:drawablePadding="8dp"
+            android:layout_marginEnd="8dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_filter_categories"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:text="Filter"
+            android:textSize="14sp"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            app:strokeColor="@color/primary"
+            app:strokeWidth="1dp"
+            app:cornerRadius="20dp"
+            android:drawableStart="@android:drawable/ic_menu_search"
+            android:drawablePadding="8dp"
+            android:layout_marginStart="8dp" />
 
     </LinearLayout>
 
-    <!-- Total Spending Summary -->
+    <!-- Enhanced Search Bar -->
     <com.google.android.material.card.MaterialCardView
-        style="@style/CardStyle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginHorizontal="16dp"
-        android:layout_marginBottom="16dp"
+        android:layout_marginBottom="8dp"
+        app:cardElevation="1dp"
+        app:cardCornerRadius="20dp"
+        app:strokeWidth="1dp"
+        app:strokeColor="@color/divider">
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/til_search_categories"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            style="@style/Widget.Material3.TextInputLayout.FilledBox"
+            app:startIconDrawable="@android:drawable/ic_menu_search"
+            app:endIconMode="clear_text"
+            app:hintEnabled="true"
+            app:boxStrokeWidth="0dp"
+            app:boxStrokeWidthFocused="0dp"
+            app:boxBackgroundColor="@android:color/transparent"
+            android:hint="Search categories, merchants...">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/et_search_categories"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="text"
+                android:imeOptions="actionSearch"
+                android:paddingVertical="12dp"
+                android:background="@android:color/transparent" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- Enhanced Summary Stats -->
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginBottom="8dp"
+        app:cardElevation="1dp"
+        app:cardCornerRadius="16dp"
+        app:strokeWidth="1dp"
+        app:strokeColor="@color/divider"
         app:cardBackgroundColor="@color/primary_light">
 
         <LinearLayout
@@ -117,6 +170,49 @@
 
     </com.google.android.material.card.MaterialCardView>
 
+    <!-- Category Filter Tabs -->
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginBottom="8dp"
+        app:cardElevation="1dp"
+        app:cardCornerRadius="16dp"
+        app:strokeWidth="1dp"
+        app:strokeColor="@color/divider">
+
+        <com.google.android.material.tabs.TabLayout
+            android:id="@+id/tab_layout_category_filter"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@android:color/transparent"
+            app:tabGravity="fill"
+            app:tabMode="fixed"
+            app:tabSelectedTextColor="@color/primary"
+            app:tabTextColor="@color/text_secondary"
+            app:tabIndicatorColor="@color/primary"
+            app:tabIndicatorHeight="3dp"
+            app:tabRippleColor="@color/primary_light">
+
+            <com.google.android.material.tabs.TabItem
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="ALL" />
+
+            <com.google.android.material.tabs.TabItem
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="HIGH SPEND" />
+
+            <com.google.android.material.tabs.TabItem
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="CUSTOM" />
+
+        </com.google.android.material.tabs.TabLayout>
+
+    </com.google.android.material.card.MaterialCardView>
+
     <!-- Categories List -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recycler_categories"
@@ -130,7 +226,66 @@
         android:fadeScrollbars="false"
         tools:listitem="@layout/item_category" />
 
-    <!-- Floating Action Button for Quick Add -->
+    <!-- Empty State -->
+    <LinearLayout
+        android:id="@+id/layout_empty_categories"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="32dp"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="📊"
+            android:textSize="48sp"
+            android:layout_marginBottom="16dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="No categories found"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_primary"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Create your first category to organize your expenses"
+            android:textSize="14sp"
+            android:textColor="@color/text_secondary"
+            android:textAlignment="center" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_create_first_category"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Create Category"
+            app:backgroundTint="@color/primary" />
+
+    </LinearLayout>
+
+</LinearLayout>
+
+    <!-- Add Category Button -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fab_add_category"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="88dp"
+        android:src="@drawable/ic_category"
+        app:backgroundTint="@color/primary"
+        android:contentDescription="Add Category" />
+
+    <!-- Quick Add Expense Button -->
     <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
         android:id="@+id/fab_quick_expense"
         android:layout_width="wrap_content"
@@ -139,6 +294,6 @@
         android:layout_margin="16dp"
         android:text="Quick Add"
         app:icon="@drawable/ic_add"
-        app:backgroundTint="@color/secondary" />
+        app:backgroundTint="@color/success" />
 
-</LinearLayout>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

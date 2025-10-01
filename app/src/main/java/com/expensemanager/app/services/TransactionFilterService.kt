@@ -417,4 +417,65 @@ class TransactionFilterService @Inject constructor(
             Timber.tag(LogConfig.FeatureTags.TRANSACTION).e("Error clearing SharedPreferences exclusions", e)
         }
     }
+    
+    /**
+     * Get included and excluded MessageItems separately for tab filtering
+     */
+    suspend fun separateMessageItemsByInclusion(messageItems: List<MessageItem>): Triple<List<MessageItem>, List<MessageItem>, List<MessageItem>> = withContext(Dispatchers.IO) {
+        try {
+            Timber.tag(LogConfig.FeatureTags.TRANSACTION).d("[SEPARATE] Separating ${messageItems.size} MessageItems by inclusion")
+            
+            // 1. Get database exclusions
+            val excludedMerchants = merchantDao.getExcludedMerchants()
+            val excludedNormalizedNames = excludedMerchants.map { it.normalizedName }.toSet()
+            
+            // 2. Get SharedPreferences exclusions (legacy system)
+            val sharedPrefsExclusions = getSharedPreferencesExclusions()
+            
+            // 3. Separate MessageItems
+            val includedItems = mutableListOf<MessageItem>()
+            val excludedItems = mutableListOf<MessageItem>()
+            
+            messageItems.forEach { item ->
+                // Normalize merchant name for comparison
+                val normalizedMerchant = normalizeMerchantName(item.merchant)
+                
+                val isExcludedInDatabase = excludedNormalizedNames.contains(normalizedMerchant)
+                val isExcludedInSharedPrefs = sharedPrefsExclusions.contains(normalizedMerchant) ||
+                    sharedPrefsExclusions.contains(item.merchant)
+                
+                val isIncluded = !isExcludedInDatabase && !isExcludedInSharedPrefs
+                
+                if (isIncluded) {
+                    includedItems.add(item)
+                } else {
+                    excludedItems.add(item)
+                }
+            }
+            
+            Timber.tag(LogConfig.FeatureTags.TRANSACTION).i("[SEPARATE] Results: All: ${messageItems.size}, Included: ${includedItems.size}, Excluded: ${excludedItems.size}")
+            
+            Triple(messageItems, includedItems, excludedItems)
+            
+        } catch (e: Exception) {
+            Timber.tag(LogConfig.FeatureTags.TRANSACTION).e("[ERROR] Error separating MessageItems by inclusion", e)
+            Triple(messageItems, messageItems, emptyList()) // Return original list for all and included on error
+        }
+    }
+    
+    /**
+     * Get only included MessageItems (convenience method)
+     */
+    suspend fun getIncludedMessageItems(messageItems: List<MessageItem>): List<MessageItem> = withContext(Dispatchers.IO) {
+        val (_, included, _) = separateMessageItemsByInclusion(messageItems)
+        included
+    }
+    
+    /**
+     * Get only excluded MessageItems (convenience method)
+     */
+    suspend fun getExcludedMessageItems(messageItems: List<MessageItem>): List<MessageItem> = withContext(Dispatchers.IO) {
+        val (_, _, excluded) = separateMessageItemsByInclusion(messageItems)
+        excluded
+    }
 }

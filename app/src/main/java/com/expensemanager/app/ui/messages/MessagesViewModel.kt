@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.expensemanager.app.data.repository.ExpenseRepository
 import com.expensemanager.app.services.SMSParsingService
+import com.expensemanager.app.services.TransactionFilterService
 import com.expensemanager.app.utils.CategoryManager
 import com.expensemanager.app.utils.MerchantAliasManager
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -27,7 +28,8 @@ import javax.inject.Inject
 class MessagesViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val expenseRepository: ExpenseRepository,
-    private val smsParsingService: SMSParsingService
+    private val smsParsingService: SMSParsingService,
+    private val transactionFilterService: TransactionFilterService
 ) : ViewModel() {
     
     companion object {
@@ -66,6 +68,7 @@ class MessagesViewModel @Inject constructor(
             is MessagesUIEvent.Search -> searchMessages(event.query)
             is MessagesUIEvent.ApplySort -> applySortOption(event.sortOption)
             is MessagesUIEvent.ApplyFilter -> applyFilterOptions(event.filterOptions)
+            is MessagesUIEvent.ApplyFilterTab -> applyFilterTab(event.filterTab)
             is MessagesUIEvent.ResetFilters -> resetFilters()
             is MessagesUIEvent.ToggleGroupInclusion -> toggleGroupInclusion(event.merchantName, event.isIncluded)
             is MessagesUIEvent.UpdateMerchantGroup -> updateMerchantGroup(event.merchantName, event.newDisplayName, event.newCategory)
@@ -426,12 +429,24 @@ class MessagesViewModel @Inject constructor(
     }
     
     /**
+     * Apply filter tab (ALL/INCLUDED/EXCLUDED)
+     */
+    private fun applyFilterTab(filterTab: TransactionFilterTab) {
+        Timber.tag(LogConfig.FeatureTags.SMS).d("Applying filter tab: ${filterTab.displayName}")
+        _uiState.value = _uiState.value.copy(
+            currentFilterTab = filterTab
+        )
+        applyFiltersAndSort()
+    }
+    
+    /**
      * Reset all filters
      */
     private fun resetFilters() {
         _uiState.value = _uiState.value.copy(
             currentFilterOptions = FilterOptions(),
-            searchQuery = ""
+            searchQuery = "",
+            currentFilterTab = TransactionFilterTab.ALL
         )
         applyFiltersAndSort()
     }
@@ -440,61 +455,71 @@ class MessagesViewModel @Inject constructor(
      * Apply filters and sorting to messages
      */
     private fun applyFiltersAndSort() {
-        val currentState = _uiState.value
-        var filtered = currentState.allMessages.toList()
-        
-        // Apply search filter
-        if (currentState.searchQuery.isNotEmpty()) {
-            val query = currentState.searchQuery.lowercase()
-            filtered = filtered.filter { item ->
-                item.merchant.lowercase().contains(query) ||
-                item.bankName.lowercase().contains(query) ||
-                item.rawSMS.lowercase().contains(query) ||
-                item.category.lowercase().contains(query)
+        viewModelScope.launch {
+            val currentState = _uiState.value
+            
+            // Apply filter tab logic first (ALL/INCLUDED/EXCLUDED)
+            var filtered = when (currentState.currentFilterTab) {
+                TransactionFilterTab.ALL -> currentState.allMessages
+                TransactionFilterTab.INCLUDED -> transactionFilterService.getIncludedMessageItems(currentState.allMessages)
+                TransactionFilterTab.EXCLUDED -> transactionFilterService.getExcludedMessageItems(currentState.allMessages)
+            }.toList()
+            
+            Timber.tag(LogConfig.FeatureTags.SMS).d("Applied filter tab ${currentState.currentFilterTab.displayName}: ${currentState.allMessages.size} -> ${filtered.size} items")
+            
+            // Apply search filter
+            if (currentState.searchQuery.isNotEmpty()) {
+                val query = currentState.searchQuery.lowercase()
+                filtered = filtered.filter { item ->
+                    item.merchant.lowercase().contains(query) ||
+                    item.bankName.lowercase().contains(query) ||
+                    item.rawSMS.lowercase().contains(query) ||
+                    item.category.lowercase().contains(query)
+                }
             }
+            
+            // Apply filters
+            val filters = currentState.currentFilterOptions
+            
+            filters.minAmount?.let { minAmount ->
+                filtered = filtered.filter { it.amount >= minAmount }
+            }
+            filters.maxAmount?.let { maxAmount ->
+                filtered = filtered.filter { it.amount <= maxAmount }
+            }
+            
+            if (filters.selectedBanks.isNotEmpty()) {
+                filtered = filtered.filter { filters.selectedBanks.contains(it.bankName) }
+            }
+            
+            if (filters.minConfidence > 0) {
+                filtered = filtered.filter { it.confidence >= filters.minConfidence }
+            }
+            
+            // Apply date filters (simplified)
+            filters.dateFrom?.let { dateFrom ->
+                filtered = filtered.filter { it.dateTime >= dateFrom }
+            }
+            filters.dateTo?.let { dateTo ->
+                filtered = filtered.filter { it.dateTime <= dateTo }
+            }
+            
+            // Skip individual transaction sorting - let groupTransactionsByMerchant handle the sorting
+            // This ensures that the final merchant group sorting is what determines the display order
+            val sortOption = currentState.currentSortOption
+            Timber.tag(LogConfig.FeatureTags.SMS).d("[DEBUG] Skipping individual transaction sorting - groups will be sorted by ${sortOption.field}")
+            
+            // Group by merchant - this will handle the proper sorting
+            val groupedMessages = groupTransactionsByMerchant(filtered, sortOption)
+            
+            // Update state
+            _uiState.value = currentState.copy(
+                filteredMessages = filtered,
+                groupedMessages = groupedMessages
+            )
+            
+            Timber.tag(LogConfig.FeatureTags.SMS).d("Applied filters and sort: ${filtered.size} items, ${groupedMessages.size} groups")
         }
-        
-        // Apply filters
-        val filters = currentState.currentFilterOptions
-        
-        filters.minAmount?.let { minAmount ->
-            filtered = filtered.filter { it.amount >= minAmount }
-        }
-        filters.maxAmount?.let { maxAmount ->
-            filtered = filtered.filter { it.amount <= maxAmount }
-        }
-        
-        if (filters.selectedBanks.isNotEmpty()) {
-            filtered = filtered.filter { filters.selectedBanks.contains(it.bankName) }
-        }
-        
-        if (filters.minConfidence > 0) {
-            filtered = filtered.filter { it.confidence >= filters.minConfidence }
-        }
-        
-        // Apply date filters (simplified)
-        filters.dateFrom?.let { dateFrom ->
-            filtered = filtered.filter { it.dateTime >= dateFrom }
-        }
-        filters.dateTo?.let { dateTo ->
-            filtered = filtered.filter { it.dateTime <= dateTo }
-        }
-        
-        // Skip individual transaction sorting - let groupTransactionsByMerchant handle the sorting
-        // This ensures that the final merchant group sorting is what determines the display order
-        val sortOption = currentState.currentSortOption
-        Timber.tag(LogConfig.FeatureTags.SMS).d("[DEBUG] Skipping individual transaction sorting - groups will be sorted by ${sortOption.field}")
-        
-        // Group by merchant - this will handle the proper sorting
-        val groupedMessages = groupTransactionsByMerchant(filtered, sortOption)
-        
-        // Update state
-        _uiState.value = currentState.copy(
-            filteredMessages = filtered,
-            groupedMessages = groupedMessages
-        )
-        
-        Timber.tag(LogConfig.FeatureTags.SMS).d("Applied filters and sort: ${filtered.size} items, ${groupedMessages.size} groups")
     }
     
     /**
@@ -582,7 +607,7 @@ class MessagesViewModel @Inject constructor(
     }
     
     /**
-     * Toggle group inclusion in calculations with debouncing to prevent crashes
+     * Toggle group inclusion in calculations with proper database sync and immediate data refresh
      */
     private fun toggleGroupInclusion(merchantName: String, isIncluded: Boolean) {
         try {
@@ -611,10 +636,18 @@ class MessagesViewModel @Inject constructor(
                         groupedMessages = updatedGroups
                     )
                     
-                    // Save inclusion states with error handling (background operation)
+                    // CRITICAL FIX: Update both SharedPreferences AND database, then refresh data
                     launch {
                         delay(200) // Additional delay for persistence operations
+                        
+                        // 1. Save to SharedPreferences (legacy support)
                         saveGroupInclusionStates(updatedGroups)
+                        
+                        // 2. Update database exclusion state
+                        updateMerchantExclusionInDatabase(merchantName, !isIncluded)
+                        
+                        // 3. CRITICAL: Trigger data refresh to update summary calculations
+                        notifyDataChanged()
                     }
                     
                     Timber.tag(LogConfig.FeatureTags.SMS).d("Successfully toggled group inclusion for '$merchantName'")
@@ -903,6 +936,66 @@ class MessagesViewModel @Inject constructor(
     }
     
     /**
+     * Update merchant exclusion status in database
+     */
+    private suspend fun updateMerchantExclusionInDatabase(merchantName: String, isExcluded: Boolean) {
+        try {
+            Timber.tag(LogConfig.FeatureTags.SMS).d("Updating database exclusion for '$merchantName': $isExcluded")
+            
+            // Get original merchant names for this display name
+            val originalMerchantNames = merchantAliasManager.getMerchantsByDisplayName(merchantName)
+            
+            if (originalMerchantNames.isNotEmpty()) {
+                // Update all original merchants
+                originalMerchantNames.forEach { originalName ->
+                    val normalizedName = normalizeMerchantName(originalName)
+                    expenseRepository.updateMerchantExclusion(normalizedName, isExcluded)
+                }
+            } else {
+                // Fallback: update using the display name itself
+                val normalizedName = normalizeMerchantName(merchantName)
+                expenseRepository.updateMerchantExclusion(normalizedName, isExcluded)
+            }
+            
+            Timber.tag(LogConfig.FeatureTags.SMS).i("Successfully updated database exclusion for '$merchantName'")
+            
+        } catch (e: Exception) {
+            Timber.tag(LogConfig.FeatureTags.SMS).e(e, "Failed to update database exclusion for '$merchantName'")
+        }
+    }
+    
+    /**
+     * Notify other components that data has changed (triggers dashboard refresh)
+     */
+    private fun notifyDataChanged() {
+        try {
+            // Broadcast data change to trigger dashboard refresh
+            val intent = android.content.Intent("com.expensemanager.app.DATA_CHANGED")
+            context.sendBroadcast(intent)
+            
+            Timber.tag(LogConfig.FeatureTags.SMS).d("[DATA_SYNC] Broadcast sent to refresh dependent screens")
+            
+        } catch (e: Exception) {
+            Timber.tag(LogConfig.FeatureTags.SMS).e(e, "Error broadcasting data change")
+        }
+    }
+    
+    /**
+     * Normalize merchant name to match database format
+     */
+    private fun normalizeMerchantName(merchantName: String): String {
+        return merchantName.uppercase()
+            .replace(Regex("\\s+"), " ")
+            .trim()
+            .replace(Regex("\\*(ORDER|PAYMENT|TXN|TRANSACTION).*$"), "")
+            .replace(Regex("#\\d+.*$"), "")
+            .replace(Regex("@\\w+.*$"), "")
+            .replace(Regex("-{2,}.*$"), "")
+            .replace(Regex("_{2,}.*$"), "")
+            .trim()
+    }
+    
+    /**
      * Invalidate MerchantAliasManager cache to ensure fresh data after external updates
      * This method should be called after the Fragment updates merchant aliases
      */
@@ -913,5 +1006,13 @@ class MessagesViewModel @Inject constructor(
         } catch (e: Exception) {
             Timber.tag(LogConfig.FeatureTags.SMS).e(e, "Error invalidating ViewModel merchant alias cache")
         }
+    }
+    
+    /**
+     * Force refresh data after external changes (called from Fragment)
+     */
+    fun refreshDataAfterExternalChanges() {
+        Timber.tag(LogConfig.FeatureTags.SMS).d("[DATA_SYNC] Refreshing data after external changes")
+        loadMessages()
     }
 }

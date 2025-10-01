@@ -61,6 +61,9 @@ class CategoriesViewModel @Inject constructor(
             is CategoriesUIEvent.QuickAddExpense -> addQuickExpense(event.amount, event.merchant, event.category)
             is CategoriesUIEvent.CategorySelected -> handleCategorySelection(event.categoryName)
             is CategoriesUIEvent.ClearError -> clearError()
+            is CategoriesUIEvent.SearchCategories -> searchCategories(event.query)
+            is CategoriesUIEvent.SortCategories -> sortCategories(event.sortType)
+            is CategoriesUIEvent.FilterCategories -> filterCategories(event.filterType)
         }
     }
     
@@ -165,7 +168,7 @@ class CategoriesViewModel @Inject constructor(
                     color = categoryColor,
                     amount = 0.0,
                     transactionCount = 0,
-                    lastTransaction = "No transactions yet",
+                    lastTransaction = "",
                     percentage = 0,
                     progress = 0
                 )
@@ -424,7 +427,7 @@ class CategoriesViewModel @Inject constructor(
                 val transactionCategoryData = categorySpendingResults.map { categoryResult ->
                     val lastTransactionText = categoryResult.last_transaction_date?.let { 
                         formatLastTransaction(it) 
-                    } ?: "No transactions"
+                    } ?: ""
                     
                     CategoryItem(
                         name = categoryResult.category_name,
@@ -449,7 +452,7 @@ class CategoriesViewModel @Inject constructor(
                             color = getRandomCategoryColor(),
                             amount = 0.0,
                             transactionCount = 0,
-                            lastTransaction = "No transactions yet",
+                            lastTransaction = "",
                             percentage = 0,
                             progress = 0
                         )
@@ -518,7 +521,7 @@ class CategoriesViewModel @Inject constructor(
                     val transactionCategoryData = categorySpendingResults.map { categoryResult ->
                         val lastTransactionText = categoryResult.last_transaction_date?.let { 
                             formatLastTransaction(it) 
-                        } ?: "No transactions"
+                        } ?: ""
                         
                         CategoryItem(
                             name = categoryResult.category_name,
@@ -542,7 +545,7 @@ class CategoriesViewModel @Inject constructor(
                                 color = getRandomCategoryColor(),
                                 amount = 0.0,
                                 transactionCount = 0,
-                                lastTransaction = "No transactions yet",
+                                lastTransaction = "",
                                 percentage = 0,
                                 progress = 0
                             )
@@ -588,7 +591,7 @@ class CategoriesViewModel @Inject constructor(
                 color = getRandomCategoryColor(),
                 amount = 0.0,
                 transactionCount = 0,
-                lastTransaction = "No transactions yet",
+                lastTransaction = "",
                 percentage = 0,
                 progress = 0
             )
@@ -763,5 +766,129 @@ class CategoriesViewModel @Inject constructor(
                 Timber.tag(LogConfig.FeatureTags.CATEGORIES).e(e, "Error in comprehensive category debug")
             }
         }
+    }
+
+    // Add state for filtering and searching
+    private var originalCategories: List<CategoryItem> = emptyList()
+    private var currentSearchQuery: String = ""
+    private var currentSortType: String = "amount_desc"
+    private var currentFilterType: String = "all"
+
+    /**
+     * Search categories by name or merchant
+     */
+    private fun searchCategories(query: String) {
+        currentSearchQuery = query
+        Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("Searching categories with query: '$query'")
+
+        val currentCategories = originalCategories.ifEmpty { _uiState.value.categories }
+        if (originalCategories.isEmpty()) {
+            originalCategories = currentCategories
+        }
+
+        val filteredCategories = if (query.isBlank()) {
+            currentCategories
+        } else {
+            currentCategories.filter { category ->
+                category.name.contains(query, ignoreCase = true)
+            }
+        }
+
+        _uiState.value = _uiState.value.copy(
+            categories = applySortAndFilter(filteredCategories),
+            isEmpty = filteredCategories.isEmpty()
+        )
+    }
+
+    /**
+     * Sort categories by different criteria
+     */
+    private fun sortCategories(sortType: String) {
+        currentSortType = sortType
+        Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("Sorting categories by: $sortType")
+
+        val currentCategories = _uiState.value.categories
+        val sortedCategories = when (sortType) {
+            "amount_desc" -> currentCategories.sortedByDescending { it.amount }
+            "amount_asc" -> currentCategories.sortedBy { it.amount }
+            "name_asc" -> currentCategories.sortedBy { it.name }
+            "name_desc" -> currentCategories.sortedByDescending { it.name }
+            "recent_activity" -> currentCategories.sortedByDescending {
+                when {
+                    it.lastTransaction.contains("Just now") -> 5
+                    it.lastTransaction.contains("hours ago") -> 4
+                    it.lastTransaction.contains("Yesterday") -> 3
+                    it.lastTransaction.contains("days ago") -> 2
+                    else -> 1
+                }
+            }
+            else -> currentCategories
+        }
+
+        _uiState.value = _uiState.value.copy(categories = sortedCategories)
+    }
+
+    /**
+     * Filter categories by type
+     */
+    private fun filterCategories(filterType: String) {
+        currentFilterType = filterType
+        Timber.tag(LogConfig.FeatureTags.CATEGORIES).d("Filtering categories by: $filterType")
+
+        val currentCategories = originalCategories.ifEmpty { _uiState.value.categories }
+        if (originalCategories.isEmpty()) {
+            originalCategories = currentCategories
+        }
+
+        val filteredCategories = when (filterType) {
+            "all" -> currentCategories
+            "has_transactions" -> currentCategories.filter { it.transactionCount > 0 }
+            "empty" -> currentCategories.filter { it.transactionCount == 0 }
+            "custom" -> currentCategories.filter { !isSystemCategory(it.name) }
+            "high_spend" -> {
+                val totalSpent = currentCategories.sumOf { it.amount }
+                val threshold = totalSpent * 0.1 // Top 10% of spending
+                currentCategories.filter { it.amount >= threshold && it.amount > 0 }
+            }
+            else -> currentCategories
+        }
+
+        _uiState.value = _uiState.value.copy(
+            categories = applySortAndFilter(filteredCategories),
+            isEmpty = filteredCategories.isEmpty()
+        )
+    }
+
+    /**
+     * Apply current sort and filter to a list of categories
+     */
+    private fun applySortAndFilter(categories: List<CategoryItem>): List<CategoryItem> {
+        return when (currentSortType) {
+            "amount_desc" -> categories.sortedByDescending { it.amount }
+            "amount_asc" -> categories.sortedBy { it.amount }
+            "name_asc" -> categories.sortedBy { it.name }
+            "name_desc" -> categories.sortedByDescending { it.name }
+            "recent_activity" -> categories.sortedByDescending {
+                when {
+                    it.lastTransaction.contains("Just now") -> 5
+                    it.lastTransaction.contains("hours ago") -> 4
+                    it.lastTransaction.contains("Yesterday") -> 3
+                    it.lastTransaction.contains("days ago") -> 2
+                    else -> 1
+                }
+            }
+            else -> categories
+        }
+    }
+
+    /**
+     * Check if category is a system category
+     */
+    private fun isSystemCategory(categoryName: String): Boolean {
+        val systemCategories = listOf(
+            "Food & Dining", "Transportation", "Healthcare", "Groceries",
+            "Entertainment", "Shopping", "Utilities", "Other"
+        )
+        return systemCategories.contains(categoryName)
     }
 }

@@ -20,6 +20,26 @@ class GroupedMessagesAdapter(
     private var _merchantGroups = listOf<MerchantGroup>()
     val merchantGroups: List<MerchantGroup> get() = _merchantGroups
     
+    // Current filter tab state to adjust toggle behavior
+    private var currentFilterTab: TransactionFilterTab = TransactionFilterTab.ALL
+    
+    /**
+     * Update the current filter tab to synchronize toggle states
+     */
+    fun updateFilterTab(filterTab: TransactionFilterTab) {
+        if (currentFilterTab != filterTab) {
+            currentFilterTab = filterTab
+            // Notify data changed to update toggle states only if we have data
+            if (_merchantGroups.isNotEmpty()) {
+                try {
+                    notifyDataSetChanged()
+                } catch (e: Exception) {
+                    android.util.Log.e("GroupedMessagesAdapter", "Error updating filter tab", e)
+                }
+            }
+        }
+    }
+    
     // Crash prevention variables
     private var isUpdating = false
     private var pendingUpdate: List<MerchantGroup>? = null
@@ -208,42 +228,126 @@ class GroupedMessagesAdapter(
                     }
                 }
                 
-                // Setup include/exclude switch with crash prevention
+                // Setup include/exclude switch with crash prevention and filter tab synchronization
                 switchIncludeGroup.setOnCheckedChangeListener(null) // Clear previous listener
-                switchIncludeGroup.isChecked = group.isIncludedInCalculations
+                
+                // Set toggle state based on current filter tab context
+                val toggleState = when (currentFilterTab) {
+                    TransactionFilterTab.ALL -> group.isIncludedInCalculations // Normal behavior
+                    TransactionFilterTab.INCLUDED -> true // Always ON for included items
+                    TransactionFilterTab.EXCLUDED -> false // Always OFF for excluded items
+                }
+                switchIncludeGroup.isChecked = toggleState
+                
                 switchIncludeGroup.setOnCheckedChangeListener { _, isChecked ->
                     try {
-                        
-                        // Update UI immediately for responsive feedback
-                        group.isIncludedInCalculations = isChecked
-                        tvTotalAmount.alpha = if (isChecked) 1.0f else 0.5f
-                        root.alpha = if (isChecked) 1.0f else 0.7f
-                        
-                        // Disable switch temporarily to prevent rapid toggling
-                        switchIncludeGroup.isEnabled = false
-                        
-                        // Post the callback to avoid RecyclerView layout computation conflicts
-                        android.os.Handler(android.os.Looper.getMainLooper()).post {
-                            try {
-                                onGroupToggle(group, isChecked)
-                                // Re-enable switch after successful callback
-                                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                                    switchIncludeGroup.isEnabled = true
-                                }, 500)
-                            } catch (callbackError: Exception) {
-                                android.util.Log.e("GroupedMessagesAdapter", "Toggle callback error", callbackError)
-                                // Revert state on callback error
-                                group.isIncludedInCalculations = !isChecked
-                                switchIncludeGroup.isChecked = !isChecked
-                                tvTotalAmount.alpha = if (!isChecked) 1.0f else 0.5f
-                                root.alpha = if (!isChecked) 1.0f else 0.7f
-                                switchIncludeGroup.isEnabled = true
+                        // Handle toggle behavior based on filter tab context
+                        when (currentFilterTab) {
+                            TransactionFilterTab.ALL -> {
+                                // Normal behavior - toggle the actual inclusion state
+                                group.isIncludedInCalculations = isChecked
+                                tvTotalAmount.alpha = if (isChecked) 1.0f else 0.5f
+                                root.alpha = if (isChecked) 1.0f else 0.7f
                                 
-                                android.widget.Toast.makeText(
-                                    binding.root.context,
-                                    "Failed to update exclusion settings. Please try again.",
-                                    android.widget.Toast.LENGTH_SHORT
-                                ).show()
+                                // Disable switch temporarily to prevent rapid toggling
+                                switchIncludeGroup.isEnabled = false
+                                
+                                // Post the callback to avoid RecyclerView layout computation conflicts
+                                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                    try {
+                                        onGroupToggle(group, isChecked)
+                                        // Re-enable switch after successful callback
+                                        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                                            switchIncludeGroup.isEnabled = true
+                                        }, 500)
+                                    } catch (callbackError: Exception) {
+                                        android.util.Log.e("GroupedMessagesAdapter", "Toggle callback error", callbackError)
+                                        // Revert state on callback error
+                                        group.isIncludedInCalculations = !isChecked
+                                        switchIncludeGroup.isChecked = !isChecked
+                                        tvTotalAmount.alpha = if (!isChecked) 1.0f else 0.5f
+                                        root.alpha = if (!isChecked) 1.0f else 0.7f
+                                        switchIncludeGroup.isEnabled = true
+                                        
+                                        android.widget.Toast.makeText(
+                                            binding.root.context,
+                                            "Failed to update exclusion settings. Please try again.",
+                                            android.widget.Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                }
+                            }
+                            
+                            TransactionFilterTab.INCLUDED -> {
+                                // In INCLUDED tab - toggle should exclude (move to excluded)
+                                if (!isChecked) {
+                                    group.isIncludedInCalculations = false
+                                    tvTotalAmount.alpha = 0.5f
+                                    root.alpha = 0.7f
+                                    
+                                    switchIncludeGroup.isEnabled = false
+                                    android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                        try {
+                                            onGroupToggle(group, false)
+                                            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                                                switchIncludeGroup.isEnabled = true
+                                            }, 500)
+                                        } catch (callbackError: Exception) {
+                                            android.util.Log.e("GroupedMessagesAdapter", "Toggle callback error", callbackError)
+                                            // Revert state
+                                            group.isIncludedInCalculations = true
+                                            switchIncludeGroup.isChecked = true
+                                            tvTotalAmount.alpha = 1.0f
+                                            root.alpha = 1.0f
+                                            switchIncludeGroup.isEnabled = true
+                                            
+                                            android.widget.Toast.makeText(
+                                                binding.root.context,
+                                                "Failed to exclude merchant. Please try again.",
+                                                android.widget.Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
+                                    }
+                                } else {
+                                    // Don't allow turning ON in INCLUDED tab - reset to ON
+                                    switchIncludeGroup.isChecked = true
+                                }
+                            }
+                            
+                            TransactionFilterTab.EXCLUDED -> {
+                                // In EXCLUDED tab - toggle should include (move to included)
+                                if (isChecked) {
+                                    group.isIncludedInCalculations = true
+                                    tvTotalAmount.alpha = 1.0f
+                                    root.alpha = 1.0f
+                                    
+                                    switchIncludeGroup.isEnabled = false
+                                    android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                        try {
+                                            onGroupToggle(group, true)
+                                            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                                                switchIncludeGroup.isEnabled = true
+                                            }, 500)
+                                        } catch (callbackError: Exception) {
+                                            android.util.Log.e("GroupedMessagesAdapter", "Toggle callback error", callbackError)
+                                            // Revert state
+                                            group.isIncludedInCalculations = false
+                                            switchIncludeGroup.isChecked = false
+                                            tvTotalAmount.alpha = 0.5f
+                                            root.alpha = 0.7f
+                                            switchIncludeGroup.isEnabled = true
+                                            
+                                            android.widget.Toast.makeText(
+                                                binding.root.context,
+                                                "Failed to include merchant. Please try again.",
+                                                android.widget.Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
+                                    }
+                                } else {
+                                    // Don't allow turning OFF in EXCLUDED tab - reset to OFF
+                                    switchIncludeGroup.isChecked = false
+                                }
                             }
                         }
                         
