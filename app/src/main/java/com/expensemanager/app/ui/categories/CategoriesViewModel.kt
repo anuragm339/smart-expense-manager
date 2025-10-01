@@ -168,7 +168,7 @@ class CategoriesViewModel @Inject constructor(
                     color = categoryColor,
                     amount = 0.0,
                     transactionCount = 0,
-                    lastTransaction = "No transactions yet",
+                    lastTransaction = "",
                     percentage = 0,
                     progress = 0
                 )
@@ -427,7 +427,7 @@ class CategoriesViewModel @Inject constructor(
                 val transactionCategoryData = categorySpendingResults.map { categoryResult ->
                     val lastTransactionText = categoryResult.last_transaction_date?.let { 
                         formatLastTransaction(it) 
-                    } ?: "No transactions"
+                    } ?: ""
                     
                     CategoryItem(
                         name = categoryResult.category_name,
@@ -452,7 +452,7 @@ class CategoriesViewModel @Inject constructor(
                             color = getRandomCategoryColor(),
                             amount = 0.0,
                             transactionCount = 0,
-                            lastTransaction = "No transactions yet",
+                            lastTransaction = "",
                             percentage = 0,
                             progress = 0
                         )
@@ -521,7 +521,7 @@ class CategoriesViewModel @Inject constructor(
                     val transactionCategoryData = categorySpendingResults.map { categoryResult ->
                         val lastTransactionText = categoryResult.last_transaction_date?.let { 
                             formatLastTransaction(it) 
-                        } ?: "No transactions"
+                        } ?: ""
                         
                         CategoryItem(
                             name = categoryResult.category_name,
@@ -545,7 +545,7 @@ class CategoriesViewModel @Inject constructor(
                                 color = getRandomCategoryColor(),
                                 amount = 0.0,
                                 transactionCount = 0,
-                                lastTransaction = "No transactions yet",
+                                lastTransaction = "",
                                 percentage = 0,
                                 progress = 0
                             )
@@ -591,7 +591,7 @@ class CategoriesViewModel @Inject constructor(
                 color = getRandomCategoryColor(),
                 amount = 0.0,
                 transactionCount = 0,
-                lastTransaction = "No transactions yet",
+                lastTransaction = "",
                 percentage = 0,
                 progress = 0
             )

@@ -29,8 +29,7 @@
                 android:id="@+id/view_category_icon"
                 android:layout_width="32dp"
                 android:layout_height="32dp"
-                android:background="@drawable/circle_shape"
-                android:backgroundTint="@color/category_food" />
+                android:background="@drawable/circle_shape" />
 
             <TextView
                 android:id="@+id/tv_category_emoji"
@@ -74,6 +73,7 @@
                     android:textColor="@color/text_secondary" />
 
                 <TextView
+                    android:id="@+id/tv_bullet_separator"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text=" • "

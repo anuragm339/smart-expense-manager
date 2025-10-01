@@ -37,17 +37,30 @@ class CategoriesAdapter(
                 tvCategoryEmoji.text = item.emoji
                 tvCategoryAmount.text = "₹${String.format("%.0f", item.amount)}"
                 tvTransactionCount.text = "${item.transactionCount} transactions"
-                tvLastTransaction.text = item.lastTransaction
+
+                // Handle last transaction display
+                if (item.lastTransaction.isNotEmpty()) {
+                    tvLastTransaction.text = item.lastTransaction
+                    tvLastTransaction.visibility = android.view.View.VISIBLE
+                    tvBulletSeparator.visibility = android.view.View.VISIBLE
+                } else {
+                    tvLastTransaction.visibility = android.view.View.GONE
+                    tvBulletSeparator.visibility = android.view.View.GONE
+                }
+
                 tvPercentage.text = "${item.percentage}%"
                 progressSpending.progress = item.progress
 
                 // Set category color
                 try {
                     val color = Color.parseColor(item.color)
-                    viewCategoryIcon.setBackgroundColor(color)
+                    viewCategoryIcon.backgroundTintList = android.content.res.ColorStateList.valueOf(color)
                     progressSpending.progressTintList = android.content.res.ColorStateList.valueOf(color)
                 } catch (e: Exception) {
                     // Fallback to default color if parsing fails
+                    val fallbackColor = Color.parseColor("#3f51b5") // primary color
+                    viewCategoryIcon.backgroundTintList = android.content.res.ColorStateList.valueOf(fallbackColor)
+                    progressSpending.progressTintList = android.content.res.ColorStateList.valueOf(fallbackColor)
                 }
 
                 // Set click listener for category item

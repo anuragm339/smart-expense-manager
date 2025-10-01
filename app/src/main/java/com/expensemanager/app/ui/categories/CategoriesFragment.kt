@@ -204,7 +204,7 @@ class CategoriesFragment : Fragment() {
                 if (categorySpendingResults.isNotEmpty()) {
                     // Convert repository results to CategoryItem format
                     val transactionCategoryData = categorySpendingResults.map { categoryResult ->
-                        val lastTransactionText = categoryResult.last_transaction_date?.let { formatLastTransaction(it) } ?: "No transactions"
+                        val lastTransactionText = categoryResult.last_transaction_date?.let { formatLastTransaction(it) } ?: ""
                         
                         Log.d("CategoriesFragment", "Repository Category: ${categoryResult.category_name}, Amount: ₹${String.format("%.0f", categoryResult.total_amount)}, Count: ${categoryResult.transaction_count}")
                         
@@ -231,7 +231,7 @@ class CategoriesFragment : Fragment() {
                                 color = getRandomCategoryColor(),
                                 amount = 0.0,
                                 transactionCount = 0,
-                                lastTransaction = "No transactions yet",
+                                lastTransaction = "",
                                 percentage = 0,
                                 progress = 0
                             )
@@ -300,7 +300,7 @@ class CategoriesFragment : Fragment() {
                     if (categorySpendingResults.isNotEmpty()) {
                         // Convert repository results to CategoryItem format
                         val transactionCategoryData = categorySpendingResults.map { categoryResult ->
-                            val lastTransactionText = categoryResult.last_transaction_date?.let { formatLastTransaction(it) } ?: "No transactions"
+                            val lastTransactionText = categoryResult.last_transaction_date?.let { formatLastTransaction(it) } ?: ""
                             
                             CategoryItem(
                                 name = categoryResult.category_name,
@@ -325,7 +325,7 @@ class CategoriesFragment : Fragment() {
                                     color = getRandomCategoryColor(),
                                     amount = 0.0,
                                     transactionCount = 0,
-                                    lastTransaction = "No transactions yet",
+                                    lastTransaction = "",
                                     percentage = 0,
                                     progress = 0
                                 )
@@ -604,7 +604,7 @@ class CategoriesFragment : Fragment() {
                 color = getRandomCategoryColor(),
                 amount = 0.0,
                 transactionCount = 0,
-                lastTransaction = "No transactions yet",
+                lastTransaction = "",
                 percentage = 0,
                 progress = 0
             )

@@ -294,6 +294,6 @@
         android:layout_margin="16dp"
         android:text="Quick Add"
         app:icon="@drawable/ic_add"
-        app:backgroundTint="@color/secondary" />
+        app:backgroundTint="@color/success" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
