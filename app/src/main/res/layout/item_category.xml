@@ -5,7 +5,7 @@
     style="@style/CardStyle"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginVertical="4dp"
+    android:layout_marginVertical="2dp"
     android:clickable="true"
     android:focusable="true"
     android:foreground="?android:attr/selectableItemBackground">
@@ -14,7 +14,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:padding="16dp"
+        android:padding="12dp"
         android:gravity="center_vertical">
 
         <!-- Category Icon & Color -->
@@ -23,21 +23,21 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:gravity="center"
-            android:layout_marginEnd="16dp">
+            android:layout_marginEnd="12dp">
 
             <View
                 android:id="@+id/view_category_icon"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
                 android:background="@drawable/circle_shape" />
 
             <TextView
                 android:id="@+id/tv_category_emoji"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="-26dp"
+                android:layout_marginTop="-22dp"
                 android:text="🍽️"
-                android:textSize="18sp"
+                android:textSize="16sp"
                 android:gravity="center" />
 
         </LinearLayout>
@@ -94,9 +94,9 @@
             <ProgressBar
                 android:id="@+id/progress_spending"
                 android:layout_width="match_parent"
-                android:layout_height="4dp"
-                android:layout_marginTop="8dp"
-                android:layout_marginEnd="16dp"
+                android:layout_height="3dp"
+                android:layout_marginTop="6dp"
+                android:layout_marginEnd="12dp"
                 style="?android:attr/progressBarStyleHorizontal"
                 android:progress="65"
                 android:progressTint="@color/category_food"
@@ -133,17 +133,17 @@
                 android:id="@+id/btn_view_merchants"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
+                android:layout_marginTop="2dp"
                 android:text="View Merchants"
-                android:textSize="10sp"
+                android:textSize="9sp"
                 android:minWidth="0dp"
                 android:minHeight="0dp"
-                android:paddingHorizontal="8dp"
-                android:paddingVertical="4dp"
+                android:paddingHorizontal="6dp"
+                android:paddingVertical="2dp"
                 style="@style/Widget.Material3.Button.TextButton"
-                app:cornerRadius="12dp"
+                app:cornerRadius="10dp"
                 app:icon="@drawable/ic_store"
-                app:iconSize="12dp" />
+                app:iconSize="10dp" />
 
         </LinearLayout>
 

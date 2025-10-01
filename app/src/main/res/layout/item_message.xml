@@ -5,13 +5,13 @@
     style="@style/CardStyle"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginVertical="4dp">
+    android:layout_marginVertical="2dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp">
+        android:padding="8dp">
 
         <!-- Header Row -->
         <LinearLayout
@@ -19,7 +19,7 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:layout_marginBottom="8dp">
+            android:layout_marginBottom="4dp">
 
             <!-- Amount -->
             <TextView
@@ -41,7 +41,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Today, 2:30 PM"
-                android:textSize="12sp"
+                android:textSize="10sp"
                 android:textColor="@color/text_secondary" />
 
         </LinearLayout>
@@ -52,7 +52,7 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:layout_marginBottom="8dp">
+            android:layout_marginBottom="4dp">
 
             <TextView
                 android:id="@+id/tv_merchant"
@@ -60,7 +60,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="Swiggy"
-                android:textSize="16sp"
+                android:textSize="14sp"
                 android:textStyle="bold"
                 android:textColor="@color/text_primary" />
 
@@ -69,12 +69,12 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="HDFC Bank"
-                android:textSize="12sp"
+                android:textSize="10sp"
                 android:textColor="@color/text_primary"
                 android:textStyle="bold"
                 android:background="@drawable/bank_tag_background"
-                android:paddingHorizontal="8dp"
-                android:paddingVertical="2dp" />
+                android:paddingHorizontal="6dp"
+                android:paddingVertical="1dp" />
 
         </LinearLayout>
 
@@ -91,23 +91,23 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:background="@drawable/category_chip_background"
-                android:paddingHorizontal="8dp"
-                android:paddingVertical="4dp"
+                android:paddingHorizontal="6dp"
+                android:paddingVertical="2dp"
                 android:gravity="center_vertical">
 
                 <View
                     android:id="@+id/view_category_color"
-                    android:layout_width="8dp"
-                    android:layout_height="8dp"
+                    android:layout_width="6dp"
+                    android:layout_height="6dp"
                     android:background="@color/category_food"
-                    android:layout_marginEnd="6dp" />
+                    android:layout_marginEnd="4dp" />
 
                 <TextView
                     android:id="@+id/tv_category"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Food &amp; Dining"
-                    android:textSize="12sp"
+                    android:textSize="10sp"
                     android:textColor="@color/text_primary" />
 
             </LinearLayout>
@@ -151,14 +151,14 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="4dp"
             android:visibility="gone">
 
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
                 android:background="@color/text_hint"
-                android:layout_marginVertical="8dp" />
+                android:layout_marginVertical="4dp" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -167,17 +167,17 @@
                 android:textSize="10sp"
                 android:textStyle="bold"
                 android:textColor="@color/text_secondary"
-                android:layout_marginBottom="4dp" />
+                android:layout_marginBottom="2dp" />
 
             <TextView
                 android:id="@+id/tv_raw_sms"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="INR 1,250.00 debited from A/c **1234 on 19-Aug-25 at Swiggy. Avl Bal: INR 45,280.00"
-                android:textSize="11sp"
+                android:textSize="9sp"
                 android:textColor="@color/text_secondary"
                 android:background="@color/background"
-                android:padding="8dp"
+                android:padding="4dp"
                 android:fontFamily="monospace" />
 
         </LinearLayout>
@@ -188,12 +188,12 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="end"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="2dp"
             android:text="View SMS ↓"
-            android:textSize="10sp"
+            android:textSize="8sp"
             android:textColor="@color/primary"
             android:textStyle="bold"
-            android:padding="4dp"
+            android:padding="2dp"
             android:clickable="true"
             android:focusable="true"
             android:background="?android:attr/selectableItemBackground" />
