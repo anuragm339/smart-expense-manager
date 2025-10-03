@@ -30,7 +30,9 @@ class AIInsightsRepository @Inject constructor(
     @ApplicationContext private val context: Context,
     private val expenseRepository: ExpenseRepository,
     private val apiService: AIInsightsApiService,
-    @Named("ai_insights_cache") private val prefs: SharedPreferences
+    @Named("ai_insights_cache") private val prefs: SharedPreferences,
+    private val insightsHistoryManager: com.expensemanager.app.services.InsightsHistoryManager,
+    private val csvGenerator: com.expensemanager.app.services.TransactionCSVGenerator
 ) {
     
     companion object {
@@ -42,17 +44,20 @@ class AIInsightsRepository @Inject constructor(
         private const val OFFLINE_MODE_KEY = "offline_mode_enabled"
         private const val CACHE_VERSION_KEY = "cache_version"
         private const val CURRENT_CACHE_VERSION = 1
-        
+
         @Volatile
         private var INSTANCE: AIInsightsRepository? = null
-        
+
         fun getInstance(context: Context, expenseRepository: ExpenseRepository): AIInsightsRepository {
             return INSTANCE ?: synchronized(this) {
+                val gson = com.google.gson.Gson()
                 val instance = AIInsightsRepository(
-                    context.applicationContext, 
+                    context.applicationContext,
                     expenseRepository,
                     ApiServiceFactory.getAIInsightsApiService(),
-                    context.getSharedPreferences("ai_insights_cache", Context.MODE_PRIVATE)
+                    context.getSharedPreferences("ai_insights_cache", Context.MODE_PRIVATE),
+                    com.expensemanager.app.services.InsightsHistoryManager(context.applicationContext, gson),
+                    com.expensemanager.app.services.TransactionCSVGenerator(expenseRepository)
                 )
                 INSTANCE = instance
                 instance
@@ -169,35 +174,80 @@ class AIInsightsRepository @Inject constructor(
     }
     
     /**
-     * Fetch insights from AI API
+     * Fetch insights from AI API with conversation history and CSV data
      */
     private suspend fun fetchInsightsFromApi(): Result<List<AIInsight>> = withContext(Dispatchers.IO) {
         return@withContext try {
             // Gather transaction data from ExpenseRepository
             val transactionData = gatherTransactionData()
-            
-            // Create API request
+
+            // Get conversation history for AI context
+            val conversationHistory = insightsHistoryManager.getRecentHistory(count = 5)
+            Log.d(TAG, "[CONTEXT] Including ${conversationHistory.size} historical insights for AI comparison")
+
+            // Get previous period data for comparison
+            val previousPeriodData = gatherPreviousPeriodData()
+
+            // NEW: Generate CSV from all transactions
+            val allTransactions = expenseRepository.getAllTransactionsSync()
+            val transactionsCSV = csvGenerator.generateCSV(allTransactions)
+            val csvMetadataInfo = csvGenerator.getMetadata(allTransactions, transactionsCSV.length)
+
+            Log.d(TAG, "[CSV] Generated CSV with ${csvMetadataInfo.totalTransactions} transactions")
+            Log.d(TAG, "[CSV] Date range: ${csvMetadataInfo.dateRangeStart} to ${csvMetadataInfo.dateRangeEnd}")
+            Log.d(TAG, "[CSV] Payload size: ${csvMetadataInfo.csvSizeBytes / 1024}KB")
+
+            // Create CSV metadata for API
+            val csvMetadata = com.expensemanager.app.data.api.insights.CSVMetadata(
+                totalTransactions = csvMetadataInfo.totalTransactions,
+                dateRangeStart = csvMetadataInfo.dateRangeStart,
+                dateRangeEnd = csvMetadataInfo.dateRangeEnd,
+                csvSizeBytes = csvMetadataInfo.csvSizeBytes,
+                includesCategories = true,
+                includesTimeAnalysis = true
+            )
+
+            // Create API request with conversation history AND CSV data
             val request = AIInsightsRequest(
                 userId = generateUserId(),
                 timeframe = "last_30_days",
                 transactionSummary = transactionData.transactionSummary,
-                contextData = transactionData.contextData
+                contextData = transactionData.contextData,
+                conversationHistory = conversationHistory.ifEmpty { null },
+                previousPeriodData = previousPeriodData,
+                transactionsCSV = transactionsCSV,
+                csvMetadata = csvMetadata
             )
-            
+
             Log.d(TAG, "Making API call to: ${apiService.javaClass.simpleName}")
             Log.d(TAG, "Request summary: ${transactionData.transactionSummary.totalSpent} spent, ${transactionData.transactionSummary.transactionCount} transactions")
             Log.d(TAG, "Categories: ${transactionData.transactionSummary.categoryBreakdown.size}")
             Log.d(TAG, "Top merchants: ${transactionData.transactionSummary.topMerchants.size}")
-            
+            Log.d(TAG, "Conversation history: ${conversationHistory.size} previous insights")
+            Log.d(TAG, "Previous period: ${previousPeriodData?.periodLabel ?: "None"}")
+            Log.d(TAG, "CSV data: ${csvMetadata.totalTransactions} transactions")
+
             // Make API call
             val response = apiService.generateInsights(request)
-            
+
             if (response.isSuccessful) {
                 val apiResponse = response.body()
                 if (apiResponse != null) {
-                    val insights = DirectApiMapper.mapToAIInsights(apiResponse)
+                    val insights = InsightsDataMapper.mapToDomainInsights(apiResponse)
                     Log.d(TAG, "API call successful: ${insights.size} insights received")
                     Log.d(TAG, "Insights: ${insights.map { "${it.type}: ${it.title}" }}")
+
+                    // Save insights to history for future context
+                    val topCategories = transactionData.transactionSummary.categoryBreakdown
+                        .take(3)
+                        .map { it.categoryName }
+                    insightsHistoryManager.saveInsights(
+                        insights,
+                        transactionData.transactionSummary.totalSpent,
+                        topCategories
+                    )
+                    Log.d(TAG, "[CONTEXT] Saved ${insights.size} insights to conversation history")
+
                     Result.success(insights)
                 } else {
                     Log.e(TAG, "API returned null response")
@@ -208,7 +258,7 @@ class AIInsightsRepository @Inject constructor(
                 Log.e(TAG, "HTTP error: $errorMsg")
                 Result.failure(Exception("Network Error: $errorMsg"))
             }
-            
+
         } catch (e: Exception) {
             Log.e(TAG, "Exception during API call", e)
             Result.failure(e)
@@ -295,6 +345,86 @@ class AIInsightsRepository @Inject constructor(
         return TransactionDataPackage(transactionSummary, contextData)
     }
     
+    /**
+     * Gather previous period data for AI comparison
+     */
+    private suspend fun gatherPreviousPeriodData(): com.expensemanager.app.data.api.insights.PreviousPeriodData? {
+        return try {
+            // Get data from 1 month ago (same duration as current period)
+            val calendar = Calendar.getInstance()
+            calendar.add(Calendar.MONTH, -1)
+
+            val previousMonthStart = Calendar.getInstance().apply {
+                time = calendar.time
+                set(Calendar.DAY_OF_MONTH, 1)
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+            }.time
+
+            val previousMonthEnd = Calendar.getInstance().apply {
+                time = calendar.time
+                set(Calendar.DAY_OF_MONTH, getActualMaximum(Calendar.DAY_OF_MONTH))
+                set(Calendar.HOUR_OF_DAY, 23)
+                set(Calendar.MINUTE, 59)
+                set(Calendar.SECOND, 59)
+            }.time
+
+            // Get dashboard data for previous month
+            val previousData = expenseRepository.getDashboardData(previousMonthStart, previousMonthEnd)
+
+            // Get previous insights for that period
+            val previousInsights = insightsHistoryManager.getConversationHistory()
+                .filter { insight ->
+                    val insightTime = insight.timestamp
+                    insightTime >= previousMonthStart.time && insightTime <= previousMonthEnd.time
+                }
+                .map { "${it.type}: ${it.title}" }
+
+            // Calculate average daily spending
+            val daysInPreviousMonth = Calendar.getInstance().apply {
+                time = calendar.time
+            }.getActualMaximum(Calendar.DAY_OF_MONTH)
+            val avgDailySpending = previousData.totalSpent / daysInPreviousMonth
+
+            // Map to API model
+            val categorySpending = previousData.topCategories.map {
+                com.expensemanager.app.data.api.insights.CategorySpending(
+                    categoryName = it.category_name,
+                    totalAmount = it.total_amount,
+                    transactionCount = it.transaction_count,
+                    percentage = (it.total_amount / previousData.totalSpent) * 100,
+                    averagePerTransaction = if (it.transaction_count > 0) it.total_amount / it.transaction_count else 0.0
+                )
+            }
+
+            val merchantSpending = previousData.topMerchants.map {
+                com.expensemanager.app.data.api.insights.MerchantSpending(
+                    merchantName = it.normalized_merchant,
+                    totalAmount = it.total_amount,
+                    transactionCount = it.transaction_count,
+                    categoryName = "General", // MerchantSpending doesn't have category field
+                    averageAmount = if (it.transaction_count > 0) it.total_amount / it.transaction_count else 0.0
+                )
+            }
+
+            com.expensemanager.app.data.api.insights.PreviousPeriodData(
+                periodLabel = "Last Month",
+                totalSpent = previousData.totalSpent,
+                transactionCount = previousData.transactionCount,
+                topCategories = categorySpending,
+                topMerchants = merchantSpending,
+                averageDailySpending = avgDailySpending,
+                highestSpendingDay = previousData.totalSpent, // Could be improved with daily breakdown
+                insightsProvided = previousInsights
+            )
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Error gathering previous period data", e)
+            null
+        }
+    }
+
     /**
      * Generate monthly trends for the last 3 months
      */

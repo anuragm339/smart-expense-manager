@@ -6,6 +6,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import com.expensemanager.app.data.api.insights.AIInsightsApiService
+import com.expensemanager.app.data.api.insights.BackendInsightsService
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -22,7 +23,7 @@ import javax.inject.Singleton
 object NetworkModule {
     
     // Network configuration constants
-    private const val BASE_URL = "http://localhost:8080/"
+    private const val BASE_URL = "http://32679df5c841.ngrok-free.app/"
     private const val CONNECT_TIMEOUT = 30L
     private const val READ_TIMEOUT = 60L
     private const val WRITE_TIMEOUT = 60L
@@ -109,5 +110,17 @@ object NetworkModule {
         retrofit: Retrofit
     ): AIInsightsApiService {
         return retrofit.create(AIInsightsApiService::class.java)
+    }
+
+    /**
+     * Provides Backend Insights service
+     * Used for backend proxy communication with Claude AI API
+     */
+    @Provides
+    @Singleton
+    fun provideBackendInsightsService(
+        retrofit: Retrofit
+    ): BackendInsightsService {
+        return retrofit.create(BackendInsightsService::class.java)
     }
 }

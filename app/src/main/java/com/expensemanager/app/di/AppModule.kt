@@ -8,6 +8,8 @@ import com.expensemanager.app.ui.categories.CategoryDisplayProvider
 import com.expensemanager.app.ui.categories.DefaultCategoryDisplayProvider
 import com.expensemanager.app.utils.AppLogger
 import com.expensemanager.app.utils.MerchantAliasManager
+import com.google.gson.Gson
+import com.google.gson.GsonBuilder
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -74,6 +76,32 @@ object AppModule {
         @ApplicationContext context: Context
     ): SharedPreferences {
         return context.getSharedPreferences("ai_insights_offline_cache", Context.MODE_PRIVATE)
+    }
+
+    /**
+     * Provides AI insights preferences SharedPreferences
+     * Used for AI call threshold tracking and configuration
+     */
+    @Provides
+    @Singleton
+    @Named("ai_insights_prefs")
+    fun provideAIInsightsPreferences(
+        @ApplicationContext context: Context
+    ): SharedPreferences {
+        return context.getSharedPreferences("ai_insights_prefs", Context.MODE_PRIVATE)
+    }
+
+    /**
+     * Provides Gson instance for JSON serialization/deserialization
+     * Used throughout the app for JSON handling
+     */
+    @Provides
+    @Singleton
+    fun provideGson(): Gson {
+        return GsonBuilder()
+            .setPrettyPrinting()
+            .setLenient()
+            .create()
     }
     
     /**

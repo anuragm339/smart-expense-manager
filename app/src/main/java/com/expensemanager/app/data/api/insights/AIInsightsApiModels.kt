@@ -3,32 +3,33 @@ package com.expensemanager.app.data.api.insights
 import com.expensemanager.app.data.models.InsightType
 import com.expensemanager.app.data.models.InsightPriority
 import com.google.gson.annotations.SerializedName
+import com.google.gson.annotations.JsonAdapter
 
 /**
- * Request model for AI Insights API
+ * Request model for AI Insights API with conversation history and CSV data
  */
 data class AIInsightsRequest(
     @SerializedName("user_id")
     val userId: String,
-    
+
     @SerializedName("timeframe")
     val timeframe: String = "last_30_days",
-    
+
     @SerializedName("transaction_summary")
     val transactionSummary: TransactionSummary,
-    
+
     @SerializedName("context_data")
     val contextData: ContextData,
-    
+
     @SerializedName("insight_types")
     val insightTypes: List<String> = listOf(
         "spending_forecast",
-        "pattern_alert", 
+        "pattern_alert",
         "budget_optimization",
         "savings_opportunity",
         "anomaly_detection"
     ),
-    
+
     @SerializedName("prompts")
     val prompts: List<String> = listOf(
         "Generate spending forecast for next month based on current patterns",
@@ -36,7 +37,23 @@ data class AIInsightsRequest(
         "Suggest budget optimization strategies",
         "Find savings opportunities in top spending categories",
         "Analyze merchant spending efficiency"
-    )
+    ),
+
+    // Conversation history for AI to remember previous insights
+    @SerializedName("conversation_history")
+    val conversationHistory: List<HistoricalInsight>? = null,
+
+    // Previous period data for comparison
+    @SerializedName("previous_period_data")
+    val previousPeriodData: PreviousPeriodData? = null,
+
+    // NEW: Raw transaction data as CSV for deep analysis
+    @SerializedName("transactions_csv")
+    val transactionsCSV: String? = null,
+
+    // NEW: Metadata about the CSV data
+    @SerializedName("csv_metadata")
+    val csvMetadata: CSVMetadata? = null
 )
 
 /**
@@ -65,15 +82,18 @@ data class TransactionSummary(
 data class CategorySpending(
     @SerializedName("category_name")
     val categoryName: String,
-    
+
     @SerializedName("total_amount")
     val totalAmount: Double,
-    
+
     @SerializedName("transaction_count")
     val transactionCount: Int,
-    
+
     @SerializedName("percentage")
-    val percentage: Double
+    val percentage: Double,
+
+    @SerializedName("average_per_transaction")
+    val averagePerTransaction: Double
 )
 
 /**
@@ -82,12 +102,18 @@ data class CategorySpending(
 data class MerchantSpending(
     @SerializedName("merchant_name")
     val merchantName: String,
-    
+
     @SerializedName("total_amount")
     val totalAmount: Double,
-    
+
     @SerializedName("transaction_count")
-    val transactionCount: Int
+    val transactionCount: Int,
+
+    @SerializedName("category_name")
+    val categoryName: String,
+
+    @SerializedName("average_amount")
+    val averageAmount: Double
 )
 
 /**
@@ -96,15 +122,18 @@ data class MerchantSpending(
 data class MonthlyTrend(
     @SerializedName("month")
     val month: String,
-    
+
     @SerializedName("total_amount")
     val totalAmount: Double,
-    
+
     @SerializedName("transaction_count")
     val transactionCount: Int,
-    
+
     @SerializedName("average_per_transaction")
-    val averagePerTransaction: Double
+    val averagePerTransaction: Double,
+
+    @SerializedName("compared_to_previous")
+    val comparedToPrevious: Double
 )
 
 /**
@@ -225,18 +254,20 @@ data class DataPoint(
 )
 
 /**
- * Response metadata
+ * Response metadata with flexible timestamp handling
+ * Supports both Unix timestamp (Long) and ISO-8601 string from o1-mini
  */
 data class ResponseMetadata(
     @SerializedName("generated_at")
+    @JsonAdapter(FlexibleTimestampAdapter::class)  // Handles both number and ISO-8601 string
     val generatedAt: Long, // Unix timestamp
-    
+
     @SerializedName("model_version")
     val modelVersion: String,
-    
+
     @SerializedName("processing_time_ms")
     val processingTimeMs: Long,
-    
+
     @SerializedName("total_insights")
     val totalInsights: Int
 )
@@ -283,3 +314,84 @@ fun String.toInsightPriority(): InsightPriority {
         else -> InsightPriority.MEDIUM
     }
 }
+
+/**
+ * Historical insight for conversation context
+ * Stores previous AI insights so the model can track trends over time
+ */
+data class HistoricalInsight(
+    @SerializedName("timestamp")
+    val timestamp: Long,
+
+    @SerializedName("type")
+    val type: String,
+
+    @SerializedName("title")
+    val title: String,
+
+    @SerializedName("key_findings")
+    val keyFindings: List<String>,
+
+    @SerializedName("user_action_taken")
+    val userActionTaken: Boolean = false,
+
+    @SerializedName("spending_at_time")
+    val spendingAtTime: Double,
+
+    @SerializedName("top_categories_at_time")
+    val topCategoriesAtTime: List<String>
+)
+
+/**
+ * Previous period data for comparison
+ * Allows AI to compare current period with past periods
+ */
+data class PreviousPeriodData(
+    @SerializedName("period_label")
+    val periodLabel: String, // e.g., "Last Month", "3 Months Ago"
+
+    @SerializedName("total_spent")
+    val totalSpent: Double,
+
+    @SerializedName("transaction_count")
+    val transactionCount: Int,
+
+    @SerializedName("top_categories")
+    val topCategories: List<CategorySpending>,
+
+    @SerializedName("top_merchants")
+    val topMerchants: List<MerchantSpending>,
+
+    @SerializedName("average_daily_spending")
+    val averageDailySpending: Double,
+
+    @SerializedName("highest_spending_day")
+    val highestSpendingDay: Double,
+
+    @SerializedName("insights_provided")
+    val insightsProvided: List<String> // Previous insights given for this period
+)
+
+/**
+ * Metadata about the CSV transaction data
+ * Provides context about the raw transaction data being sent
+ */
+data class CSVMetadata(
+    @SerializedName("total_transactions")
+    val totalTransactions: Int,
+
+    @SerializedName("date_range_start")
+    val dateRangeStart: String,
+
+    @SerializedName("date_range_end")
+    val dateRangeEnd: String,
+
+    @SerializedName("csv_size_bytes")
+    val csvSizeBytes: Int,
+
+    @SerializedName("includes_categories")
+    val includesCategories: Boolean = true,
+
+    @SerializedName("includes_time_analysis")
+    val includesTimeAnalysis: Boolean = true
+)

@@ -10,6 +10,7 @@ import com.expensemanager.app.domain.insights.GetAIInsightsUseCase
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
 /**
@@ -24,12 +25,15 @@ class InsightsViewModel @Inject constructor(
     companion object {
         private const val TAG = "InsightsViewModel"
     }
-    
+
     // Private mutable state
     private val _uiState = MutableStateFlow(InsightsUIState())
-    
+
     // Public immutable state
     val uiState: StateFlow<InsightsUIState> = _uiState.asStateFlow()
+
+    // Deduplication flag to prevent concurrent API calls
+    private val isApiCallInProgress = AtomicBoolean(false)
     
     init {
         Log.d(TAG, "ViewModel initialized, loading insights...")
@@ -55,56 +59,95 @@ class InsightsViewModel @Inject constructor(
     
     /**
      * Initial loading of insights
+     * Prevents duplicate API calls using AtomicBoolean flag
      */
     private fun loadInsights() {
+        // Check if API call already in progress
+        if (!isApiCallInProgress.compareAndSet(false, true)) {
+            Log.d(TAG, "⚠️ API call already in progress, skipping duplicate loadInsights()")
+            return
+        }
+
         Log.d(TAG, "Starting initial load...")
-        
+
         _uiState.value = _uiState.value.copy(
             isInitialLoading = true,
             hasError = false,
             error = null
         )
-        
+
         viewModelScope.launch {
-            getAIInsightsUseCase.execute().collect { result ->
-                handleInsightsResult(result, isInitialLoad = true)
+            try {
+                getAIInsightsUseCase.execute().collect { result ->
+                    handleInsightsResult(result, isInitialLoad = true)
+                }
+            } finally {
+                // Reset flag when done (success or failure)
+                isApiCallInProgress.set(false)
+                Log.d(TAG, "✅ API call completed, flag reset")
             }
         }
     }
     
     /**
      * Refresh insights (pull-to-refresh)
+     * Prevents duplicate API calls using AtomicBoolean flag
      */
     private fun refreshInsights() {
+        // Check if API call already in progress
+        if (!isApiCallInProgress.compareAndSet(false, true)) {
+            Log.d(TAG, "⚠️ Refresh already in progress, skipping duplicate refreshInsights()")
+            return
+        }
+
         Log.d(TAG, "Refreshing insights...")
-        
+
         _uiState.value = _uiState.value.copy(
             isRefreshing = true,
             hasError = false,
             error = null
         )
-        
+
         viewModelScope.launch {
-            val result = getAIInsightsUseCase.refreshInsights()
-            handleInsightsResult(result, isRefresh = true)
+            try {
+                val result = getAIInsightsUseCase.refreshInsights()
+                handleInsightsResult(result, isRefresh = true)
+            } finally {
+                // Reset flag when done (success or failure)
+                isApiCallInProgress.set(false)
+                Log.d(TAG, "✅ Refresh completed, flag reset")
+            }
         }
     }
     
     /**
      * Retry loading after error
+     * Prevents duplicate API calls using AtomicBoolean flag
      */
     private fun retryLoadingInsights() {
+        // Check if API call already in progress
+        if (!isApiCallInProgress.compareAndSet(false, true)) {
+            Log.d(TAG, "⚠️ API call already in progress, skipping duplicate retry")
+            return
+        }
+
         Log.d(TAG, "Retrying to load insights...")
-        
+
         _uiState.value = _uiState.value.copy(
             isRetrying = true,
             hasError = false,
             error = null
         )
-        
+
         viewModelScope.launch {
-            val result = getAIInsightsUseCase.refreshInsights()
-            handleInsightsResult(result, isRetry = true)
+            try {
+                val result = getAIInsightsUseCase.refreshInsights()
+                handleInsightsResult(result, isRetry = true)
+            } finally {
+                // Reset flag when done (success or failure)
+                isApiCallInProgress.set(false)
+                Log.d(TAG, "✅ Retry completed, flag reset")
+            }
         }
     }
     

@@ -21,7 +21,7 @@ interface AIInsightsApiService {
     @POST("api/ai/insights")
     suspend fun generateInsights(
         @Body request: AIInsightsRequest
-    ): Response<YourApiResponse>
+    ): Response<AIInsightsResponse>
     
     /**
      * Get cached insights for a user (optional endpoint for quick loading)

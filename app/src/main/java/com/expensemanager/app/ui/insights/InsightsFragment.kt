@@ -104,8 +104,6 @@ class InsightsFragment : Fragment() {
         setupAnalyticsFilters()
         setupInteractiveCharts()
         setupDefaultFilters()
-
-        forceInitialRefresh()
     }
     
     
@@ -408,10 +406,7 @@ class InsightsFragment : Fragment() {
      */
     private fun updateInsightsContent(state: InsightsUIState) {
         Log.d(TAG, "Updating insights content with ${state.insights.size} insights")
-        
-        // Update top merchants from actual insights data
-        updateTopMerchants(state)
-        
+
         // Show content sections
         binding.root.visibility = View.VISIBLE
     }
@@ -533,79 +528,7 @@ class InsightsFragment : Fragment() {
             Log.e(TAG, "Error updating savings opportunities", e)
         }
     }
-    
-    /**
-     * Update top merchants section with direct API data
-     */
-    private fun updateTopMerchants(state: InsightsUIState) {
-        try {
-            // Get merchant analysis insights
-            val merchantInsights = state.getInsightsByType(InsightType.MERCHANT_RECOMMENDATION)
-            
-            if (merchantInsights.isNotEmpty()) {
-                val firstMerchant = merchantInsights.first()
-                
-                // Use merchant title directly from API (merchant name)
-                val merchantName = firstMerchant.title
-                val avgTransaction = firstMerchant.impactAmount
-                
-                // Update first merchant with direct API data
-                binding.root.findViewById<TextView>(R.id.tvMerchant1Name)?.text = merchantName
-                binding.root.findViewById<TextView>(R.id.tvMerchant1Details)?.text = 
-                    "Avg: ₹${String.format("%.0f", avgTransaction)}"
-                binding.root.findViewById<TextView>(R.id.tvMerchant1Amount)?.text = 
-                    "₹${String.format("%.0f", avgTransaction)}" // Show actual average, not calculated
-                
-                // If we have more merchants, update them too
-                if (merchantInsights.size > 1) {
-                    val secondMerchant = merchantInsights[1]
-                    binding.root.findViewById<TextView>(R.id.tvMerchant2Name)?.text = secondMerchant.title
-                    binding.root.findViewById<TextView>(R.id.tvMerchant2Details)?.text = 
-                        "Avg: ₹${String.format("%.0f", secondMerchant.impactAmount)}"
-                    binding.root.findViewById<TextView>(R.id.tvMerchant2Amount)?.text = 
-                        "₹${String.format("%.0f", secondMerchant.impactAmount)}"
-                }
-                
-                if (merchantInsights.size > 2) {
-                    val thirdMerchant = merchantInsights[2]
-                    binding.root.findViewById<TextView>(R.id.tvMerchant3Name)?.text = thirdMerchant.title
-                    binding.root.findViewById<TextView>(R.id.tvMerchant3Details)?.text = 
-                        "Avg: ₹${String.format("%.0f", thirdMerchant.impactAmount)}"
-                    binding.root.findViewById<TextView>(R.id.tvMerchant3Amount)?.text = 
-                        "₹${String.format("%.0f", thirdMerchant.impactAmount)}"
-                }
-                
-                Log.d(TAG, "Updated merchants with direct API data: ${merchantInsights.size} merchants")
-            } else {
-                // Show "No merchant data available" instead of static fallback
-                binding.root.findViewById<TextView>(R.id.tvMerchant1Name)?.text = "No API Data"
-                binding.root.findViewById<TextView>(R.id.tvMerchant1Details)?.text = "No merchant insights from API"
-                binding.root.findViewById<TextView>(R.id.tvMerchant1Amount)?.text = "₹0"
-                Log.d(TAG, "No merchant insights available from API")
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error updating top merchants", e)
-        }
-    }
-    
-    /**
-     * Extract merchant name from API description
-     */
-    private fun extractMerchantName(description: String): String {
-        // Look for merchant name patterns in the description
-        val merchantKeywords = listOf("N/A", "Swiggy", "Zomato", "Amazon", "Flipkart", "Uber", "Ola")
-        
-        for (keyword in merchantKeywords) {
-            if (description.contains(keyword, ignoreCase = true)) {
-                return keyword
-            }
-        }
-        
-        // If no specific merchant found, extract first word that might be a merchant name
-        val words = description.split(" ")
-        return words.find { it.length > 3 && it[0].isUpperCase() } ?: "Unknown Merchant"
-    }
-    
+
     /**
      * Show/hide loading state (deprecated - use showShimmerLoading instead)
      */
@@ -661,20 +584,6 @@ class InsightsFragment : Fragment() {
         Log.d(TAG, "Using sample insights data")
     }
     
-    /**
-     * Force initial refresh when fragment loads
-     */
-    private fun forceInitialRefresh() {
-        Log.d(TAG, "Forcing initial refresh on fragment load")
-        
-        // Trigger refresh immediately
-        viewLifecycleOwner.lifecycleScope.launch {
-            // Small delay to ensure ViewModel is fully setup
-            kotlinx.coroutines.delay(100)
-            viewModel.handleEvent(InsightsUIEvent.Refresh)
-        }
-    }
-
     private fun setupDefaultFilters() {
         val calendar = Calendar.getInstance()
         val currentDay = calendar.get(Calendar.DAY_OF_MONTH)

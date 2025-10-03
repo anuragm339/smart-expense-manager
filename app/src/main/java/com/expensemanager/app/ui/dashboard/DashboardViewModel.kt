@@ -51,7 +51,11 @@ class DashboardViewModel @Inject constructor(
         // Register for data change broadcasts
         try {
             val filter = IntentFilter("com.expensemanager.app.DATA_CHANGED")
-            context.registerReceiver(dataChangeReceiver, filter)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                context.registerReceiver(dataChangeReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            } else {
+                context.registerReceiver(dataChangeReceiver, filter)
+            }
             Timber.tag(LogConfig.FeatureTags.DASHBOARD).d("[DATA_SYNC] Registered for data change broadcasts")
         } catch (e: Exception) {
             Timber.tag(LogConfig.FeatureTags.DASHBOARD).e(e, "[DATA_SYNC] Failed to register data change receiver")
