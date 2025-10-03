@@ -51,7 +51,8 @@ import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import dagger.hilt.android.AndroidEntryPoint
 import com.expensemanager.app.domain.usecase.transaction.AddTransactionUseCase
 import javax.inject.Inject
@@ -93,7 +94,7 @@ class DashboardFragment : Fragment() {
                 "com.expensemanager.NEW_TRANSACTION_ADDED" -> {
                     val merchant = intent.getStringExtra("merchant") ?: "Unknown"
                     val amount = intent.getDoubleExtra("amount", 0.0)
-                    Log.d("DashboardFragment", "New transaction broadcast: $merchant - ₹${String.format("%.0f", amount)}")
+                    Timber.tag("DashboardFragment").d("New transaction broadcast: $merchant - ₹${String.format("%.0f", amount)}")
                     
                     // Refresh dashboard data on the main thread
                     lifecycleScope.launch {
@@ -108,7 +109,7 @@ class DashboardFragment : Fragment() {
                             ).show()
                             
                         } catch (e: Exception) {
-                            Log.e("DashboardFragment", "Error refreshing dashboard after new transaction", e)
+                            Timber.tag("DashboardFragment").e(e, "Error refreshing dashboard after new transaction")
                         }
                     }
                 }
@@ -116,16 +117,16 @@ class DashboardFragment : Fragment() {
                 "com.expensemanager.CATEGORY_UPDATED" -> {
                     val merchant = intent.getStringExtra("merchant") ?: "Unknown"
                     val category = intent.getStringExtra("category") ?: "Unknown"
-                    Log.d("DashboardFragment", "Category update broadcast: $merchant → $category")
+                    Timber.tag("DashboardFragment").d("Category update broadcast: $merchant → $category")
                     
                     // Refresh dashboard data on the main thread
                     lifecycleScope.launch {
                         try {
-                            Log.d("DashboardFragment", "[REFRESH] Refreshing dashboard due to category update")
+                            Timber.tag("DashboardFragment").d("[REFRESH] Refreshing dashboard due to category update")
                             loadDashboardData()
                             
                         } catch (e: Exception) {
-                            Log.e("DashboardFragment", "Error refreshing dashboard after category update", e)
+                            Timber.tag("DashboardFragment").e(e, "Error refreshing dashboard after category update")
                         }
                     }
                 }
@@ -133,7 +134,7 @@ class DashboardFragment : Fragment() {
                 "com.expensemanager.INCLUSION_STATE_CHANGED" -> {
                     val includedCount = intent.getIntExtra("included_count", 0)
                     val totalAmount = intent.getDoubleExtra("total_amount", 0.0)
-                    Log.d("DashboardFragment", "Inclusion state change: $includedCount transactions, ₹${String.format("%.0f", totalAmount)} total")
+                    Timber.tag("DashboardFragment").d("Inclusion state change: $includedCount transactions, ₹${String.format("%.0f", totalAmount)} total")
                     
                     // FIXED: Refresh dashboard to reflect inclusion/exclusion changes from Messages screen
                     lifecycleScope.launch {
@@ -141,7 +142,7 @@ class DashboardFragment : Fragment() {
                             loadDashboardData()
                             
                         } catch (e: Exception) {
-                            Log.e("DashboardFragment", "Error refreshing dashboard after inclusion state change", e)
+                            Timber.tag("DashboardFragment").e(e, "Error refreshing dashboard after inclusion state change")
                         }
                     }
                 }
@@ -150,7 +151,7 @@ class DashboardFragment : Fragment() {
                     val merchantName = intent.getStringExtra("merchant_name") ?: "Unknown"
                     val displayName = intent.getStringExtra("display_name") ?: "Unknown"
                     val newCategory = intent.getStringExtra("new_category") ?: "Unknown"
-                    Log.d("DashboardFragment", "Merchant category change: '$merchantName' -> '$newCategory'")
+                    Timber.tag("DashboardFragment").d("Merchant category change: '$merchantName' -> '$newCategory'")
                     
                     // Refresh dashboard to reflect category changes in Top Merchants section
                     lifecycleScope.launch {
@@ -165,7 +166,7 @@ class DashboardFragment : Fragment() {
                             ).show()
                             
                         } catch (e: Exception) {
-                            Log.e("DashboardFragment", "Error refreshing dashboard after merchant category change", e)
+                            Timber.tag("DashboardFragment").e(e, "Error refreshing dashboard after merchant category change")
                         }
                     }
                 }
@@ -215,7 +216,7 @@ class DashboardFragment : Fragment() {
                 // Observe main UI state
                 launch {
                     viewModel.uiState.collect { state ->
-                        Log.d("DashboardFragment", "ViewModel UI State updated: loading=${state.isAnyLoading}, data=${state.dashboardData != null}, error=${state.hasError}")
+                        Timber.tag("DashboardFragment").d("ViewModel UI State updated: loading=${state.isAnyLoading}, data=${state.dashboardData != null}, error=${state.hasError}")
                         updateUIFromViewModel(state)
                     }
                 }
@@ -262,7 +263,7 @@ class DashboardFragment : Fragment() {
         binding.tvTotalBalance.text = "Loading from ViewModel..."
         binding.tvTotalSpent.text = "Loading..."
         binding.tvTransactionCount.text = "0"
-        Log.d("DashboardFragment", "Showing ViewModel loading state")
+        Timber.tag("DashboardFragment").d("Showing ViewModel loading state")
     }
     
     /**
@@ -277,7 +278,7 @@ class DashboardFragment : Fragment() {
             Toast.makeText(requireContext(), "ViewModel: $it", Toast.LENGTH_LONG).show()
         }
         
-        Log.d("DashboardFragment", "Showing ViewModel error state: $error")
+        Timber.tag("DashboardFragment").d("Showing ViewModel error state: $error")
     }
     
     /**
@@ -329,7 +330,7 @@ class DashboardFragment : Fragment() {
         lifecycleScope.launch {
             val (startDate, endDate) = getDateRangeForPeriod(state.dashboardPeriod)
             updateWeeklyTrendWithRealData(startDate, endDate)
-            Log.d("DashboardFragment", "[WEEKLY_CHART_FIX] Updated weekly trend chart from ViewModel for period: ${state.dashboardPeriod}")
+            Timber.tag("DashboardFragment").d("[WEEKLY_CHART_FIX] Updated weekly trend chart from ViewModel for period: ${state.dashboardPeriod}")
         }
         
     }
@@ -343,7 +344,7 @@ class DashboardFragment : Fragment() {
         binding.tvTransactionCount.text = "0"
         updateTopMerchantsTable(emptyList())
         updateTopCategoriesTable(emptyList())
-        Log.d("DashboardFragment", "Showing ViewModel empty state")
+        Timber.tag("DashboardFragment").d("Showing ViewModel empty state")
     }
     
     /**
@@ -362,7 +363,7 @@ class DashboardFragment : Fragment() {
         // Ensure consistent display - always show at least 4 categories (2x2 grid)
         val finalCategoryItems = ensureMinimumCategories(categorySpendingItems, 4)
         
-        Log.d("DashboardFragment", "ViewModel: Updating top categories: ${finalCategoryItems.map { "${it.categoryName}=₹${String.format("%.0f", it.amount)}" }}")
+        Timber.tag("DashboardFragment").d("ViewModel: Updating top categories: ${finalCategoryItems.map { "${it.categoryName}=₹${String.format("%.0f", it.amount)}" }}")
         updateTopCategoriesTable(finalCategoryItems)
     }
     
@@ -374,17 +375,17 @@ class DashboardFragment : Fragment() {
         // Don't trust dashboardData.totalSpent as it can be inconsistent across different periods
         val merchantsTotal = dashboardData.topMerchantsWithCategory.sumOf { it.total_amount }
         
-        Log.d("DashboardFragment", "[MERCHANTS_TOTAL_FIX] ViewModel: Using merchants total: ₹${String.format("%.0f", merchantsTotal)} instead of dashboard total: ₹${String.format("%.0f", dashboardData.totalSpent)}")
+        Timber.tag("DashboardFragment").d("[MERCHANTS_TOTAL_FIX] ViewModel: Using merchants total: ₹${String.format("%.0f", merchantsTotal)} instead of dashboard total: ₹${String.format("%.0f", dashboardData.totalSpent)}")
         
         val allMerchantItems = dashboardData.topMerchantsWithCategory.map { merchantResult ->
             // FIXED: Use merchantAliasManager for consistent merchant name display like Messages screen
             val displayName = merchantAliasManager.getDisplayName(merchantResult.normalized_merchant)
-            Log.d("DashboardFragment", "[MERCHANT] Top Merchant Display Name: '${merchantResult.normalized_merchant}' -> '$displayName'")
+            Timber.tag("DashboardFragment").d("[MERCHANT] Top Merchant Display Name: '${merchantResult.normalized_merchant}' -> '$displayName'")
             
             // CRITICAL FIX: Calculate percentage using merchants total, not dashboard total (like Top Categories)
             val percentage = if (merchantsTotal > 0) (merchantResult.total_amount / merchantsTotal) * 100 else 0.0
-            Log.d("DashboardFragment", "[PERCENTAGE] ViewModel: ${displayName} = ${String.format("%.1f", percentage)}% (₹${merchantResult.total_amount} / ₹${merchantsTotal})")
-            Log.d("DashboardFragment", "[CATEGORY] ViewModel: ${displayName} category: '${merchantResult.category_name}' color: '${merchantResult.category_color}'")
+            Timber.tag("DashboardFragment").d("[PERCENTAGE] ViewModel: ${displayName} = ${String.format("%.1f", percentage)}% (₹${merchantResult.total_amount} / ₹${merchantsTotal})")
+            Timber.tag("DashboardFragment").d("[CATEGORY] ViewModel: ${displayName} category: '${merchantResult.category_name}' color: '${merchantResult.category_color}'")
             
             MerchantSpending(
                 merchantName = displayName,
@@ -398,12 +399,12 @@ class DashboardFragment : Fragment() {
         
         // FIXED: Filter merchants by inclusion state to respect user toggle preferences
         val filteredMerchantItems = filterMerchantsByInclusionState(allMerchantItems)
-        Log.d("DashboardFragment", "Filtered merchants from ${allMerchantItems.size} to ${filteredMerchantItems.size} based on inclusion states")
+        Timber.tag("DashboardFragment").d("Filtered merchants from ${allMerchantItems.size} to ${filteredMerchantItems.size} based on inclusion states")
         
         // Ensure consistent display - always show at least 3 merchants (but only from included ones)
         val finalMerchantItems = ensureMinimumMerchants(filteredMerchantItems, 3)
         
-        Log.d("DashboardFragment", "ViewModel: Updating top merchants: ${finalMerchantItems.map { "${it.merchantName}=₹${String.format("%.0f", it.totalAmount)}" }}")
+        Timber.tag("DashboardFragment").d("ViewModel: Updating top merchants: ${finalMerchantItems.map { "${it.merchantName}=₹${String.format("%.0f", it.totalAmount)}" }}")
         updateTopMerchantsTable(finalMerchantItems)
     }
     
@@ -431,9 +432,9 @@ class DashboardFragment : Fragment() {
                 }
             )
             
-            Log.d("DashboardFragment", "ViewModel: Updated monthly comparison: ${comparison.currentLabel} = ₹${String.format("%.0f", comparison.currentAmount)}, ${comparison.previousLabel} = ₹${String.format("%.0f", comparison.previousAmount)}")
+            Timber.tag("DashboardFragment").d("ViewModel: Updated monthly comparison: ${comparison.currentLabel} = ₹${String.format("%.0f", comparison.currentAmount)}, ${comparison.previousLabel} = ₹${String.format("%.0f", comparison.previousAmount)}")
         } catch (e: Exception) {
-            Log.e("DashboardFragment", "Error updating monthly comparison from ViewModel", e)
+            Timber.tag("DashboardFragment").e(e, "Error updating monthly comparison from ViewModel")
         }
     }
     
@@ -552,7 +553,7 @@ class DashboardFragment : Fragment() {
     }
     
     private fun updateTopCategoriesTable(categoryItems: List<CategorySpending>) {
-        Log.d("DashboardFragment", "Updating top categories table with ${categoryItems.size} items")
+        Timber.tag("DashboardFragment").d("Updating top categories table with ${categoryItems.size} items")
         
         // Get the category colors
         val colorMap = mapOf(
@@ -653,7 +654,7 @@ class DashboardFragment : Fragment() {
                         // The ViewModel approach should handle all data loading including Top Merchants and Top Categories consistently
                         // loadDashboardDataForPeriod(selectedPeriod)
                         
-                        Log.d("DashboardFragment", "[PERIOD_CHANGE] Period changed to: $selectedPeriod using ViewModel approach only")
+                        Timber.tag("DashboardFragment").d("[PERIOD_CHANGE] Period changed to: $selectedPeriod using ViewModel approach only")
                     }
                 }
                 .show()
@@ -706,8 +707,8 @@ class DashboardFragment : Fragment() {
     
     private suspend fun updateWeeklyTrendWithRealData(startDate: Date, endDate: Date) {
         try {
-            Log.d("DashboardFragment", "[WEEKLY_CHART] Updating chart for period: $currentDashboardPeriod")
-            Log.d("DashboardFragment", "[WEEKLY_CHART] Dashboard period range: $startDate to $endDate")
+            Timber.tag("DashboardFragment").d("[WEEKLY_CHART] Updating chart for period: $currentDashboardPeriod")
+            Timber.tag("DashboardFragment").d("[WEEKLY_CHART] Dashboard period range: $startDate to $endDate")
             
             // Always show last 7 days for simplicity and consistency
             // Calculate the last 7 days ending at the endDate of the selected period
@@ -729,11 +730,11 @@ class DashboardFragment : Fragment() {
             calendar.set(Calendar.MILLISECOND, 0)
             val chartStartDate = calendar.time
             
-            Log.d("DashboardFragment", "[WEEKLY_CHART] Chart showing last 7 days: ${SimpleDateFormat("MMM dd", Locale.getDefault()).format(chartStartDate)} to ${SimpleDateFormat("MMM dd", Locale.getDefault()).format(chartEndDate)}")
+            Timber.tag("DashboardFragment").d("[WEEKLY_CHART] Chart showing last 7 days: ${SimpleDateFormat("MMM dd", Locale.getDefault()).format(chartStartDate)} to ${SimpleDateFormat("MMM dd", Locale.getDefault()).format(chartEndDate)}")
             
             // Fetch transactions for the 7-day period
             val transactions = repository.getTransactionsByDateRange(chartStartDate, chartEndDate)
-            Log.d("DashboardFragment", "[WEEKLY_CHART] Found ${transactions.size} transactions in 7-day range")
+            Timber.tag("DashboardFragment").d("[WEEKLY_CHART] Found ${transactions.size} transactions in 7-day range")
             
             // Always use the simple 7-day calculation with specific date range
             val chartData = calculateLast7DaysDataWithRange(transactions, chartStartDate, chartEndDate)
@@ -744,7 +745,7 @@ class DashboardFragment : Fragment() {
             }
             
         } catch (e: Exception) {
-            Log.e("DashboardFragment", "[WEEKLY_CHART] Error updating chart", e)
+            Timber.tag("DashboardFragment").e(e, "[WEEKLY_CHART] Error updating chart")
             withContext(Dispatchers.Main) {
                 showEmptyChart("Chart Error")
             }
@@ -795,7 +796,7 @@ class DashboardFragment : Fragment() {
         val calendar = Calendar.getInstance()
         val dailyData = mutableListOf<ChartDataPoint>()
         
-        Log.d("DashboardFragment", "[WEEKLY_CHART] Calculating 7 days from ${SimpleDateFormat("MMM dd", Locale.getDefault()).format(startDate)} to ${SimpleDateFormat("MMM dd", Locale.getDefault()).format(endDate)}")
+        Timber.tag("DashboardFragment").d("[WEEKLY_CHART] Calculating 7 days from ${SimpleDateFormat("MMM dd", Locale.getDefault()).format(startDate)} to ${SimpleDateFormat("MMM dd", Locale.getDefault()).format(endDate)}")
         
         // Generate 7 days of data using the provided date range
         for (i in 0 until 7) {
@@ -831,10 +832,10 @@ class DashboardFragment : Fragment() {
                 label = dayLabel
             ))
             
-            Log.d("DashboardFragment", "[WEEKLY_CHART] Day ${i + 1}: $dayLabel = ₹$daySpending")
+            Timber.tag("DashboardFragment").d("[WEEKLY_CHART] Day ${i + 1}: $dayLabel = ₹$daySpending")
         }
         
-        Log.d("DashboardFragment", "[WEEKLY_CHART] Generated ${dailyData.size} daily data points")
+        Timber.tag("DashboardFragment").d("[WEEKLY_CHART] Generated ${dailyData.size} daily data points")
         return dailyData
     }
     
@@ -845,7 +846,7 @@ class DashboardFragment : Fragment() {
         // Calculate days between start and end date
         val daysBetween = ((endDate.time - startDate.time) / (1000 * 60 * 60 * 24)).toInt() + 1
         
-        Log.d("DashboardFragment", "[WEEKLY_CHART] Calculating daily data for $daysBetween days")
+        Timber.tag("DashboardFragment").d("[WEEKLY_CHART] Calculating daily data for $daysBetween days")
         
         // Get daily spending for each day in the period
         for (i in 0 until daysBetween) {
@@ -879,10 +880,10 @@ class DashboardFragment : Fragment() {
                 label = dayFormat.format(calendar.time)
             ))
             
-            Log.d("DashboardFragment", "[WEEKLY_CHART] Day ${i + 1}: ${dayFormat.format(calendar.time)} = ₹$daySpending")
+            Timber.tag("DashboardFragment").d("[WEEKLY_CHART] Day ${i + 1}: ${dayFormat.format(calendar.time)} = ₹$daySpending")
         }
         
-        Log.d("DashboardFragment", "[WEEKLY_CHART] Generated ${dailyData.size} daily data points")
+        Timber.tag("DashboardFragment").d("[WEEKLY_CHART] Generated ${dailyData.size} daily data points")
         return dailyData
     }
     
@@ -896,7 +897,7 @@ class DashboardFragment : Fragment() {
         calendar.add(Calendar.DAY_OF_YEAR, -6)
         val contextStartDate = calendar.time
         
-        Log.d("DashboardFragment", "[WEEKLY_CHART] Calculating daily data with context from ${SimpleDateFormat("MMM dd", Locale.getDefault()).format(contextStartDate)} to ${SimpleDateFormat("MMM dd", Locale.getDefault()).format(endDate)}")
+        Timber.tag("DashboardFragment").d("[WEEKLY_CHART] Calculating daily data with context from ${SimpleDateFormat("MMM dd", Locale.getDefault()).format(contextStartDate)} to ${SimpleDateFormat("MMM dd", Locale.getDefault()).format(endDate)}")
         
         // Show 7 days of data for context
         for (i in 0 until 7) {
@@ -936,10 +937,10 @@ class DashboardFragment : Fragment() {
                 label = if (isCurrentPeriod) dayLabel else "($dayLabel)" // Mark non-current days with parentheses
             ))
             
-            Log.d("DashboardFragment", "[WEEKLY_CHART] Day ${i + 1}: $dayLabel = ₹$daySpending ${if (isCurrentPeriod) "(current period)" else "(context)"}")
+            Timber.tag("DashboardFragment").d("[WEEKLY_CHART] Day ${i + 1}: $dayLabel = ₹$daySpending ${if (isCurrentPeriod) "(current period)" else "(context)"}")
         }
         
-        Log.d("DashboardFragment", "[WEEKLY_CHART] Generated ${dailyData.size} daily data points with context")
+        Timber.tag("DashboardFragment").d("[WEEKLY_CHART] Generated ${dailyData.size} daily data points with context")
         return dailyData
     }
     
@@ -1045,7 +1046,7 @@ class DashboardFragment : Fragment() {
             return
         }
         
-        Log.d("DashboardFragment", "[WEEKLY_CHART] Updating chart with ${chartData.size} data points")
+        Timber.tag("DashboardFragment").d("[WEEKLY_CHART] Updating chart with ${chartData.size} data points")
         
         // Create chart entries
         val entries = chartData.map { Entry(it.index, it.value) }
@@ -1109,7 +1110,7 @@ class DashboardFragment : Fragment() {
         
         chart.invalidate()
         
-        Log.d("DashboardFragment", "[WEEKLY_CHART] Chart updated successfully")
+        Timber.tag("DashboardFragment").d("[WEEKLY_CHART] Chart updated successfully")
     }
     
     private fun showEmptyChart(message: String) {
@@ -1204,7 +1205,7 @@ class DashboardFragment : Fragment() {
                 // FIXED: Actually save the transaction to database
                 lifecycleScope.launch {
                     try {
-                        Log.d("DashboardFragment", "[TRANSACTION] Saving manual transaction: ₹$amount at $merchant ($category)")
+                        Timber.tag("DashboardFragment").d("[TRANSACTION] Saving manual transaction: ₹$amount at $merchant ($category)")
                         
                         // Create manual transaction entity
                         val manualTransaction = addTransactionUseCase.createManualTransaction(
@@ -1247,7 +1248,7 @@ class DashboardFragment : Fragment() {
                         } else {
                             val error = result.exceptionOrNull()?.message ?: "Unknown error"
                             val exception = result.exceptionOrNull()
-                            Log.e("DashboardFragment", "Failed to save transaction: $error", exception)
+                            Timber.tag("DashboardFragment").e(exception, "Failed to save transaction: $error")
                             
                             // Provide more helpful error messages to users
                             val userMessage = when {
@@ -1265,7 +1266,7 @@ class DashboardFragment : Fragment() {
                         }
                         
                     } catch (e: Exception) {
-                        Log.e("DashboardFragment", "Error saving transaction", e)
+                        Timber.tag("DashboardFragment").e(e, "Error saving transaction")
                         
                         // Provide helpful error messages to users
                         val userMessage = when (e) {
@@ -1391,7 +1392,7 @@ class DashboardFragment : Fragment() {
             val firstMonthText = firstSpinner.selectedItem?.toString() ?: ""
             val secondMonthText = secondSpinner.selectedItem?.toString() ?: ""
             
-            Log.d("DashboardFragment", "Custom month selection: '$firstMonthText' vs '$secondMonthText'")
+            Timber.tag("DashboardFragment").d("Custom month selection: '$firstMonthText' vs '$secondMonthText'")
             
             // Parse the month/year from spinner selections
             customFirstMonth = parseMonthYear(firstMonthText)
@@ -1420,7 +1421,7 @@ class DashboardFragment : Fragment() {
             }
             
         } catch (e: Exception) {
-            Log.e("DashboardFragment", "Error handling custom month selection", e)
+            Timber.tag("DashboardFragment").e(e, "Error handling custom month selection")
             Toast.makeText(requireContext(), "Error with month selection", Toast.LENGTH_SHORT).show()
         }
     }
@@ -1440,7 +1441,7 @@ class DashboardFragment : Fragment() {
                 null
             }
         } catch (e: Exception) {
-            Log.e("DashboardFragment", "Error parsing month/year: $monthYearText", e)
+            Timber.tag("DashboardFragment").e(e, "Error parsing month/year: $monthYearText")
             null
         }
     }
@@ -1449,23 +1450,23 @@ class DashboardFragment : Fragment() {
         lifecycleScope.launch {
             try {
                 if (_binding == null || customFirstMonth == null || customSecondMonth == null) {
-                    Log.w("DashboardFragment", "Cannot load custom months - binding or months are null")
+                    Timber.tag("DashboardFragment").w("Cannot load custom months - binding or months are null")
                     return@launch
                 }
                 
-                Log.d("DashboardFragment", "Loading dashboard with custom months: ${customFirstMonth} vs ${customSecondMonth}")
+                Timber.tag("DashboardFragment").d("Loading dashboard with custom months: ${customFirstMonth} vs ${customSecondMonth}")
                 
                 // Calculate date ranges for both custom months
                 val (firstStart, firstEnd) = getDateRangeForCustomMonth(customFirstMonth!!)
                 val (secondStart, secondEnd) = getDateRangeForCustomMonth(customSecondMonth!!)
                 
-                Log.d("DashboardFragment", "First month range: $firstStart to $firstEnd")
-                Log.d("DashboardFragment", "Second month range: $secondStart to $secondEnd")
+                Timber.tag("DashboardFragment").d("First month range: $firstStart to $firstEnd")
+                Timber.tag("DashboardFragment").d("Second month range: $secondStart to $secondEnd")
                 
                 // Load dashboard data for the first month (main display)
                 val firstMonthData = repository.getDashboardData(firstStart, firstEnd)
                 
-                Log.d("DashboardFragment", "[DATA] First month data: ${firstMonthData.transactionCount} transactions, ₹${String.format("%.0f", firstMonthData.totalSpent)}")
+                Timber.tag("DashboardFragment").d("[DATA] First month data: ${firstMonthData.transactionCount} transactions, ₹${String.format("%.0f", firstMonthData.totalSpent)}")
                 
                 if (firstMonthData.transactionCount > 0) {
                     // Update dashboard with first month data
@@ -1474,7 +1475,7 @@ class DashboardFragment : Fragment() {
                     // Update monthly comparison with custom months
                     updateCustomMonthlyComparison(firstStart, firstEnd, secondStart, secondEnd)
                 } else {
-                    Log.d("DashboardFragment", "No data found for first custom month, trying sync...")
+                    Timber.tag("DashboardFragment").d("No data found for first custom month, trying sync...")
                     
                     // Try syncing SMS and retry
                     val syncedCount = repository.syncNewSMS()
@@ -1492,7 +1493,7 @@ class DashboardFragment : Fragment() {
                 }
                 
             } catch (e: Exception) {
-                Log.e("DashboardFragment", "Error loading custom months dashboard", e)
+                Timber.tag("DashboardFragment").e(e, "Error loading custom months dashboard")
                 updateDashboardWithError()
             }
         }
@@ -1533,15 +1534,15 @@ class DashboardFragment : Fragment() {
             val firstMonthLabel = java.text.SimpleDateFormat("MMMM yyyy", java.util.Locale.getDefault()).format(firstStart)
             val secondMonthLabel = java.text.SimpleDateFormat("MMMM yyyy", java.util.Locale.getDefault()).format(secondStart)
             
-            Log.d("DashboardFragment", "[FINANCIAL] Custom monthly comparison:")
-            Log.d("DashboardFragment", "   $firstMonthLabel: ₹${String.format("%.0f", firstMonthSpent)}")
-            Log.d("DashboardFragment", "   $secondMonthLabel: ₹${String.format("%.0f", secondMonthSpent)}")
+            Timber.tag("DashboardFragment").d("[FINANCIAL] Custom monthly comparison:")
+            Timber.tag("DashboardFragment").d("   $firstMonthLabel: ₹${String.format("%.0f", firstMonthSpent)}")
+            Timber.tag("DashboardFragment").d("   $secondMonthLabel: ₹${String.format("%.0f", secondMonthSpent)}")
             
             // Update the UI with custom month comparison
             updateMonthlyComparisonUI(firstMonthLabel, secondMonthLabel, firstMonthSpent, secondMonthSpent)
             
         } catch (e: Exception) {
-            Log.e("DashboardFragment", "Error updating custom monthly comparison", e)
+            Timber.tag("DashboardFragment").e(e, "Error updating custom monthly comparison")
         }
     }
     
@@ -1623,17 +1624,17 @@ class DashboardFragment : Fragment() {
             try {
                 // Check if fragment view is still valid
                 if (_binding == null) {
-                    Log.w("DashboardFragment", "Binding is null, cannot load dashboard data")
+                    Timber.tag("DashboardFragment").w("Binding is null, cannot load dashboard data")
                     return@launch
                 }
                 
-                Log.d("DashboardFragment", "Loading dashboard data from SQLite database...")
+                Timber.tag("DashboardFragment").d("Loading dashboard data from SQLite database...")
                 
                 // FIXED: Enhanced empty state detection - check if database has any real data
                 val isDbEmpty = repository.isDatabaseEmpty()
                 
                 if (isDbEmpty) {
-                    Log.d("DashboardFragment", "Database is empty - showing proper empty state")
+                    Timber.tag("DashboardFragment").d("Database is empty - showing proper empty state")
                     updateDashboardWithEmptyState()
                     return@launch
                 }
@@ -1645,18 +1646,18 @@ class DashboardFragment : Fragment() {
                 val dashboardData = repository.getDashboardData(startDate, endDate)
                 
                 if (dashboardData.transactionCount > 0) {
-                    Log.d("DashboardFragment", "[SUCCESS] Loaded dashboard data from SQLite: ${dashboardData.transactionCount} transactions, ₹${String.format("%.0f", dashboardData.totalSpent)} spent")
-                    Log.d("DashboardFragment", "[DATA] Dashboard Date Range: ${startDate} to ${endDate}")
-                    Log.d("DashboardFragment", "[DATA] Dashboard Raw Transactions Count: ${repository.getTransactionsByDateRange(startDate, endDate).size}")
-                    Log.d("DashboardFragment", "[DATA] Dashboard Filtered Total: ₹${String.format("%.0f", dashboardData.totalSpent)}")
+                    Timber.tag("DashboardFragment").d("[SUCCESS] Loaded dashboard data from SQLite: ${dashboardData.transactionCount} transactions, ₹${String.format("%.0f", dashboardData.totalSpent)} spent")
+                    Timber.tag("DashboardFragment").d("[DATA] Dashboard Date Range: ${startDate} to ${endDate}")
+                    Timber.tag("DashboardFragment").d("[DATA] Dashboard Raw Transactions Count: ${repository.getTransactionsByDateRange(startDate, endDate).size}")
+                    Timber.tag("DashboardFragment").d("[DATA] Dashboard Filtered Total: ₹${String.format("%.0f", dashboardData.totalSpent)}")
                     updateDashboardWithRepositoryData(dashboardData, startDate, endDate)
                 } else {
-                    Log.d("DashboardFragment", "No data in SQLite database yet, checking SMS sync status...")
+                    Timber.tag("DashboardFragment").d("No data in SQLite database yet, checking SMS sync status...")
                     
                     // Check if initial migration is still in progress
                     val syncStatus = repository.getSyncStatus()
                     if (syncStatus == "INITIAL" || syncStatus == "IN_PROGRESS") {
-                        Log.d("DashboardFragment", "[MIGRATION] Initial data migration in progress, showing loading state")
+                        Timber.tag("DashboardFragment").d("[MIGRATION] Initial data migration in progress, showing loading state")
                         showLoadingStateWithMessage("Setting up your data for the first time...")
                         
                         // Retry loading data after a delay
@@ -1665,13 +1666,13 @@ class DashboardFragment : Fragment() {
                         }, 2000)
                     } else {
                             // FIXED: For this time period, no data exists - show empty state for the period
-                        Log.d("DashboardFragment", "No transactions for period $currentDashboardPeriod")
+                        Timber.tag("DashboardFragment").d("No transactions for period $currentDashboardPeriod")
                         updateDashboardWithEmptyState()
                     }
                 }
                 
             } catch (e: Exception) {
-                Log.e("DashboardFragment", "Error loading dashboard data from repository", e)
+                Timber.tag("DashboardFragment").e(e, "Error loading dashboard data from repository")
                 updateDashboardWithError()
             }
         }
@@ -1680,7 +1681,7 @@ class DashboardFragment : Fragment() {
     private suspend fun updateDashboardWithRepositoryData(dashboardData: DashboardData, startDate: Date, endDate: Date) {
         // Check if fragment view is still valid
         if (_binding == null) {
-            Log.w("DashboardFragment", "Binding is null, cannot update UI")
+            Timber.tag("DashboardFragment").w("Binding is null, cannot update UI")
             return
         }
         
@@ -1689,7 +1690,7 @@ class DashboardFragment : Fragment() {
         // REMOVED: Automatic large transfer exclusions - only user-controlled exclusions now
         
         // Debug: Log current exclusion states
-        Log.d("DashboardFragment", "[DEBUG] ${repository.getExclusionStatesDebugInfo()}")
+        Timber.tag("DashboardFragment").d("[DEBUG] ${repository.getExclusionStatesDebugInfo()}")
         
         // Update spending summary
         val totalSpent = dashboardData.totalSpent
@@ -1718,11 +1719,11 @@ class DashboardFragment : Fragment() {
         
         // Add salary info logging for debugging
         if (currentDashboardPeriod == "This Month" && dashboardData.monthlyBalance.hasSalaryData) {
-            Log.d("DashboardFragment", "[REPOSITORY MONTHLY BALANCE] Showing salary-based balance: ₹${balanceToShow} (Last Salary: ₹${dashboardData.monthlyBalance.lastSalaryAmount})")
+            Timber.tag("DashboardFragment").d("[REPOSITORY MONTHLY BALANCE] Showing salary-based balance: ₹${balanceToShow} (Last Salary: ₹${dashboardData.monthlyBalance.lastSalaryAmount})")
         }
         
         // Debug logging for balance calculation
-        Log.d("DashboardFragment", "[BALANCE UPDATE] Credits: ₹${dashboardData.totalCredits}, Debits: ₹${dashboardData.totalSpent}, Displayed Balance: ₹$balanceToShow")
+        Timber.tag("DashboardFragment").d("[BALANCE UPDATE] Credits: ₹${dashboardData.totalCredits}, Debits: ₹${dashboardData.totalSpent}, Displayed Balance: ₹$balanceToShow")
         
         // Update top categories with repository data
         val categorySpendingItems = dashboardData.topCategories.map { categoryResult ->
@@ -1737,24 +1738,24 @@ class DashboardFragment : Fragment() {
         // FIXED: Ensure consistent display - always show at least 4 categories (2x2 grid)
         val finalCategoryItems = ensureMinimumCategories(categorySpendingItems, 4)
         
-        Log.d("DashboardFragment", "Updating top categories: ${finalCategoryItems.map { "${it.categoryName}=₹${String.format("%.0f", it.amount)}" }}")
+        Timber.tag("DashboardFragment").d("Updating top categories: ${finalCategoryItems.map { "${it.categoryName}=₹${String.format("%.0f", it.amount)}" }}")
         updateTopCategoriesTable(finalCategoryItems)
         
         // Update top merchants with repository data using NEW category information
         // CRITICAL FIX: Calculate total from merchants data like Top Categories do (Repository approach)
         val merchantsTotal = dashboardData.topMerchantsWithCategory.sumOf { it.total_amount }
         
-        Log.d("DashboardFragment", "[MERCHANTS_TOTAL_FIX] Repository: Using merchants total: ₹${String.format("%.0f", merchantsTotal)} instead of dashboard total: ₹${String.format("%.0f", totalSpent)}")
+        Timber.tag("DashboardFragment").d("[MERCHANTS_TOTAL_FIX] Repository: Using merchants total: ₹${String.format("%.0f", merchantsTotal)} instead of dashboard total: ₹${String.format("%.0f", totalSpent)}")
         
         val allMerchantItems = dashboardData.topMerchantsWithCategory.map { merchantResult ->
             // FIXED: Use merchantAliasManager for consistent merchant name display like Messages screen
             val displayName = merchantAliasManager.getDisplayName(merchantResult.normalized_merchant)
-            Log.d("DashboardFragment", "[MERCHANT] Repository Top Merchant Display Name: '${merchantResult.normalized_merchant}' -> '$displayName'")
-            Log.d("DashboardFragment", "[CATEGORY] Repository: ${displayName} category: '${merchantResult.category_name}' color: '${merchantResult.category_color}'")
+            Timber.tag("DashboardFragment").d("[MERCHANT] Repository Top Merchant Display Name: '${merchantResult.normalized_merchant}' -> '$displayName'")
+            Timber.tag("DashboardFragment").d("[CATEGORY] Repository: ${displayName} category: '${merchantResult.category_name}' color: '${merchantResult.category_color}'")
             
             // CRITICAL FIX: Calculate percentage using merchants total, not dashboard total (like Top Categories)
             val percentage = if (merchantsTotal > 0) (merchantResult.total_amount / merchantsTotal) * 100 else 0.0
-            Log.d("DashboardFragment", "[PERCENTAGE] Repository: ${displayName} = ${String.format("%.1f", percentage)}% (₹${merchantResult.total_amount} / ₹${merchantsTotal})")
+            Timber.tag("DashboardFragment").d("[PERCENTAGE] Repository: ${displayName} = ${String.format("%.1f", percentage)}% (₹${merchantResult.total_amount} / ₹${merchantsTotal})")
             
             MerchantSpending(
                 merchantName = displayName,
@@ -1768,12 +1769,12 @@ class DashboardFragment : Fragment() {
         
         // FIXED: Filter merchants by inclusion state to respect user toggle preferences  
         val filteredMerchantItems = filterMerchantsByInclusionState(allMerchantItems)
-        Log.d("DashboardFragment", "Repository filtered merchants from ${allMerchantItems.size} to ${filteredMerchantItems.size} based on inclusion states")
+        Timber.tag("DashboardFragment").d("Repository filtered merchants from ${allMerchantItems.size} to ${filteredMerchantItems.size} based on inclusion states")
         
         // FIXED: Ensure consistent display - always show at least 3 merchants (but only from included ones)
         val finalMerchantItems = ensureMinimumMerchants(filteredMerchantItems, 3)
         
-        Log.d("DashboardFragment", "Updating top merchants: ${finalMerchantItems.map { "${it.merchantName}=₹${String.format("%.0f", it.totalAmount)}" }}")
+        Timber.tag("DashboardFragment").d("Updating top merchants: ${finalMerchantItems.map { "${it.merchantName}=₹${String.format("%.0f", it.totalAmount)}" }}")
         updateTopMerchantsTable(finalMerchantItems)
         
         // Update monthly comparison based on selected period
@@ -1782,7 +1783,7 @@ class DashboardFragment : Fragment() {
         // Update weekly trend chart with repository data
         updateWeeklyTrendWithRealData(startDate, endDate)
         
-        Log.d("DashboardFragment", "[SUCCESS] Dashboard UI updated successfully with repository data")
+        Timber.tag("DashboardFragment").d("[SUCCESS] Dashboard UI updated successfully with repository data")
     }
     
     private suspend fun updateMonthlyComparisonFromRepository(currentStart: Date, currentEnd: Date, period: String) {
@@ -1814,9 +1815,9 @@ class DashboardFragment : Fragment() {
                 
                 "Last Month" -> {
                     // Compare Last Month vs Two Months Ago (single months only)
-                    Log.d("DashboardFragment", "[DEBUG] Processing 'Last Month' period case")
+                    Timber.tag("DashboardFragment").d("[DEBUG] Processing 'Last Month' period case")
                     val cal = Calendar.getInstance()
-                    Log.d("DashboardFragment", "[DEBUG] Current time: ${cal.time}")
+                    Timber.tag("DashboardFragment").d("[DEBUG] Current time: ${cal.time}")
                     
                     cal.set(Calendar.DAY_OF_MONTH, 1)
                     cal.add(Calendar.MONTH, -2)
@@ -1825,7 +1826,7 @@ class DashboardFragment : Fragment() {
                     cal.set(Calendar.SECOND, 0)
                     cal.set(Calendar.MILLISECOND, 0)
                     val prevStart = cal.time
-                    Log.d("DashboardFragment", "[DEBUG] Two months ago start: $prevStart")
+                    Timber.tag("DashboardFragment").d("[DEBUG] Two months ago start: $prevStart")
                     
                     cal.add(Calendar.MONTH, 1)
                     cal.add(Calendar.DAY_OF_MONTH, -1)
@@ -1834,9 +1835,9 @@ class DashboardFragment : Fragment() {
                     cal.set(Calendar.SECOND, 59)
                     cal.set(Calendar.MILLISECOND, 999)
                     val prevEnd = cal.time
-                    Log.d("DashboardFragment", "[DEBUG] Two months ago end: $prevEnd")
+                    Timber.tag("DashboardFragment").d("[DEBUG] Two months ago end: $prevEnd")
                     
-                    Log.d("DashboardFragment", "[DEBUG] Returning comparison 'Last Month' vs 'Two Months Ago'")
+                    Timber.tag("DashboardFragment").d("[DEBUG] Returning comparison 'Last Month' vs 'Two Months Ago'")
                     Tuple4("Last Month", "Two Months Ago", prevStart, prevEnd)
                 }
                 
@@ -1864,21 +1865,21 @@ class DashboardFragment : Fragment() {
                 }
             }
             
-            Log.d("DashboardFragment", "Monthly comparison date ranges for period '$period':")
-            Log.d("DashboardFragment", "   $currentLabel: ${currentStart} to ${currentEnd}")
-            Log.d("DashboardFragment", "   $previousLabel: ${previousStart} to ${previousEnd}")
+            Timber.tag("DashboardFragment").d("Monthly comparison date ranges for period '$period':")
+            Timber.tag("DashboardFragment").d("   $currentLabel: ${currentStart} to ${currentEnd}")
+            Timber.tag("DashboardFragment").d("   $previousLabel: ${previousStart} to ${previousEnd}")
             
             val currentPeriodSpent = repository.getTotalSpent(currentStart, currentEnd)
             val previousPeriodSpent = repository.getTotalSpent(previousStart, previousEnd)
             
-            Log.d("DashboardFragment", "[FINANCIAL] Monthly spending comparison (single months only):")
-            Log.d("DashboardFragment", "   $currentLabel: ₹${String.format("%.0f", currentPeriodSpent)}")
-            Log.d("DashboardFragment", "   $previousLabel: ₹${String.format("%.0f", previousPeriodSpent)}")
+            Timber.tag("DashboardFragment").d("[FINANCIAL] Monthly spending comparison (single months only):")
+            Timber.tag("DashboardFragment").d("   $currentLabel: ₹${String.format("%.0f", currentPeriodSpent)}")
+            Timber.tag("DashboardFragment").d("   $previousLabel: ₹${String.format("%.0f", previousPeriodSpent)}")
             
             updateMonthlyComparisonUI(currentLabel, previousLabel, currentPeriodSpent, previousPeriodSpent)
             
         } catch (e: Exception) {
-            Log.e("DashboardFragment", "Error updating monthly comparison", e)
+            Timber.tag("DashboardFragment").e(e, "Error updating monthly comparison")
             
             // Set fallback values on error
             binding.tvThisMonthAmount.text = "₹0"
@@ -1991,26 +1992,26 @@ class DashboardFragment : Fragment() {
     private fun performRepositoryBasedSync() {
         lifecycleScope.launch {
             try {
-                Log.d("DashboardFragment", "[SYNC] Attempting SMS sync through repository only...")
+                Timber.tag("DashboardFragment").d("[SYNC] Attempting SMS sync through repository only...")
                 
                 // Use repository's syncNewSMS method - no direct SMS reading
                 val syncedCount = repository.syncNewSMS()
-                Log.d("DashboardFragment", "Repository sync completed: $syncedCount new transactions")
+                Timber.tag("DashboardFragment").d("Repository sync completed: $syncedCount new transactions")
                 
                 if (syncedCount > 0) {
                     // Reload dashboard data after successful sync
-                    Log.d("DashboardFragment", "[SUCCESS] SMS sync successful, reloading dashboard data...")
+                    Timber.tag("DashboardFragment").d("[SUCCESS] SMS sync successful, reloading dashboard data...")
                     loadDashboardData()
                 } else {
-                    Log.d("DashboardFragment", "[INFO] No new transactions found during sync")
+                    Timber.tag("DashboardFragment").d("[INFO] No new transactions found during sync")
                     updateDashboardWithEmptyState()
                 }
                 
             } catch (e: SecurityException) {
-                Log.w("DashboardFragment", "SMS permission denied for repository sync", e)
+                Timber.tag("DashboardFragment").w("SMS permission denied for repository sync", e)
                 updateDashboardWithPermissionError()
             } catch (e: Exception) {
-                Log.e("DashboardFragment", "Error in repository-based sync", e)
+                Timber.tag("DashboardFragment").e(e, "Error in repository-based sync")
                 updateDashboardWithError()
             }
         }
@@ -2022,7 +2023,7 @@ class DashboardFragment : Fragment() {
     private fun updateDashboardWithData(transactions: List<ProcessedTransaction>) {
         // Check if fragment view is still valid
         if (_binding == null) {
-            Log.w("DashboardFragment", "Binding is null, fragment view not available")
+            Timber.tag("DashboardFragment").w("Binding is null, fragment view not available")
             return
         }
         // Calculate current month spending
@@ -2080,7 +2081,7 @@ class DashboardFragment : Fragment() {
         val allFilteredTransactions = filterTransactionsByInclusionState(transactions)
         updateWeeklyTrend(allFilteredTransactions)
         
-        Log.d("DashboardFragment", "Updated dashboard with ${filteredTransactions.size} included transactions (${currentMonthTransactions.size} total), ₹${String.format("%.0f", currentMonthSpent)} spent this month")
+        Timber.tag("DashboardFragment").d("Updated dashboard with ${filteredTransactions.size} included transactions (${currentMonthTransactions.size} total), ₹${String.format("%.0f", currentMonthSpent)} spent this month")
     }
     
     private fun loadDashboardDataForPeriod(period: String) {
@@ -2088,7 +2089,7 @@ class DashboardFragment : Fragment() {
             try {
                 // Check if fragment view is still valid
                 if (_binding == null) {
-                    Log.w("DashboardFragment", "Binding is null, cannot load dashboard data for period")
+                    Timber.tag("DashboardFragment").w("Binding is null, cannot load dashboard data for period")
                     return@launch
                 }
                 
@@ -2119,7 +2120,7 @@ class DashboardFragment : Fragment() {
                 }
                 
             } catch (e: Exception) {
-                Log.e("DashboardFragment", "Error loading dashboard data for period: $period", e)
+                Timber.tag("DashboardFragment").e(e, "Error loading dashboard data for period: $period")
                 Toast.makeText(context, "Error loading dashboard data", Toast.LENGTH_SHORT).show()
                 updateDashboardWithError()
             }
@@ -2158,7 +2159,7 @@ class DashboardFragment : Fragment() {
                     }
                 }
             } catch (e: Exception) {
-                Log.w("DashboardFragment", "Error loading inclusion states", e)
+                Timber.tag("DashboardFragment").w("Error loading inclusion states", e)
             }
         }
         
@@ -2175,8 +2176,8 @@ class DashboardFragment : Fragment() {
         val prefs = requireContext().getSharedPreferences("expense_calculations", android.content.Context.MODE_PRIVATE)
         val inclusionStatesJson = prefs.getString("group_inclusion_states", null)
         
-        Log.d("DashboardFragment", "[DEBUG] Filtering ${merchants.size} merchants by inclusion state")
-        Log.d("DashboardFragment", "[DEBUG] Inclusion states JSON: $inclusionStatesJson")
+        Timber.tag("DashboardFragment").d("[DEBUG] Filtering ${merchants.size} merchants by inclusion state")
+        Timber.tag("DashboardFragment").d("[DEBUG] Inclusion states JSON: $inclusionStatesJson")
         
         if (inclusionStatesJson != null) {
             try {
@@ -2185,32 +2186,32 @@ class DashboardFragment : Fragment() {
                 // Debug: Log all keys in the inclusion states
                 val keys = mutableListOf<String>()
                 inclusionStates.keys().forEach { key -> keys.add(key) }
-                Log.d("DashboardFragment", "[DEBUG] All keys in inclusion states: $keys")
+                Timber.tag("DashboardFragment").d("[DEBUG] All keys in inclusion states: $keys")
                 
                 val filteredMerchants = merchants.filter { merchant ->
                     val isIncluded = if (inclusionStates.has(merchant.merchantName)) {
                         val included = inclusionStates.getBoolean(merchant.merchantName)
-                        Log.d("DashboardFragment", "[DEBUG] Merchant '${merchant.merchantName}': included=$included")
+                        Timber.tag("DashboardFragment").d("[DEBUG] Merchant '${merchant.merchantName}': included=$included")
                         included
                     } else {
-                        Log.d("DashboardFragment", "[DEBUG] Merchant '${merchant.merchantName}': not found in preferences, defaulting to included")
+                        Timber.tag("DashboardFragment").d("[DEBUG] Merchant '${merchant.merchantName}': not found in preferences, defaulting to included")
                         true // Default to included if not found
                     }
                     isIncluded
                 }
                 
-                Log.d("DashboardFragment", "Merchant inclusion filter: ${merchants.size} -> ${filteredMerchants.size}")
+                Timber.tag("DashboardFragment").d("Merchant inclusion filter: ${merchants.size} -> ${filteredMerchants.size}")
                 filteredMerchants.forEach { merchant ->
-                    Log.d("DashboardFragment", "[SUCCESS] Included merchant: ${merchant.merchantName}")
+                    Timber.tag("DashboardFragment").d("[SUCCESS] Included merchant: ${merchant.merchantName}")
                 }
                 
                 return filteredMerchants
                 
             } catch (e: Exception) {
-                Log.w("DashboardFragment", "Error loading merchant inclusion states", e)
+                Timber.tag("DashboardFragment").w("Error loading merchant inclusion states", e)
             }
         } else {
-            Log.d("DashboardFragment", "[DEBUG] No inclusion states found, showing all merchants")
+            Timber.tag("DashboardFragment").d("[DEBUG] No inclusion states found, showing all merchants")
         }
         
         // Return all merchants if no inclusion states found or error occurred
@@ -2218,43 +2219,43 @@ class DashboardFragment : Fragment() {
     }
     
     private fun updateMonthlyComparison(currentMonthSpent: Double, lastMonthSpent: Double) {
-        Log.d("DashboardFragment", "updateMonthlyComparison called with: currentMonth = ₹${String.format("%.0f", currentMonthSpent)}, lastMonth = ₹${String.format("%.0f", lastMonthSpent)}")
+        Timber.tag("DashboardFragment").d("updateMonthlyComparison called with: currentMonth = ₹${String.format("%.0f", currentMonthSpent)}, lastMonth = ₹${String.format("%.0f", lastMonthSpent)}")
         
         // Use the same robust method as updateMonthlyComparisonUI
         updateMonthlyComparisonUI("This Month", "Last Month", currentMonthSpent, lastMonthSpent)
     }
     
     private fun updateCategoryBreakdown(transactions: List<ProcessedTransaction>) {
-        Log.d("DashboardFragment", "Processing ${transactions.size} transactions for category breakdown")
+        Timber.tag("DashboardFragment").d("Processing ${transactions.size} transactions for category breakdown")
         
         val categorySpending = transactions.groupBy { it.category }
             .mapValues { (_, categoryTransactions) -> 
                 val amount = categoryTransactions.sumOf { it.amount }
                 val count = categoryTransactions.size
-                Log.d("DashboardFragment", "Category: ${categoryTransactions.first().category}, Amount: ₹${String.format("%.0f", amount)}, Count: $count")
+                Timber.tag("DashboardFragment").d("Category: ${categoryTransactions.first().category}, Amount: ₹${String.format("%.0f", amount)}, Count: $count")
                 amount
             }
             .toList()
             .sortedByDescending { it.second }
             .take(6) // Show more categories
         
-        Log.d("DashboardFragment", "Top categories for dashboard: $categorySpending")
+        Timber.tag("DashboardFragment").d("Top categories for dashboard: $categorySpending")
         
         // Update the dynamic categories RecyclerView
         updateTopCategoriesRecyclerView(categorySpending)
     }
     
     private fun updateTopCategoriesRecyclerView(categorySpending: List<Pair<String, Double>>) {
-        Log.d("DashboardFragment", "updateTopCategoriesRecyclerView called with ${categorySpending.size} categories")
+        Timber.tag("DashboardFragment").d("updateTopCategoriesRecyclerView called with ${categorySpending.size} categories")
         
         if (categorySpending.isEmpty()) {
-            Log.w("DashboardFragment", "No category spending data to display")
+            Timber.tag("DashboardFragment").w("No category spending data to display")
             return
         }
         
         val categoryItems = categorySpending.map { (categoryName, amount) ->
             val categoryColor = categoryManager.getCategoryColor(categoryName)
-            Log.d("DashboardFragment", "Creating CategorySpending: $categoryName = ₹${String.format("%.0f", amount)}, color: $categoryColor")
+            Timber.tag("DashboardFragment").d("Creating CategorySpending: $categoryName = ₹${String.format("%.0f", amount)}, color: $categoryColor")
             CategorySpending(
                 categoryName = categoryName,
                 amount = amount,
@@ -2263,9 +2264,9 @@ class DashboardFragment : Fragment() {
             )
         }
         
-        Log.d("DashboardFragment", "Submitting ${categoryItems.size} items to categories adapter")
+        Timber.tag("DashboardFragment").d("Submitting ${categoryItems.size} items to categories adapter")
         updateTopCategoriesTable(categoryItems)
-        Log.d("DashboardFragment", "Updated top categories table")
+        Timber.tag("DashboardFragment").d("Updated top categories table")
         
     }
     
@@ -2300,7 +2301,7 @@ class DashboardFragment : Fragment() {
     }
     
     private fun updateTopMerchants(transactions: List<ProcessedTransaction>) {
-        Log.d("DashboardFragment", "Processing ${transactions.size} transactions for top merchants")
+        Timber.tag("DashboardFragment").d("Processing ${transactions.size} transactions for top merchants")
         val totalSpent = transactions.sumOf { it.amount }
         
         val merchantSpending = transactions.groupBy { it.displayMerchant }
@@ -2311,7 +2312,7 @@ class DashboardFragment : Fragment() {
                 val categoryColor = merchantTransactions.first().categoryColor
                 val percentage = if (totalSpent > 0) (amount / totalSpent) * 100 else 0.0
                 
-                Log.d("DashboardFragment", "Merchant: $merchant, Amount: ₹${String.format("%.0f", amount)}, Count: $count")
+                Timber.tag("DashboardFragment").d("Merchant: $merchant, Amount: ₹${String.format("%.0f", amount)}, Count: $count")
                 
                 MerchantSpending(
                     merchantName = merchant,
@@ -2325,13 +2326,13 @@ class DashboardFragment : Fragment() {
             .sortedByDescending { it.totalAmount }
             .take(5)
         
-        Log.d("DashboardFragment", "Submitting ${merchantSpending.size} merchants to adapter")
+        Timber.tag("DashboardFragment").d("Submitting ${merchantSpending.size} merchants to adapter")
         updateTopMerchantsTable(merchantSpending)
-        Log.d("DashboardFragment", "Top merchants: ${merchantSpending.map { "${it.merchantName}: ₹${String.format("%.0f", it.totalAmount)}" }}")
+        Timber.tag("DashboardFragment").d("Top merchants: ${merchantSpending.map { "${it.merchantName}: ₹${String.format("%.0f", it.totalAmount)}" }}")
         
         // If we have less than 3 merchants from real data, add some sample data for better UI
         if (merchantSpending.size < 3) {
-            Log.d("DashboardFragment", "Adding sample merchants for better UI display")
+            Timber.tag("DashboardFragment").d("Adding sample merchants for better UI display")
             val sampleMerchants = listOf(
                 MerchantSpending("Swiggy", 2450.0, 12, "Food & Dining", "#ff5722", 35.2),
                 MerchantSpending("Amazon", 1890.0, 8, "Shopping", "#ff9800", 27.1),
@@ -2342,7 +2343,7 @@ class DashboardFragment : Fragment() {
             
             val combinedMerchants = merchantSpending + sampleMerchants
             updateTopMerchantsTable(combinedMerchants)
-            Log.d("DashboardFragment", "Total merchants displayed: ${combinedMerchants.size}")
+            Timber.tag("DashboardFragment").d("Total merchants displayed: ${combinedMerchants.size}")
         }
     }
     
@@ -2362,7 +2363,7 @@ class DashboardFragment : Fragment() {
         // Clear weekly trend
         updateWeeklyTrendUI("No Data Available\nNo transactions found")
         
-        Log.d("DashboardFragment", "[INFO] Dashboard showing proper empty state - no placeholder data")
+        Timber.tag("DashboardFragment").d("[INFO] Dashboard showing proper empty state - no placeholder data")
     }
     
     private fun updateDashboardWithPermissionError() {
@@ -2375,7 +2376,7 @@ class DashboardFragment : Fragment() {
     private fun updateDashboardWithError() {
         // Check if fragment view is still valid
         if (_binding == null) {
-            Log.w("DashboardFragment", "Binding is null, cannot show error state")
+            Timber.tag("DashboardFragment").w("Binding is null, cannot show error state")
             return
         }
         
@@ -2437,12 +2438,12 @@ class DashboardFragment : Fragment() {
     private suspend fun updateWeeklyTrendFromRepository(startDate: Date, endDate: Date) {
         try {
             // FIXED: Use same filtering logic as monthly comparison for consistency
-            Log.d("DashboardFragment", "[ANALYTICS] Weekly Trend: Using consistent filtering like monthly comparison")
-            Log.d("DashboardFragment", "[WEEKLY_TREND] Updating trend for period: $currentDashboardPeriod, dates: $startDate to $endDate")
+            Timber.tag("DashboardFragment").d("[ANALYTICS] Weekly Trend: Using consistent filtering like monthly comparison")
+            Timber.tag("DashboardFragment").d("[WEEKLY_TREND] Updating trend for period: $currentDashboardPeriod, dates: $startDate to $endDate")
             
             // Calculate current period total (matches monthly comparison)
             val currentPeriodTotal = repository.getTotalSpent(startDate, endDate)
-            Log.d("DashboardFragment", "[WEEKLY_TREND] Current period total: ₹${String.format("%.0f", currentPeriodTotal)}")
+            Timber.tag("DashboardFragment").d("[WEEKLY_TREND] Current period total: ₹${String.format("%.0f", currentPeriodTotal)}")
             
             // Calculate previous period for comparison (like monthly comparison logic)
             val calendar = Calendar.getInstance()
@@ -2509,7 +2510,7 @@ class DashboardFragment : Fragment() {
             }
             
         } catch (e: Exception) {
-            Log.e("DashboardFragment", "Error updating weekly trend from repository", e)
+            Timber.tag("DashboardFragment").e(e, "Error updating weekly trend from repository")
             updateWeeklyTrendUI("Weekly Spending Chart\nData loading...")
         }
     }
@@ -2536,7 +2537,7 @@ class DashboardFragment : Fragment() {
         val placeholderTextView = weeklyTrendChart?.getChildAt(0) as? TextView
         placeholderTextView?.text = trendText
         
-        Log.d("DashboardFragment", "[ANALYTICS] Weekly trend updated with consistent data: $trendText")
+        Timber.tag("DashboardFragment").d("[ANALYTICS] Weekly trend updated with consistent data: $trendText")
     }
     
     // REMOVED: updateWeeklyTrendForPeriod() - no more direct SMS reading
@@ -2632,7 +2633,7 @@ class DashboardFragment : Fragment() {
             val lastMonthView = binding.root.findViewById<TextView>(R.id.tv_last_month_amount)
             val comparisonView = binding.root.findViewById<TextView>(R.id.tv_spending_comparison)
             
-            Log.d("DashboardFragment", "Found views: layout=${layout != null}, thisMonth=${thisMonthView != null}, lastMonth=${lastMonthView != null}, comparison=${comparisonView != null}")
+            Timber.tag("DashboardFragment").d("Found views: layout=${layout != null}, thisMonth=${thisMonthView != null}, lastMonth=${lastMonthView != null}, comparison=${comparisonView != null}")
             
             if (layout != null && thisMonthView != null && lastMonthView != null && comparisonView != null) {
                 // Try to find the label TextViews by looking in the LinearLayouts
@@ -2651,7 +2652,7 @@ class DashboardFragment : Fragment() {
                 lastMonthView.text = "₹${String.format("%.0f", previousAmount)}"
                 
                 // Calculate and update percentage change
-                Log.d("DashboardFragment", "Calculating percentage: current=$currentAmount, previous=$previousAmount")
+                Timber.tag("DashboardFragment").d("Calculating percentage: current=$currentAmount, previous=$previousAmount")
                 
                 val changeText = when {
                     previousAmount > 0 -> {
@@ -2677,14 +2678,14 @@ class DashboardFragment : Fragment() {
                 }
                 
                 comparisonView.text = changeText
-                Log.d("DashboardFragment", "Set comparison text: $changeText")
+                Timber.tag("DashboardFragment").d("Set comparison text: $changeText")
                 
-                Log.d("DashboardFragment", "Updated monthly comparison: $currentLabel = ₹${String.format("%.0f", currentAmount)}, $previousLabel = ₹${String.format("%.0f", previousAmount)}")
+                Timber.tag("DashboardFragment").d("Updated monthly comparison: $currentLabel = ₹${String.format("%.0f", currentAmount)}, $previousLabel = ₹${String.format("%.0f", previousAmount)}")
             } else {
-                Log.e("DashboardFragment", "Could not find all required views for monthly comparison")
+                Timber.tag("DashboardFragment").e("Could not find all required views for monthly comparison")
             }
         } catch (e: Exception) {
-            Log.e("DashboardFragment", "Error updating monthly comparison UI", e)
+            Timber.tag("DashboardFragment").e(e, "Error updating monthly comparison UI")
         }
     }
     
@@ -2703,19 +2704,19 @@ class DashboardFragment : Fragment() {
                 // Access the bottom navigation from MainActivity and set the selected item
                 val bottomNavigation = mainActivity.findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.bottom_navigation)
                 bottomNavigation?.selectedItemId = tabId
-                android.util.Log.d("DashboardFragment", "[SUCCESS] Successfully navigated to tab: $tabId")
+                Timber.tag("DashboardFragment").d("[SUCCESS] Successfully navigated to tab: $tabId")
             } else {
                 // Fallback to normal navigation if MainActivity is not available
-                android.util.Log.w("DashboardFragment", "[WARNING] MainActivity not available, using fallback navigation")
+                Timber.tag("DashboardFragment").w("[WARNING] MainActivity not available, using fallback navigation")
                 findNavController().navigate(tabId)
             }
         } catch (e: Exception) {
             // Fallback to normal navigation if there's any error
-            android.util.Log.e("DashboardFragment", "[ERROR] Error navigating to tab $tabId, using fallback", e)
+            Timber.tag("DashboardFragment").e(e, "[ERROR] Error navigating to tab $tabId, using fallback")
             try {
                 findNavController().navigate(tabId)
             } catch (fallbackError: Exception) {
-                android.util.Log.e("DashboardFragment", "[ERROR] Fallback navigation also failed", fallbackError)
+                Timber.tag("DashboardFragment").e(fallbackError, "[ERROR] Fallback navigation also failed")
                 Toast.makeText(requireContext(), "Navigation error. Please use bottom navigation.", Toast.LENGTH_SHORT).show()
             }
         }
@@ -2741,7 +2742,7 @@ class DashboardFragment : Fragment() {
             requireContext().registerReceiver(newTransactionReceiver, inclusionStateFilter)
             requireContext().registerReceiver(newTransactionReceiver, merchantCategoryFilter)
         }
-        Log.d("DashboardFragment", "Registered broadcast receiver for transactions, categories, merchant category changes, and inclusion states")
+        Timber.tag("DashboardFragment").d("Registered broadcast receiver for transactions, categories, merchant category changes, and inclusion states")
         
         // Refresh dashboard data when returning to this fragment
         // This ensures the dashboard reflects any changes made in the Messages screen
@@ -2754,10 +2755,10 @@ class DashboardFragment : Fragment() {
         // Unregister broadcast receiver to prevent memory leaks
         try {
             requireContext().unregisterReceiver(newTransactionReceiver)
-            Log.d("DashboardFragment", "Unregistered broadcast receiver for new transactions")
+            Timber.tag("DashboardFragment").d("Unregistered broadcast receiver for new transactions")
         } catch (e: Exception) {
             // Receiver may not have been registered, ignore
-            Log.w("DashboardFragment", "Broadcast receiver was not registered, ignoring unregister", e)
+            Timber.tag("DashboardFragment").w("Broadcast receiver was not registered, ignoring unregister", e)
         }
     }
     

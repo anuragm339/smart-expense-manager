@@ -2,7 +2,6 @@ package com.expensemanager.app.utils.logging
 
 import android.content.Context
 import android.os.Environment
-import android.util.Log
 import timber.log.Timber
 import java.io.File
 import java.io.FileWriter
@@ -114,19 +113,19 @@ class TimberFileTree @Inject constructor(
             
             t?.let { throwable ->
                 append("\n")
-                append(Log.getStackTraceString(throwable))
+                append(throwable.stackTraceToString())
             }
         }
     }
 
     private fun getPriorityString(priority: Int): String {
         return when (priority) {
-            Log.VERBOSE -> "V"
-            Log.DEBUG -> "D"
-            Log.INFO -> "I"
-            Log.WARN -> "W"
-            Log.ERROR -> "E"
-            Log.ASSERT -> "A"
+            LogConfig.VERBOSE -> "V"
+            LogConfig.DEBUG -> "D"
+            LogConfig.INFO -> "I"
+            LogConfig.WARN -> "W"
+            LogConfig.ERROR -> "E"
+            LogConfig.ASSERT -> "A"
             else -> "U"
         }
     }
@@ -150,8 +149,9 @@ class TimberFileTree @Inject constructor(
             }
             
         } catch (e: Exception) {
-            // Fallback to Android Log for critical errors
-            Log.e(TAG, "Failed to write to log file: ${e.message}", e)
+            // Fallback to system error for critical errors
+            System.err.println("$TAG: Failed to write to log file: ${e.message}")
+            e.printStackTrace(System.err)
         }
     }
 
@@ -198,13 +198,13 @@ class TimberFileTree @Inject constructor(
             val rotatedFile = File(currentFile.parentFile, rotatedFileName)
             
             if (currentFile.renameTo(rotatedFile)) {
-                Log.d(TAG, "Rotated log file: ${currentFile.name} -> ${rotatedFile.name}")
+                // Removed log: "Rotated log file: ${currentFile.name} -> ${rotatedFile.name}")
                 
                 // Clean up old files
                 cleanupOldLogFiles(currentFile.parentFile, prefix)
             }
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to rotate log file: ${e.message}", e)
+            System.err.println("$TAG: Failed to rotate log file: ${e.message}")
         }
     }
 
@@ -218,11 +218,11 @@ class TimberFileTree @Inject constructor(
             
             oldFiles?.drop(MAX_LOG_FILES)?.forEach { file ->
                 if (file.delete()) {
-                    Log.d(TAG, "Deleted old log file: ${file.name}")
+                    // Removed log: "Deleted old log file: ${file.name}")
                 }
             }
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to cleanup old log files: ${e.message}", e)
+            System.err.println("$TAG: Failed to cleanup old log files: ${e.message}")
         }
     }
 
@@ -236,29 +236,29 @@ class TimberFileTree @Inject constructor(
         try {
             // Internal log directory
             val internalLogDir = File(context.cacheDir, "logs")
-            Log.d(TAG, "Checking internal log directory: ${internalLogDir.absolutePath}")
+            // Removed log: "Checking internal log directory: ${internalLogDir.absolutePath}")
             if (!internalLogDir.exists()) {
                 val created = internalLogDir.mkdirs()
-                Log.d(TAG, "Created internal log directory: $created at ${internalLogDir.absolutePath}")
+                // Removed log: "Created internal log directory: $created at ${internalLogDir.absolutePath}")
             } else {
-                Log.d(TAG, "Internal log directory already exists: ${internalLogDir.absolutePath}")
+                // Removed log: "Internal log directory already exists: ${internalLogDir.absolutePath}")
             }
             
             // External log directory (if available)
             if (logConfig.isExternalLoggingEnabled && isExternalStorageWritable()) {
                 val externalLogDir = File(context.getExternalFilesDir(null), "logs")
-                Log.d(TAG, "Checking external log directory: ${externalLogDir.absolutePath}")
+                // Removed log: "Checking external log directory: ${externalLogDir.absolutePath}")
                 if (!externalLogDir.exists()) {
                     val created = externalLogDir.mkdirs()
-                    Log.d(TAG, "Created external log directory: $created at ${externalLogDir.absolutePath}")
+                    // Removed log: "Created external log directory: $created at ${externalLogDir.absolutePath}")
                 } else {
-                    Log.d(TAG, "External log directory already exists: ${externalLogDir.absolutePath}")
+                    // Removed log: "External log directory already exists: ${externalLogDir.absolutePath}")
                 }
             } else {
-                Log.d(TAG, "External logging disabled: enabled=${logConfig.isExternalLoggingEnabled}, writable=${isExternalStorageWritable()}")
+                // Removed log: "External logging disabled: enabled=${logConfig.isExternalLoggingEnabled}, writable=${isExternalStorageWritable()}")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to create log directories: ${e.message}", e)
+            System.err.println("$TAG: Failed to create log directories: ${e.message}")
         }
     }
 
@@ -290,7 +290,7 @@ class TimberFileTree @Inject constructor(
                 cleanupDirectory(externalLogDir)
             }
         } catch (e: Exception) {
-            Log.w(TAG, "Failed periodic cleanup: ${e.message}", e)
+            System.err.println("$TAG: Failed periodic cleanup: ${e.message}")
         }
     }
 
@@ -303,7 +303,7 @@ class TimberFileTree @Inject constructor(
             file.isFile && file.lastModified() < cutoffTime
         }?.forEach { file ->
             if (file.delete()) {
-                Log.d(TAG, "Deleted old log file: ${file.name}")
+                // Removed log: "Deleted old log file: ${file.name}")
             }
         }
     }
@@ -339,11 +339,11 @@ class TimberFileTree @Inject constructor(
             try {
                 getLogFiles().forEach { file ->
                     if (file.delete()) {
-                        Log.d(TAG, "Deleted log file: ${file.name}")
+                        Timber.tag(TAG).d("Deleted log file: ${file.name}")
                     }
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to clear logs: ${e.message}", e)
+                Timber.tag(TAG).e(e, "Failed to clear logs: ${e.message}")
             }
         }
     }

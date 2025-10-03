@@ -1,6 +1,7 @@
 package com.expensemanager.app.domain.usecase.transaction
 
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.data.entities.TransactionEntity
 import com.expensemanager.app.domain.repository.TransactionRepositoryInterface
 import java.util.Date
@@ -23,12 +24,12 @@ class UpdateTransactionUseCase @Inject constructor(
      */
     suspend fun execute(transaction: TransactionEntity): Result<Unit> {
         return try {
-            Log.d(TAG, "Updating transaction ID: ${transaction.id}")
+            Timber.tag(TAG).d("Updating transaction ID: ${transaction.id}")
             
             // Validate transaction data
             val validationResult = validateTransactionUpdate(transaction)
             if (!validationResult.isValid) {
-                Log.w(TAG, "Transaction update validation failed: ${validationResult.error}")
+                Timber.tag(TAG).w("Transaction update validation failed: ${validationResult.error}")
                 return Result.failure(IllegalArgumentException(validationResult.error))
             }
             
@@ -36,11 +37,11 @@ class UpdateTransactionUseCase @Inject constructor(
             val updatedTransaction = transaction.copy(updatedAt = Date())
             
             repository.updateTransaction(updatedTransaction)
-            Log.d(TAG, "Transaction updated successfully")
+            Timber.tag(TAG).d("Transaction updated successfully")
             Result.success(Unit)
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error updating transaction", e)
+            Timber.tag(TAG).e(e, "Error updating transaction")
             Result.failure(e)
         }
     }
@@ -50,7 +51,7 @@ class UpdateTransactionUseCase @Inject constructor(
      */
     suspend fun updateMerchant(transactionId: Long, newMerchant: String): Result<Unit> {
         return try {
-            Log.d(TAG, "Updating merchant for transaction ID: $transactionId to: $newMerchant")
+            Timber.tag(TAG).d("Updating merchant for transaction ID: $transactionId to: $newMerchant")
             
             // Get existing transaction
             val existingTransaction = getTransactionById(transactionId)
@@ -65,11 +66,11 @@ class UpdateTransactionUseCase @Inject constructor(
             )
             
             repository.updateTransaction(updatedTransaction)
-            Log.d(TAG, "Transaction merchant updated successfully")
+            Timber.tag(TAG).d("Transaction merchant updated successfully")
             Result.success(Unit)
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error updating transaction merchant", e)
+            Timber.tag(TAG).e(e, "Error updating transaction merchant")
             Result.failure(e)
         }
     }
@@ -79,7 +80,7 @@ class UpdateTransactionUseCase @Inject constructor(
      */
     suspend fun updateAmount(transactionId: Long, newAmount: Double): Result<Unit> {
         return try {
-            Log.d(TAG, "Updating amount for transaction ID: $transactionId to: ₹$newAmount")
+            Timber.tag(TAG).d("Updating amount for transaction ID: $transactionId to: ₹$newAmount")
             
             if (newAmount <= 0) {
                 return Result.failure(IllegalArgumentException("Amount must be greater than 0"))
@@ -96,11 +97,11 @@ class UpdateTransactionUseCase @Inject constructor(
             )
             
             repository.updateTransaction(updatedTransaction)
-            Log.d(TAG, "Transaction amount updated successfully")
+            Timber.tag(TAG).d("Transaction amount updated successfully")
             Result.success(Unit)
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error updating transaction amount", e)
+            Timber.tag(TAG).e(e, "Error updating transaction amount")
             Result.failure(e)
         }
     }
@@ -110,7 +111,7 @@ class UpdateTransactionUseCase @Inject constructor(
      */
     suspend fun updateTransactionDate(transactionId: Long, newDate: Date): Result<Unit> {
         return try {
-            Log.d(TAG, "Updating date for transaction ID: $transactionId")
+            Timber.tag(TAG).d("Updating date for transaction ID: $transactionId")
             
             // Get existing transaction
             val existingTransaction = getTransactionById(transactionId)
@@ -123,11 +124,11 @@ class UpdateTransactionUseCase @Inject constructor(
             )
             
             repository.updateTransaction(updatedTransaction)
-            Log.d(TAG, "Transaction date updated successfully")
+            Timber.tag(TAG).d("Transaction date updated successfully")
             Result.success(Unit)
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error updating transaction date", e)
+            Timber.tag(TAG).e(e, "Error updating transaction date")
             Result.failure(e)
         }
     }

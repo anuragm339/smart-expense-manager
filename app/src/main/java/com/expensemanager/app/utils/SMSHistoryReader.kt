@@ -1,10 +1,12 @@
 package com.expensemanager.app.utils
 
+
 import android.content.Context
 import android.database.Cursor
 import android.net.Uri
 import android.provider.Telephony
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.models.HistoricalSMS
 import com.expensemanager.app.models.ParsedTransaction
 import kotlinx.coroutines.Dispatchers
@@ -112,11 +114,11 @@ class SMSHistoryReader(
         var processedCount = 0
         
         try {
-            Log.d(TAG, "[PROCESS] Starting SMS scan...")
+            Timber.tag(TAG).d("[PROCESS] Starting SMS scan...")
             progressCallback?.invoke(0, 100, "Reading SMS history...")
             
             val historicalSMS = readSMSHistory()
-            Log.d(TAG, "[SMS] Found ${historicalSMS.size} historical SMS messages (limited to $MAX_SMS_TO_PROCESS)")
+            Timber.tag(TAG).d("[SMS] Found ${historicalSMS.size} historical SMS messages (limited to $MAX_SMS_TO_PROCESS)")
             
             val totalSMS = historicalSMS.size
             progressCallback?.invoke(0, totalSMS, "Found $totalSMS messages, analyzing...")
@@ -149,14 +151,14 @@ class SMSHistoryReader(
             // Final progress update
             progressCallback?.invoke(totalSMS, totalSMS, "Scan complete! Found $acceptedCount transactions")
             
-            Log.d(TAG, "SMS Processing Summary:")
-            Log.d(TAG, "Total SMS scanned: $totalSMS")
-            Log.d(TAG, "Accepted transactions: $acceptedCount")
-            Log.d(TAG, "Rejected SMS: $rejectedCount")
-            Log.d(TAG, "Final parsed transactions: ${transactions.size}")
+            Timber.tag(TAG).d("SMS Processing Summary:")
+            Timber.tag(TAG).d("Total SMS scanned: $totalSMS")
+            Timber.tag(TAG).d("Accepted transactions: $acceptedCount")
+            Timber.tag(TAG).d("Rejected SMS: $rejectedCount")
+            Timber.tag(TAG).d("Final parsed transactions: ${transactions.size}")
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error scanning historical SMS", e)
+            Timber.tag(TAG).e(e, "Error scanning historical SMS")
             progressCallback?.invoke(0, 100, "Error: ${e.message}")
         }
         
@@ -189,7 +191,7 @@ class SMSHistoryReader(
         
         var cursor: Cursor? = null
         try {
-            Log.d(TAG, "[SMS] Querying SMS from last $MONTHS_TO_SCAN months (max $MAX_SMS_TO_PROCESS messages)")
+            Timber.tag(TAG).d("[SMS] Querying SMS from last $MONTHS_TO_SCAN months (max $MAX_SMS_TO_PROCESS messages)")
             cursor = context.contentResolver.query(
                 uri, projection, selection, selectionArgs, sortOrder
             )
@@ -213,7 +215,7 @@ class SMSHistoryReader(
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error reading SMS history", e)
+            Timber.tag(TAG).e(e, "Error reading SMS history")
         } finally {
             cursor?.close()
         }
@@ -342,7 +344,7 @@ class SMSHistoryReader(
                 null
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error parsing transaction: ${sms.body}", e)
+            Timber.tag(TAG).e(e, "Error parsing transaction: ${sms.body}")
             null
         }
     }

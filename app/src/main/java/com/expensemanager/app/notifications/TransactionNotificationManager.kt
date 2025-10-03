@@ -12,7 +12,8 @@ import com.expensemanager.app.MainActivity
 import com.expensemanager.app.R
 import com.expensemanager.app.data.models.Transaction
 import androidx.core.content.ContextCompat
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 
 class TransactionNotificationManager(private val context: Context) {
     
@@ -103,7 +104,7 @@ class TransactionNotificationManager(private val context: Context) {
         ) {
             // In a real app, you would request the permission here.
             // For this example, we'll just log it.
-            Log.w("TransactionNotificationManager", "POST_NOTIFICATIONS permission not granted")
+            Timber.tag("TransactionNotificationManager").w("POST_NOTIFICATIONS permission not granted")
             return
         }
         notificationManager.notify(notificationId, notification)
@@ -172,7 +173,7 @@ class TransactionNotificationManager(private val context: Context) {
         ) {
             // In a real app, you would request the permission here.
             // For this example, we'll just log it.
-            Log.w("TransactionNotificationManager", "POST_NOTIFICATIONS permission not granted")
+            Timber.tag("TransactionNotificationManager").w("POST_NOTIFICATIONS permission not granted")
             return
         }
         notificationManager.notify(notificationId, notification)
@@ -218,7 +219,7 @@ class TransactionNotificationManager(private val context: Context) {
         ) {
             // In a real app, you would request the permission here.
             // For this example, we'll just log it.
-            Log.w("TransactionNotificationManager", "POST_NOTIFICATIONS permission not granted")
+            Timber.tag("TransactionNotificationManager").w("POST_NOTIFICATIONS permission not granted")
             return
         }
         notificationManager.notify(notificationId, notification)

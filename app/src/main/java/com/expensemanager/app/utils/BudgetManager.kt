@@ -2,7 +2,8 @@ package com.expensemanager.app.utils
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.models.ParsedTransaction
 import org.json.JSONArray
 import org.json.JSONObject

@@ -1,6 +1,7 @@
 package com.expensemanager.app.domain.usecase.dashboard
 
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.domain.repository.TransactionRepositoryInterface
 import java.util.Date
 import java.util.Calendar
@@ -23,16 +24,16 @@ class GetSpendingTrendsUseCase @Inject constructor(
      */
     suspend fun getDailyTrends(startDate: Date, endDate: Date): Result<List<DailySpending>> {
         return try {
-            Log.d(TAG, "Getting daily spending trends from $startDate to $endDate")
+            Timber.tag(TAG).d("Getting daily spending trends from $startDate to $endDate")
             
             val transactions = repository.getTransactionsByDateRange(startDate, endDate)
             val dailySpending = calculateDailySpending(transactions)
             
-            Log.d(TAG, "Retrieved daily trends for ${dailySpending.size} days")
+            Timber.tag(TAG).d("Retrieved daily trends for ${dailySpending.size} days")
             Result.success(dailySpending)
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting daily trends", e)
+            Timber.tag(TAG).e(e, "Error getting daily trends")
             Result.failure(e)
         }
     }
@@ -42,7 +43,7 @@ class GetSpendingTrendsUseCase @Inject constructor(
      */
     suspend fun getWeeklyTrends(numberOfWeeks: Int = 12): Result<List<WeeklySpending>> {
         return try {
-            Log.d(TAG, "Getting weekly spending trends for $numberOfWeeks weeks")
+            Timber.tag(TAG).d("Getting weekly spending trends for $numberOfWeeks weeks")
             
             val endDate = Date()
             val startDate = Date(endDate.time - (numberOfWeeks * 7 * 24 * 60 * 60 * 1000L))
@@ -50,11 +51,11 @@ class GetSpendingTrendsUseCase @Inject constructor(
             val transactions = repository.getTransactionsByDateRange(startDate, endDate)
             val weeklySpending = calculateWeeklySpending(transactions)
             
-            Log.d(TAG, "Retrieved weekly trends for ${weeklySpending.size} weeks")
+            Timber.tag(TAG).d("Retrieved weekly trends for ${weeklySpending.size} weeks")
             Result.success(weeklySpending)
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting weekly trends", e)
+            Timber.tag(TAG).e(e, "Error getting weekly trends")
             Result.failure(e)
         }
     }
@@ -64,7 +65,7 @@ class GetSpendingTrendsUseCase @Inject constructor(
      */
     suspend fun getMonthlyTrends(numberOfMonths: Int = 12): Result<List<MonthlySpending>> {
         return try {
-            Log.d(TAG, "Getting monthly spending trends for $numberOfMonths months")
+            Timber.tag(TAG).d("Getting monthly spending trends for $numberOfMonths months")
             
             val monthlySpending = mutableListOf<MonthlySpending>()
             val calendar = Calendar.getInstance()
@@ -104,11 +105,11 @@ class GetSpendingTrendsUseCase @Inject constructor(
                 calendar.add(Calendar.MONTH, -1)
             }
             
-            Log.d(TAG, "Retrieved monthly trends for ${monthlySpending.size} months")
+            Timber.tag(TAG).d("Retrieved monthly trends for ${monthlySpending.size} months")
             Result.success(monthlySpending.reversed()) // Return in chronological order
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting monthly trends", e)
+            Timber.tag(TAG).e(e, "Error getting monthly trends")
             Result.failure(e)
         }
     }
@@ -118,16 +119,16 @@ class GetSpendingTrendsUseCase @Inject constructor(
      */
     suspend fun getTrendAnalysis(params: TrendAnalysisParams): Result<SpendingTrendAnalysis> {
         return try {
-            Log.d(TAG, "Getting spending trend analysis")
+            Timber.tag(TAG).d("Getting spending trend analysis")
             
             val transactions = repository.getTransactionsByDateRange(params.startDate, params.endDate)
             val analysis = analyzeSpendingTrends(transactions, params)
             
-            Log.d(TAG, "Spending trend analysis completed")
+            Timber.tag(TAG).d("Spending trend analysis completed")
             Result.success(analysis)
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting trend analysis", e)
+            Timber.tag(TAG).e(e, "Error getting trend analysis")
             Result.failure(e)
         }
     }
@@ -137,16 +138,16 @@ class GetSpendingTrendsUseCase @Inject constructor(
      */
     suspend fun getCategoryTrends(startDate: Date, endDate: Date): Result<List<CategoryTrend>> {
         return try {
-            Log.d(TAG, "Getting category spending trends")
+            Timber.tag(TAG).d("Getting category spending trends")
             
             val transactions = repository.getTransactionsByDateRange(startDate, endDate)
             val categoryTrends = calculateCategoryTrends(transactions)
             
-            Log.d(TAG, "Retrieved category trends for ${categoryTrends.size} categories")
+            Timber.tag(TAG).d("Retrieved category trends for ${categoryTrends.size} categories")
             Result.success(categoryTrends)
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting category trends", e)
+            Timber.tag(TAG).e(e, "Error getting category trends")
             Result.failure(e)
         }
     }
@@ -156,16 +157,16 @@ class GetSpendingTrendsUseCase @Inject constructor(
      */
     suspend fun predictNextMonthSpending(): Result<SpendingPrediction> {
         return try {
-            Log.d(TAG, "Predicting next month spending")
+            Timber.tag(TAG).d("Predicting next month spending")
             
             val monthlyTrends = getMonthlyTrends(6).getOrNull() ?: emptyList()
             val prediction = calculateSpendingPrediction(monthlyTrends)
             
-            Log.d(TAG, "Spending prediction completed")
+            Timber.tag(TAG).d("Spending prediction completed")
             Result.success(prediction)
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error predicting spending", e)
+            Timber.tag(TAG).e(e, "Error predicting spending")
             Result.failure(e)
         }
     }

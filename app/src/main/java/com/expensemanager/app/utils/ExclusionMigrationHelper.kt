@@ -1,7 +1,9 @@
 package com.expensemanager.app.utils
 
+
 import android.content.Context
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.data.repository.ExpenseRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -16,7 +18,7 @@ object ExclusionMigrationHelper {
     
     suspend fun migrateExclusionStatesToDatabase(context: Context, repository: ExpenseRepository) = withContext(Dispatchers.IO) {
         try {
-            Log.d(TAG, "[PROCESS] Starting migration of exclusion states from SharedPreferences to database...")
+            Timber.tag(TAG).d("[PROCESS] Starting migration of exclusion states from SharedPreferences to database...")
             
             // Read existing exclusion states from SharedPreferences
             val prefs = context.getSharedPreferences("expense_calculations", Context.MODE_PRIVATE)
@@ -47,27 +49,27 @@ object ExclusionMigrationHelper {
                             migratedCount++
                             
                             if (isExcluded) {
-                                Log.d(TAG, "Migrated exclusion: $merchantDisplayName -> $normalizedName")
+                                Timber.tag(TAG).d("Migrated exclusion: $merchantDisplayName -> $normalizedName")
                             }
                         } else {
-                            Log.w(TAG, "[WARNING] Merchant not found in database: $merchantDisplayName -> $normalizedName")
+                            Timber.tag(TAG).w("[WARNING] Merchant not found in database: $merchantDisplayName -> $normalizedName")
                         }
                     } catch (e: Exception) {
-                        Log.e(TAG, "[ERROR] Error migrating merchant: $merchantDisplayName", e)
+                        Timber.tag(TAG).e(e, "[ERROR] Error migrating merchant: $merchantDisplayName")
                     }
                 }
                 
-                Log.d(TAG, "[SUCCESS] Migration completed: $migratedCount merchants migrated")
+                Timber.tag(TAG).d("[SUCCESS] Migration completed: $migratedCount merchants migrated")
                 
                 // Optionally clear SharedPreferences after successful migration
                 // prefs.edit().remove("group_inclusion_states").apply()
                 
             } else {
-                Log.d(TAG, "ℹ️ No exclusion states found in SharedPreferences")
+                Timber.tag(TAG).d("ℹ️ No exclusion states found in SharedPreferences")
             }
             
         } catch (e: Exception) {
-            Log.e(TAG, "[ERROR] Error during exclusion states migration", e)
+            Timber.tag(TAG).e(e, "[ERROR] Error during exclusion states migration")
         }
     }
     

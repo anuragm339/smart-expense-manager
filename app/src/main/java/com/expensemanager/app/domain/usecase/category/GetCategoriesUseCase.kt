@@ -1,6 +1,7 @@
 package com.expensemanager.app.domain.usecase.category
 
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.data.entities.CategoryEntity
 import com.expensemanager.app.domain.repository.CategoryRepositoryInterface
 import kotlinx.coroutines.flow.Flow
@@ -56,12 +57,12 @@ class GetCategoriesUseCase @Inject constructor(
      */
     suspend fun getAllCategoriesSync(): Result<List<CategoryEntity>> {
         return try {
-            Log.d(TAG, "Getting all categories synchronously")
+            Timber.tag(TAG).d("Getting all categories synchronously")
             val categories = repository.getAllCategoriesSync()
-            Log.d(TAG, "Retrieved ${categories.size} categories")
+            Timber.tag(TAG).d("Retrieved ${categories.size} categories")
             Result.success(categories)
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting categories", e)
+            Timber.tag(TAG).e(e, "Error getting categories")
             Result.failure(e)
         }
     }
@@ -71,16 +72,16 @@ class GetCategoriesUseCase @Inject constructor(
      */
     suspend fun getCategoryById(categoryId: Long): Result<CategoryEntity?> {
         return try {
-            Log.d(TAG, "Getting category by ID: $categoryId")
+            Timber.tag(TAG).d("Getting category by ID: $categoryId")
             val category = repository.getCategoryById(categoryId)
             if (category != null) {
-                Log.d(TAG, "Found category: ${category.name}")
+                Timber.tag(TAG).d("Found category: ${category.name}")
             } else {
-                Log.d(TAG, "Category not found")
+                Timber.tag(TAG).d("Category not found")
             }
             Result.success(category)
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting category by ID", e)
+            Timber.tag(TAG).e(e, "Error getting category by ID")
             Result.failure(e)
         }
     }
@@ -90,16 +91,16 @@ class GetCategoriesUseCase @Inject constructor(
      */
     suspend fun getCategoryByName(name: String): Result<CategoryEntity?> {
         return try {
-            Log.d(TAG, "Getting category by name: $name")
+            Timber.tag(TAG).d("Getting category by name: $name")
             val category = repository.getCategoryByName(name)
             if (category != null) {
-                Log.d(TAG, "Found category: ${category.name}")
+                Timber.tag(TAG).d("Found category: ${category.name}")
             } else {
-                Log.d(TAG, "Category not found")
+                Timber.tag(TAG).d("Category not found")
             }
             Result.success(category)
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting category by name", e)
+            Timber.tag(TAG).e(e, "Error getting category by name")
             Result.failure(e)
         }
     }
@@ -109,13 +110,13 @@ class GetCategoriesUseCase @Inject constructor(
      */
     suspend fun getSystemCategories(): Result<List<CategoryEntity>> {
         return try {
-            Log.d(TAG, "Getting system categories")
+            Timber.tag(TAG).d("Getting system categories")
             val allCategories = repository.getAllCategoriesSync()
             val systemCategories = allCategories.filter { it.isSystem }
-            Log.d(TAG, "Found ${systemCategories.size} system categories out of ${allCategories.size} total")
+            Timber.tag(TAG).d("Found ${systemCategories.size} system categories out of ${allCategories.size} total")
             Result.success(systemCategories)
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting system categories", e)
+            Timber.tag(TAG).e(e, "Error getting system categories")
             Result.failure(e)
         }
     }
@@ -125,13 +126,13 @@ class GetCategoriesUseCase @Inject constructor(
      */
     suspend fun getUserCategories(): Result<List<CategoryEntity>> {
         return try {
-            Log.d(TAG, "Getting user-created categories")
+            Timber.tag(TAG).d("Getting user-created categories")
             val allCategories = repository.getAllCategoriesSync()
             val userCategories = allCategories.filter { !it.isSystem }
-            Log.d(TAG, "Found ${userCategories.size} user-created categories")
+            Timber.tag(TAG).d("Found ${userCategories.size} user-created categories")
             Result.success(userCategories)
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting user categories", e)
+            Timber.tag(TAG).e(e, "Error getting user categories")
             Result.failure(e)
         }
     }
@@ -141,7 +142,7 @@ class GetCategoriesUseCase @Inject constructor(
      * Process categories with business logic
      */
     private fun processCategories(categories: List<CategoryEntity>, params: GetCategoriesParams): List<CategoryEntity> {
-        Log.d(TAG, "Processing ${categories.size} categories with params: $params")
+        Timber.tag(TAG).d("Processing ${categories.size} categories with params: $params")
         
         return categories
             .let { list ->
@@ -181,12 +182,12 @@ class GetCategoriesUseCase @Inject constructor(
                 }
             }
             .also { processedList ->
-                Log.d(TAG, "Processed categories: ${processedList.size} after filtering and sorting")
+                Timber.tag(TAG).d("Processed categories: ${processedList.size} after filtering and sorting")
                 
                 // Log category summary for debugging
                 if (processedList.isNotEmpty()) {
                     val systemCount = processedList.count { it.isSystem }
-                    Log.d(TAG, "Category summary: $systemCount system categories")
+                    Timber.tag(TAG).d("Category summary: $systemCount system categories")
                 }
             }
     }

@@ -3,11 +3,11 @@ package com.expensemanager.app.utils
 import android.content.Context
 import android.content.SharedPreferences
 import android.os.Environment
-import android.util.Log
 import timber.log.Timber
 import java.io.File
 import java.io.FileWriter
 import java.io.PrintWriter
+import java.io.StringWriter
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -25,6 +25,14 @@ class AppLogger @Inject constructor(
         private const val KEY_LOG_LEVEL = "log_level"
         private const val KEY_FILE_LOGGING_ENABLED = "file_logging_enabled"
         private const val KEY_EXTERNAL_LOGGING_ENABLED = "external_logging_enabled"
+
+        // Log priority constants (matching android.util.Log)
+        private const val VERBOSE = 2
+        private const val DEBUG = 3
+        private const val INFO = 4
+        private const val WARN = 5
+        private const val ERROR = 6
+        private const val ASSERT = 7
     }
 
     private val preferences: SharedPreferences = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
@@ -47,7 +55,13 @@ class AppLogger @Inject constructor(
             append(tag ?: TAG)
             append(": ")
             append(message)
-            t?.let { append("\n").append(Log.getStackTraceString(it)) }
+            t?.let {
+                append("\n")
+                val sw = StringWriter()
+                val pw = PrintWriter(sw)
+                it.printStackTrace(pw)
+                append(sw.toString())
+            }
         }
 
         try {
@@ -61,7 +75,8 @@ class AppLogger @Inject constructor(
                 appendLogToFile(externalLogFile, logMessage)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error writing log to file: ${e.message}", e)
+            // Can't use Timber here as it would cause infinite recursion
+            System.err.println("$TAG: Error writing log to file: ${e.message}")
         }
     }
 
@@ -74,18 +89,18 @@ class AppLogger @Inject constructor(
             }
             PrintWriter(FileWriter(file, true)).use { it.println(logMessage) }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to append log to file ${file.absolutePath}: ${e.message}", e)
+            System.err.println("$TAG: Failed to append log to file ${file.absolutePath}: ${e.message}")
         }
     }
 
     private fun priorityToString(priority: Int): String {
         return when (priority) {
-            Log.VERBOSE -> "VERBOSE"
-            Log.DEBUG -> "DEBUG"
-            Log.INFO -> "INFO"
-            Log.WARN -> "WARN"
-            Log.ERROR -> "ERROR"
-            Log.ASSERT -> "ASSERT"
+            VERBOSE -> "VERBOSE"
+            DEBUG -> "DEBUG"
+            INFO -> "INFO"
+            WARN -> "WARN"
+            ERROR -> "ERROR"
+            ASSERT -> "ASSERT"
             else -> "UNKNOWN"
         }
     }
@@ -97,37 +112,28 @@ class AppLogger @Inject constructor(
     private fun createLogDirectories(): Pair<File, File?> {
         var internalLogDir: File
         var externalLogDir: File? = null
-        
+
         try {
             // Internal storage log directory (cache directory - always available)
             internalLogDir = File(context.cacheDir, "logs")
             if (!internalLogDir.exists()) {
-                val created = internalLogDir.mkdirs()
-                Log.d(TAG, "Internal log directory created: $created at ${internalLogDir.absolutePath}")
-            } else {
-                Log.d(TAG, "Internal log directory exists at ${internalLogDir.absolutePath}")
+                internalLogDir.mkdirs()
             }
-            
+
             // External storage log directory (if available and permission granted)
             if (isExternalStorageWritable() && isExternalLoggingEnabled()) {
                 externalLogDir = File(context.getExternalFilesDir(null), "logs")
                 if (!externalLogDir.exists()) {
-                    val created = externalLogDir.mkdirs()
-                    Log.d(TAG, "External log directory created: $created at ${externalLogDir.absolutePath}")
-                } else {
-                    Log.d(TAG, "External log directory exists at ${externalLogDir.absolutePath}")
+                    externalLogDir.mkdirs()
                 }
-            } else {
-                Log.d(TAG, "External logging disabled or storage not writable")
             }
-            
+
         } catch (e: Exception) {
-            Log.w(TAG, "Could not create all log directories", e)
             // Fallback to cache directory only
             internalLogDir = File(context.cacheDir, "logs")
             internalLogDir.mkdirs()
         }
-        
+
         return Pair(internalLogDir, externalLogDir)
     }
     
@@ -227,8 +233,7 @@ class AppLogger @Inject constructor(
     }
     
     fun getLogLevel(): Int {
-        // This will need to be mapped to Timber's internal levels if we use them
-        return preferences.getInt(KEY_LOG_LEVEL, Log.DEBUG)
+        return preferences.getInt(KEY_LOG_LEVEL, DEBUG)
     }
     
     fun setFileLoggingEnabled(enabled: Boolean) {

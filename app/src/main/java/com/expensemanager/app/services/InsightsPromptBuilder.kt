@@ -1,7 +1,8 @@
 package com.expensemanager.app.services
 
 import android.content.Context
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.data.api.insights.AnonymizedFinancialData
 import com.expensemanager.app.data.models.InsightType
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -431,7 +432,7 @@ class InsightsPromptBuilder @Inject constructor(
 
         // Ensure prompt isn't too long
         if (prompt.length > MAX_PROMPT_LENGTH) {
-            Log.w(TAG, "Prompt too long (${prompt.length} chars), truncating")
+            Timber.tag(TAG).w("Prompt too long (${prompt.length} chars), truncating")
             validatedPrompt = prompt.take(MAX_PROMPT_LENGTH - 100) + "\n\n[Content truncated for API efficiency]"
         }
 

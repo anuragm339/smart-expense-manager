@@ -5,16 +5,17 @@ import android.content.SharedPreferences
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
-import android.util.Log
 import com.expensemanager.app.data.api.insights.*
 import com.expensemanager.app.data.models.AIInsight
 import com.expensemanager.app.data.models.MonthlySummary
 import com.expensemanager.app.data.models.SampleInsights
+import com.expensemanager.app.utils.logging.LogConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
+import timber.log.Timber
 import java.util.*
 import javax.inject.Inject
 import javax.inject.Named
@@ -76,7 +77,6 @@ class AIInsightsRepository @Inject constructor(
         // Emit cached data first for immediate UI update
         val cachedInsights = getCachedInsights()
         if (cachedInsights.isNotEmpty()) {
-            Log.d(TAG, "Emitting cached insights: ${cachedInsights.size} (offline: ${!isOnline})")
             emit(Result.success(cachedInsights))
         }
         
@@ -84,7 +84,7 @@ class AIInsightsRepository @Inject constructor(
         val needsRefresh = cachedInsights.isEmpty() || shouldRefreshInsights()
         
         if (isOnline && !isOfflineModeEnabled && needsRefresh) {
-            Log.d(TAG, "Refreshing insights from API (online mode) - No cache: ${cachedInsights.isEmpty()}, Expired: ${shouldRefreshInsights()}")
+            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Refreshing insights from API (online mode) - No cache: ${cachedInsights.isEmpty()}, Expired: ${shouldRefreshInsights()}")
             
             try {
                 val freshInsights = fetchInsightsFromApi()
@@ -93,10 +93,10 @@ class AIInsightsRepository @Inject constructor(
                         // Cache the fresh insights
                         cacheInsights(insights)
                         emit(Result.success(insights))
-                        Log.d(TAG, "Fresh insights fetched and cached: ${insights.size}")
+                        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Fresh insights fetched and cached: ${insights.size}")
                     },
                     onFailure = { error ->
-                        Log.e(TAG, "Failed to fetch fresh insights", error)
+                        Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(error, "Failed to fetch fresh insights")
                         // If we have cached data, don't emit error
                         if (cachedInsights.isEmpty()) {
                             val fallbackInsights = handleOfflineMode(error)
@@ -105,7 +105,7 @@ class AIInsightsRepository @Inject constructor(
                     }
                 )
             } catch (e: Exception) {
-                Log.e(TAG, "Exception during API call", e)
+                Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "Exception during API call")
                 if (cachedInsights.isEmpty()) {
                     val fallbackInsights = getOfflineFallbackInsights()
                     emit(Result.success(fallbackInsights))
@@ -115,14 +115,12 @@ class AIInsightsRepository @Inject constructor(
             // Offline mode: check if cached data is still valid
             val offlineInsights = getOfflineCachedInsights()
             if (offlineInsights.isNotEmpty() && cachedInsights.isEmpty()) {
-                Log.d(TAG, "Using offline cached insights: ${offlineInsights.size}")
+                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Using offline cached insights: ${offlineInsights.size}")
                 emit(Result.success(offlineInsights))
             } else if (cachedInsights.isEmpty()) {
                 // No cached data available, return offline error
                 emit(Result.failure(OfflineException("No internet connection and no cached data available")))
             }
-        } else {
-            Log.d(TAG, "Using existing cached data (no refresh needed)")
         }
     }.flowOn(Dispatchers.IO)
     
@@ -132,7 +130,6 @@ class AIInsightsRepository @Inject constructor(
     suspend fun refreshInsights(): Result<List<AIInsight>> = withContext(Dispatchers.IO) {
         return@withContext try {
             if (!isNetworkAvailable()) {
-                Log.d(TAG, "No network available for refresh, returning cached data")
                 val cachedData = getCachedInsights()
                 return@withContext if (cachedData.isNotEmpty()) {
                     Result.success(cachedData)
@@ -141,16 +138,15 @@ class AIInsightsRepository @Inject constructor(
                 }
             }
             
-            Log.d(TAG, "Force refreshing insights...")
             val result = fetchInsightsFromApi()
             
             result.onSuccess { insights ->
                 cacheInsights(insights)
                 // Also cache for offline mode
                 cacheInsightsForOffline(insights)
-                Log.d(TAG, "Force refresh completed: ${insights.size} insights")
+                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Force refresh completed: ${insights.size} insights")
             }.onFailure { error ->
-                Log.e(TAG, "Force refresh failed, trying cached data", error)
+                Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(error, "Force refresh failed, trying cached data")
                 // Return cached data if available
                 val cachedData = getCachedInsights()
                 if (cachedData.isNotEmpty()) {
@@ -160,12 +156,11 @@ class AIInsightsRepository @Inject constructor(
             
             result
         } catch (e: Exception) {
-            Log.e(TAG, "Error in force refresh", e)
+            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "Error in force refresh")
             
             // Try to return cached data as fallback
             val cachedData = getCachedInsights()
             if (cachedData.isNotEmpty()) {
-                Log.d(TAG, "Returning cached data due to refresh error")
                 Result.success(cachedData)
             } else {
                 Result.failure(e)
@@ -183,7 +178,7 @@ class AIInsightsRepository @Inject constructor(
 
             // Get conversation history for AI context
             val conversationHistory = insightsHistoryManager.getRecentHistory(count = 5)
-            Log.d(TAG, "[CONTEXT] Including ${conversationHistory.size} historical insights for AI comparison")
+            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("[CONTEXT] Including ${conversationHistory.size} historical insights for AI comparison")
 
             // Get previous period data for comparison
             val previousPeriodData = gatherPreviousPeriodData()
@@ -193,9 +188,9 @@ class AIInsightsRepository @Inject constructor(
             val transactionsCSV = csvGenerator.generateCSV(allTransactions)
             val csvMetadataInfo = csvGenerator.getMetadata(allTransactions, transactionsCSV.length)
 
-            Log.d(TAG, "[CSV] Generated CSV with ${csvMetadataInfo.totalTransactions} transactions")
-            Log.d(TAG, "[CSV] Date range: ${csvMetadataInfo.dateRangeStart} to ${csvMetadataInfo.dateRangeEnd}")
-            Log.d(TAG, "[CSV] Payload size: ${csvMetadataInfo.csvSizeBytes / 1024}KB")
+            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("[CSV] Generated CSV with ${csvMetadataInfo.totalTransactions} transactions")
+            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("[CSV] Date range: ${csvMetadataInfo.dateRangeStart} to ${csvMetadataInfo.dateRangeEnd}")
+            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("[CSV] Payload size: ${csvMetadataInfo.csvSizeBytes / 1024}KB")
 
             // Create CSV metadata for API
             val csvMetadata = com.expensemanager.app.data.api.insights.CSVMetadata(
@@ -219,14 +214,6 @@ class AIInsightsRepository @Inject constructor(
                 csvMetadata = csvMetadata
             )
 
-            Log.d(TAG, "Making API call to: ${apiService.javaClass.simpleName}")
-            Log.d(TAG, "Request summary: ${transactionData.transactionSummary.totalSpent} spent, ${transactionData.transactionSummary.transactionCount} transactions")
-            Log.d(TAG, "Categories: ${transactionData.transactionSummary.categoryBreakdown.size}")
-            Log.d(TAG, "Top merchants: ${transactionData.transactionSummary.topMerchants.size}")
-            Log.d(TAG, "Conversation history: ${conversationHistory.size} previous insights")
-            Log.d(TAG, "Previous period: ${previousPeriodData?.periodLabel ?: "None"}")
-            Log.d(TAG, "CSV data: ${csvMetadata.totalTransactions} transactions")
-
             // Make API call
             val response = apiService.generateInsights(request)
 
@@ -234,9 +221,7 @@ class AIInsightsRepository @Inject constructor(
                 val apiResponse = response.body()
                 if (apiResponse != null) {
                     val insights = InsightsDataMapper.mapToDomainInsights(apiResponse)
-                    Log.d(TAG, "API call successful: ${insights.size} insights received")
-                    Log.d(TAG, "Insights: ${insights.map { "${it.type}: ${it.title}" }}")
-
+                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("API call successful: ${insights.size} insights received")
                     // Save insights to history for future context
                     val topCategories = transactionData.transactionSummary.categoryBreakdown
                         .take(3)
@@ -246,21 +231,21 @@ class AIInsightsRepository @Inject constructor(
                         transactionData.transactionSummary.totalSpent,
                         topCategories
                     )
-                    Log.d(TAG, "[CONTEXT] Saved ${insights.size} insights to conversation history")
+                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("[CONTEXT] Saved ${insights.size} insights to conversation history")
 
                     Result.success(insights)
                 } else {
-                    Log.e(TAG, "API returned null response")
+                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).e("API returned null response")
                     Result.failure(Exception("API Error: Null response"))
                 }
             } else {
                 val errorMsg = "HTTP ${response.code()}: ${response.message()}"
-                Log.e(TAG, "HTTP error: $errorMsg")
+                Timber.tag(LogConfig.FeatureTags.INSIGHTS).e("HTTP error: $errorMsg")
                 Result.failure(Exception("Network Error: $errorMsg"))
             }
 
         } catch (e: Exception) {
-            Log.e(TAG, "Exception during API call", e)
+            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "Exception during API call")
             Result.failure(e)
         }
     }
@@ -300,7 +285,7 @@ class AIInsightsRepository @Inject constructor(
         
         // Debug: Log exclusion status before gathering data
         val exclusionDebugInfo = expenseRepository.getExclusionStatesDebugInfo()
-        Log.d(TAG, "[DEBUG] AI Data Prep - Exclusion Status: $exclusionDebugInfo")
+        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("[DEBUG] AI Data Prep - Exclusion Status: $exclusionDebugInfo")
         
         // Get dashboard data for current month (already filtered by exclusions)
         val dashboardData = expenseRepository.getDashboardData(currentMonthStart, currentMonthEnd)
@@ -309,9 +294,9 @@ class AIInsightsRepository @Inject constructor(
         val previousMonthSpent = expenseRepository.getTotalSpent(previousMonthStart, previousMonthEnd)
         
         // Debug: Log filtered data being sent to AI
-        Log.d(TAG, "[DEBUG] AI Data Prep - Filtered totals: Current ₹${dashboardData.totalSpent}, Previous ₹$previousMonthSpent")
-        Log.d(TAG, "[DEBUG] AI Data Prep - Filtered merchants: ${dashboardData.topMerchants.size} merchants")
-        Log.d(TAG, "[DEBUG] AI Data Prep - Filtered categories: ${dashboardData.topCategories.size} categories")
+        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("[DEBUG] AI Data Prep - Filtered totals: Current ₹${dashboardData.totalSpent}, Previous ₹$previousMonthSpent")
+        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("[DEBUG] AI Data Prep - Filtered merchants: ${dashboardData.topMerchants.size} merchants")
+        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("[DEBUG] AI Data Prep - Filtered categories: ${dashboardData.topCategories.size} categories")
         
         // Generate monthly trends (last 3 months)
         val monthlyTrends = generateMonthlyTrends()
@@ -340,7 +325,7 @@ class AIInsightsRepository @Inject constructor(
             currency = currency
         )
         
-        Log.d(TAG, "Transaction data gathered: ₹${dashboardData.totalSpent} current, ₹$previousMonthSpent previous")
+        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Transaction data gathered: ₹${dashboardData.totalSpent} current, ₹$previousMonthSpent previous")
         
         return TransactionDataPackage(transactionSummary, contextData)
     }
@@ -420,7 +405,7 @@ class AIInsightsRepository @Inject constructor(
             )
 
         } catch (e: Exception) {
-            Log.e(TAG, "Error gathering previous period data", e)
+            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "Error gathering previous period data")
             null
         }
     }
@@ -429,7 +414,7 @@ class AIInsightsRepository @Inject constructor(
      * Generate monthly trends for the last 3 months
      */
     private suspend fun generateMonthlyTrends(): List<MonthlySummary> {
-        Log.d(TAG, "[DEBUG] AI Data Prep - Generating monthly trends (with exclusions)")
+        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("[DEBUG] AI Data Prep - Generating monthly trends (with exclusions)")
         val trends = mutableListOf<MonthlySummary>()
         
         for (monthsBack in 0..2) {
@@ -458,8 +443,6 @@ class AIInsightsRepository @Inject constructor(
             
             val monthKey = String.format("%d-%02d", calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH) + 1)
             
-            Log.d(TAG, "[DEBUG] AI Data Prep - Month $monthKey: ₹$totalSpent ($transactionCount transactions)")
-            
             trends.add(MonthlySummary(
                 month = monthKey,
                 totalAmount = totalSpent,
@@ -468,7 +451,7 @@ class AIInsightsRepository @Inject constructor(
             ))
         }
         
-        Log.d(TAG, "[DEBUG] AI Data Prep - Monthly trends complete: ${trends.size} months")
+        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("[DEBUG] AI Data Prep - Monthly trends complete: ${trends.size} months")
         return trends.reversed() // Return oldest to newest
     }
     
@@ -505,7 +488,7 @@ class AIInsightsRepository @Inject constructor(
                 activeNetworkInfo != null && activeNetworkInfo.isConnected
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error checking network availability", e)
+            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "Error checking network availability")
             false
         }
     }
@@ -524,7 +507,7 @@ class AIInsightsRepository @Inject constructor(
                 emptyList()
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error loading cached insights", e)
+            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "Error loading cached insights")
             emptyList()
         }
     }
@@ -542,9 +525,9 @@ class AIInsightsRepository @Inject constructor(
                 .putInt(CACHE_VERSION_KEY, CURRENT_CACHE_VERSION)
                 .apply()
             
-            Log.d(TAG, "Cached ${insights.size} insights")
+            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Cached ${insights.size} insights")
         } catch (e: Exception) {
-            Log.e(TAG, "Error caching insights", e)
+            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "Error caching insights")
         }
     }
     
@@ -560,9 +543,9 @@ class AIInsightsRepository @Inject constructor(
                 .putInt("offline_cache_version", CURRENT_CACHE_VERSION)
                 .apply()
             
-            Log.d(TAG, "Cached ${insights.size} insights for offline mode")
+            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Cached ${insights.size} insights for offline mode")
         } catch (e: Exception) {
-            Log.e(TAG, "Error caching insights for offline mode", e)
+            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "Error caching insights for offline mode")
         }
     }
     
@@ -579,15 +562,12 @@ class AIInsightsRepository @Inject constructor(
             if ((now - cachedTimestamp) <= offlineExpiryTime) {
                 // For simplicity, return sample insights
                 // In production, you'd deserialize actual cached insights
-                getSampleInsights().also {
-                    Log.d(TAG, "Retrieved ${it.size} offline cached insights")
-                }
+                getSampleInsights()
             } else {
-                Log.d(TAG, "Offline cache expired")
                 emptyList()
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error loading offline cached insights", e)
+            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "Error loading offline cached insights")
             emptyList()
         }
     }
@@ -598,11 +578,9 @@ class AIInsightsRepository @Inject constructor(
     private fun getOfflineFallbackInsights(): List<AIInsight> {
         return try {
             // Always provide sample insights as final fallback
-            getSampleInsights().also {
-                Log.d(TAG, "Using fallback sample insights: ${it.size}")
-            }
+            getSampleInsights()
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting fallback insights", e)
+            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "Error getting fallback insights")
             emptyList()
         }
     }
@@ -611,8 +589,6 @@ class AIInsightsRepository @Inject constructor(
      * Handle offline mode scenarios
      */
     private fun handleOfflineMode(apiError: Throwable): List<AIInsight> {
-        Log.d(TAG, "Handling offline mode due to API error")
-        
         // Try offline cached insights first
         val offlineInsights = getOfflineCachedInsights()
         if (offlineInsights.isNotEmpty()) {
@@ -630,7 +606,6 @@ class AIInsightsRepository @Inject constructor(
         prefs.edit()
             .putBoolean(OFFLINE_MODE_KEY, enabled)
             .apply()
-        Log.d(TAG, "Offline mode ${if (enabled) "enabled" else "disabled"}")
     }
     
     /**
@@ -659,10 +634,10 @@ class AIInsightsRepository @Inject constructor(
             val offlinePrefs = context.getSharedPreferences("ai_insights_offline_cache", Context.MODE_PRIVATE)
             offlinePrefs.edit().clear().apply()
             
-            Log.d(TAG, "All caches cleared")
+            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("All caches cleared")
             Result.success(Unit)
         } catch (e: Exception) {
-            Log.e(TAG, "Error clearing cache", e)
+            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "Error clearing cache")
             Result.failure(e)
         }
     }

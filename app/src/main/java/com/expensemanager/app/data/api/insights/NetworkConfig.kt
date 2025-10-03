@@ -1,6 +1,7 @@
 package com.expensemanager.app.data.api.insights
 
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -17,7 +18,7 @@ import javax.net.ssl.X509TrustManager
 object NetworkConfig {
 
     // Backend API base URL - Replace with your actual backend URL
-    private const val BACKEND_BASE_URL = "http://32679df5c841.ngrok-free.app/"
+    private const val BACKEND_BASE_URL = "https://smart-expense-bchtgdg7ahbhdmhy.canadacentral-01.azurewebsites.net/"
     // For local development: "http://10.0.2.2:3000/" (Android emulator)
     // For production: "https://your-backend-service.herokuapp.com/"
     
@@ -33,7 +34,7 @@ object NetworkConfig {
      */
     private fun createOkHttpClient(): OkHttpClient {
         val loggingInterceptor = HttpLoggingInterceptor { message ->
-            Log.d(TAG, message)
+            Timber.tag(TAG).d(message)
         }.apply {
             level = HttpLoggingInterceptor.Level.BODY
         }
@@ -63,7 +64,7 @@ object NetworkConfig {
                         .replace("```", "")
                         .trim()
 
-                    Log.d(TAG, "Cleaned JSON response: ${cleanedBody.take(200)}...")
+                    Timber.tag(TAG).d("Cleaned JSON response: ${cleanedBody.take(200)}...")
 
                     val newBody = okhttp3.ResponseBody.create(
                         response.body!!.contentType(),
@@ -92,9 +93,9 @@ object NetworkConfig {
                     sslSocketFactory(sslContext.socketFactory, trustAllCerts[0] as X509TrustManager)
                     hostnameVerifier { _, _ -> true }
 
-                    Log.d(TAG, "SSL verification disabled for development")
+                    Timber.tag(TAG).d("SSL verification disabled for development")
                 } catch (e: Exception) {
-                    Log.e(TAG, "Error setting up SSL bypass", e)
+                    Timber.tag(TAG).e(e, "Error setting up SSL bypass")
                 }
             }
             .connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS)
@@ -130,7 +131,7 @@ object NetworkConfig {
      */
     private fun createBackendOkHttpClient(): OkHttpClient {
         val loggingInterceptor = HttpLoggingInterceptor { message ->
-            Log.d(TAG, message)
+            Timber.tag(TAG).d(message)
         }.apply {
             level = HttpLoggingInterceptor.Level.BODY
         }
@@ -167,9 +168,9 @@ object NetworkConfig {
                     sslSocketFactory(sslContext.socketFactory, trustAllCerts[0] as X509TrustManager)
                     hostnameVerifier { _, _ -> true }
 
-                    Log.d(TAG, "SSL verification disabled for backend development")
+                    Timber.tag(TAG).d("SSL verification disabled for backend development")
                 } catch (e: Exception) {
-                    Log.e(TAG, "Error setting up SSL bypass for backend", e)
+                    Timber.tag(TAG).e(e, "Error setting up SSL bypass for backend")
                 }
             }
             .connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS)

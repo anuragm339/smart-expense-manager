@@ -1,6 +1,7 @@
 package com.expensemanager.app.domain.usecase.category
 
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.data.dao.CategorySpendingResult
 import com.expensemanager.app.domain.repository.CategoryRepositoryInterface
 import com.expensemanager.app.services.DateRangeService
@@ -26,12 +27,12 @@ class GetCategorySpendingUseCase @Inject constructor(
      */
     suspend fun execute(startDate: Date, endDate: Date): Result<List<CategorySpendingResult>> {
         return try {
-            Log.d(TAG, "Getting category spending from $startDate to $endDate")
+            Timber.tag(TAG).d("Getting category spending from $startDate to $endDate")
             val categorySpending = repository.getCategorySpending(startDate, endDate)
-            Log.d(TAG, "Retrieved spending data for ${categorySpending.size} categories")
+            Timber.tag(TAG).d("Retrieved spending data for ${categorySpending.size} categories")
             Result.success(categorySpending)
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting category spending", e)
+            Timber.tag(TAG).e(e, "Error getting category spending")
             Result.failure(e)
         }
     }
@@ -41,16 +42,16 @@ class GetCategorySpendingUseCase @Inject constructor(
      */
     suspend fun execute(params: CategorySpendingParams): Result<CategorySpendingAnalysis> {
         return try {
-            Log.d(TAG, "Getting category spending with analysis params: $params")
+            Timber.tag(TAG).d("Getting category spending with analysis params: $params")
             
             val categorySpending = repository.getCategorySpending(params.startDate, params.endDate)
             val analysis = analyzeCategorySpending(categorySpending, params)
             
-            Log.d(TAG, "Category spending analysis completed")
+            Timber.tag(TAG).d("Category spending analysis completed")
             Result.success(analysis)
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting category spending analysis", e)
+            Timber.tag(TAG).e(e, "Error getting category spending analysis")
             Result.failure(e)
         }
     }
@@ -77,7 +78,7 @@ class GetCategorySpendingUseCase @Inject constructor(
      */
     suspend fun getLast7DaysSpending(): Result<List<CategorySpendingResult>> {
         val (startDate, endDate) = dateRangeService.getDateRange(DateRangeType.LAST_7_DAYS)
-        Log.d(TAG, "Getting last 7 days spending from $startDate to $endDate")
+        Timber.tag(TAG).d("Getting last 7 days spending from $startDate to $endDate")
         return execute(startDate, endDate)
     }
     
@@ -86,7 +87,7 @@ class GetCategorySpendingUseCase @Inject constructor(
      */
     suspend fun getLast30DaysSpending(): Result<List<CategorySpendingResult>> {
         val (startDate, endDate) = dateRangeService.getDateRange(DateRangeType.LAST_30_DAYS)
-        Log.d(TAG, "Getting last 30 days spending from $startDate to $endDate")
+        Timber.tag(TAG).d("Getting last 30 days spending from $startDate to $endDate")
         return execute(startDate, endDate)
     }
     
@@ -95,7 +96,7 @@ class GetCategorySpendingUseCase @Inject constructor(
      */
     suspend fun getLast3MonthsSpending(): Result<List<CategorySpendingResult>> {
         val (startDate, endDate) = dateRangeService.getDateRange(DateRangeType.LAST_3_MONTHS)
-        Log.d(TAG, "Getting last 3 months spending from $startDate to $endDate")
+        Timber.tag(TAG).d("Getting last 3 months spending from $startDate to $endDate")
         return execute(startDate, endDate)
     }
     
@@ -104,7 +105,7 @@ class GetCategorySpendingUseCase @Inject constructor(
      */
     suspend fun getLast6MonthsSpending(): Result<List<CategorySpendingResult>> {
         val (startDate, endDate) = dateRangeService.getDateRange(DateRangeType.LAST_6_MONTHS)
-        Log.d(TAG, "Getting last 6 months spending from $startDate to $endDate")
+        Timber.tag(TAG).d("Getting last 6 months spending from $startDate to $endDate")
         return execute(startDate, endDate)
     }
     
@@ -113,7 +114,7 @@ class GetCategorySpendingUseCase @Inject constructor(
      */
     suspend fun getThisYearSpending(): Result<List<CategorySpendingResult>> {
         val (startDate, endDate) = dateRangeService.getDateRange(DateRangeType.THIS_YEAR)
-        Log.d(TAG, "Getting this year spending from $startDate to $endDate")
+        Timber.tag(TAG).d("Getting this year spending from $startDate to $endDate")
         return execute(startDate, endDate)
     }
     
@@ -127,18 +128,18 @@ class GetCategorySpendingUseCase @Inject constructor(
         previousPeriodEnd: Date
     ): Result<CategorySpendingComparison> {
         return try {
-            Log.d(TAG, "Getting category spending comparison")
+            Timber.tag(TAG).d("Getting category spending comparison")
             
             val currentSpending = repository.getCategorySpending(currentPeriodStart, currentPeriodEnd)
             val previousSpending = repository.getCategorySpending(previousPeriodStart, previousPeriodEnd)
             
             val comparison = compareCategorySpending(currentSpending, previousSpending)
             
-            Log.d(TAG, "Category spending comparison completed")
+            Timber.tag(TAG).d("Category spending comparison completed")
             Result.success(comparison)
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting category spending comparison", e)
+            Timber.tag(TAG).e(e, "Error getting category spending comparison")
             Result.failure(e)
         }
     }
@@ -148,18 +149,18 @@ class GetCategorySpendingUseCase @Inject constructor(
      */
     suspend fun getTopCategories(startDate: Date, endDate: Date, limit: Int = 5): Result<List<CategorySpendingResult>> {
         return try {
-            Log.d(TAG, "Getting top $limit spending categories")
+            Timber.tag(TAG).d("Getting top $limit spending categories")
             
             val allCategorySpending = repository.getCategorySpending(startDate, endDate)
             val topCategories = allCategorySpending
                 .sortedByDescending { it.total_amount }
                 .take(limit)
             
-            Log.d(TAG, "Retrieved top ${topCategories.size} categories")
+            Timber.tag(TAG).d("Retrieved top ${topCategories.size} categories")
             Result.success(topCategories)
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting top categories", e)
+            Timber.tag(TAG).e(e, "Error getting top categories")
             Result.failure(e)
         }
     }

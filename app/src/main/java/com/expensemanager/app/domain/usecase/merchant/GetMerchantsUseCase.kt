@@ -1,6 +1,7 @@
 package com.expensemanager.app.domain.usecase.merchant
 
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.data.entities.MerchantEntity
 import com.expensemanager.app.data.dao.MerchantWithCategory
 import com.expensemanager.app.domain.repository.MerchantRepositoryInterface
@@ -23,12 +24,12 @@ class GetMerchantsUseCase @Inject constructor(
      */
     suspend fun execute(): Result<List<MerchantEntity>> {
         return try {
-            Log.d(TAG, "Getting all merchants")
+            Timber.tag(TAG).d("Getting all merchants")
             val merchants = repository.getAllMerchants()
-            Log.d(TAG, "Retrieved ${merchants.size} merchants")
+            Timber.tag(TAG).d("Retrieved ${merchants.size} merchants")
             Result.success(merchants)
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting all merchants", e)
+            Timber.tag(TAG).e(e, "Error getting all merchants")
             Result.failure(e)
         }
     }
@@ -38,16 +39,16 @@ class GetMerchantsUseCase @Inject constructor(
      */
     suspend fun execute(params: GetMerchantsParams): Result<List<MerchantEntity>> {
         return try {
-            Log.d(TAG, "Getting merchants with params: $params")
+            Timber.tag(TAG).d("Getting merchants with params: $params")
             
             val allMerchants = repository.getAllMerchants()
             val filteredMerchants = processMerchants(allMerchants, params)
             
-            Log.d(TAG, "Filtered to ${filteredMerchants.size} merchants")
+            Timber.tag(TAG).d("Filtered to ${filteredMerchants.size} merchants")
             Result.success(filteredMerchants)
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting filtered merchants", e)
+            Timber.tag(TAG).e(e, "Error getting filtered merchants")
             Result.failure(e)
         }
     }
@@ -57,16 +58,16 @@ class GetMerchantsUseCase @Inject constructor(
      */
     suspend fun getMerchantByNormalizedName(normalizedName: String): Result<MerchantEntity?> {
         return try {
-            Log.d(TAG, "Getting merchant by normalized name: $normalizedName")
+            Timber.tag(TAG).d("Getting merchant by normalized name: $normalizedName")
             val merchant = repository.getMerchantByNormalizedName(normalizedName)
             if (merchant != null) {
-                Log.d(TAG, "Found merchant: ${merchant.displayName}")
+                Timber.tag(TAG).d("Found merchant: ${merchant.displayName}")
             } else {
-                Log.d(TAG, "Merchant not found")
+                Timber.tag(TAG).d("Merchant not found")
             }
             Result.success(merchant)
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting merchant by normalized name", e)
+            Timber.tag(TAG).e(e, "Error getting merchant by normalized name")
             Result.failure(e)
         }
     }
@@ -76,16 +77,16 @@ class GetMerchantsUseCase @Inject constructor(
      */
     suspend fun getMerchantWithCategory(normalizedName: String): Result<MerchantWithCategory?> {
         return try {
-            Log.d(TAG, "Getting merchant with category: $normalizedName")
+            Timber.tag(TAG).d("Getting merchant with category: $normalizedName")
             val merchantWithCategory = repository.getMerchantWithCategory(normalizedName)
             if (merchantWithCategory != null) {
-                Log.d(TAG, "Found merchant: ${merchantWithCategory.display_name} in category: ${merchantWithCategory.category_name}")
+                Timber.tag(TAG).d("Found merchant: ${merchantWithCategory.display_name} in category: ${merchantWithCategory.category_name}")
             } else {
-                Log.d(TAG, "Merchant with category not found")
+                Timber.tag(TAG).d("Merchant with category not found")
             }
             Result.success(merchantWithCategory)
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting merchant with category", e)
+            Timber.tag(TAG).e(e, "Error getting merchant with category")
             Result.failure(e)
         }
     }
@@ -95,12 +96,12 @@ class GetMerchantsUseCase @Inject constructor(
      */
     suspend fun getExcludedMerchants(): Result<List<MerchantEntity>> {
         return try {
-            Log.d(TAG, "Getting excluded merchants")
+            Timber.tag(TAG).d("Getting excluded merchants")
             val excludedMerchants = repository.getExcludedMerchants()
-            Log.d(TAG, "Retrieved ${excludedMerchants.size} excluded merchants")
+            Timber.tag(TAG).d("Retrieved ${excludedMerchants.size} excluded merchants")
             Result.success(excludedMerchants)
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting excluded merchants", e)
+            Timber.tag(TAG).e(e, "Error getting excluded merchants")
             Result.failure(e)
         }
     }
@@ -110,13 +111,13 @@ class GetMerchantsUseCase @Inject constructor(
      */
     suspend fun getActiveMerchants(): Result<List<MerchantEntity>> {
         return try {
-            Log.d(TAG, "Getting active merchants")
+            Timber.tag(TAG).d("Getting active merchants")
             val allMerchants = repository.getAllMerchants()
             val activeMerchants = allMerchants.filter { !it.isExcludedFromExpenseTracking }
-            Log.d(TAG, "Retrieved ${activeMerchants.size} active merchants")
+            Timber.tag(TAG).d("Retrieved ${activeMerchants.size} active merchants")
             Result.success(activeMerchants)
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting active merchants", e)
+            Timber.tag(TAG).e(e, "Error getting active merchants")
             Result.failure(e)
         }
     }
@@ -126,13 +127,13 @@ class GetMerchantsUseCase @Inject constructor(
      */
     suspend fun getUserDefinedMerchants(): Result<List<MerchantEntity>> {
         return try {
-            Log.d(TAG, "Getting user-defined merchants")
+            Timber.tag(TAG).d("Getting user-defined merchants")
             val allMerchants = repository.getAllMerchants()
             val userMerchants = allMerchants.filter { it.isUserDefined }
-            Log.d(TAG, "Retrieved ${userMerchants.size} user-defined merchants")
+            Timber.tag(TAG).d("Retrieved ${userMerchants.size} user-defined merchants")
             Result.success(userMerchants)
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting user-defined merchants", e)
+            Timber.tag(TAG).e(e, "Error getting user-defined merchants")
             Result.failure(e)
         }
     }
@@ -142,13 +143,13 @@ class GetMerchantsUseCase @Inject constructor(
      */
     suspend fun getAutoGeneratedMerchants(): Result<List<MerchantEntity>> {
         return try {
-            Log.d(TAG, "Getting auto-generated merchants")
+            Timber.tag(TAG).d("Getting auto-generated merchants")
             val allMerchants = repository.getAllMerchants()
             val autoMerchants = allMerchants.filter { !it.isUserDefined }
-            Log.d(TAG, "Retrieved ${autoMerchants.size} auto-generated merchants")
+            Timber.tag(TAG).d("Retrieved ${autoMerchants.size} auto-generated merchants")
             Result.success(autoMerchants)
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting auto-generated merchants", e)
+            Timber.tag(TAG).e(e, "Error getting auto-generated merchants")
             Result.failure(e)
         }
     }
@@ -158,7 +159,7 @@ class GetMerchantsUseCase @Inject constructor(
      */
     suspend fun searchMerchants(query: String): Result<List<MerchantEntity>> {
         return try {
-            Log.d(TAG, "Searching merchants with query: $query")
+            Timber.tag(TAG).d("Searching merchants with query: $query")
             
             if (query.isBlank()) {
                 return Result.success(emptyList())
@@ -170,11 +171,11 @@ class GetMerchantsUseCase @Inject constructor(
                 merchant.normalizedName.contains(query, ignoreCase = true)
             }.sortedBy { it.displayName }
             
-            Log.d(TAG, "Found ${matchingMerchants.size} merchants matching query")
+            Timber.tag(TAG).d("Found ${matchingMerchants.size} merchants matching query")
             Result.success(matchingMerchants)
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error searching merchants", e)
+            Timber.tag(TAG).e(e, "Error searching merchants")
             Result.failure(e)
         }
     }
@@ -183,7 +184,7 @@ class GetMerchantsUseCase @Inject constructor(
      * Process merchants with business logic
      */
     private fun processMerchants(merchants: List<MerchantEntity>, params: GetMerchantsParams): List<MerchantEntity> {
-        Log.d(TAG, "Processing ${merchants.size} merchants with params: $params")
+        Timber.tag(TAG).d("Processing ${merchants.size} merchants with params: $params")
         
         return merchants
             .let { list ->
@@ -240,13 +241,13 @@ class GetMerchantsUseCase @Inject constructor(
                 }
             }
             .also { processedList ->
-                Log.d(TAG, "Processed merchants: ${processedList.size} after filtering and sorting")
+                Timber.tag(TAG).d("Processed merchants: ${processedList.size} after filtering and sorting")
                 
                 // Log merchant summary for debugging
                 if (processedList.isNotEmpty()) {
                     val excludedCount = processedList.count { it.isExcludedFromExpenseTracking }
                     val userDefinedCount = processedList.count { it.isUserDefined }
-                    Log.d(TAG, "Merchant summary: $excludedCount excluded, $userDefinedCount user-defined")
+                    Timber.tag(TAG).d("Merchant summary: $excludedCount excluded, $userDefinedCount user-defined")
                 }
             }
     }

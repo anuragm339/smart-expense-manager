@@ -1,6 +1,7 @@
 package com.expensemanager.app.di
 
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -23,7 +24,7 @@ import javax.inject.Singleton
 object NetworkModule {
     
     // Network configuration constants
-    private const val BASE_URL = "http://32679df5c841.ngrok-free.app/"
+    private const val BASE_URL = "https://smart-expense-bchtgdg7ahbhdmhy.canadacentral-01.azurewebsites.net/"
     private const val CONNECT_TIMEOUT = 30L
     private const val READ_TIMEOUT = 60L
     private const val WRITE_TIMEOUT = 60L
@@ -37,7 +38,7 @@ object NetworkModule {
     @Singleton
     fun provideOkHttpClient(): OkHttpClient {
         val loggingInterceptor = HttpLoggingInterceptor { message ->
-            Log.d(TAG, message)
+            Timber.tag(TAG).d(message)
         }.apply {
             level = HttpLoggingInterceptor.Level.BODY
         }
@@ -67,7 +68,7 @@ object NetworkModule {
                         .replace("```", "")
                         .trim()
                     
-                    Log.d(TAG, "Cleaned JSON response: ${cleanedBody.take(200)}...")
+                    Timber.tag(TAG).d("Cleaned JSON response: ${cleanedBody.take(200)}...")
                     
                     val newBody = okhttp3.ResponseBody.create(
                         response.body!!.contentType(),

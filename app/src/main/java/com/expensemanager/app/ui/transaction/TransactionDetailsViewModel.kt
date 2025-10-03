@@ -1,7 +1,8 @@
 package com.expensemanager.app.ui.transaction
 
 import android.content.Context
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -40,14 +41,14 @@ class TransactionDetailsViewModel @Inject constructor(
     private val merchantAliasManager = MerchantAliasManager(context)
     
     init {
-        Log.d(TAG, "ViewModel initialized")
+        Timber.tag(TAG).d("ViewModel initialized")
     }
     
     /**
      * Handle UI events from the Fragment
      */
     fun handleEvent(event: TransactionDetailsUIEvent) {
-        Log.d(TAG, "Handling event: $event")
+        Timber.tag(TAG).d("Handling event: $event")
         
         when (event) {
             is TransactionDetailsUIEvent.LoadTransaction -> loadTransactionFromArguments()
@@ -74,7 +75,7 @@ class TransactionDetailsViewModel @Inject constructor(
         confidence: Int,
         rawSMS: String
     ) {
-        Log.d(TAG, "Setting transaction data...")
+        Timber.tag(TAG).d("Setting transaction data...")
         
         _uiState.value = _uiState.value.copy(isLoading = true)
         
@@ -101,7 +102,7 @@ class TransactionDetailsViewModel @Inject constructor(
             checkSimilarTransactions()
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error setting transaction data", e)
+            Timber.tag(TAG).e(e, "Error setting transaction data")
             handleTransactionError(e)
         }
     }
@@ -111,14 +112,14 @@ class TransactionDetailsViewModel @Inject constructor(
      */
     private fun loadTransactionFromArguments() {
         // This is now handled by setTransactionData called from fragment
-        Log.d(TAG, "Load transaction from arguments - delegated to fragment")
+        Timber.tag(TAG).d("Load transaction from arguments - delegated to fragment")
     }
     
     /**
      * Save transaction to database
      */
     private fun saveTransaction() {
-        Log.d(TAG, "Saving transaction...")
+        Timber.tag(TAG).d("Saving transaction...")
         
         _uiState.value = _uiState.value.copy(isSaving = true)
         
@@ -134,10 +135,10 @@ class TransactionDetailsViewModel @Inject constructor(
                     lastUpdateTime = System.currentTimeMillis()
                 )
                 
-                Log.d(TAG, "Transaction saved successfully")
+                Timber.tag(TAG).d("Transaction saved successfully")
                 
             } catch (e: Exception) {
-                Log.e(TAG, "Error saving transaction", e)
+                Timber.tag(TAG).e(e, "Error saving transaction")
                 handleTransactionError(e)
             }
         }
@@ -147,7 +148,7 @@ class TransactionDetailsViewModel @Inject constructor(
      * Mark transaction as duplicate
      */
     private fun markAsDuplicate() {
-        Log.d(TAG, "Marking transaction as duplicate...")
+        Timber.tag(TAG).d("Marking transaction as duplicate...")
         
         _uiState.value = _uiState.value.copy(isUpdating = true)
         
@@ -161,10 +162,10 @@ class TransactionDetailsViewModel @Inject constructor(
                     lastUpdateTime = System.currentTimeMillis()
                 )
                 
-                Log.d(TAG, "Transaction marked as duplicate successfully")
+                Timber.tag(TAG).d("Transaction marked as duplicate successfully")
                 
             } catch (e: Exception) {
-                Log.e(TAG, "Error marking transaction as duplicate", e)
+                Timber.tag(TAG).e(e, "Error marking transaction as duplicate")
                 handleTransactionError(e)
             }
         }
@@ -174,7 +175,7 @@ class TransactionDetailsViewModel @Inject constructor(
      * Update transaction category
      */
     private fun updateCategory(newCategory: String) {
-        Log.d(TAG, "[PROCESS] Updating category to: $newCategory")
+        Timber.tag(TAG).d("[PROCESS] Updating category to: $newCategory")
         
         val currentTransaction = _uiState.value.transactionData ?: return
         
@@ -182,7 +183,7 @@ class TransactionDetailsViewModel @Inject constructor(
         
         viewModelScope.launch {
             try {
-                Log.d(TAG, "Step 1: Updating SharedPreferences alias...")
+                Timber.tag(TAG).d("Step 1: Updating SharedPreferences alias...")
                 
                 // STEP 1: Update SharedPreferences (MerchantAliasManager)
                 var aliasUpdateSuccess = true
@@ -192,14 +193,14 @@ class TransactionDetailsViewModel @Inject constructor(
                         currentTransaction.merchant, 
                         newCategory
                     )
-                    Log.d(TAG, "[SUCCESS] SharedPreferences update completed successfully")
+                    Timber.tag(TAG).d("[SUCCESS] SharedPreferences update completed successfully")
                 } catch (e: Exception) {
-                    Log.e(TAG, "[ERROR] SharedPreferences update failed", e)
+                    Timber.tag(TAG).e(e, "[ERROR] SharedPreferences update failed")
                     aliasUpdateSuccess = false
                 }
                 
                 // STEP 2: Update Database
-                Log.d(TAG, "[DATABASE] Step 2: Updating database...")
+                Timber.tag(TAG).d("[DATABASE] Step 2: Updating database...")
                 var databaseUpdateSuccess = false
                 
                 if (aliasUpdateSuccess) {
@@ -211,19 +212,19 @@ class TransactionDetailsViewModel @Inject constructor(
                         )
                         
                         if (databaseUpdateSuccess) {
-                            Log.d(TAG, "[SUCCESS] Database update completed successfully")
+                            Timber.tag(TAG).d("[SUCCESS] Database update completed successfully")
                         } else {
-                            Log.e(TAG, "[ERROR] Database update failed (returned false)")
+                            Timber.tag(TAG).e("[ERROR] Database update failed (returned false)")
                         }
                     } catch (e: Exception) {
-                        Log.e(TAG, "[ERROR] Database update failed with exception", e)
+                        Timber.tag(TAG).e(e, "[ERROR] Database update failed with exception")
                         databaseUpdateSuccess = false
                     }
                 }
                 
                 // STEP 3: Update UI based on results
                 if (aliasUpdateSuccess && databaseUpdateSuccess) {
-                    Log.d(TAG, "[SUCCESS] COMPLETE SUCCESS: Both SharedPreferences and Database updated")
+                    Timber.tag(TAG).d("[SUCCESS] COMPLETE SUCCESS: Both SharedPreferences and Database updated")
                     
                     val categoryColor = merchantAliasManager.getMerchantCategoryColor(newCategory)
                     
@@ -241,10 +242,10 @@ class TransactionDetailsViewModel @Inject constructor(
                         error = null
                     )
                     
-                    Log.d(TAG, "Category updated successfully to: $newCategory")
+                    Timber.tag(TAG).d("Category updated successfully to: $newCategory")
                     
                 } else if (aliasUpdateSuccess && !databaseUpdateSuccess) {
-                    Log.w(TAG, "[WARNING] PARTIAL SUCCESS: SharedPreferences updated but database failed")
+                    Timber.tag(TAG).w("[WARNING] PARTIAL SUCCESS: SharedPreferences updated but database failed")
                     
                     // Still update UI but show warning
                     val categoryColor = merchantAliasManager.getMerchantCategoryColor(newCategory)
@@ -264,12 +265,12 @@ class TransactionDetailsViewModel @Inject constructor(
                     )
                     
                 } else {
-                    Log.e(TAG, "[ERROR] COMPLETE FAILURE: Both updates failed")
+                    Timber.tag(TAG).e("[ERROR] COMPLETE FAILURE: Both updates failed")
                     handleTransactionError(Exception("Failed to update category. Please try again."))
                 }
                 
             } catch (e: Exception) {
-                Log.e(TAG, "Critical error during category update", e)
+                Timber.tag(TAG).e(e, "Critical error during category update")
                 handleTransactionError(e)
             }
         }
@@ -279,7 +280,7 @@ class TransactionDetailsViewModel @Inject constructor(
      * Update merchant name and category
      */
     private fun updateMerchant(newMerchantName: String, newCategory: String) {
-        Log.d(TAG, "[PROCESS] Updating merchant to: $newMerchantName, category: $newCategory")
+        Timber.tag(TAG).d("[PROCESS] Updating merchant to: $newMerchantName, category: $newCategory")
         
         val currentTransaction = _uiState.value.transactionData ?: return
         
@@ -287,7 +288,7 @@ class TransactionDetailsViewModel @Inject constructor(
         
         viewModelScope.launch {
             try {
-                Log.d(TAG, "Step 1: Updating SharedPreferences alias...")
+                Timber.tag(TAG).d("Step 1: Updating SharedPreferences alias...")
                 
                 // STEP 1: Update SharedPreferences (MerchantAliasManager)
                 var aliasUpdateSuccess = true
@@ -297,14 +298,14 @@ class TransactionDetailsViewModel @Inject constructor(
                         newMerchantName, 
                         newCategory
                     )
-                    Log.d(TAG, "[SUCCESS] SharedPreferences update completed successfully")
+                    Timber.tag(TAG).d("[SUCCESS] SharedPreferences update completed successfully")
                 } catch (e: Exception) {
-                    Log.e(TAG, "[ERROR] SharedPreferences update failed", e)
+                    Timber.tag(TAG).e(e, "[ERROR] SharedPreferences update failed")
                     aliasUpdateSuccess = false
                 }
                 
                 // STEP 2: Update Database
-                Log.d(TAG, "[DATABASE] Step 2: Updating database...")
+                Timber.tag(TAG).d("[DATABASE] Step 2: Updating database...")
                 var databaseUpdateSuccess = false
                 
                 if (aliasUpdateSuccess) {
@@ -316,19 +317,19 @@ class TransactionDetailsViewModel @Inject constructor(
                         )
                         
                         if (databaseUpdateSuccess) {
-                            Log.d(TAG, "[SUCCESS] Database update completed successfully")
+                            Timber.tag(TAG).d("[SUCCESS] Database update completed successfully")
                         } else {
-                            Log.e(TAG, "[ERROR] Database update failed (returned false)")
+                            Timber.tag(TAG).e("[ERROR] Database update failed (returned false)")
                         }
                     } catch (e: Exception) {
-                        Log.e(TAG, "[ERROR] Database update failed with exception", e)
+                        Timber.tag(TAG).e(e, "[ERROR] Database update failed with exception")
                         databaseUpdateSuccess = false
                     }
                 }
                 
                 // STEP 3: Update UI based on results
                 if (aliasUpdateSuccess && databaseUpdateSuccess) {
-                    Log.d(TAG, "[SUCCESS] COMPLETE SUCCESS: Both SharedPreferences and Database updated")
+                    Timber.tag(TAG).d("[SUCCESS] COMPLETE SUCCESS: Both SharedPreferences and Database updated")
                     
                     val categoryColor = merchantAliasManager.getMerchantCategoryColor(newCategory)
                     
@@ -347,10 +348,10 @@ class TransactionDetailsViewModel @Inject constructor(
                         error = null
                     )
                     
-                    Log.d(TAG, "Merchant updated successfully to: $newMerchantName")
+                    Timber.tag(TAG).d("Merchant updated successfully to: $newMerchantName")
                     
                 } else if (aliasUpdateSuccess && !databaseUpdateSuccess) {
-                    Log.w(TAG, "[WARNING] PARTIAL SUCCESS: SharedPreferences updated but database failed")
+                    Timber.tag(TAG).w("[WARNING] PARTIAL SUCCESS: SharedPreferences updated but database failed")
                     
                     // Still update UI but show warning
                     val categoryColor = merchantAliasManager.getMerchantCategoryColor(newCategory)
@@ -371,12 +372,12 @@ class TransactionDetailsViewModel @Inject constructor(
                     )
                     
                 } else {
-                    Log.e(TAG, "[ERROR] COMPLETE FAILURE: Both updates failed")
+                    Timber.tag(TAG).e("[ERROR] COMPLETE FAILURE: Both updates failed")
                     handleTransactionError(Exception("Failed to update merchant. Please try again."))
                 }
                 
             } catch (e: Exception) {
-                Log.e(TAG, "Critical error during merchant update", e)
+                Timber.tag(TAG).e(e, "Critical error during merchant update")
                 handleTransactionError(e)
             }
         }
@@ -386,7 +387,7 @@ class TransactionDetailsViewModel @Inject constructor(
      * Create new category and apply it to transaction
      */
     private fun createNewCategory(categoryName: String) {
-        Log.d(TAG, "Creating new category: $categoryName")
+        Timber.tag(TAG).d("Creating new category: $categoryName")
         
         viewModelScope.launch {
             try {
@@ -396,10 +397,10 @@ class TransactionDetailsViewModel @Inject constructor(
                 // Apply the new category to this transaction
                 updateCategory(categoryName)
                 
-                Log.d(TAG, "New category created successfully: $categoryName")
+                Timber.tag(TAG).d("New category created successfully: $categoryName")
                 
             } catch (e: Exception) {
-                Log.e(TAG, "Error creating new category", e)
+                Timber.tag(TAG).e(e, "Error creating new category")
                 handleTransactionError(e)
             }
         }
@@ -423,7 +424,7 @@ class TransactionDetailsViewModel @Inject constructor(
                 )
                 
             } catch (e: Exception) {
-                Log.e(TAG, "Error checking similar transactions", e)
+                Timber.tag(TAG).e(e, "Error checking similar transactions")
                 // Don't show error for this non-critical operation
             }
         }
@@ -450,11 +451,11 @@ class TransactionDetailsViewModel @Inject constructor(
      * Handle navigation back
      */
     private fun handleNavigateBack() {
-        Log.d(TAG, "Handling navigation back")
+        Timber.tag(TAG).d("Handling navigation back")
         
         if (_uiState.value.hasUnsavedChanges) {
             // Fragment should handle showing unsaved changes dialog
-            Log.d(TAG, "Has unsaved changes - fragment should handle confirmation")
+            Timber.tag(TAG).d("Has unsaved changes - fragment should handle confirmation")
         }
     }
     

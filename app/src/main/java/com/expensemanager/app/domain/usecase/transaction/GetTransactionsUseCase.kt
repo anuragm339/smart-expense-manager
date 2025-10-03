@@ -1,6 +1,7 @@
 package com.expensemanager.app.domain.usecase.transaction
 
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.data.entities.TransactionEntity
 import com.expensemanager.app.domain.repository.TransactionRepositoryInterface
 import kotlinx.coroutines.flow.Flow
@@ -52,12 +53,12 @@ class GetTransactionsUseCase @Inject constructor(
      */
     suspend fun getTransactionsByDateRange(startDate: Date, endDate: Date): Result<List<TransactionEntity>> {
         return try {
-            Log.d(TAG, "Getting transactions from ${startDate} to ${endDate}")
+            Timber.tag(TAG).d("Getting transactions from ${startDate} to ${endDate}")
             val transactions = repository.getTransactionsByDateRange(startDate, endDate)
-            Log.d(TAG, "Retrieved ${transactions.size} transactions")
+            Timber.tag(TAG).d("Retrieved ${transactions.size} transactions")
             Result.success(transactions)
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting transactions by date range", e)
+            Timber.tag(TAG).e(e, "Error getting transactions by date range")
             Result.failure(e)
         }
     }
@@ -67,12 +68,12 @@ class GetTransactionsUseCase @Inject constructor(
      */
     suspend fun getTransactionsByMerchant(merchantName: String): Result<List<TransactionEntity>> {
         return try {
-            Log.d(TAG, "Getting transactions for merchant: $merchantName")
+            Timber.tag(TAG).d("Getting transactions for merchant: $merchantName")
             val transactions = repository.getTransactionsByMerchant(merchantName)
-            Log.d(TAG, "Retrieved ${transactions.size} transactions for merchant")
+            Timber.tag(TAG).d("Retrieved ${transactions.size} transactions for merchant")
             Result.success(transactions)
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting transactions by merchant", e)
+            Timber.tag(TAG).e(e, "Error getting transactions by merchant")
             Result.failure(e)
         }
     }
@@ -85,7 +86,7 @@ class GetTransactionsUseCase @Inject constructor(
             val transactions = repository.searchTransactions(query, limit)
             Result.success(transactions)
         } catch (e: Exception) {
-            Log.e(TAG, "Error searching transactions", e)
+            Timber.tag(TAG).e(e, "Error searching transactions")
             Result.failure(e)
         }
     }
@@ -138,7 +139,7 @@ class GetTransactionsUseCase @Inject constructor(
      * Process transactions with business logic
      */
     private fun processTransactions(transactions: List<TransactionEntity>, params: GetTransactionsParams): List<TransactionEntity> {
-        Log.d(TAG, "Processing ${transactions.size} transactions with params: $params")
+        Timber.tag(TAG).d("Processing ${transactions.size} transactions with params: $params")
         
         return transactions
             .let { list ->
@@ -207,7 +208,7 @@ class GetTransactionsUseCase @Inject constructor(
                 }
             }
             .also { processedList ->
-                Log.d(TAG, "Processed transactions: ${processedList.size} after filtering and sorting")
+                Timber.tag(TAG).d("Processed transactions: ${processedList.size} after filtering and sorting")
             }
     }
 }

@@ -4,7 +4,8 @@ import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 
 /**
  * Base ViewModel class that eliminates ~150 lines of duplicated state management logic
@@ -31,7 +32,7 @@ abstract class BaseViewModel<T : BaseUIState>(
      */
     @Suppress("UNCHECKED_CAST")
     protected fun setError(error: String?, hasError: Boolean = true) {
-        Log.e(tag, "ViewModel error: $error")
+        Timber.tag(tag).e("ViewModel error: $error")
         _uiState.value = _uiState.value.copyWithError(error, hasError) as T
     }
 
@@ -71,7 +72,7 @@ abstract class BaseViewModel<T : BaseUIState>(
             if (showLoading) setLoading(false)
             
         } catch (e: Exception) {
-            Log.e(tag, "Operation failed", e)
+            Timber.tag(tag).e(e, "Operation failed")
             if (showLoading) setLoading(false)
             onError(e)
         }

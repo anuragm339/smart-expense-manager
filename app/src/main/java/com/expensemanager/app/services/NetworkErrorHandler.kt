@@ -5,7 +5,8 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -173,19 +174,19 @@ class NetworkErrorHandler @Inject constructor(
 
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
-                Log.d(TAG, "Network available")
+                Timber.tag(TAG).d("Network available")
                 trySend(true)
             }
 
             override fun onLost(network: Network) {
-                Log.d(TAG, "Network lost")
+                Timber.tag(TAG).d("Network lost")
                 trySend(false)
             }
 
             override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) {
                 val hasInternet = networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
                         networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
-                Log.d(TAG, "Network capabilities changed - hasInternet: $hasInternet")
+                Timber.tag(TAG).d("Network capabilities changed - hasInternet: $hasInternet")
                 trySend(hasInternet)
             }
         }
@@ -225,15 +226,15 @@ class NetworkErrorHandler @Inject constructor(
     fun logError(error: NetworkError, throwable: Throwable, context: String) {
         when (error) {
             is NetworkError.NoInternet,
-            is NetworkError.Timeout -> Log.w(TAG, "$context: ${error.message}", throwable)
+            is NetworkError.Timeout -> Timber.tag(TAG).w("$context: ${error.message}", throwable)
 
             is NetworkError.ServerError,
-            is NetworkError.RateLimited -> Log.e(TAG, "$context: ${error.message}", throwable)
+            is NetworkError.RateLimited -> Timber.tag(TAG).e(throwable, "$context: ${error.message}")
 
             is NetworkError.ClientError,
-            is NetworkError.Generic -> Log.e(TAG, "$context: ${error.message}", throwable)
+            is NetworkError.Generic -> Timber.tag(TAG).e(throwable, "$context: ${error.message}")
 
-            is NetworkError.UnknownHost -> Log.w(TAG, "$context: ${error.message}", throwable)
+            is NetworkError.UnknownHost -> Timber.tag(TAG).w("$context: ${error.message}", throwable)
         }
     }
 }

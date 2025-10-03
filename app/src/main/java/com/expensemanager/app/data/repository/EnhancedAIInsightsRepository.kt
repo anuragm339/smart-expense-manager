@@ -4,7 +4,8 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.data.api.insights.*
 import com.expensemanager.app.data.dao.AICallDao
 import com.expensemanager.app.data.models.*
@@ -80,14 +81,14 @@ class EnhancedAIInsightsRepository @Inject constructor(
                         source = "cache"
                     )
                 ))
-                Log.d(TAG, "Emitted cached insights: ${cachedInsights.size}")
+                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d( "Emitted cached insights: ${cachedInsights.size}")
             }
 
             // Evaluate if we should call AI
             val shouldCallAI = forceRefresh || thresholdService.shouldCallAI()
 
             if (shouldCallAI && errorHandler.isNetworkAvailable()) {
-                Log.d(TAG, "Triggering AI call (forceRefresh: $forceRefresh)")
+                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d( "Triggering AI call (forceRefresh: $forceRefresh)")
 
                 // Emit loading state if no cached insights
                 if (cachedInsights.isEmpty()) {
@@ -114,7 +115,7 @@ class EnhancedAIInsightsRepository @Inject constructor(
                         )
                     ))
 
-                    Log.d(TAG, "Successfully fetched fresh insights: ${freshInsights.size}")
+                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).d( "Successfully fetched fresh insights: ${freshInsights.size}")
 
                 } catch (e: Exception) {
                     val networkError = errorHandler.analyzeError(e)
@@ -123,51 +124,42 @@ class EnhancedAIInsightsRepository @Inject constructor(
                     // Record error for threshold management
                     thresholdService.recordError()
 
-                    // Determine fallback strategy
-                    val fallbackInsights = generateIntelligentFallback(networkError)
-
+                    // No fallback - return error with empty data
                     emit(Result.success(
                         InsightsResult.Error(
                             message = errorHandler.getUserFriendlyMessage(networkError),
-                            cachedInsights = fallbackInsights,
+                            cachedInsights = emptyList(),
                             lastUpdated = getCacheTimestamp()
                         )
                     ))
                 }
             } else if (!errorHandler.isNetworkAvailable()) {
-                // Offline mode
-                Log.d(TAG, "Offline mode - using enhanced offline insights")
+                // Offline mode - no fallback
+                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d( "Offline mode - no internet connection")
 
-                if (cachedInsights.isEmpty()) {
-                    val offlineInsights = generateOfflineFallbackInsights()
-                    emit(Result.success(
-                        InsightsResult.Error(
-                            message = "No internet connection. Showing offline analysis.",
-                            cachedInsights = offlineInsights,
-                            lastUpdated = getCacheTimestamp()
-                        )
-                    ))
-                }
+                emit(Result.success(
+                    InsightsResult.Error(
+                        message = "No internet connection. Please check your network and try again.",
+                        cachedInsights = emptyList(),
+                        lastUpdated = getCacheTimestamp()
+                    )
+                ))
 
             } else {
-                // Threshold not met, using cached data
-                Log.d(TAG, "Threshold not met - using cached insights")
+                // Threshold not met - no data shown
+                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d( "Threshold not met - waiting for conditions")
 
-                if (cachedInsights.isEmpty()) {
-                    val basicInsights = generateBasicInsights()
-                    emit(Result.success(
-                        InsightsResult.Success(
-                            insights = basicInsights,
-                            isCached = false,
-                            lastUpdated = System.currentTimeMillis(),
-                            source = "enhanced_offline"
-                        )
-                    ))
-                }
+                emit(Result.success(
+                    InsightsResult.Error(
+                        message = "Waiting for more data to generate insights.",
+                        cachedInsights = emptyList(),
+                        lastUpdated = getCacheTimestamp()
+                    )
+                ))
             }
 
         } catch (e: Exception) {
-            Log.e(TAG, "Error in getInsights", e)
+            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "Error in getInsights")
             emit(Result.failure(e))
         }
     }.flowOn(Dispatchers.IO)
@@ -213,8 +205,44 @@ class EnhancedAIInsightsRepository @Inject constructor(
     }
 
     /**
-     * Clear cache and reset thresholds
+     * Force refresh insights from backend (bypass thresholds)
      */
+    suspend fun refreshInsights(): Result<List<AIInsight>> = withContext(Dispatchers.IO) {
+        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Force refresh requested - bypassing thresholds")
+
+        // Clear cache before fetching fresh data to ensure we don't use stale data
+        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("🗑️ Clearing cache before fresh API call")
+        prefs.edit()
+            .remove(CACHED_INSIGHTS_KEY)
+            .remove(CACHE_TIMESTAMP_KEY)
+            .remove(OFFLINE_INSIGHTS_KEY)
+            .apply()
+
+        return@withContext try {
+            val freshInsights = fetchInsightsFromBackendWithRetry()
+
+            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("📥 Received ${freshInsights.size} fresh insights from API")
+            freshInsights.forEachIndexed { index, insight ->
+                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("  API Insight #${index + 1}: id=${insight.id}, type=${insight.type}, impact=₹${insight.impactAmount}")
+            }
+
+            // Cache the fresh insights
+            cacheInsights(freshInsights)
+
+            // Update threshold tracking
+            val currentTransactionEntities = expenseRepository.getAllTransactions().first()
+            val currentTransactions = Transaction.fromEntities(currentTransactionEntities)
+            thresholdService.updateAfterSuccessfulCall(currentTransactions)
+
+            Result.success(freshInsights)
+        } catch (e: Exception) {
+            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "Force refresh failed")
+
+            // No fallback - return failure
+            Result.failure(e)
+        }
+    }
+
     suspend fun clearCache() = withContext(Dispatchers.IO) {
         prefs.edit()
             .remove(CACHED_INSIGHTS_KEY)
@@ -223,7 +251,7 @@ class EnhancedAIInsightsRepository @Inject constructor(
             .apply()
 
         aiCallDao.clearAllTracking()
-        Log.d(TAG, "Cache and tracking cleared")
+        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d( "Cache and tracking cleared")
     }
 
     // Private methods
@@ -332,7 +360,7 @@ class EnhancedAIInsightsRepository @Inject constructor(
             throw Exception("No insights returned from backend")
         }
 
-        Log.d(TAG, "Successfully fetched ${insights.size} insights from backend")
+        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d( "Successfully fetched ${insights.size} insights from backend")
         return insights
     }
 
@@ -348,9 +376,9 @@ class EnhancedAIInsightsRepository @Inject constructor(
                 .putInt(CACHE_VERSION_KEY, CURRENT_CACHE_VERSION)
                 .apply()
 
-            Log.d(TAG, "Cached ${insights.size} insights")
+            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d( "Cached ${insights.size} insights")
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to cache insights", e)
+            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "Failed to cache insights")
         }
     }
 
@@ -370,7 +398,7 @@ class EnhancedAIInsightsRepository @Inject constructor(
             val type = object : TypeToken<List<AIInsight>>() {}.type
             gson.fromJson(json, type) ?: emptyList()
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to load cached insights", e)
+            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "Failed to load cached insights")
             emptyList()
         }
     }
@@ -391,7 +419,7 @@ class EnhancedAIInsightsRepository @Inject constructor(
             val transactions = Transaction.fromEntities(transactionEntities)
             enhancedOfflineGenerator.generateAdvancedInsights(transactions)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to generate enhanced offline insights", e)
+            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "Failed to generate enhanced offline insights")
             listOf(
                 AIInsight(
                     id = UUID.randomUUID().toString(),
@@ -413,7 +441,7 @@ class EnhancedAIInsightsRepository @Inject constructor(
             // Try to get cached offline insights first
             val cachedOffline = getOfflineFallbackInsights()
             if (cachedOffline.isNotEmpty()) {
-                Log.d(TAG, "Using cached offline insights")
+                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d( "Using cached offline insights")
                 return cachedOffline
             }
 
@@ -427,7 +455,7 @@ class EnhancedAIInsightsRepository @Inject constructor(
 
             offlineInsights
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to generate offline fallback insights", e)
+            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "Failed to generate offline fallback insights")
             SampleInsights.getAllSample()
         }
     }
@@ -441,9 +469,9 @@ class EnhancedAIInsightsRepository @Inject constructor(
             prefs.edit()
                 .putString(OFFLINE_INSIGHTS_KEY, json)
                 .apply()
-            Log.d(TAG, "Cached ${insights.size} offline insights")
+            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d( "Cached ${insights.size} offline insights")
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to cache offline insights", e)
+            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "Failed to cache offline insights")
         }
     }
 
@@ -456,7 +484,7 @@ class EnhancedAIInsightsRepository @Inject constructor(
             val type = object : TypeToken<List<AIInsight>>() {}.type
             gson.fromJson(json, type) ?: emptyList()
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to load offline fallback insights", e)
+            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "Failed to load offline fallback insights")
             emptyList()
         }
     }

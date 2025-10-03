@@ -2,7 +2,8 @@ package com.expensemanager.app.ui.profile
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -87,7 +88,7 @@ class BudgetGoalsViewModel @Inject constructor(
                 }
                 
             } catch (e: Exception) {
-                Log.e(TAG, "Error loading budget data", e)
+                Timber.tag(TAG).e(e, "Error loading budget data")
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     error = "Error loading budget data: ${e.message}"
@@ -140,7 +141,7 @@ class BudgetGoalsViewModel @Inject constructor(
                     )
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error parsing category budgets", e)
+                Timber.tag(TAG).e(e, "Error parsing category budgets")
                 loadDefaultCategoryBudgetsWithRealSpending(categoryBudgets, categorySpendingMap)
             }
         } else {
