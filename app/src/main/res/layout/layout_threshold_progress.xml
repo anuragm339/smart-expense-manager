@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="4dp"
+    app:cardElevation="1dp"
+    app:cardCornerRadius="8dp"
+    app:cardBackgroundColor="@color/surface">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <!-- Header -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="AI Insights Status"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_primary" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_refresh_now"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Refresh"
+                android:textSize="10sp"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="6dp"
+                style="@style/Widget.Material3.Button.TextButton"
+                app:cornerRadius="16dp" />
+
+        </LinearLayout>
+
+        <!-- Status Text -->
+        <TextView
+            android:id="@+id/tv_threshold_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Insights are up to date"
+            android:textSize="12sp"
+            android:textColor="@color/text_secondary"
+            android:layout_marginBottom="8dp" />
+
+        <!-- Progress Bar with Label -->
+        <LinearLayout
+            android:id="@+id/layout_progress"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:visibility="gone">
+
+            <ProgressBar
+                android:id="@+id/progress_threshold"
+                android:layout_width="0dp"
+                android:layout_height="4dp"
+                android:layout_weight="1"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:progress="65"
+                android:max="100"
+                android:progressTint="@color/primary"
+                android:progressBackgroundTint="@color/surface_variant" />
+
+            <TextView
+                android:id="@+id/tv_progress_percentage"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="65%"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_secondary" />
+
+        </LinearLayout>
+
+        <!-- Detailed Status Info -->
+        <LinearLayout
+            android:id="@+id/layout_threshold_details"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="4dp"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/tv_transactions_needed"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Need 3 more transactions"
+                android:textSize="10sp"
+                android:textColor="@color/text_hint" />
+
+            <TextView
+                android:id="@+id/tv_amount_needed"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="or ₹500 more"
+                android:textSize="10sp"
+                android:textColor="@color/text_hint" />
+
+        </LinearLayout>
+
+        <!-- Cost Awareness -->
+        <LinearLayout
+            android:id="@+id/layout_cost_info"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginTop="4dp"
+            android:visibility="gone">
+
+            <View
+                android:layout_width="4dp"
+                android:layout_height="4dp"
+                android:background="@drawable/circle_shape"
+                android:backgroundTint="@color/success"
+                android:layout_marginEnd="6dp" />
+
+            <TextView
+                android:id="@+id/tv_cost_savings"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Saving ~₹0.50 by using cached insights"
+                android:textSize="9sp"
+                android:textColor="@color/success" />
+
+        </LinearLayout>
+
+        <!-- Last Updated Info -->
+        <TextView
+            android:id="@+id/tv_last_updated"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Last updated: 2 hours ago"
+            android:textSize="9sp"
+            android:textColor="@color/text_hint"
+            android:layout_marginTop="4dp" />
+
+    </LinearLayout>
+
+</com.google.android.material.card.MaterialCardView>

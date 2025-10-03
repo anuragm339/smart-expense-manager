@@ -73,4 +73,15 @@ object DatabaseModule {
     ): SyncStateDao {
         return database.syncStateDao()
     }
+
+    /**
+     * Provides AICallDao for AI call tracking and threshold management
+     */
+    @Provides
+    @Singleton
+    fun provideAICallDao(
+        database: ExpenseDatabase
+    ): AICallDao {
+        return database.aiCallDao()
+    }
 }

@@ -1,6 +1,7 @@
 package com.expensemanager.app.data.models
 
 import com.expensemanager.app.models.ParsedTransaction
+import com.expensemanager.app.data.entities.TransactionEntity
 import java.util.Date
 
 data class Transaction(
@@ -54,6 +55,32 @@ data class Transaction(
             // Generate a unique ID based on transaction data
             val content = "${parsedTransaction.amount}_${parsedTransaction.merchant}_${parsedTransaction.date.time}_${parsedTransaction.bankName}"
             return content.hashCode().toString()
+        }
+
+        /**
+         * Convert TransactionEntity to Transaction domain model
+         */
+        fun fromEntity(entity: TransactionEntity): Transaction {
+            return Transaction(
+                id = entity.id.toString(),
+                amount = entity.amount,
+                merchant = entity.normalizedMerchant,
+                category = "General", // Default category since not available in entity
+                date = entity.transactionDate.time,
+                rawSMS = entity.rawSmsBody,
+                confidence = entity.confidenceScore,
+                bankName = entity.bankName,
+                transactionType = if (entity.isDebit) TransactionType.DEBIT else TransactionType.CREDIT,
+                isProcessed = true,
+                createdAt = entity.createdAt.time
+            )
+        }
+
+        /**
+         * Convert list of TransactionEntity to Transaction domain models
+         */
+        fun fromEntities(entities: List<TransactionEntity>): List<Transaction> {
+            return entities.map { fromEntity(it) }
         }
     }
 }

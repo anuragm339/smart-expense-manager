@@ -90,7 +90,8 @@ private fun CategorySpendingResult.toCategorySpending(): CategorySpending {
         categoryName = this.category_name,
         totalAmount = this.total_amount,
         transactionCount = this.transaction_count,
-        percentage = 0.0 // Will be calculated on backend
+        percentage = 0.0, // Will be calculated on backend
+        averagePerTransaction = if (this.transaction_count > 0) this.total_amount / this.transaction_count else 0.0
     )
 }
 
@@ -98,7 +99,9 @@ private fun MerchantSpending.toMerchantSpending(): com.expensemanager.app.data.a
     return com.expensemanager.app.data.api.insights.MerchantSpending(
         merchantName = this.normalized_merchant,
         totalAmount = this.total_amount,
-        transactionCount = this.transaction_count
+        transactionCount = this.transaction_count,
+        categoryName = "General", // Default category since not available in source
+        averageAmount = if (this.transaction_count > 0) this.total_amount / this.transaction_count else 0.0
     )
 }
 
@@ -107,7 +110,8 @@ private fun MonthlySummary.toMonthlyTrend(): MonthlyTrend {
         month = this.month,
         totalAmount = this.totalAmount,
         transactionCount = this.transactionCount,
-        averagePerTransaction = this.averagePerTransaction
+        averagePerTransaction = this.averagePerTransaction,
+        comparedToPrevious = 0.0 // TODO: Calculate compared to previous month
     )
 }
 

@@ -24,7 +24,8 @@ enum class InsightType {
     SAVINGS_OPPORTUNITY,
     ANOMALY_DETECTION,
     MERCHANT_RECOMMENDATION,
-    CATEGORY_ANALYSIS
+    CATEGORY_ANALYSIS,
+    OPTIMIZATION_TIP
 }
 
 enum class InsightPriority {

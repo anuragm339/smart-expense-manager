@@ -19,9 +19,10 @@ import com.expensemanager.app.data.dao.*
         MerchantAliasEntity::class,
         SyncStateEntity::class,
         BudgetEntity::class,
-        CategorySpendingCacheEntity::class
+        CategorySpendingCacheEntity::class,
+        com.expensemanager.app.data.models.AICallTracker::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 @TypeConverters(DateConverter::class)
@@ -31,6 +32,7 @@ abstract class ExpenseDatabase : RoomDatabase() {
     abstract fun categoryDao(): CategoryDao
     abstract fun merchantDao(): MerchantDao
     abstract fun syncStateDao(): SyncStateDao
+    abstract fun aiCallDao(): AICallDao
     
     companion object {
         @Volatile
@@ -44,7 +46,7 @@ abstract class ExpenseDatabase : RoomDatabase() {
                     "expense_database"
                 )
                 .addCallback(DatabaseCallback())
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build()
                 INSTANCE = instance
                 instance
@@ -57,6 +59,30 @@ abstract class ExpenseDatabase : RoomDatabase() {
                 database.execSQL(
                     "ALTER TABLE merchants ADD COLUMN is_excluded_from_expense_tracking INTEGER NOT NULL DEFAULT 0"
                 )
+            }
+        }
+
+        // Migration from version 2 to 3: Add AI call tracking table
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // Drop existing table if it exists (for development)
+                database.execSQL("DROP TABLE IF EXISTS `ai_call_tracking`")
+
+                // Create new table with correct schema
+                database.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `ai_call_tracking` (
+                        `id` TEXT NOT NULL PRIMARY KEY,
+                        `lastCallTimestamp` INTEGER NOT NULL,
+                        `transactionCountAtLastCall` INTEGER NOT NULL,
+                        `totalAmountAtLastCall` REAL NOT NULL,
+                        `categoriesSnapshot` TEXT NOT NULL,
+                        `nextEligibleCallTime` INTEGER NOT NULL,
+                        `callFrequency` TEXT NOT NULL,
+                        `totalApiCalls` INTEGER NOT NULL,
+                        `lastErrorTimestamp` INTEGER NOT NULL,
+                        `consecutiveErrors` INTEGER NOT NULL
+                    )
+                """)
             }
         }
     }
