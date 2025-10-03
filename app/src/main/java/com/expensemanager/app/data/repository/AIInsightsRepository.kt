@@ -233,7 +233,7 @@ class AIInsightsRepository @Inject constructor(
             if (response.isSuccessful) {
                 val apiResponse = response.body()
                 if (apiResponse != null) {
-                    val insights = DirectApiMapper.mapToAIInsights(apiResponse)
+                    val insights = InsightsDataMapper.mapToDomainInsights(apiResponse)
                     Log.d(TAG, "API call successful: ${insights.size} insights received")
                     Log.d(TAG, "Insights: ${insights.map { "${it.type}: ${it.title}" }}")
 

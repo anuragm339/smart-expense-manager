@@ -3,6 +3,7 @@ package com.expensemanager.app.data.api.insights
 import com.expensemanager.app.data.models.InsightType
 import com.expensemanager.app.data.models.InsightPriority
 import com.google.gson.annotations.SerializedName
+import com.google.gson.annotations.JsonAdapter
 
 /**
  * Request model for AI Insights API with conversation history and CSV data
@@ -253,18 +254,20 @@ data class DataPoint(
 )
 
 /**
- * Response metadata
+ * Response metadata with flexible timestamp handling
+ * Supports both Unix timestamp (Long) and ISO-8601 string from o1-mini
  */
 data class ResponseMetadata(
     @SerializedName("generated_at")
+    @JsonAdapter(FlexibleTimestampAdapter::class)  // Handles both number and ISO-8601 string
     val generatedAt: Long, // Unix timestamp
-    
+
     @SerializedName("model_version")
     val modelVersion: String,
-    
+
     @SerializedName("processing_time_ms")
     val processingTimeMs: Long,
-    
+
     @SerializedName("total_insights")
     val totalInsights: Int
 )

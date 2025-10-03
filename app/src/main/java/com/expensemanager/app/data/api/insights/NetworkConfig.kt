@@ -21,9 +21,9 @@ object NetworkConfig {
     // For local development: "http://10.0.2.2:3000/" (Android emulator)
     // For production: "https://your-backend-service.herokuapp.com/"
     
-    // Network timeouts
+    // Network timeouts (increased for o1-mini model - takes 2-5 minutes)
     private const val CONNECT_TIMEOUT = 30L
-    private const val READ_TIMEOUT = 60L
+    private const val READ_TIMEOUT = 360L  // 6 minutes for o1-mini reasoning model
     private const val WRITE_TIMEOUT = 60L
     
     private const val TAG = "NetworkConfig"

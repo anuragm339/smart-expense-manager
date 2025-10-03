@@ -10,7 +10,8 @@ import javax.inject.Singleton
 
 /**
  * Service for generating CSV from transaction data for AI analysis
- * Includes enriched fields like day-of-week and time-of-day for pattern detection
+ * OPTIMIZED for o1-mini model: 50 most recent transactions, 6 columns
+ * AI extracts day-of-week and time-of-day patterns from Date timestamp
  */
 @Singleton
 class TransactionCSVGenerator @Inject constructor(
@@ -19,7 +20,7 @@ class TransactionCSVGenerator @Inject constructor(
 
     companion object {
         private const val TAG = "TransactionCSVGenerator"
-        private const val MAX_TRANSACTIONS = 500
+        private const val MAX_TRANSACTIONS = 50 // Optimized for o1-mini: reduced from 200 to save 75% tokens
         private val DATE_FORMAT = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
     }
 
@@ -31,10 +32,10 @@ class TransactionCSVGenerator @Inject constructor(
     suspend fun generateCSV(transactions: List<TransactionEntity>): String {
         val csvBuilder = StringBuilder()
 
-        // CSV Header
-        csvBuilder.appendLine("Date,Amount,Merchant,Category,Type,Bank,DayOfWeek,TimeOfDay")
+        // CSV Header (optimized: removed DayOfWeek/TimeOfDay - AI extracts from Date timestamp)
+        csvBuilder.appendLine("Date,Amount,Merchant,Category,Type,Bank")
 
-        // Filter to only debit transactions (expenses), sort newest first, limit to 500
+        // Filter to only debit transactions (expenses), sort newest first, limit to 50
         val selectedTransactions = transactions
             .filter { it.isDebit }
             .sortedByDescending { it.transactionDate }
@@ -42,7 +43,7 @@ class TransactionCSVGenerator @Inject constructor(
 
         Timber.tag(TAG).d("Generating CSV for ${selectedTransactions.size} transactions")
 
-        // Generate CSV rows
+        // Generate CSV rows (optimized: removed day/time columns - AI extracts from timestamp)
         selectedTransactions.forEach { transaction ->
             val date = DATE_FORMAT.format(transaction.transactionDate)
             val amount = String.format(Locale.US, "%.2f", transaction.amount)
@@ -50,10 +51,8 @@ class TransactionCSVGenerator @Inject constructor(
             val category = getCategory(transaction.normalizedMerchant)
             val type = if (transaction.isDebit) "Debit" else "Credit"
             val bank = escapeCsvValue(transaction.bankName)
-            val dayOfWeek = getDayOfWeek(transaction.transactionDate)
-            val timeOfDay = getTimeOfDay(transaction.transactionDate)
 
-            csvBuilder.appendLine("$date,$amount,$merchant,$category,$type,$bank,$dayOfWeek,$timeOfDay")
+            csvBuilder.appendLine("$date,$amount,$merchant,$category,$type,$bank")
         }
 
         val csv = csvBuilder.toString()
