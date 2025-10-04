@@ -303,64 +303,73 @@ class DataMigrationManager @Inject constructor(
     
     private suspend fun performInitialSMSImport() {
         Timber.tag(TAG).d("[PROCESS] Performing initial SMS import...")
-        
+
         if (isInitialSMSImportCompleted()) {
             Timber.tag(TAG).d("[SUCCESS] Initial SMS import already completed, skipping...")
             return
         }
-        
+
+        // 🔧 BUG FIX #1: Check SMS permission BEFORE attempting import
+        if (!hasSMSPermission()) {
+            Timber.tag(TAG).w("⏸️ [BUG_FIX] SMS permission not granted yet - skipping initial import")
+            Timber.tag(TAG).w("⏸️ [BUG_FIX] Import will be triggered when user grants permission in MainActivity")
+            Timber.tag(TAG).w("⏸️ [BUG_FIX] NOT marking as completed - allowing retry after permission grant")
+            return  // Exit WITHOUT marking as completed - allow retry later
+        }
+
         try {
             // ENHANCED LOGGING: Track SMS import process in detail
-            Timber.tag(TAG).i(" [SMS] Starting fresh install SMS import through repository...")
+            Timber.tag(TAG).i("✅ [SMS] SMS permission granted - starting fresh install SMS import...")
             val startTime = System.currentTimeMillis()
-            
-            // First, check if we have SMS permissions by testing a simple query
-            Timber.tag(TAG).d("[PERMISSION] Testing SMS permissions before full import...")
-            
+
             val importedCount = transactionRepository.syncNewSMS()
-            
+
             val endTime = System.currentTimeMillis()
             val durationSeconds = (endTime - startTime) / 1000
-            
-            Timber.tag(TAG).i(" [SUCCESS] Initial SMS import completed in ${durationSeconds}s. Imported $importedCount new transactions")
-            
+
+            Timber.tag(TAG).i("✅ [SUCCESS] Initial SMS import completed in ${durationSeconds}s. Imported $importedCount new transactions")
+
             // Verify that transactions were actually inserted
             val totalTransactions = transactionRepository.getTransactionCount()
-            Timber.tag(TAG).i(" [ANALYTICS] Total transactions in database after import: $totalTransactions")
-            
+            Timber.tag(TAG).i("📊 [ANALYTICS] Total transactions in database after import: $totalTransactions")
+
             if (importedCount > 0) {
                 Timber.tag(TAG).i("🎉 [FRESH_INSTALL] SMS import successful - Dashboard should now show data!")
             } else {
-                Timber.tag(TAG).w(" [FRESH_INSTALL] No new SMS transactions imported")
-                Timber.tag(TAG).w(" [DIAGNOSIS] This could mean:")
+                Timber.tag(TAG).w("⚠️ [FRESH_INSTALL] No new SMS transactions imported")
+                Timber.tag(TAG).w("📋 [DIAGNOSIS] This could mean:")
                 Timber.tag(TAG).w("   1. No bank SMS messages exist in the device")
                 Timber.tag(TAG).w("   2. SMS messages don't match parsing patterns")
                 Timber.tag(TAG).w("   3. All SMS messages were already processed")
-                Timber.tag(TAG).w("   4. SMS permission is denied at runtime")
             }
-            
-            if (importedCount > 0 || totalTransactions > 0) {
-                // Mark initial import as completed
-                prefs.edit().putBoolean(KEY_INITIAL_SMS_IMPORT_COMPLETED, true).apply()
-                Timber.tag(TAG).d("[SUCCESS] Migration state updated - SMS import marked as completed")
-            } else {
-                Timber.tag(TAG).w("[WARNING] No transactions imported, marking as completed anyway to prevent retry loops")
-                // Mark as completed to prevent repeated attempts in empty SMS scenarios
-                prefs.edit().putBoolean(KEY_INITIAL_SMS_IMPORT_COMPLETED, true).apply()
-            }
-            
-        } catch (e: SecurityException) {
-            Timber.tag(TAG).w("[SECURE] SMS permission not granted during import: ${e.message}")
-            Timber.tag(TAG).w("[SECURE] Migration will complete without SMS data - user can manually trigger sync later")
-            // Still mark as completed to avoid repeated attempts
+
+            // Mark initial import as completed (only if we successfully attempted with permission)
             prefs.edit().putBoolean(KEY_INITIAL_SMS_IMPORT_COMPLETED, true).apply()
+            Timber.tag(TAG).d("✅ [SUCCESS] Migration state updated - SMS import marked as completed")
+
+        } catch (e: SecurityException) {
+            // This should NOT happen anymore since we check permission above
+            Timber.tag(TAG).e(e, "❌ [ERROR] SecurityException during SMS import (unexpected - permission was granted)")
+            Timber.tag(TAG).e("❌ [ERROR] NOT marking as completed - allowing retry")
+            // Do NOT mark as completed - allow retry
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "[ERROR] Initial SMS import failed unexpectedly")
-            Timber.tag(TAG).e("[ERROR] Error type: ${e::class.java.simpleName}")
-            Timber.tag(TAG).e("[ERROR] Error message: ${e.message}")
+            Timber.tag(TAG).e(e, "❌ [ERROR] Initial SMS import failed unexpectedly")
+            Timber.tag(TAG).e("❌ [ERROR] Error type: ${e::class.java.simpleName}")
+            Timber.tag(TAG).e("❌ [ERROR] Error message: ${e.message}")
             // Don't mark as completed for unexpected errors - allow retry
             throw e
         }
+    }
+
+    /**
+     * 🔧 BUG FIX #1: Check if app has SMS permission
+     */
+    private fun hasSMSPermission(): Boolean {
+        return android.content.pm.PackageManager.PERMISSION_GRANTED ==
+            androidx.core.content.ContextCompat.checkSelfPermission(
+                context,
+                android.Manifest.permission.READ_SMS
+            )
     }
     
     private fun getCategoryEmoji(categoryName: String): String {
@@ -413,6 +422,27 @@ class DataMigrationManager @Inject constructor(
         prefs.edit().putBoolean(KEY_LEGACY_TRANSACTION_MIGRATION_COMPLETED, true).apply()
     }
     
+    /**
+     * 🔧 BUG FIX #1: Retry initial SMS import after permission is granted
+     * Called from MainActivity when user grants SMS permission
+     */
+    suspend fun retryInitialSMSImportIfNeeded() {
+        Timber.tag(TAG).d("🔄 [BUG_FIX] Checking if SMS import retry is needed...")
+
+        if (isInitialSMSImportCompleted()) {
+            Timber.tag(TAG).d("✅ [BUG_FIX] SMS import already completed - no retry needed")
+            return
+        }
+
+        if (!hasSMSPermission()) {
+            Timber.tag(TAG).w("⚠️ [BUG_FIX] SMS permission still not granted - cannot retry")
+            return
+        }
+
+        Timber.tag(TAG).i("🔄 [BUG_FIX] Permission granted - retrying initial SMS import...")
+        performInitialSMSImport()
+    }
+
     /**
      * Force re-run migration (for debugging/testing)
      */

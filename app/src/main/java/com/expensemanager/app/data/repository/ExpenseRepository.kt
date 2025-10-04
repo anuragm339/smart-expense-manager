@@ -79,7 +79,15 @@ class ExpenseRepository @Inject constructor(
     override suspend fun getTransactionsByDateRange(startDate: Date, endDate: Date): List<TransactionEntity> {
         return transactionDao.getTransactionsByDateRange(startDate, endDate)
     }
-    
+
+    suspend fun getTransactionsByDateRangePaginated(startDate: Date, endDate: Date, limit: Int, offset: Int): List<TransactionEntity> {
+        return transactionDao.getTransactionsByDateRangePaginated(startDate, endDate, limit, offset)
+    }
+
+    suspend fun getTransactionCountByDateRange(startDate: Date, endDate: Date): Int {
+        return transactionDao.getTransactionCountByDateRange(startDate, endDate)
+    }
+
     // New method for expense-specific transactions (debit only)
     suspend fun getExpenseTransactionsByDateRange(startDate: Date, endDate: Date): List<TransactionEntity> {
         return transactionDao.getExpenseTransactionsByDateRange(startDate, endDate)
@@ -145,9 +153,13 @@ class ExpenseRepository @Inject constructor(
     }
     
     override suspend fun getTopMerchants(startDate: Date, endDate: Date, limit: Int): List<MerchantSpending> {
+        Timber.tag(LogConfig.FeatureTags.DATABASE).d("[TOP_MERCHANTS_QUERY] Calling DAO with dates: %s to %s, limit: %d", startDate, endDate, limit * 2)
         val allMerchantsWithCategory = transactionDao.getTopMerchantsBySpending(startDate, endDate, limit * 2) // Get more to account for filtering
+        Timber.tag(LogConfig.FeatureTags.DATABASE).d("[TOP_MERCHANTS_QUERY] DAO returned %d merchants before filtering", allMerchantsWithCategory.size)
+
         val filteredMerchantsWithCategory = filterMerchantsByExclusionsWithCategory(allMerchantsWithCategory)
-        
+        Timber.tag(LogConfig.FeatureTags.DATABASE).d("[TOP_MERCHANTS_QUERY] After filtering: %d merchants", filteredMerchantsWithCategory.size)
+
         // Convert to old MerchantSpending format for backward compatibility
         return filteredMerchantsWithCategory.take(limit).map { merchantWithCategory ->
             com.expensemanager.app.data.dao.MerchantSpending(
@@ -157,10 +169,15 @@ class ExpenseRepository @Inject constructor(
             )
         }
     }
-    
+
     override suspend fun getTopMerchantsWithCategory(startDate: Date, endDate: Date, limit: Int): List<com.expensemanager.app.data.dao.MerchantSpendingWithCategory> {
+        Timber.tag(LogConfig.FeatureTags.DATABASE).d("[TOP_MERCHANTS_WITH_CAT] Calling DAO with dates: %s to %s, limit: %d", startDate, endDate, limit * 2)
         val allMerchantsWithCategory = transactionDao.getTopMerchantsBySpending(startDate, endDate, limit * 2) // Get more to account for filtering
-        return filterMerchantsByExclusionsWithCategory(allMerchantsWithCategory).take(limit)
+        Timber.tag(LogConfig.FeatureTags.DATABASE).d("[TOP_MERCHANTS_WITH_CAT] DAO returned %d merchants before filtering", allMerchantsWithCategory.size)
+
+        val filtered = filterMerchantsByExclusionsWithCategory(allMerchantsWithCategory).take(limit)
+        Timber.tag(LogConfig.FeatureTags.DATABASE).d("[TOP_MERCHANTS_WITH_CAT] After filtering and limit: %d merchants", filtered.size)
+        return filtered
     }
     
     override suspend fun getTotalSpent(startDate: Date, endDate: Date): Double {
@@ -678,9 +695,17 @@ class ExpenseRepository @Inject constructor(
         }
         
         // FIXED: Request more merchants to ensure consistent display after exclusion filtering
+        Timber.tag(LogConfig.FeatureTags.DATABASE).d("[TOP_MERCHANTS] Fetching top merchants for date range: %s to %s", startDate, endDate)
         val topMerchants = getTopMerchants(startDate, endDate, 8) // Request 8 to get at least 5 after filtering
         val topMerchantsWithCategory = getTopMerchantsWithCategory(startDate, endDate, 8) // Get merchants with category info
-        
+        Timber.tag(LogConfig.FeatureTags.DATABASE).d("[TOP_MERCHANTS] Retrieved %d merchants (with %d having category info)", topMerchants.size, topMerchantsWithCategory.size)
+
+        // DEBUG: Log top merchants to verify date filtering
+        topMerchantsWithCategory.forEachIndexed { index, merchant ->
+            Timber.tag(LogConfig.FeatureTags.DATABASE).d("[TOP_MERCHANTS] #%d: %s - ₹%.2f (%d txns) - Category: %s",
+                index + 1, merchant.normalized_merchant, merchant.total_amount, merchant.transaction_count, merchant.category_name)
+        }
+
         // Calculate monthly balance (Last Salary - Current Period Expenses)
         val monthlyBalance = getMonthlyBudgetBalance(startDate, endDate)
         
@@ -725,7 +750,7 @@ class ExpenseRepository @Inject constructor(
             updatedAt = Date()
         )
         
-        Timber.tag(LogConfig.FeatureTags.DATABASE).d("[CONVERSION] %s: %s - ₹%.2f", if (parsedTransaction.isDebit) "DEBIT" else "CREDIT", parsedTransaction.merchant, parsedTransaction.amount)
+        //Timber.tag(LogConfig.FeatureTags.DATABASE).d("[CONVERSION] %s: %s - ₹%.2f", if (parsedTransaction.isDebit) "DEBIT" else "CREDIT", parsedTransaction.merchant, parsedTransaction.amount)
         
         return transactionEntity
     }

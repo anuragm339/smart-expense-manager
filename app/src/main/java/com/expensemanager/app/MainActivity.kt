@@ -25,10 +25,13 @@ import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
-    
+
     @Inject
     lateinit var transactionRepository: TransactionRepositoryInterface
-    
+
+    @Inject
+    lateinit var dataMigrationManager: com.expensemanager.app.data.migration.DataMigrationManager
+
     private lateinit var binding: ActivityMainBinding
     
     companion object {
@@ -232,6 +235,13 @@ class MainActivity : AppCompatActivity() {
                 
                 if (allPermissionsGranted) {
                     showPermissionGrantedInfo()
+
+                    // 🔧 BUG FIX #1: Retry initial SMS import if it was skipped during app launch
+                    lifecycleScope.launch {
+                        Timber.tag(LogConfig.FeatureTags.MIGRATION).d("🔄 [BUG_FIX] SMS permission granted - triggering migration retry...")
+                        dataMigrationManager.retryInitialSMSImportIfNeeded()
+                    }
+
                     scanHistoricalSMS()
                     // After SMS permissions are granted, also request notification permission
                     requestNotificationPermissionIfNeeded()

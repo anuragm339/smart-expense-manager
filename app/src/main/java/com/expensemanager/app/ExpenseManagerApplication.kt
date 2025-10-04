@@ -3,6 +3,7 @@ package com.expensemanager.app
 import android.app.Application
 import com.expensemanager.app.data.migration.DataMigrationManager
 import com.expensemanager.app.utils.logging.LogConfig
+import com.expensemanager.app.utils.logging.LoggingMode
 import com.expensemanager.app.utils.logging.TimberFileTree
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
@@ -14,16 +15,19 @@ import javax.inject.Inject
 
 @HiltAndroidApp
 class ExpenseManagerApplication : Application() {
-    
+
     @Inject
     lateinit var dataMigrationManager: DataMigrationManager
-    
+
     @Inject
     lateinit var logConfig: LogConfig
-    
+
     @Inject
     lateinit var timberFileTree: TimberFileTree
-    
+
+    @Inject
+    lateinit var bugFixLoggingConfig: com.expensemanager.app.utils.logging.BugFixLoggingConfig
+
     // Application-wide coroutine scope
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     
@@ -33,23 +37,26 @@ class ExpenseManagerApplication : Application() {
     
     override fun onCreate() {
         super.onCreate()
-        
+
         // Initialize enhanced Timber logging system
         initializeTimber()
-        
+
         Timber.tag(TAG).d("Application onCreate() starting with enhanced Timber logging...")
         Timber.tag(TAG).i("Enhanced Timber logging system initialized successfully")
-        
+
+        // 🔧 Configure focused logging based on LoggingMode
+        configureFocusedLogging()
+
         // Log current configuration for debugging
         Timber.tag(TAG).d("Current logging configuration:\n${logConfig.getCurrentConfig()}")
-        
+
         // Perform data migration in background
         applicationScope.launch {
             try {
                 Timber.tag(LogConfig.FeatureTags.MIGRATION).d("Starting data migration check...")
-                
+
                 val success = dataMigrationManager.performMigrationIfNeeded()
-                
+
                 if (success) {
                     Timber.tag(LogConfig.FeatureTags.MIGRATION).i("Data migration completed successfully")
                     Timber.tag(TAG).i("App initialization completed successfully")
@@ -57,13 +64,32 @@ class ExpenseManagerApplication : Application() {
                     Timber.tag(LogConfig.FeatureTags.MIGRATION).w("Data migration completed with warnings")
                     Timber.tag(TAG).w("App initialization completed with warnings")
                 }
-                
+
             } catch (e: Exception) {
                 Timber.tag(LogConfig.FeatureTags.MIGRATION).e(e, "Data migration failed")
                 Timber.tag(TAG).e(e, "App initialization failed")
                 // App can still continue to work, just with degraded functionality
             }
         }
+    }
+
+    /**
+     * 🔧 Configure focused logging based on LoggingMode.kt setting
+     */
+    private fun configureFocusedLogging() {
+        val mode = LoggingMode.CURRENT_MODE
+        Timber.tag(TAG).i("📋 Configuring logging: ${LoggingMode.getDescription()}")
+
+        when (mode) {
+            LoggingMode.Mode.BUG_1 -> bugFixLoggingConfig.enableBug1Logs()
+            LoggingMode.Mode.BUG_2 -> bugFixLoggingConfig.enableBug2Logs()
+            LoggingMode.Mode.BUG_3 -> bugFixLoggingConfig.enableBug3Logs()
+            LoggingMode.Mode.ALL_BUGS -> bugFixLoggingConfig.enableAllBugLogs()
+            LoggingMode.Mode.NORMAL -> bugFixLoggingConfig.restoreNormalLogging()
+            LoggingMode.Mode.MINIMAL -> bugFixLoggingConfig.enableMinimalLogging()
+        }
+
+        bugFixLoggingConfig.printCurrentStatus()
     }
     
     /**

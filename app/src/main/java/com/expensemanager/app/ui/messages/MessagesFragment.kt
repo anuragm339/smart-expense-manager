@@ -221,10 +221,10 @@ class MessagesFragment : Fragment() {
         tvTotalMessages.text = state.totalMessagesCount.toString()
         tvAutoCategorized.text = state.autoCategorizedCount.toString()
         
-        // Update adapter with grouped messages - let adapter handle timing and safety
+        // 🔧 BUG FIX: ALWAYS update adapter, even with empty list (to clear old data when filtered to 0)
+        groupedMessagesAdapter.submitList(state.groupedMessages)
+
         if (state.groupedMessages.isNotEmpty()) {
-            // Direct call - adapter now handles all safety and timing internally
-            groupedMessagesAdapter.submitList(state.groupedMessages)
             binding.recyclerMessages.visibility = View.VISIBLE
             binding.layoutEmpty.visibility = View.GONE
         } else if (state.shouldShowEmptyState) {
@@ -293,13 +293,13 @@ class MessagesFragment : Fragment() {
         ) == PackageManager.PERMISSION_GRANTED
         
         if (hasReadSmsPermission && hasReceiveSmsPermission) {
-            // Permissions granted - show normal UI and load historical data
+            // Permissions granted - show normal UI
+            // ViewModel will handle data loading and empty state automatically
             setupRecyclerView()
             setupUI()
             setupClickListeners()
-            loadHistoricalTransactions()
-            binding.layoutEmpty.visibility = View.GONE
-            binding.recyclerMessages.visibility = View.VISIBLE
+            // REMOVED: loadHistoricalTransactions() - ViewModel now handles all data loading
+            // REMOVED: Manual visibility control - updateUI() observes ViewModel state
         } else {
             // Permissions not granted - show empty state
             showNoPermissionState()

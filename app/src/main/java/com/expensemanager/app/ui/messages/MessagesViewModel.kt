@@ -50,8 +50,26 @@ class MessagesViewModel @Inject constructor(
     private var toggleDebounceJob: Job? = null
     
     init {
-        Timber.tag(LogConfig.FeatureTags.SMS).d("ViewModel initialized, loading messages data...")
-        loadMessages()
+        Timber.tag(LogConfig.FeatureTags.SMS).i("============ ViewModel initialized ============")
+
+        // Apply default "This Month" filter
+        val calendar = Calendar.getInstance()
+        calendar.set(Calendar.DAY_OF_MONTH, 1)
+        calendar.set(Calendar.HOUR_OF_DAY, 0)
+        calendar.set(Calendar.MINUTE, 0)
+        calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
+
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val startOfMonth = dateFormat.format(calendar.time)
+
+        Timber.tag(LogConfig.FeatureTags.SMS).i("[INIT] Applying default 'This Month' filter from: $startOfMonth")
+
+        applyFilterOptions(
+            FilterOptions(
+                dateFrom = startOfMonth
+            )
+        )
     }
     
     /**
@@ -59,9 +77,10 @@ class MessagesViewModel @Inject constructor(
      */
     fun handleEvent(event: MessagesUIEvent) {
         Timber.tag(LogConfig.FeatureTags.SMS).d("Handling event: $event")
-        
+
         when (event) {
             is MessagesUIEvent.LoadMessages -> loadMessages()
+            is MessagesUIEvent.LoadMoreMessages -> loadMoreMessages()
             is MessagesUIEvent.RefreshMessages -> refreshMessages()
             is MessagesUIEvent.ResyncSMS -> resyncSMSMessages()
             is MessagesUIEvent.TestSMSScanning -> testSMSScanning()
@@ -79,78 +98,103 @@ class MessagesViewModel @Inject constructor(
     }
     
     /**
-     * Load messages from database and SMS fallback
+     * Load messages from database with pagination
      */
     private fun loadMessages() {
-        Timber.tag(LogConfig.FeatureTags.SMS).d("Starting messages load...")
-        
+        Timber.tag(LogConfig.FeatureTags.SMS).d("Starting paginated messages load...")
+
         _uiState.value = _uiState.value.copy(
             isLoading = true,
             hasError = false,
-            error = null
+            error = null,
+            currentPage = 0
         )
-        
+
         viewModelScope.launch {
             try {
-                // Get date range from the start of the current month to the current time
-                val calendar = Calendar.getInstance()
-                calendar.set(Calendar.DAY_OF_MONTH, 1)
-                calendar.set(Calendar.HOUR_OF_DAY, 0)
-                calendar.set(Calendar.MINUTE, 0)
-                calendar.set(Calendar.SECOND, 0)
-                calendar.set(Calendar.MILLISECOND, 0)
-                val startDate = calendar.time
+                // 🔧 PAGINATION: Query database with date filter and limit
+                val filterOptions = _uiState.value.currentFilterOptions
+                val pageSize = _uiState.value.pageSize
 
-                // Set end date to current time to exclude future transactions
-                val endDate = Calendar.getInstance().time
-                
-                Timber.tag(LogConfig.FeatureTags.SMS).d("Loading transactions from start of month: ${java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(startDate)}")
-                
-                // Load transactions from SQLite database first
-                val dbTransactions = expenseRepository.getTransactionsByDateRange(startDate, endDate)
-                Timber.tag(LogConfig.FeatureTags.SMS).d("Found ${dbTransactions.size} transactions in database for the current month")
+                // Parse date range from filters
+                val (startDate, endDate) = getDateRangeFromFilters(filterOptions)
+
+                Timber.tag(LogConfig.FeatureTags.SMS).d("[PAGINATION] Loading page 0, pageSize=$pageSize, dateRange=${startDate} to ${endDate}")
+
+                // Get total count for pagination
+                val totalCount = expenseRepository.getTransactionCountByDateRange(startDate, endDate)
+                Timber.tag(LogConfig.FeatureTags.SMS).d("[PAGINATION] Total transactions in range: $totalCount")
+
+                // Load first page directly from database
+                val dbTransactions = expenseRepository.getTransactionsByDateRangePaginated(
+                    startDate = startDate,
+                    endDate = endDate,
+                    limit = pageSize,
+                    offset = 0
+                )
+                Timber.tag(LogConfig.FeatureTags.SMS).d("[PAGINATION] Loaded ${dbTransactions.size} transactions from database")
                 
                 if (dbTransactions.isNotEmpty()) {
                     // Convert to MessageItem format
                     val messageItems = dbTransactions.mapNotNull { transaction ->
                         try {
-                            val merchantWithCategory = expenseRepository.getMerchantWithCategory(transaction.normalizedMerchant)
-                            val category = merchantWithCategory?.category_name ?: "Other"
-                            val categoryColor = merchantWithCategory?.category_color ?: "#888888"
-                            
-                            // CRITICAL FIX: Apply merchant aliases when loading from database
+                            // Apply merchant aliases when loading from database
                             val displayName = merchantAliasManager.getDisplayName(transaction.rawMerchant)
                             val aliasCategory = merchantAliasManager.getMerchantCategory(transaction.rawMerchant)
                             val aliasCategoryColor = merchantAliasManager.getMerchantCategoryColor(transaction.rawMerchant)
-                            
-                            Timber.tag(LogConfig.FeatureTags.SMS).d("Database load: rawMerchant='${transaction.rawMerchant}' -> displayName='$displayName', category='$aliasCategory'")
-                            
+
                             MessageItem(
                                 amount = transaction.amount,
-                                merchant = displayName, // Use alias display name, not raw merchant
+                                merchant = displayName,
                                 bankName = transaction.bankName,
-                                category = aliasCategory, // Use alias category
-                                categoryColor = aliasCategoryColor, // Use alias category color
+                                category = aliasCategory,
+                                categoryColor = aliasCategoryColor,
                                 confidence = (transaction.confidenceScore * 100).toInt(),
                                 dateTime = formatDate(transaction.transactionDate),
                                 rawSMS = transaction.rawSmsBody,
                                 isDebit = transaction.isDebit,
-                                rawMerchant = transaction.rawMerchant // Pass the original raw merchant name
+                                rawMerchant = transaction.rawMerchant,
+                                actualDate = transaction.transactionDate
                             )
                         } catch (e: Exception) {
                             Timber.tag(LogConfig.FeatureTags.SMS).w("Error converting transaction: ${e.message}")
                             null
                         }
-                    }.distinctBy { 
-                        // Remove duplicates based on merchant, amount, and date
-                        "${it.merchant}_${it.amount}_${it.dateTime}_${it.bankName}"
+                    }.filter {
+                        // Filter out invalid merchants
+                        it.merchant.isNotBlank() && it.merchant != "."
                     }
-                    
-                    updateMessagesState(messageItems)
+
+                    val hasMoreData = dbTransactions.size >= pageSize
+
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        allMessages = messageItems,
+                        filteredMessages = messageItems,
+                        isEmpty = messageItems.isEmpty(),
+                        currentPage = 0,
+                        hasMoreData = hasMoreData,
+                        totalCount = totalCount
+                    )
+
+                    // Apply filters and sorting
+                    applyFiltersAndSort()
+
+                    Timber.tag(LogConfig.FeatureTags.SMS).d("[PAGINATION] Loaded ${messageItems.size} items, hasMore=$hasMoreData, total=$totalCount")
                 } else {
-                    // No database data found - fallback to SMS scanning
-                    Timber.tag(LogConfig.FeatureTags.SMS).d("No database transactions found, falling back to SMS scanning...")
-                    loadFromSMSFallback()
+                    // No database data found - check if we have any data at all
+                    if (totalCount == 0) {
+                        Timber.tag(LogConfig.FeatureTags.SMS).d("No transactions in database, showing empty state")
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            allMessages = emptyList(),
+                            filteredMessages = emptyList(),
+                            groupedMessages = emptyList(),
+                            isEmpty = true,
+                            hasMoreData = false,
+                            totalCount = 0
+                        )
+                    }
                 }
             } catch (e: SecurityException) {
                 Timber.tag(LogConfig.FeatureTags.SMS).w(e, "SMS permission denied")
@@ -161,7 +205,132 @@ class MessagesViewModel @Inject constructor(
             }
         }
     }
-    
+
+    /**
+     * Load more messages (pagination)
+     */
+    private fun loadMoreMessages() {
+        val currentState = _uiState.value
+
+        // Don't load if already loading or no more data
+        if (currentState.isLoadingMore || !currentState.hasMoreData) {
+            Timber.tag(LogConfig.FeatureTags.SMS).d("[PAGINATION] Skip loadMore: isLoading=${currentState.isLoadingMore}, hasMore=${currentState.hasMoreData}")
+            return
+        }
+
+        Timber.tag(LogConfig.FeatureTags.SMS).d("[PAGINATION] Loading more messages...")
+
+        _uiState.value = currentState.copy(isLoadingMore = true)
+
+        viewModelScope.launch {
+            try {
+                val pageSize = currentState.pageSize
+                val nextPage = currentState.currentPage + 1
+                val offset = nextPage * pageSize
+
+                val filterOptions = currentState.currentFilterOptions
+                val (startDate, endDate) = getDateRangeFromFilters(filterOptions)
+
+                Timber.tag(LogConfig.FeatureTags.SMS).d("[PAGINATION] Loading page $nextPage, offset=$offset")
+
+                // Load next page from database
+                val dbTransactions = expenseRepository.getTransactionsByDateRangePaginated(
+                    startDate = startDate,
+                    endDate = endDate,
+                    limit = pageSize,
+                    offset = offset
+                )
+
+                if (dbTransactions.isNotEmpty()) {
+                    val newItems = dbTransactions.mapNotNull { transaction ->
+                        try {
+                            val displayName = merchantAliasManager.getDisplayName(transaction.rawMerchant)
+                            val aliasCategory = merchantAliasManager.getMerchantCategory(transaction.rawMerchant)
+                            val aliasCategoryColor = merchantAliasManager.getMerchantCategoryColor(transaction.rawMerchant)
+
+                            MessageItem(
+                                amount = transaction.amount,
+                                merchant = displayName,
+                                bankName = transaction.bankName,
+                                category = aliasCategory,
+                                categoryColor = aliasCategoryColor,
+                                confidence = (transaction.confidenceScore * 100).toInt(),
+                                dateTime = formatDate(transaction.transactionDate),
+                                rawSMS = transaction.rawSmsBody,
+                                isDebit = transaction.isDebit,
+                                rawMerchant = transaction.rawMerchant,
+                                actualDate = transaction.transactionDate
+                            )
+                        } catch (e: Exception) {
+                            null
+                        }
+                    }.filter {
+                        it.merchant.isNotBlank() && it.merchant != "."
+                    }
+
+                    val hasMoreData = dbTransactions.size >= pageSize
+                    val updatedMessages = currentState.allMessages + newItems
+
+                    _uiState.value = currentState.copy(
+                        isLoadingMore = false,
+                        allMessages = updatedMessages,
+                        filteredMessages = updatedMessages,
+                        currentPage = nextPage,
+                        hasMoreData = hasMoreData
+                    )
+
+                    // Apply filters and sorting
+                    applyFiltersAndSort()
+
+                    Timber.tag(LogConfig.FeatureTags.SMS).d("[PAGINATION] Loaded ${newItems.size} more items, total=${updatedMessages.size}, hasMore=$hasMoreData")
+                } else {
+                    // No more data
+                    _uiState.value = currentState.copy(
+                        isLoadingMore = false,
+                        hasMoreData = false
+                    )
+                    Timber.tag(LogConfig.FeatureTags.SMS).d("[PAGINATION] No more data available")
+                }
+            } catch (e: Exception) {
+                Timber.tag(LogConfig.FeatureTags.SMS).e(e, "[PAGINATION] Error loading more messages")
+                _uiState.value = currentState.copy(
+                    isLoadingMore = false,
+                    hasError = true,
+                    error = "Error loading more: ${e.message}"
+                )
+            }
+        }
+    }
+
+    /**
+     * Parse date range from filter options
+     */
+    private fun getDateRangeFromFilters(filterOptions: FilterOptions): Pair<Date, Date> {
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+
+        val startDate = if (filterOptions.dateFrom != null) {
+            try {
+                dateFormat.parse(filterOptions.dateFrom) ?: Date(0)
+            } catch (e: Exception) {
+                Date(0) // Very old date
+            }
+        } else {
+            Date(0) // Very old date
+        }
+
+        val endDate = if (filterOptions.dateTo != null) {
+            try {
+                dateFormat.parse(filterOptions.dateTo) ?: Date()
+            } catch (e: Exception) {
+                Date() // Now
+            }
+        } else {
+            Date() // Now
+        }
+
+        return Pair(startDate, endDate)
+    }
+
     /**
      * Fallback to SMS scanning if no database data - now using unified SMSParsingService
      */
@@ -187,7 +356,8 @@ class MessagesViewModel @Inject constructor(
                             confidence = (transaction.confidence * 100).toInt(),
                             dateTime = formatDate(transaction.date),
                             rawSMS = transaction.rawSMS,
-                            isDebit = transaction.isDebit
+                            isDebit = transaction.isDebit,
+                            actualDate = transaction.date // 🔧 BUG FIX: Actual date for filtering
                         )
                     }.distinctBy { 
                         "${it.merchant}_${it.amount}_${it.dateTime}_${it.bankName}"
@@ -216,17 +386,21 @@ class MessagesViewModel @Inject constructor(
      */
     private fun updateMessagesState(messageItems: List<MessageItem>) {
         val currentState = _uiState.value
-        
+
+        Timber.tag(LogConfig.FeatureTags.SMS).d("[UPDATE_STATE] Current filter BEFORE update: ${currentState.currentFilterOptions.dateFrom} to ${currentState.currentFilterOptions.dateTo}")
+
         _uiState.value = currentState.copy(
             isLoading = false,
             allMessages = messageItems,
             filteredMessages = messageItems,
             isEmpty = messageItems.isEmpty()
         )
-        
+
+        Timber.tag(LogConfig.FeatureTags.SMS).d("[UPDATE_STATE] Current filter AFTER update: ${_uiState.value.currentFilterOptions.dateFrom} to ${_uiState.value.currentFilterOptions.dateTo}")
+
         // Apply current filters and sorting
         applyFiltersAndSort()
-        
+
         Timber.tag(LogConfig.FeatureTags.SMS).d("Messages state updated with ${messageItems.size} items")
     }
     
@@ -295,7 +469,8 @@ class MessagesViewModel @Inject constructor(
                             confidence = (transaction.confidence * 100).toInt(),
                             dateTime = formatDate(transaction.date),
                             rawSMS = transaction.rawSMS,
-                            isDebit = transaction.isDebit
+                            isDebit = transaction.isDebit,
+                            actualDate = transaction.date // 🔧 BUG FIX: Actual date for filtering
                         )
                     }.distinctBy { 
                         "${it.merchant}_${it.amount}_${it.dateTime}_${it.bankName}"
@@ -419,13 +594,16 @@ class MessagesViewModel @Inject constructor(
     }
     
     /**
-     * Apply filter options
+     * Apply filter options - reloads data from database with new filters
      */
     private fun applyFilterOptions(filterOptions: FilterOptions) {
+        Timber.tag(LogConfig.FeatureTags.SMS).i("[FILTER_CHANGE] Filter changed: dateFrom=${filterOptions.dateFrom}, dateTo=${filterOptions.dateTo}")
         _uiState.value = _uiState.value.copy(
             currentFilterOptions = filterOptions
         )
-        applyFiltersAndSort()
+        Timber.tag(LogConfig.FeatureTags.SMS).i("[FILTER_CHANGE] Calling loadMessages() to reload data from database")
+        // Reload data from database with new date range
+        loadMessages()
     }
     
     /**
@@ -496,13 +674,41 @@ class MessagesViewModel @Inject constructor(
                 filtered = filtered.filter { it.confidence >= filters.minConfidence }
             }
             
-            // Apply date filters (simplified)
-            filters.dateFrom?.let { dateFrom ->
-                filtered = filtered.filter { it.dateTime >= dateFrom }
+            // Apply date filters using actual Date objects (parse String dates from filter UI)
+            filters.dateFrom?.let { dateFromStr ->
+                try {
+                    // Try with time first (yyyy-MM-dd HH:mm:ss), fallback to date only (yyyy-MM-dd)
+                    val dateFrom = try {
+                        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).parse(dateFromStr)
+                    } catch (e: Exception) {
+                        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(dateFromStr)
+                    }
+                    if (dateFrom != null) {
+                        filtered = filtered.filter { it.actualDate >= dateFrom }
+                        Timber.tag(LogConfig.FeatureTags.SMS).d("[DATE_FILTER] Applied dateFrom filter: $dateFromStr (parsed: $dateFrom)")
+                    }
+                } catch (e: Exception) {
+                    Timber.tag(LogConfig.FeatureTags.SMS).w("Invalid dateFrom format: $dateFromStr - ${e.message}")
+                }
             }
-            filters.dateTo?.let { dateTo ->
-                filtered = filtered.filter { it.dateTime <= dateTo }
+            filters.dateTo?.let { dateToStr ->
+                try {
+                    // Try with time first (yyyy-MM-dd HH:mm:ss), fallback to date only (yyyy-MM-dd)
+                    val dateTo = try {
+                        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).parse(dateToStr)
+                    } catch (e: Exception) {
+                        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(dateToStr)
+                    }
+                    if (dateTo != null) {
+                        filtered = filtered.filter { it.actualDate <= dateTo }
+                        Timber.tag(LogConfig.FeatureTags.SMS).d("[DATE_FILTER] Applied dateTo filter: $dateToStr (parsed: $dateTo)")
+                    }
+                } catch (e: Exception) {
+                    Timber.tag(LogConfig.FeatureTags.SMS).w("Invalid dateTo format: $dateToStr - ${e.message}")
+                }
             }
+
+            Timber.tag(LogConfig.FeatureTags.SMS).d("[DATE_FILTER] Applied date filters - From: ${filters.dateFrom}, To: ${filters.dateTo}, Filtered: ${filtered.size} items")
             
             // Skip individual transaction sorting - let groupTransactionsByMerchant handle the sorting
             // This ensures that the final merchant group sorting is what determines the display order
@@ -526,7 +732,16 @@ class MessagesViewModel @Inject constructor(
      * Group transactions by merchant for display
      */
     private fun groupTransactionsByMerchant(transactions: List<MessageItem>, sortOption: SortOption): List<MerchantGroup> {
-        val groups = transactions
+        // 🔧 BUG FIX: Filter out transactions with empty/invalid merchant names
+        val validTransactions = transactions.filter { transaction ->
+            transaction.merchant.isNotBlank() && transaction.merchant != "."
+        }
+
+        if (validTransactions.size < transactions.size) {
+            Timber.tag(LogConfig.FeatureTags.SMS).w("Filtered out ${transactions.size - validTransactions.size} transactions with empty merchant names")
+        }
+
+        val groups = validTransactions
             .groupBy { it.merchant }
             .map { (displayName, merchantTransactions) ->
                 val sortedTransactions = merchantTransactions.sortedByDescending { transaction ->

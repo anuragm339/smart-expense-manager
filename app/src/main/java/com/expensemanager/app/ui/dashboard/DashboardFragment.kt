@@ -500,28 +500,24 @@ class DashboardFragment : Fragment() {
             Triple(binding.tvMerchant4Emoji, binding.tvMerchant4Name, binding.tvMerchant4Category) to Triple(binding.tvMerchant4Amount, binding.tvMerchant4Count, binding.rowMerchant4)
         )
         
-        // Default merchant data for empty slots
-        val defaultMerchants = listOf(
-            MerchantSpending("Swiggy", 3250.0, 5, "Food & Dining", "#ff5722", 25.4),
-            MerchantSpending("BigBasket", 2180.0, 3, "Groceries", "#4caf50", 18.0),
-            MerchantSpending("Uber", 1950.0, 8, "Transportation", "#3f51b5", 15.2),
-            MerchantSpending("Amazon", 1680.0, 4, "Shopping", "#ff9800", 13.1)
-        )
-        
+        // 🔧 BUG FIX #2: Show only real merchant data, hide empty slots
         merchantViews.forEachIndexed { index, (infoViews, amountViews) ->
             val (emojiView, nameView, categoryView) = infoViews
             val (amountView, countView, rowView) = amountViews
-            
-            val merchant = if (index < merchants.size) merchants[index] else defaultMerchants[index]
-            
-            emojiView.text = getCategoryEmoji(merchant.category)
-            nameView.text = merchant.merchantName
-            categoryView.text = merchant.category
-            amountView.text = "₹${String.format("%.0f", merchant.totalAmount)}"
-            countView.text = "${merchant.transactionCount} transactions"
-            
-            // Show/hide row based on whether we have data
-            rowView.visibility = View.VISIBLE
+
+            if (index < merchants.size) {
+                // Show real merchant data
+                val merchant = merchants[index]
+                emojiView.text = getCategoryEmoji(merchant.category)
+                nameView.text = merchant.merchantName
+                categoryView.text = merchant.category
+                amountView.text = "₹${String.format("%.0f", merchant.totalAmount)}"
+                countView.text = "${merchant.transactionCount} transactions"
+                rowView.visibility = View.VISIBLE
+            } else {
+                // Hide empty slots instead of showing fake data
+                rowView.visibility = View.GONE
+            }
         }
     }
     
@@ -2329,22 +2325,10 @@ class DashboardFragment : Fragment() {
         Timber.tag("DashboardFragment").d("Submitting ${merchantSpending.size} merchants to adapter")
         updateTopMerchantsTable(merchantSpending)
         Timber.tag("DashboardFragment").d("Top merchants: ${merchantSpending.map { "${it.merchantName}: ₹${String.format("%.0f", it.totalAmount)}" }}")
-        
-        // If we have less than 3 merchants from real data, add some sample data for better UI
-        if (merchantSpending.size < 3) {
-            Timber.tag("DashboardFragment").d("Adding sample merchants for better UI display")
-            val sampleMerchants = listOf(
-                MerchantSpending("Swiggy", 2450.0, 12, "Food & Dining", "#ff5722", 35.2),
-                MerchantSpending("Amazon", 1890.0, 8, "Shopping", "#ff9800", 27.1),
-                MerchantSpending("Uber", 890.0, 15, "Transportation", "#3f51b5", 12.8),
-                MerchantSpending("BigBasket", 1250.0, 6, "Groceries", "#4caf50", 18.0),
-                MerchantSpending("Netflix", 799.0, 1, "Entertainment", "#9c27b0", 11.5)
-            ).take(5 - merchantSpending.size)
-            
-            val combinedMerchants = merchantSpending + sampleMerchants
-            updateTopMerchantsTable(combinedMerchants)
-            Timber.tag("DashboardFragment").d("Total merchants displayed: ${combinedMerchants.size}")
-        }
+
+        // 🔧 BUG FIX #2: REMOVED hardcoded sample merchants
+        // Previously added fake "Swiggy", "Amazon", "Uber" etc. when less than 3 real merchants
+        // This was confusing users - now showing only real data or proper empty state
     }
     
     private fun updateDashboardWithEmptyState() {

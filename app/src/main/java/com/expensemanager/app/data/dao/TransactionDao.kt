@@ -16,7 +16,10 @@ interface TransactionDao {
     
     @Query("SELECT * FROM transactions WHERE transaction_date >= :startDate AND transaction_date <= :endDate ORDER BY transaction_date DESC")
     suspend fun getTransactionsByDateRange(startDate: Date, endDate: Date): List<TransactionEntity>
-    
+
+    @Query("SELECT * FROM transactions WHERE transaction_date >= :startDate AND transaction_date <= :endDate ORDER BY transaction_date DESC LIMIT :limit OFFSET :offset")
+    suspend fun getTransactionsByDateRangePaginated(startDate: Date, endDate: Date, limit: Int, offset: Int): List<TransactionEntity>
+
     @Query("SELECT * FROM transactions WHERE normalized_merchant = :merchantName ORDER BY transaction_date DESC")
     suspend fun getTransactionsByMerchant(merchantName: String): List<TransactionEntity>
     
