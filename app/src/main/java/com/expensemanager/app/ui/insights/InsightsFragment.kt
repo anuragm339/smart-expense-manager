@@ -130,7 +130,10 @@ class InsightsFragment : Fragment() {
         try {
             // Create dependencies
             val expenseRepository = ExpenseRepository.getInstance(requireContext())
-            val aiInsightsRepository = AIInsightsRepository.getInstance(requireContext(), expenseRepository)
+            val database = com.expensemanager.app.data.database.ExpenseDatabase.getDatabase(requireContext())
+            val aiCallDao = database.aiCallDao()
+            val userDao = database.userDao()
+            val aiInsightsRepository = AIInsightsRepository.getInstance(requireContext(), expenseRepository, aiCallDao, userDao)
             val getAIInsightsUseCase = InsightsUseCaseFactory.createGetAIInsightsUseCase(aiInsightsRepository)
             
             // Create service dependencies

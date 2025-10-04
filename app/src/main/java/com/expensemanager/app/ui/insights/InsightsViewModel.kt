@@ -37,8 +37,39 @@ class InsightsViewModel @Inject constructor(
     private val isApiCallInProgress = AtomicBoolean(false)
     
     init {
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("ViewModel initialized, forcing fresh insights from API...")
-        refreshInsights() // Always call API on initial load
+        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("ViewModel initialized, loading insights smartly (cache-first)...")
+        loadInsightsSmartly() // Use cache-first loading to avoid unnecessary API calls
+    }
+
+    /**
+     * Smart initial loading of insights (cache-first approach)
+     * Prevents unnecessary API calls on every app reopen
+     */
+    private fun loadInsightsSmartly() {
+        // Check if API call already in progress
+        if (!isApiCallInProgress.compareAndSet(false, true)) {
+            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("⚠️ API call already in progress, skipping duplicate loadInsightsSmartly()")
+            return
+        }
+
+        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Starting smart load (cache-first)...")
+
+        _uiState.value = _uiState.value.copy(
+            isInitialLoading = true,
+            hasError = false,
+            error = null
+        )
+
+        viewModelScope.launch {
+            try {
+                val result = getAIInsightsUseCase.loadInsightsSmartly()
+                handleInsightsResult(result, isInitialLoad = true)
+            } finally {
+                // Reset flag when done (success or failure)
+                isApiCallInProgress.set(false)
+                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("✅ Smart load completed, flag reset")
+            }
+        }
     }
     
     /**
@@ -55,38 +86,6 @@ class InsightsViewModel @Inject constructor(
             is InsightsUIEvent.CollapseCard -> collapseCard(event.insightId)
             is InsightsUIEvent.InsightClicked -> handleInsightClick(event.insight)
             is InsightsUIEvent.ActionClicked -> handleActionClick(event.insight, event.action)
-        }
-    }
-    
-    /**
-     * Initial loading of insights
-     * Prevents duplicate API calls using AtomicBoolean flag
-     */
-    private fun loadInsights() {
-        // Check if API call already in progress
-        if (!isApiCallInProgress.compareAndSet(false, true)) {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("⚠️ API call already in progress, skipping duplicate loadInsights()")
-            return
-        }
-
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Starting initial load...")
-
-        _uiState.value = _uiState.value.copy(
-            isInitialLoading = true,
-            hasError = false,
-            error = null
-        )
-
-        viewModelScope.launch {
-            try {
-                getAIInsightsUseCase.execute().collect { result ->
-                    handleInsightsResult(result, isInitialLoad = true)
-                }
-            } finally {
-                // Reset flag when done (success or failure)
-                isApiCallInProgress.set(false)
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("✅ API call completed, flag reset")
-            }
         }
     }
     

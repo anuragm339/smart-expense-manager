@@ -242,7 +242,14 @@ class AIThresholdService @Inject constructor(
      */
     private suspend fun isRateLimited(tracker: AICallTracker, now: Long): Boolean {
         // Get current user and their subscription tier
-        val user = userDao.getCurrentUser() ?: return true // No user = rate limited
+        val user = userDao.getCurrentUser()
+
+        if (user == null) {
+            Timber.tag(TAG).w("🚫 No user found - rate limiting by default")
+            return true // No user = rate limited
+        }
+
+        Timber.tag(TAG).d("👤 Checking rate limits for user: ${user.email} (${user.subscriptionTier} tier)")
         val tier = com.expensemanager.app.data.entities.SubscriptionTier.fromString(user.subscriptionTier)
 
         // Check if we need to reset daily/monthly counters
@@ -278,6 +285,10 @@ class AIThresholdService @Inject constructor(
         val dailyCount = updatedTracker.dailyCallCount
         val monthlyCount = updatedTracker.monthlyCallCount
 
+        Timber.tag(TAG).d("📊 Current usage for ${tier.displayName} tier: " +
+                "daily=$dailyCount/${tier.dailyAICallLimit}, " +
+                "monthly=$monthlyCount/${tier.monthlyAICallLimit}")
+
         // Check against tier limits
         val dailyLimitReached = dailyCount >= tier.dailyAICallLimit
         val monthlyLimitReached = monthlyCount >= tier.monthlyAICallLimit
@@ -286,6 +297,8 @@ class AIThresholdService @Inject constructor(
             Timber.tag(TAG).w("🚫 AI call rate limited for ${tier.displayName} tier: " +
                     "daily=$dailyCount/${tier.dailyAICallLimit}, " +
                     "monthly=$monthlyCount/${tier.monthlyAICallLimit}")
+        } else {
+            Timber.tag(TAG).d("✅ Rate limit check passed - API call allowed")
         }
 
         return dailyLimitReached || monthlyLimitReached
