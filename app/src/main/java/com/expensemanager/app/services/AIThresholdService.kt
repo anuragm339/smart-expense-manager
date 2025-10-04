@@ -2,7 +2,8 @@ package com.expensemanager.app.services
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.data.dao.AICallDao
 import com.expensemanager.app.data.models.*
 import com.expensemanager.app.data.entities.TransactionEntity
@@ -44,13 +45,13 @@ class AIThresholdService @Inject constructor(
             aiCallDao.initializeTrackerIfNeeded()
             val evaluation = evaluateThresholds()
 
-            Log.d(TAG, "Threshold evaluation: shouldCall=${evaluation.shouldCallAI}, " +
+            Timber.tag(TAG).d("Threshold evaluation: shouldCall=${evaluation.shouldCallAI}, " +
                     "reason=${evaluation.triggerReason}, " +
                     "rateLimited=${evaluation.rateLimitReached}")
 
             evaluation.shouldCallAI && !evaluation.rateLimitReached
         } catch (e: Exception) {
-            Log.e(TAG, "Error evaluating thresholds", e)
+            Timber.tag(TAG).e(e, "Error evaluating thresholds")
             false
         }
     }
@@ -139,7 +140,7 @@ class AIThresholdService @Inject constructor(
 
         aiCallDao.resetErrorCount()
 
-        Log.d(TAG, "Updated tracking after successful call. Next eligible: ${Date(nextEligibleTime)}")
+        Timber.tag(TAG).d("Updated tracking after successful call. Next eligible: ${Date(nextEligibleTime)}")
     }
 
     /**
@@ -147,7 +148,7 @@ class AIThresholdService @Inject constructor(
      */
     suspend fun recordError() = withContext(Dispatchers.IO) {
         aiCallDao.recordError(System.currentTimeMillis())
-        Log.w(TAG, "Recorded AI call error")
+        Timber.tag(TAG).w("Recorded AI call error")
     }
 
     /**
@@ -155,7 +156,7 @@ class AIThresholdService @Inject constructor(
      */
     suspend fun updateCallFrequency(frequency: CallFrequency) = withContext(Dispatchers.IO) {
         aiCallDao.updateCallFrequency(frequency.name)
-        Log.d(TAG, "Updated call frequency to: ${frequency.displayName}")
+        Timber.tag(TAG).d("Updated call frequency to: ${frequency.displayName}")
     }
 
     /**

@@ -2,7 +2,8 @@ package com.expensemanager.app.data.storage
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.data.models.Transaction
 import com.expensemanager.app.data.models.TransactionType
 import com.expensemanager.app.models.ParsedTransaction
@@ -35,9 +36,9 @@ class TransactionStorage(context: Context) {
                 .putLong(KEY_LAST_SYNC, System.currentTimeMillis())
                 .apply()
             
-            Log.d(TAG, "Saved ${transactions.size} transactions to storage")
+            Timber.tag(TAG).d("Saved ${transactions.size} transactions to storage")
         } catch (e: Exception) {
-            Log.e(TAG, "Error saving transactions", e)
+            Timber.tag(TAG).e(e, "Error saving transactions")
         }
     }
     
@@ -54,11 +55,11 @@ class TransactionStorage(context: Context) {
                     transactions.add(jsonToTransaction(jsonObject))
                 }
                 
-                Log.d(TAG, "Loaded ${transactions.size} transactions from storage")
+                Timber.tag(TAG).d("Loaded ${transactions.size} transactions from storage")
                 return@withContext transactions
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error loading transactions", e)
+            Timber.tag(TAG).e(e, "Error loading transactions")
         }
         return@withContext emptyList()
     }
@@ -71,9 +72,9 @@ class TransactionStorage(context: Context) {
         if (!existingTransactions.any { it.id == transaction.id || it.rawSMS == transaction.rawSMS }) {
             existingTransactions.add(transaction)
             saveTransactions(existingTransactions)
-            Log.d(TAG, "Added new transaction: ${transaction.merchant} - ₹${transaction.amount}")
+            Timber.tag(TAG).d("Added new transaction: ${transaction.merchant} - ₹${transaction.amount}")
         } else {
-            Log.d(TAG, "Duplicate transaction ignored: ${transaction.merchant} - ₹${transaction.amount}")
+            Timber.tag(TAG).d("Duplicate transaction ignored: ${transaction.merchant} - ₹${transaction.amount}")
         }
     }
     
@@ -85,7 +86,7 @@ class TransactionStorage(context: Context) {
         if (index != -1) {
             existingTransactions[index] = transaction
             saveTransactions(existingTransactions)
-            Log.d(TAG, "Updated transaction: ${transaction.id}")
+            Timber.tag(TAG).d("Updated transaction: ${transaction.id}")
         }
     }
     
@@ -96,7 +97,7 @@ class TransactionStorage(context: Context) {
         
         if (wasRemoved) {
             saveTransactions(existingTransactions)
-            Log.d(TAG, "Deleted transaction: $transactionId")
+            Timber.tag(TAG).d("Deleted transaction: $transactionId")
         }
     }
     
@@ -224,7 +225,7 @@ class TransactionStorage(context: Context) {
             .remove(KEY_TRANSACTIONS)
             .remove(KEY_LAST_SYNC)
             .apply()
-        Log.d(TAG, "Cleared all transaction data")
+        Timber.tag(TAG).d("Cleared all transaction data")
     }
     
     // Helper methods for JSON conversion

@@ -111,27 +111,27 @@ class LoggingManager @Inject constructor(
      */
     
     fun setLogLevelVerbose() {
-        logConfig.logLevel = LogConfig.LogLevel.VERBOSE
+        logConfig.logLevel = LogConfig.VERBOSE
         Timber.tag(TAG).i("Log level set to VERBOSE")
     }
     
     fun setLogLevelDebug() {
-        logConfig.logLevel = LogConfig.LogLevel.DEBUG
+        logConfig.logLevel = LogConfig.DEBUG
         Timber.tag(TAG).i("Log level set to DEBUG")
     }
     
     fun setLogLevelInfo() {
-        logConfig.logLevel = LogConfig.LogLevel.INFO
+        logConfig.logLevel = LogConfig.INFO
         Timber.tag(TAG).i("Log level set to INFO")
     }
     
     fun setLogLevelWarn() {
-        logConfig.logLevel = LogConfig.LogLevel.WARN
+        logConfig.logLevel = LogConfig.WARN
         Timber.tag(TAG).i("Log level set to WARN")
     }
     
     fun setLogLevelError() {
-        logConfig.logLevel = LogConfig.LogLevel.ERROR
+        logConfig.logLevel = LogConfig.ERROR
         Timber.tag(TAG).i("Log level set to ERROR")
     }
     

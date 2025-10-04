@@ -5,7 +5,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -50,10 +51,10 @@ class MainActivity : AppCompatActivity() {
         
         // If SMS permissions are already granted, check notification permission
         if (hasSMSPermissions()) {
-            Log.d("MainActivity", "SMS permissions already granted, checking notification permission")
+            Timber.tag("MainActivity").d("SMS permissions already granted, checking notification permission")
             requestNotificationPermissionIfNeeded()
         } else {
-            Log.d("MainActivity", "SMS permissions not granted, will request notification permission after SMS is granted")
+            Timber.tag("MainActivity").d("SMS permissions not granted, will request notification permission after SMS is granted")
         }
     }
     
@@ -105,7 +106,7 @@ class MainActivity : AppCompatActivity() {
             }
         } catch (e: Exception) {
             // Prevent crash from notification handling
-            android.util.Log.e("MainActivity", "Error handling notification intent", e)
+            Timber.tag("MainActivity").e(e, "Error handling notification intent")
             Toast.makeText(this, "Opening expense manager...", Toast.LENGTH_SHORT).show()
         }
     }
@@ -114,24 +115,24 @@ class MainActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val hasNotificationPermission = ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
             
-            Log.d("MainActivity", "Android API ${Build.VERSION.SDK_INT}, Notification permission granted: $hasNotificationPermission")
+            Timber.tag("MainActivity").d("Android API ${Build.VERSION.SDK_INT}, Notification permission granted: $hasNotificationPermission")
             
             if (!hasNotificationPermission) {
-                Log.d("MainActivity", "Requesting notification permission")
+                Timber.tag("MainActivity").d("Requesting notification permission")
                 
                 // Check if we should show rationale for notification permission
                 if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.POST_NOTIFICATIONS)) {
-                    Log.d("MainActivity", "Showing notification permission rationale")
+                    Timber.tag("MainActivity").d("Showing notification permission rationale")
                     showNotificationPermissionRationale()
                 } else {
-                    Log.d("MainActivity", "Directly requesting notification permission")
+                    Timber.tag("MainActivity").d("Directly requesting notification permission")
                     requestNotificationPermissions()
                 }
             } else {
-                Log.d("MainActivity", "Notification permission already granted")
+                Timber.tag("MainActivity").d("Notification permission already granted")
             }
         } else {
-            Log.d("MainActivity", "Android API ${Build.VERSION.SDK_INT}, notification permission not required")
+            Timber.tag("MainActivity").d("Android API ${Build.VERSION.SDK_INT}, notification permission not required")
         }
     }
     
@@ -281,7 +282,7 @@ class MainActivity : AppCompatActivity() {
         
         // Log notification capability for debugging
         val notificationManager = TransactionNotificationManager(this)
-        Log.d("MainActivity", "Notifications enabled: ${notificationManager.areNotificationsEnabled()}")
+        Timber.tag("MainActivity").d("Notifications enabled: ${notificationManager.areNotificationsEnabled()}")
     }
     
     private fun showNotificationPermissionDeniedInfo() {
@@ -313,7 +314,7 @@ class MainActivity : AppCompatActivity() {
                     .setView(dialogView)
                     .setCancelable(true)
                     .setNegativeButton("Cancel") { dialog, _ ->
-                        Log.d("MainActivity", "[CANCELLED] User cancelled SMS scan")
+                        Timber.tag("MainActivity").d("[CANCELLED] User cancelled SMS scan")
                         dialog.dismiss()
                     }
                     .create()
@@ -342,7 +343,7 @@ class MainActivity : AppCompatActivity() {
                             progressText?.text = "$percentage%"
                             statusText?.text = status
                             
-                            Log.d("MainActivity", "[PROGRESS] Progress: $percentage% ($current/$total) - $status")
+                            Timber.tag("MainActivity").d("[PROGRESS] Progress: $percentage% ($current/$total) - $status")
                         }
                     }
                     
@@ -352,7 +353,7 @@ class MainActivity : AppCompatActivity() {
                     // Now sync transactions through repository (repository handles conversion internally)
                     val insertedCount = repository.syncNewSMS()
                     
-                    Log.d("MainActivity", "[DATABASE] Inserted $insertedCount new transactions into database")
+                    Timber.tag("MainActivity").d("[DATABASE] Inserted $insertedCount new transactions into database")
                     
                     // Update sync state
                     repository.updateSyncState(java.util.Date())
@@ -362,14 +363,14 @@ class MainActivity : AppCompatActivity() {
                 }
                 
                 val scanDuration = System.currentTimeMillis() - startTime
-                Log.d("MainActivity", "[TIMING] SMS scan completed in ${scanDuration}ms")
+                Timber.tag("MainActivity").d("[TIMING] SMS scan completed in ${scanDuration}ms")
                 
                 progressDialog?.dismiss()
                 progressDialog = null
                 
                 if (syncResult == null) {
                     // Timeout occurred
-                    Log.w("MainActivity", "[TIMEOUT] SMS scan timed out after ${timeoutMillis}ms")
+                    Timber.tag("MainActivity").w("[TIMEOUT] SMS scan timed out after ${timeoutMillis}ms")
                     Toast.makeText(
                         this@MainActivity,
                         "SMS scan is taking longer than expected. You can try again later or check the Messages tab.",
@@ -405,7 +406,7 @@ class MainActivity : AppCompatActivity() {
                 
             } catch (e: Exception) {
                 progressDialog?.dismiss()
-                Log.e("MainActivity", "[ERROR] Error during SMS scan", e)
+                Timber.tag("MainActivity").e(e, "[ERROR] Error during SMS scan")
                 
                 val errorMessage = when (e) {
                     is SecurityException -> "SMS permission was revoked during scan"

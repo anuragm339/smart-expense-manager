@@ -1,6 +1,7 @@
 package com.expensemanager.app.domain.usecase.sms
 
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.domain.repository.TransactionRepositoryInterface
 import java.util.Date
 import javax.inject.Inject
@@ -22,12 +23,12 @@ class SyncSMSTransactionsUseCase @Inject constructor(
      */
     suspend fun execute(): Result<SMSSyncResult> {
         return try {
-            Log.d(TAG, "Starting SMS transactions sync")
+            Timber.tag(TAG).d("Starting SMS transactions sync")
             
             val startTime = System.currentTimeMillis()
             val lastSyncTimestamp = repository.getLastSyncTimestamp()
             
-            Log.d(TAG, "Last sync timestamp: $lastSyncTimestamp")
+            Timber.tag(TAG).d("Last sync timestamp: $lastSyncTimestamp")
             
             // Perform the sync
             val newTransactionsCount = repository.syncNewSMS()
@@ -44,11 +45,11 @@ class SyncSMSTransactionsUseCase @Inject constructor(
                 errorMessage = null
             )
             
-            Log.d(TAG, "SMS sync completed successfully: $newTransactionsCount new transactions in ${syncDuration}ms")
+            Timber.tag(TAG).d("SMS sync completed successfully: $newTransactionsCount new transactions in ${syncDuration}ms")
             Result.success(syncResult)
             
         } catch (e: Exception) {
-            Log.e(TAG, "SMS sync failed", e)
+            Timber.tag(TAG).e(e, "SMS sync failed")
             
             val syncResult = SMSSyncResult(
                 newTransactionsCount = 0,
@@ -71,7 +72,7 @@ class SyncSMSTransactionsUseCase @Inject constructor(
     ): Result<SMSSyncResult> {
         
         return try {
-            Log.d(TAG, "Starting SMS sync with progress tracking")
+            Timber.tag(TAG).d("Starting SMS sync with progress tracking")
             
             progressCallback?.invoke(SyncProgress(SyncPhase.STARTING, 0, "Initializing SMS sync..."))
             
@@ -83,7 +84,7 @@ class SyncSMSTransactionsUseCase @Inject constructor(
             // Get current sync status
             val currentStatus = repository.getSyncStatus()
             if (currentStatus == "IN_PROGRESS") {
-                Log.w(TAG, "Sync already in progress")
+                Timber.tag(TAG).w("Sync already in progress")
                 return Result.failure(Exception("SMS sync already in progress"))
             }
             
@@ -108,11 +109,11 @@ class SyncSMSTransactionsUseCase @Inject constructor(
                 errorMessage = null
             )
             
-            Log.d(TAG, "SMS sync with progress completed: $newTransactionsCount new transactions")
+            Timber.tag(TAG).d("SMS sync with progress completed: $newTransactionsCount new transactions")
             Result.success(syncResult)
             
         } catch (e: Exception) {
-            Log.e(TAG, "SMS sync with progress failed", e)
+            Timber.tag(TAG).e(e, "SMS sync with progress failed")
             
             progressCallback?.invoke(SyncProgress(SyncPhase.FAILED, -1, "Sync failed: ${e.message}"))
             
@@ -134,7 +135,7 @@ class SyncSMSTransactionsUseCase @Inject constructor(
      */
     suspend fun forceFullSync(): Result<SMSSyncResult> {
         return try {
-            Log.w(TAG, "Starting FORCE FULL SMS sync - this may take longer")
+            Timber.tag(TAG).w("Starting FORCE FULL SMS sync - this may take longer")
             
             val startTime = System.currentTimeMillis()
             
@@ -157,11 +158,11 @@ class SyncSMSTransactionsUseCase @Inject constructor(
                 isFullSync = true
             )
             
-            Log.d(TAG, "Force full SMS sync completed: $newTransactionsCount transactions in ${syncDuration}ms")
+            Timber.tag(TAG).d("Force full SMS sync completed: $newTransactionsCount transactions in ${syncDuration}ms")
             Result.success(syncResult)
             
         } catch (e: Exception) {
-            Log.e(TAG, "Force full SMS sync failed", e)
+            Timber.tag(TAG).e(e, "Force full SMS sync failed")
             
             val syncResult = SMSSyncResult(
                 newTransactionsCount = 0,
@@ -182,7 +183,7 @@ class SyncSMSTransactionsUseCase @Inject constructor(
      */
     suspend fun getSyncStatus(): Result<SyncStatus> {
         return try {
-            Log.d(TAG, "Getting current sync status")
+            Timber.tag(TAG).d("Getting current sync status")
             
             val status = repository.getSyncStatus() ?: "UNKNOWN"
             val lastSyncTimestamp = repository.getLastSyncTimestamp()
@@ -195,11 +196,11 @@ class SyncSMSTransactionsUseCase @Inject constructor(
                 isInProgress = status == "IN_PROGRESS"
             )
             
-            Log.d(TAG, "Current sync status: $status, Total transactions: $totalTransactions")
+            Timber.tag(TAG).d("Current sync status: $status, Total transactions: $totalTransactions")
             Result.success(syncStatus)
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting sync status", e)
+            Timber.tag(TAG).e(e, "Error getting sync status")
             Result.failure(e)
         }
     }
@@ -209,7 +210,7 @@ class SyncSMSTransactionsUseCase @Inject constructor(
      */
     suspend fun isSyncNeeded(intervalHours: Int = 24): Result<Boolean> {
         return try {
-            Log.d(TAG, "Checking if SMS sync is needed (interval: ${intervalHours}h)")
+            Timber.tag(TAG).d("Checking if SMS sync is needed (interval: ${intervalHours}h)")
             
             val lastSyncTimestamp = repository.getLastSyncTimestamp()
             
@@ -223,11 +224,11 @@ class SyncSMSTransactionsUseCase @Inject constructor(
                 true // No previous sync, so sync is needed
             }
             
-            Log.d(TAG, "SMS sync needed: $isNeeded")
+            Timber.tag(TAG).d("SMS sync needed: $isNeeded")
             Result.success(isNeeded)
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error checking if sync is needed", e)
+            Timber.tag(TAG).e(e, "Error checking if sync is needed")
             Result.failure(e)
         }
     }
@@ -237,7 +238,7 @@ class SyncSMSTransactionsUseCase @Inject constructor(
      */
     suspend fun validateSyncPrerequisites(): Result<ValidationResult> {
         return try {
-            Log.d(TAG, "Validating SMS sync prerequisites")
+            Timber.tag(TAG).d("Validating SMS sync prerequisites")
             
             // This would normally check for SMS permissions, but we'll assume they're granted
             // In a real implementation, you'd check for:
@@ -252,11 +253,11 @@ class SyncSMSTransactionsUseCase @Inject constructor(
                 issues = emptyList()
             )
             
-            Log.d(TAG, "SMS sync prerequisites validation passed")
+            Timber.tag(TAG).d("SMS sync prerequisites validation passed")
             Result.success(validationResult)
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error validating sync prerequisites", e)
+            Timber.tag(TAG).e(e, "Error validating sync prerequisites")
             Result.failure(e)
         }
     }

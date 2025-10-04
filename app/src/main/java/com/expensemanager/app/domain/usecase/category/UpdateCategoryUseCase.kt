@@ -1,6 +1,7 @@
 package com.expensemanager.app.domain.usecase.category
 
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.data.entities.CategoryEntity
 import com.expensemanager.app.domain.repository.CategoryRepositoryInterface
 import java.util.Date
@@ -23,19 +24,19 @@ class UpdateCategoryUseCase @Inject constructor(
      */
     suspend fun createCategory(category: CategoryEntity): Result<Long> {
         return try {
-            Log.d(TAG, "Creating new category: ${category.name}")
+            Timber.tag(TAG).d("Creating new category: ${category.name}")
             
             // Validate category data
             val validationResult = validateCategory(category)
             if (!validationResult.isValid) {
-                Log.w(TAG, "Category validation failed: ${validationResult.error}")
+                Timber.tag(TAG).w("Category validation failed: ${validationResult.error}")
                 return Result.failure(IllegalArgumentException(validationResult.error))
             }
             
             // Check if category with same name already exists
             val existingCategory = repository.getCategoryByName(category.name)
             if (existingCategory != null) {
-                Log.w(TAG, "Category with name '${category.name}' already exists")
+                Timber.tag(TAG).w("Category with name '${category.name}' already exists")
                 return Result.failure(CategoryAlreadyExistsException("Category '${category.name}' already exists"))
             }
             
@@ -46,15 +47,15 @@ class UpdateCategoryUseCase @Inject constructor(
             
             val insertedId = repository.insertCategory(categoryToCreate)
             if (insertedId > 0) {
-                Log.d(TAG, "Category created successfully with ID: $insertedId")
+                Timber.tag(TAG).d("Category created successfully with ID: $insertedId")
                 Result.success(insertedId)
             } else {
-                Log.e(TAG, "Failed to create category")
+                Timber.tag(TAG).e("Failed to create category")
                 Result.failure(Exception("Failed to create category"))
             }
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error creating category", e)
+            Timber.tag(TAG).e(e, "Error creating category")
             Result.failure(e)
         }
     }
@@ -64,19 +65,19 @@ class UpdateCategoryUseCase @Inject constructor(
      */
     suspend fun updateCategory(category: CategoryEntity): Result<Unit> {
         return try {
-            Log.d(TAG, "Updating category: ${category.name}")
+            Timber.tag(TAG).d("Updating category: ${category.name}")
             
             // Validate category data
             val validationResult = validateCategory(category)
             if (!validationResult.isValid) {
-                Log.w(TAG, "Category validation failed: ${validationResult.error}")
+                Timber.tag(TAG).w("Category validation failed: ${validationResult.error}")
                 return Result.failure(IllegalArgumentException(validationResult.error))
             }
             
             // Check if category exists
             val existingCategory = repository.getCategoryById(category.id)
             if (existingCategory == null) {
-                Log.w(TAG, "Category with ID ${category.id} not found")
+                Timber.tag(TAG).w("Category with ID ${category.id} not found")
                 return Result.failure(CategoryNotFoundException("Category not found"))
             }
             
@@ -84,7 +85,7 @@ class UpdateCategoryUseCase @Inject constructor(
             if (existingCategory.name != category.name) {
                 val duplicateCategory = repository.getCategoryByName(category.name)
                 if (duplicateCategory != null && duplicateCategory.id != category.id) {
-                    Log.w(TAG, "Category name '${category.name}' already exists")
+                    Timber.tag(TAG).w("Category name '${category.name}' already exists")
                     return Result.failure(CategoryAlreadyExistsException("Category name '${category.name}' already exists"))
                 }
             }
@@ -93,11 +94,11 @@ class UpdateCategoryUseCase @Inject constructor(
             val categoryToUpdate = category
             
             repository.updateCategory(categoryToUpdate)
-            Log.d(TAG, "Category updated successfully")
+            Timber.tag(TAG).d("Category updated successfully")
             Result.success(Unit)
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error updating category", e)
+            Timber.tag(TAG).e(e, "Error updating category")
             Result.failure(e)
         }
     }
@@ -107,20 +108,20 @@ class UpdateCategoryUseCase @Inject constructor(
      */
     suspend fun deleteCategory(category: CategoryEntity): Result<Unit> {
         return try {
-            Log.d(TAG, "Deleting category: ${category.name}")
+            Timber.tag(TAG).d("Deleting category: ${category.name}")
             
             // Check if this is a system category
             if (category.isSystem) {
-                Log.w(TAG, "Cannot delete system category: ${category.name}")
+                Timber.tag(TAG).w("Cannot delete system category: ${category.name}")
                 return Result.failure(IllegalArgumentException("Cannot delete system categories"))
             }
             
             repository.deleteCategory(category)
-            Log.d(TAG, "Category deleted successfully")
+            Timber.tag(TAG).d("Category deleted successfully")
             Result.success(Unit)
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error deleting category", e)
+            Timber.tag(TAG).e(e, "Error deleting category")
             Result.failure(e)
         }
     }
@@ -130,7 +131,7 @@ class UpdateCategoryUseCase @Inject constructor(
      */
     suspend fun updateCategoryName(categoryId: Long, newName: String): Result<Unit> {
         return try {
-            Log.d(TAG, "Updating category name for ID: $categoryId to: $newName")
+            Timber.tag(TAG).d("Updating category name for ID: $categoryId to: $newName")
             
             if (newName.isBlank()) {
                 return Result.failure(IllegalArgumentException("Category name cannot be empty"))
@@ -152,11 +153,11 @@ class UpdateCategoryUseCase @Inject constructor(
             )
             
             repository.updateCategory(updatedCategory)
-            Log.d(TAG, "Category name updated successfully")
+            Timber.tag(TAG).d("Category name updated successfully")
             Result.success(Unit)
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error updating category name", e)
+            Timber.tag(TAG).e(e, "Error updating category name")
             Result.failure(e)
         }
     }
@@ -166,7 +167,7 @@ class UpdateCategoryUseCase @Inject constructor(
      */
     suspend fun updateCategoryColor(categoryId: Long, newColor: String): Result<Unit> {
         return try {
-            Log.d(TAG, "Updating category color for ID: $categoryId")
+            Timber.tag(TAG).d("Updating category color for ID: $categoryId")
             
             if (!isValidColor(newColor)) {
                 return Result.failure(IllegalArgumentException("Invalid color format"))
@@ -182,11 +183,11 @@ class UpdateCategoryUseCase @Inject constructor(
             )
             
             repository.updateCategory(updatedCategory)
-            Log.d(TAG, "Category color updated successfully")
+            Timber.tag(TAG).d("Category color updated successfully")
             Result.success(Unit)
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error updating category color", e)
+            Timber.tag(TAG).e(e, "Error updating category color")
             Result.failure(e)
         }
     }
@@ -196,7 +197,7 @@ class UpdateCategoryUseCase @Inject constructor(
      */
     suspend fun updateCategoryActiveStatus(categoryId: Long, isActive: Boolean): Result<Unit> {
         return try {
-            Log.d(TAG, "Updating category active status for ID: $categoryId to: $isActive")
+            Timber.tag(TAG).d("Updating category active status for ID: $categoryId to: $isActive")
             
             // Get existing category
             val existingCategory = repository.getCategoryById(categoryId)
@@ -204,12 +205,12 @@ class UpdateCategoryUseCase @Inject constructor(
             
             // Note: CategoryEntity doesn't have isActive field - this is a system property
             // For now, we'll just return success without modification
-            Log.d(TAG, "Category active status update not supported for current entity structure")
-            Log.d(TAG, "Category active status updated successfully")
+            Timber.tag(TAG).d("Category active status update not supported for current entity structure")
+            Timber.tag(TAG).d("Category active status updated successfully")
             Result.success(Unit)
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error updating category active status", e)
+            Timber.tag(TAG).e(e, "Error updating category active status")
             Result.failure(e)
         }
     }

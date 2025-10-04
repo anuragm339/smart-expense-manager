@@ -1,6 +1,7 @@
 package com.expensemanager.app.domain.usecase.dashboard
 
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.domain.repository.TransactionRepositoryInterface
 import com.expensemanager.app.domain.repository.CategoryRepositoryInterface
 import java.util.Date
@@ -25,7 +26,7 @@ class GetBudgetStatusUseCase @Inject constructor(
      */
     suspend fun getCurrentMonthBudgetStatus(monthlyBudget: Double): Result<BudgetStatus> {
         return try {
-            Log.d(TAG, "Getting current month budget status with budget: ₹$monthlyBudget")
+            Timber.tag(TAG).d("Getting current month budget status with budget: ₹$monthlyBudget")
             
             val (startDate, endDate) = getCurrentMonthDates()
             val totalSpent = transactionRepository.getTotalSpent(startDate, endDate)
@@ -33,11 +34,11 @@ class GetBudgetStatusUseCase @Inject constructor(
             
             val budgetStatus = calculateBudgetStatus(monthlyBudget, totalSpent, startDate, endDate, transactionCount)
             
-            Log.d(TAG, "Budget status calculated: ${budgetStatus.status}")
+            Timber.tag(TAG).d("Budget status calculated: ${budgetStatus.status}")
             Result.success(budgetStatus)
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting budget status", e)
+            Timber.tag(TAG).e(e, "Error getting budget status")
             Result.failure(e)
         }
     }
@@ -47,7 +48,7 @@ class GetBudgetStatusUseCase @Inject constructor(
      */
     suspend fun getCategoryBudgetStatus(categoryBudgets: Map<String, Double>): Result<List<CategoryBudgetStatus>> {
         return try {
-            Log.d(TAG, "Getting category budget status for ${categoryBudgets.size} categories")
+            Timber.tag(TAG).d("Getting category budget status for ${categoryBudgets.size} categories")
             
             val (startDate, endDate) = getCurrentMonthDates()
             val categorySpending = categoryRepository.getCategorySpending(startDate, endDate)
@@ -59,11 +60,11 @@ class GetBudgetStatusUseCase @Inject constructor(
                 calculateCategoryBudgetStatus(categoryName, budget, spending, transactionCount, startDate, endDate)
             }.sortedByDescending { it.spentAmount }
             
-            Log.d(TAG, "Category budget status calculated for ${categoryStatuses.size} categories")
+            Timber.tag(TAG).d("Category budget status calculated for ${categoryStatuses.size} categories")
             Result.success(categoryStatuses)
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting category budget status", e)
+            Timber.tag(TAG).e(e, "Error getting category budget status")
             Result.failure(e)
         }
     }
@@ -73,7 +74,7 @@ class GetBudgetStatusUseCase @Inject constructor(
      */
     suspend fun getBudgetAlerts(monthlyBudget: Double, categoryBudgets: Map<String, Double> = emptyMap()): Result<BudgetAlerts> {
         return try {
-            Log.d(TAG, "Getting budget alerts")
+            Timber.tag(TAG).d("Getting budget alerts")
             
             val overallStatus = getCurrentMonthBudgetStatus(monthlyBudget).getOrNull()
             val categoryStatuses = if (categoryBudgets.isNotEmpty()) {
@@ -84,11 +85,11 @@ class GetBudgetStatusUseCase @Inject constructor(
             
             val alerts = generateBudgetAlerts(overallStatus, categoryStatuses)
             
-            Log.d(TAG, "Generated ${alerts.criticalAlerts.size} critical and ${alerts.warningAlerts.size} warning alerts")
+            Timber.tag(TAG).d("Generated ${alerts.criticalAlerts.size} critical and ${alerts.warningAlerts.size} warning alerts")
             Result.success(alerts)
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting budget alerts", e)
+            Timber.tag(TAG).e(e, "Error getting budget alerts")
             Result.failure(e)
         }
     }
@@ -98,7 +99,7 @@ class GetBudgetStatusUseCase @Inject constructor(
      */
     suspend fun getBudgetProjection(monthlyBudget: Double): Result<BudgetProjection> {
         return try {
-            Log.d(TAG, "Getting budget projection")
+            Timber.tag(TAG).d("Getting budget projection")
             
             val (startDate, endDate) = getCurrentMonthDates()
             val currentDate = Date()
@@ -106,11 +107,11 @@ class GetBudgetStatusUseCase @Inject constructor(
             
             val projection = calculateBudgetProjection(monthlyBudget, totalSpent, startDate, endDate, currentDate)
             
-            Log.d(TAG, "Budget projection calculated")
+            Timber.tag(TAG).d("Budget projection calculated")
             Result.success(projection)
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting budget projection", e)
+            Timber.tag(TAG).e(e, "Error getting budget projection")
             Result.failure(e)
         }
     }
@@ -120,7 +121,7 @@ class GetBudgetStatusUseCase @Inject constructor(
      */
     suspend fun getDailyBudgetAllowance(monthlyBudget: Double): Result<DailyBudgetAllowance> {
         return try {
-            Log.d(TAG, "Getting daily budget allowance")
+            Timber.tag(TAG).d("Getting daily budget allowance")
             
             val (startDate, endDate) = getCurrentMonthDates()
             val currentDate = Date()
@@ -128,11 +129,11 @@ class GetBudgetStatusUseCase @Inject constructor(
             
             val allowance = calculateDailyBudgetAllowance(monthlyBudget, totalSpent, currentDate, endDate)
             
-            Log.d(TAG, "Daily budget allowance calculated: ₹${allowance.dailyAllowance}")
+            Timber.tag(TAG).d("Daily budget allowance calculated: ₹${allowance.dailyAllowance}")
             Result.success(allowance)
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting daily budget allowance", e)
+            Timber.tag(TAG).e(e, "Error getting daily budget allowance")
             Result.failure(e)
         }
     }

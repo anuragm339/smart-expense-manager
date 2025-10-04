@@ -1,6 +1,7 @@
 package com.expensemanager.app.services
 
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -48,11 +49,11 @@ class RetryMechanism @Inject constructor(
             attemptCount = attempt + 1
 
             try {
-                Log.d(TAG, "Attempt $attemptCount/${config.maxAttempts}")
+                Timber.tag(TAG).d("Attempt $attemptCount/${config.maxAttempts}")
                 val result = operation()
 
                 if (attemptCount > 1) {
-                    Log.i(TAG, "Operation succeeded on attempt $attemptCount")
+                    Timber.tag(TAG).i("Operation succeeded on attempt $attemptCount")
                 }
 
                 return Result.success(result)
@@ -65,14 +66,14 @@ class RetryMechanism @Inject constructor(
 
                 // Check if we should retry this error
                 if (!config.retryOnCondition(e) || !networkError.recoverable) {
-                    Log.w(TAG, "Error is not recoverable, stopping retries")
+                    Timber.tag(TAG).w("Error is not recoverable, stopping retries")
                     return Result.failure(e)
                 }
 
                 // Don't delay on the last attempt
                 if (attempt < config.maxAttempts - 1) {
                     val delayMs = calculateDelay(attempt, config)
-                    Log.d(TAG, "Retrying in ${delayMs}ms...")
+                    Timber.tag(TAG).d("Retrying in ${delayMs}ms...")
                     delay(delayMs)
                 }
             }
@@ -188,7 +189,7 @@ class RetryMechanism @Inject constructor(
         fun onSuccess() {
             failureCount = 0
             state = State.CLOSED
-            Log.d(TAG, "Circuit breaker reset - service recovered")
+            Timber.tag(TAG).d("Circuit breaker reset - service recovered")
         }
 
         fun onFailure() {
@@ -197,7 +198,7 @@ class RetryMechanism @Inject constructor(
 
             if (failureCount >= failureThreshold) {
                 state = State.OPEN
-                Log.w(TAG, "Circuit breaker opened - service temporarily disabled")
+                Timber.tag(TAG).w("Circuit breaker opened - service temporarily disabled")
             }
         }
 

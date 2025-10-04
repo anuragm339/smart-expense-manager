@@ -1,7 +1,8 @@
 package com.expensemanager.app.ui.merchant
 
 import android.content.Context
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -38,14 +39,14 @@ class MerchantTransactionsViewModel @Inject constructor(
             try {
                 _uiState.value = _uiState.value.copy(isLoading = true, error = null)
                 
-                Log.d(TAG, "Loading transactions for merchant: $merchantName")
+                Timber.tag(TAG).d("Loading transactions for merchant: $merchantName")
                 
                 // Get all transactions for this merchant
                 val transactions = repository.searchTransactions(merchantName.lowercase(), 1000)
                     .filter { it.normalizedMerchant.contains(merchantName.lowercase()) || 
                              it.rawMerchant.contains(merchantName, ignoreCase = true) }
                 
-                Log.d(TAG, "Found ${transactions.size} transactions for $merchantName")
+                Timber.tag(TAG).d("Found ${transactions.size} transactions for $merchantName")
                 
                 // Calculate totals
                 val totalAmount = transactions.sumOf { it.amount }
@@ -61,7 +62,7 @@ class MerchantTransactionsViewModel @Inject constructor(
                 )
                 
             } catch (e: Exception) {
-                Log.e(TAG, "Error loading merchant transactions", e)
+                Timber.tag(TAG).e(e, "Error loading merchant transactions")
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     error = "Error loading transactions: ${e.message}"
@@ -77,9 +78,9 @@ class MerchantTransactionsViewModel @Inject constructor(
         // Normalize merchant name for consistent lookup
         val normalizedMerchantName = merchantName.trim()
         
-        Log.d(TAG, "[DEBUG] Loading inclusion state for original: '$merchantName'")
-        Log.d(TAG, "[DEBUG] Loading inclusion state for normalized: '$normalizedMerchantName'")
-        Log.d(TAG, "[DEBUG] Inclusion states JSON: $inclusionStatesJson")
+        Timber.tag(TAG).d("[DEBUG] Loading inclusion state for original: '$merchantName'")
+        Timber.tag(TAG).d("[DEBUG] Loading inclusion state for normalized: '$normalizedMerchantName'")
+        Timber.tag(TAG).d("[DEBUG] Inclusion states JSON: $inclusionStatesJson")
         
         var isIncluded = true // Default to included
         
@@ -90,17 +91,17 @@ class MerchantTransactionsViewModel @Inject constructor(
                 // Debug: Log all keys in the inclusion states
                 val keys = mutableListOf<String>()
                 inclusionStates.keys().forEach { key -> keys.add(key) }
-                Log.d(TAG, "[DEBUG] All keys in preferences: $keys")
+                Timber.tag(TAG).d("[DEBUG] All keys in preferences: $keys")
                 
                 // Try normalized merchant name first, then original name for backward compatibility
                 when {
                     inclusionStates.has(normalizedMerchantName) -> {
                         isIncluded = inclusionStates.getBoolean(normalizedMerchantName)
-                        Log.d(TAG, "[DEBUG] Found normalized '$normalizedMerchantName' in preferences: $isIncluded")
+                        Timber.tag(TAG).d("[DEBUG] Found normalized '$normalizedMerchantName' in preferences: $isIncluded")
                     }
                     inclusionStates.has(merchantName) -> {
                         isIncluded = inclusionStates.getBoolean(merchantName)
-                        Log.d(TAG, "[DEBUG] Found original '$merchantName' in preferences: $isIncluded (legacy)")
+                        Timber.tag(TAG).d("[DEBUG] Found original '$merchantName' in preferences: $isIncluded (legacy)")
                         
                         // Migrate to normalized key
                         inclusionStates.put(normalizedMerchantName, isIncluded)
@@ -108,17 +109,17 @@ class MerchantTransactionsViewModel @Inject constructor(
                         prefs.edit()
                             .putString("group_inclusion_states", inclusionStates.toString())
                             .apply()
-                        Log.d(TAG, "[MIGRATION] Migrated '$merchantName' -> '$normalizedMerchantName'")
+                        Timber.tag(TAG).d("[MIGRATION] Migrated '$merchantName' -> '$normalizedMerchantName'")
                     }
                     else -> {
-                        Log.d(TAG, "[DEBUG] Neither normalized nor original merchant name found in preferences, defaulting to included")
+                        Timber.tag(TAG).d("[DEBUG] Neither normalized nor original merchant name found in preferences, defaulting to included")
                     }
                 }
             } catch (e: Exception) {
-                Log.w(TAG, "Error loading inclusion state", e)
+                Timber.tag(TAG).w("Error loading inclusion state", e)
             }
         } else {
-            Log.d(TAG, "[DEBUG] No inclusion states JSON found, defaulting to included")
+            Timber.tag(TAG).d("[DEBUG] No inclusion states JSON found, defaulting to included")
         }
         
         _uiState.value = _uiState.value.copy(isIncludedInExpense = isIncluded)
@@ -129,7 +130,7 @@ class MerchantTransactionsViewModel @Inject constructor(
             try {
                 // Validate merchant name
                 if (merchantName.isBlank()) {
-                    Log.w(TAG, "Cannot update inclusion state for blank merchant name")
+                    Timber.tag(TAG).w("Cannot update inclusion state for blank merchant name")
                     _events.value = MerchantTransactionsEvent.ShowError("Invalid merchant name")
                     return@launch
                 }
@@ -137,9 +138,9 @@ class MerchantTransactionsViewModel @Inject constructor(
                 // Normalize merchant name for consistent storage (trim whitespace and handle special chars)
                 val normalizedMerchantName = merchantName.trim()
                 
-                Log.d(TAG, "[DEBUG] Updating inclusion state for normalized merchant: '$normalizedMerchantName'")
-                Log.d(TAG, "[DEBUG] Original merchant name length: ${merchantName.length}")
-                Log.d(TAG, "[DEBUG] Normalized merchant name length: ${normalizedMerchantName.length}")
+                Timber.tag(TAG).d("[DEBUG] Updating inclusion state for normalized merchant: '$normalizedMerchantName'")
+                Timber.tag(TAG).d("[DEBUG] Original merchant name length: ${merchantName.length}")
+                Timber.tag(TAG).d("[DEBUG] Normalized merchant name length: ${normalizedMerchantName.length}")
                 
                 // Save to SharedPreferences
                 val prefs = context.getSharedPreferences("expense_calculations", Context.MODE_PRIVATE)
@@ -158,13 +159,13 @@ class MerchantTransactionsViewModel @Inject constructor(
                     .putString("group_inclusion_states", inclusionStates.toString())
                     .apply()
                 
-                Log.d(TAG, "[DEBUG] Updated inclusion state for '$normalizedMerchantName': $isIncluded")
-                Log.d(TAG, "[DEBUG] Full inclusion states JSON: ${inclusionStates.toString()}")
+                Timber.tag(TAG).d("[DEBUG] Updated inclusion state for '$normalizedMerchantName': $isIncluded")
+                Timber.tag(TAG).d("[DEBUG] Full inclusion states JSON: ${inclusionStates.toString()}")
                 
                 // Debug: Log all keys in the inclusion states
                 val keys = mutableListOf<String>()
                 inclusionStates.keys().forEach { key -> keys.add(key) }
-                Log.d(TAG, "[DEBUG] All merchant keys in preferences: $keys")
+                Timber.tag(TAG).d("[DEBUG] All merchant keys in preferences: $keys")
                 
                 // FIXED: Send broadcast to notify Dashboard and other screens about inclusion state change
                 val totalIncluded = inclusionStates.keys().asSequence().count { key ->
@@ -177,7 +178,7 @@ class MerchantTransactionsViewModel @Inject constructor(
                     putExtra("is_included", isIncluded)
                 }
                 context.sendBroadcast(intent)
-                Log.d(TAG, "Broadcast sent for inclusion state change: $normalizedMerchantName = $isIncluded")
+                Timber.tag(TAG).d("Broadcast sent for inclusion state change: $normalizedMerchantName = $isIncluded")
                 
                 _uiState.value = _uiState.value.copy(isIncludedInExpense = isIncluded)
                 
@@ -194,7 +195,7 @@ class MerchantTransactionsViewModel @Inject constructor(
                 )
                 
             } catch (e: Exception) {
-                Log.e(TAG, "Error updating inclusion state", e)
+                Timber.tag(TAG).e(e, "Error updating inclusion state")
                 _events.value = MerchantTransactionsEvent.ShowError("Error updating inclusion state")
             }
         }

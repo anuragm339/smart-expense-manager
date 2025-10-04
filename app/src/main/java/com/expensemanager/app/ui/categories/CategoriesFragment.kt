@@ -34,7 +34,8 @@ import com.expensemanager.app.ui.dashboard.ProcessedTransaction
 import kotlinx.coroutines.launch
 import java.util.*
 import android.content.Context
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import androidx.core.widget.addTextChangedListener
 import com.google.android.material.tabs.TabLayout
 
@@ -56,7 +57,7 @@ class CategoriesFragment : Fragment() {
     private val merchantCategoryChangeReceiver = object : android.content.BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: android.content.Intent?) {
             if (intent?.action == "com.expensemanager.MERCHANT_CATEGORY_CHANGED") {
-                Log.d("CategoriesFragment", "Received merchant category change broadcast, refreshing categories.")
+                Timber.tag("CategoriesFragment").d("Received merchant category change broadcast, refreshing categories.")
                 viewModel.handleEvent(CategoriesUIEvent.Refresh)
             }
         }
@@ -142,7 +143,7 @@ class CategoriesFragment : Fragment() {
      * Update UI based on ViewModel state
      */
     private fun updateUI(uiState: CategoriesUIState) {
-        Log.d("CategoriesFragment", "Updating UI with ${uiState.categories.size} categories")
+        Timber.tag("CategoriesFragment").d("Updating UI with ${uiState.categories.size} categories")
         
         // Update categories list
         categoriesAdapter.submitList(uiState.categories.toList()) // Create new list to trigger adapter update
@@ -179,7 +180,7 @@ class CategoriesFragment : Fragment() {
     private fun loadRealCategoryData() {
         lifecycleScope.launch {
             try {
-                Log.d("CategoriesFragment", "Loading category data from repository...")
+                Timber.tag("CategoriesFragment").d("Loading category data from repository...")
                 
                 // Use the same date range as Dashboard (current month)
                 val calendar = Calendar.getInstance()
@@ -197,16 +198,16 @@ class CategoriesFragment : Fragment() {
                 // Get category spending from repository (same as Dashboard)
                 val categorySpendingResults = repository.getCategorySpending(startDate, endDate)
                 
-                Log.d("CategoriesFragment", "[ANALYTICS] Categories Date Range: ${startDate} to ${endDate}")
-                Log.d("CategoriesFragment", "[ANALYTICS] Categories Raw Transactions Count: ${repository.getTransactionsByDateRange(startDate, endDate).size}")
-                Log.d("CategoriesFragment", "Repository returned ${categorySpendingResults.size} category results")
+                Timber.tag("CategoriesFragment").d("[ANALYTICS] Categories Date Range: ${startDate} to ${endDate}")
+                Timber.tag("CategoriesFragment").d("[ANALYTICS] Categories Raw Transactions Count: ${repository.getTransactionsByDateRange(startDate, endDate).size}")
+                Timber.tag("CategoriesFragment").d("Repository returned ${categorySpendingResults.size} category results")
                 
                 if (categorySpendingResults.isNotEmpty()) {
                     // Convert repository results to CategoryItem format
                     val transactionCategoryData = categorySpendingResults.map { categoryResult ->
                         val lastTransactionText = categoryResult.last_transaction_date?.let { formatLastTransaction(it) } ?: ""
                         
-                        Log.d("CategoriesFragment", "Repository Category: ${categoryResult.category_name}, Amount: ₹${String.format("%.0f", categoryResult.total_amount)}, Count: ${categoryResult.transaction_count}")
+                        Timber.tag("CategoriesFragment").d("Repository Category: ${categoryResult.category_name}, Amount: ₹${String.format("%.0f", categoryResult.total_amount)}, Count: ${categoryResult.transaction_count}")
                         
                         CategoryItem(
                             name = categoryResult.category_name,
@@ -242,7 +243,7 @@ class CategoriesFragment : Fragment() {
                     
                     // Calculate percentages and progress
                     val totalSpent = categoryData.sumOf { categoryItem -> categoryItem.amount }
-                    Log.d("CategoriesFragment", "[ANALYTICS] Categories Calculated Total: ₹${String.format("%.0f", totalSpent)}")
+                    Timber.tag("CategoriesFragment").d("[ANALYTICS] Categories Calculated Total: ₹${String.format("%.0f", totalSpent)}")
                     val categoriesWithPercentages = categoryData.map { categoryItem ->
                         val percentage = if (totalSpent > 0) ((categoryItem.amount / totalSpent) * 100).toInt() else 0
                         categoryItem.copy(
@@ -257,7 +258,7 @@ class CategoriesFragment : Fragment() {
                     binding.tvCategoriesCount.text = "${categoriesWithPercentages.size} Categories"
                     
                 } else {
-                    Log.d("CategoriesFragment", "No data in repository, falling back to SMS reading...")
+                    Timber.tag("CategoriesFragment").d("No data in repository, falling back to SMS reading...")
                     loadCategoryDataFallback()
                 }
                 
@@ -276,11 +277,11 @@ class CategoriesFragment : Fragment() {
     private fun loadCategoryDataFallback() {
         lifecycleScope.launch {
             try {
-                Log.d("CategoriesFragment", "[SMS] Loading category data from SMS as fallback...")
+                Timber.tag("CategoriesFragment").d("[SMS] Loading category data from SMS as fallback...")
                 
                 // Trigger SMS sync if no data exists
                 val syncedCount = repository.syncNewSMS()
-                Log.d("CategoriesFragment", "📥 Synced $syncedCount new transactions from SMS")
+                Timber.tag("CategoriesFragment").d("📥 Synced $syncedCount new transactions from SMS")
                 
                 if (syncedCount > 0) {
                     // Now load data from repository
@@ -355,10 +356,10 @@ class CategoriesFragment : Fragment() {
                 }
                 
             } catch (e: SecurityException) {
-                Log.w("CategoriesFragment", "SMS permission denied for fallback loading", e)
+                Timber.tag("CategoriesFragment").w("SMS permission denied for fallback loading", e)
                 showEmptyState()
             } catch (e: Exception) {
-                Log.e("CategoriesFragment", "Error in fallback loading", e)
+                Timber.tag("CategoriesFragment").e(e, "Error in fallback loading")
                 showEmptyState()
             }
         }
@@ -515,7 +516,7 @@ class CategoriesFragment : Fragment() {
         val allCategories = categoryManager.getAllCategories()
         if (!allCategories.contains("Money")) {
             categoryManager.addCustomCategory("Money")
-            Log.d("CategoriesFragment", "Added 'Money' category to CategoryManager")
+            Timber.tag("CategoriesFragment").d("Added 'Money' category to CategoryManager")
         }
         
         // Trigger ViewModel refresh when returning to this screen
@@ -592,7 +593,7 @@ class CategoriesFragment : Fragment() {
      * Get empty categories (only custom categories with ₹0 amounts)
      */
     private fun getEmptyCategories(): List<CategoryItem> {
-        Log.d("CategoriesFragment", "Showing empty categories state - no dummy data")
+        Timber.tag("CategoriesFragment").d("Showing empty categories state - no dummy data")
         
         // Only show custom categories with ₹0 amounts - no fake data
         val customCategories = categoryManager.getAllCategories()
@@ -628,7 +629,7 @@ class CategoriesFragment : Fragment() {
                     }
                 }
             } catch (e: Exception) {
-                android.util.Log.w("CategoriesFragment", "Error loading inclusion states", e)
+                Timber.tag("CategoriesFragment").w(e, "Error loading inclusion states")
             }
         }
         
@@ -637,12 +638,12 @@ class CategoriesFragment : Fragment() {
     }
     
     private fun showCategoryActionDialog(categoryItem: CategoryItem, anchorView: android.view.View) {
-        Log.d("CategoriesFragment", "Long press detected for category: ${categoryItem.name}")
+        Timber.tag("CategoriesFragment").d("Long press detected for category: ${categoryItem.name}")
         
         // Check if this is a system/predefined category
         if (Categories.isSystemCategory(categoryItem.name)) {
-            Log.d("CategoriesFragment", "Category '${categoryItem.name}' is a system category - actions not allowed")
-            Log.d("CategoriesFragment", "System categories: ${Categories.DEFAULT_CATEGORIES}")
+            Timber.tag("CategoriesFragment").d("Category '${categoryItem.name}' is a system category - actions not allowed")
+            Timber.tag("CategoriesFragment").d("System categories: ${Categories.DEFAULT_CATEGORIES}")
             Toast.makeText(
                 requireContext(),
                 "Cannot modify system category '${categoryItem.name}'",
@@ -650,15 +651,15 @@ class CategoriesFragment : Fragment() {
             ).show()
             return
         } else {
-            Log.d("CategoriesFragment", "Category '${categoryItem.name}' is a custom category - allowing actions")
+            Timber.tag("CategoriesFragment").d("Category '${categoryItem.name}' is a custom category - allowing actions")
         }
         
         try {
             // Use custom styled dialog
             showCustomCategoryActionDialog(categoryItem)
-            Log.d("CategoriesFragment", "Custom dialog shown")
+            Timber.tag("CategoriesFragment").d("Custom dialog shown")
         } catch (e: Exception) {
-            Log.e("CategoriesFragment", "Custom dialog failed", e)
+            Timber.tag("CategoriesFragment").e(e, "Custom dialog failed")
             // Last resort - Toast with instructions
             Toast.makeText(
                 requireContext(),
@@ -697,7 +698,7 @@ class CategoriesFragment : Fragment() {
         bottomSheetDialog.setContentView(view)
         bottomSheetDialog.show()
         
-        Log.d("CategoriesFragment", "BottomSheet dialog shown for category: ${categoryItem.name}")
+        Timber.tag("CategoriesFragment").d("BottomSheet dialog shown for category: ${categoryItem.name}")
     }
 
     private fun showCustomCategoryActionDialog(categoryItem: CategoryItem) {
@@ -785,7 +786,7 @@ class CategoriesFragment : Fragment() {
             val newEmoji = emojiInput.text.toString().trim()
             
             if (newName.isNotEmpty() && (newName != categoryItem.name || newEmoji != categoryItem.emoji)) {
-                Log.d("CategoriesFragment", "Triggering rename from '${categoryItem.name}' to '$newName' with emoji '$newEmoji'")
+                Timber.tag("CategoriesFragment").d("Triggering rename from '${categoryItem.name}' to '$newName' with emoji '$newEmoji'")
                 viewModel.handleEvent(CategoriesUIEvent.RenameCategory(categoryItem.name, newName, newEmoji))
                 val message = if (newName != categoryItem.name) {
                     "Updating category to '$newName'..."
@@ -811,13 +812,13 @@ class CategoriesFragment : Fragment() {
     }
     
     private fun showDeleteCategoryDialog(categoryItem: CategoryItem) {
-        Log.d("CategoriesFragment", "Showing delete dialog for category: ${categoryItem.name}")
+        Timber.tag("CategoriesFragment").d("Showing delete dialog for category: ${categoryItem.name}")
         
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("Delete Category")
             .setMessage("Are you sure you want to delete '${categoryItem.name}' category?\n\nAll transactions will be moved to 'Other' category. This action cannot be undone.")
             .setPositiveButton("Delete") { _, _ ->
-                Log.d("CategoriesFragment", "Triggering delete for category: ${categoryItem.name}")
+                Timber.tag("CategoriesFragment").d("Triggering delete for category: ${categoryItem.name}")
                 viewModel.handleEvent(CategoriesUIEvent.DeleteCategory(categoryItem.name))
                 Toast.makeText(
                     requireContext(),
@@ -826,7 +827,7 @@ class CategoriesFragment : Fragment() {
                 ).show()
             }
             .setNegativeButton("Cancel") { dialog, _ ->
-                Log.d("CategoriesFragment", "Delete dialog cancelled")
+                Timber.tag("CategoriesFragment").d("Delete dialog cancelled")
                 dialog.dismiss()
             }
             .show()
@@ -836,9 +837,9 @@ class CategoriesFragment : Fragment() {
         super.onPause()
         try {
             requireContext().unregisterReceiver(merchantCategoryChangeReceiver)
-            Log.d("CategoriesFragment", "Unregistered broadcast receiver for merchant category changes.")
+            Timber.tag("CategoriesFragment").d("Unregistered broadcast receiver for merchant category changes.")
         } catch (e: Exception) {
-            Log.w("CategoriesFragment", "Broadcast receiver not registered, ignoring unregister.", e)
+            Timber.tag("CategoriesFragment").w("Broadcast receiver not registered, ignoring unregister.", e)
         }
     }
 

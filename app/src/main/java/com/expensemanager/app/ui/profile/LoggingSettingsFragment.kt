@@ -76,12 +76,12 @@ class LoggingSettingsFragment : Fragment() {
         binding.spinnerLogLevel.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 val logLevel = when (position) {
-                    0 -> LogConfig.LogLevel.ERROR
-                    1 -> LogConfig.LogLevel.WARN
-                    2 -> LogConfig.LogLevel.INFO
-                    3 -> LogConfig.LogLevel.DEBUG
-                    4 -> LogConfig.LogLevel.VERBOSE
-                    else -> LogConfig.LogLevel.INFO
+                    0 -> LogConfig.ERROR
+                    1 -> LogConfig.WARN
+                    2 -> LogConfig.INFO
+                    3 -> LogConfig.DEBUG
+                    4 -> LogConfig.VERBOSE
+                    else -> LogConfig.INFO
                 }
                 appLogger.setLogLevel(logLevel)
                 appLogger.info(TAG, "Log level changed to: $position")
@@ -134,11 +134,11 @@ class LoggingSettingsFragment : Fragment() {
         // Load current log level
         val currentLevel = appLogger.getLogLevel()
         val spinnerPosition = when (currentLevel) {
-            LogConfig.LogLevel.ERROR -> 0
-            LogConfig.LogLevel.WARN -> 1
-            LogConfig.LogLevel.INFO -> 2
-            LogConfig.LogLevel.DEBUG -> 3
-            LogConfig.LogLevel.VERBOSE -> 4
+            LogConfig.ERROR -> 0
+            LogConfig.WARN -> 1
+            LogConfig.INFO -> 2
+            LogConfig.DEBUG -> 3
+            LogConfig.VERBOSE -> 4
             else -> 2
         }
         binding.spinnerLogLevel.setSelection(spinnerPosition)

@@ -2,7 +2,8 @@ package com.expensemanager.app.services
 
 import com.expensemanager.app.data.models.*
 import com.expensemanager.app.data.entities.TransactionEntity
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import java.util.*
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -45,7 +46,7 @@ class EnhancedOfflineInsightsGenerator {
                 .take(6) // Limit to 6 insights for better UX
 
         } catch (e: Exception) {
-            Log.e(TAG, "Error generating offline insights", e)
+            Timber.tag(TAG).e(e, "Error generating offline insights")
             return listOf(createErrorFallbackInsight())
         }
     }

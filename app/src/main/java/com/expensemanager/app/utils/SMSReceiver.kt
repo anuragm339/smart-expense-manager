@@ -6,7 +6,8 @@ import android.content.Intent
 import android.os.Build
 import android.provider.Telephony
 import android.telephony.SmsMessage
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.data.repository.ExpenseRepository
 import com.expensemanager.app.models.HistoricalSMS
 import com.expensemanager.app.models.ParsedTransaction

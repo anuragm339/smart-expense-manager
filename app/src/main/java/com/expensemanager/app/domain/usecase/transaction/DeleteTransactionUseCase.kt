@@ -1,6 +1,7 @@
 package com.expensemanager.app.domain.usecase.transaction
 
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.data.entities.TransactionEntity
 import com.expensemanager.app.domain.repository.TransactionRepositoryInterface
 import javax.inject.Inject
@@ -22,14 +23,14 @@ class DeleteTransactionUseCase @Inject constructor(
      */
     suspend fun execute(transaction: TransactionEntity): Result<Unit> {
         return try {
-            Log.d(TAG, "Deleting transaction: ${transaction.rawMerchant} - ₹${transaction.amount}")
+            Timber.tag(TAG).d("Deleting transaction: ${transaction.rawMerchant} - ₹${transaction.amount}")
             
             repository.deleteTransaction(transaction)
-            Log.d(TAG, "Transaction deleted successfully")
+            Timber.tag(TAG).d("Transaction deleted successfully")
             Result.success(Unit)
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error deleting transaction", e)
+            Timber.tag(TAG).e(e, "Error deleting transaction")
             Result.failure(e)
         }
     }
@@ -39,18 +40,18 @@ class DeleteTransactionUseCase @Inject constructor(
      */
     suspend fun executeById(transactionId: Long): Result<Unit> {
         return try {
-            Log.d(TAG, "Deleting transaction by ID: $transactionId")
+            Timber.tag(TAG).d("Deleting transaction by ID: $transactionId")
             
             if (transactionId <= 0) {
                 return Result.failure(IllegalArgumentException("Invalid transaction ID"))
             }
             
             repository.deleteTransactionById(transactionId)
-            Log.d(TAG, "Transaction deleted successfully by ID")
+            Timber.tag(TAG).d("Transaction deleted successfully by ID")
             Result.success(Unit)
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error deleting transaction by ID", e)
+            Timber.tag(TAG).e(e, "Error deleting transaction by ID")
             Result.failure(e)
         }
     }
@@ -60,7 +61,7 @@ class DeleteTransactionUseCase @Inject constructor(
      */
     suspend fun executeMultiple(transactions: List<TransactionEntity>): Result<Int> {
         return try {
-            Log.d(TAG, "Deleting ${transactions.size} transactions")
+            Timber.tag(TAG).d("Deleting ${transactions.size} transactions")
             
             var successCount = 0
             var errorCount = 0
@@ -74,11 +75,11 @@ class DeleteTransactionUseCase @Inject constructor(
                 }
             }
             
-            Log.d(TAG, "Bulk delete completed: $successCount deleted, $errorCount errors")
+            Timber.tag(TAG).d("Bulk delete completed: $successCount deleted, $errorCount errors")
             Result.success(successCount)
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error in bulk transaction delete", e)
+            Timber.tag(TAG).e(e, "Error in bulk transaction delete")
             Result.failure(e)
         }
     }
@@ -88,26 +89,26 @@ class DeleteTransactionUseCase @Inject constructor(
      */
     suspend fun deleteByDateRange(startDate: java.util.Date, endDate: java.util.Date): Result<Int> {
         return try {
-            Log.w(TAG, "Deleting transactions from $startDate to $endDate - this is a destructive operation")
+            Timber.tag(TAG).w("Deleting transactions from $startDate to $endDate - this is a destructive operation")
             
             // Get transactions in date range
             val transactionsToDelete = repository.getTransactionsByDateRange(startDate, endDate)
             
             if (transactionsToDelete.isEmpty()) {
-                Log.d(TAG, "No transactions found in date range")
+                Timber.tag(TAG).d("No transactions found in date range")
                 return Result.success(0)
             }
             
-            Log.w(TAG, "About to delete ${transactionsToDelete.size} transactions")
+            Timber.tag(TAG).w("About to delete ${transactionsToDelete.size} transactions")
             
             // Delete each transaction
             val result = executeMultiple(transactionsToDelete)
             
-            Log.d(TAG, "Date range deletion completed")
+            Timber.tag(TAG).d("Date range deletion completed")
             result
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error deleting transactions by date range", e)
+            Timber.tag(TAG).e(e, "Error deleting transactions by date range")
             Result.failure(e)
         }
     }
@@ -117,26 +118,26 @@ class DeleteTransactionUseCase @Inject constructor(
      */
     suspend fun deleteByMerchant(merchantName: String): Result<Int> {
         return try {
-            Log.w(TAG, "Deleting transactions for merchant: $merchantName - this is a destructive operation")
+            Timber.tag(TAG).w("Deleting transactions for merchant: $merchantName - this is a destructive operation")
             
             // Get transactions for merchant
             val transactionsToDelete = repository.getTransactionsByMerchant(merchantName)
             
             if (transactionsToDelete.isEmpty()) {
-                Log.d(TAG, "No transactions found for merchant")
+                Timber.tag(TAG).d("No transactions found for merchant")
                 return Result.success(0)
             }
             
-            Log.w(TAG, "About to delete ${transactionsToDelete.size} transactions for merchant")
+            Timber.tag(TAG).w("About to delete ${transactionsToDelete.size} transactions for merchant")
             
             // Delete each transaction
             val result = executeMultiple(transactionsToDelete)
             
-            Log.d(TAG, "Merchant deletion completed")
+            Timber.tag(TAG).d("Merchant deletion completed")
             result
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error deleting transactions by merchant", e)
+            Timber.tag(TAG).e(e, "Error deleting transactions by merchant")
             Result.failure(e)
         }
     }
@@ -148,7 +149,7 @@ class DeleteTransactionUseCase @Inject constructor(
         return if (confirmation) {
             execute(transaction)
         } else {
-            Log.w(TAG, "Delete operation cancelled - no confirmation provided")
+            Timber.tag(TAG).w("Delete operation cancelled - no confirmation provided")
             Result.failure(Exception("Delete operation requires confirmation"))
         }
     }

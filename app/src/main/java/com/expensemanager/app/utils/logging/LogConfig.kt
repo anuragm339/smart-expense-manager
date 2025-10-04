@@ -2,7 +2,7 @@ package com.expensemanager.app.utils.logging
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.util.Log
+import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -16,12 +16,20 @@ class LogConfig @Inject constructor(
 ) {
     
     companion object {
+        // Log level constants (matching android.util.Log values)
+        const val VERBOSE = 2
+        const val DEBUG = 3
+        const val INFO = 4
+        const val WARN = 5
+        const val ERROR = 6
+        const val ASSERT = 7
+
         private const val PREF_NAME = "timber_logging_config"
         private const val KEY_GLOBAL_LOGGING_ENABLED = "global_logging_enabled"
         private const val KEY_FILE_LOGGING_ENABLED = "file_logging_enabled"
         private const val KEY_EXTERNAL_LOGGING_ENABLED = "external_logging_enabled"
         private const val KEY_LOG_LEVEL = "log_level"
-        
+
         // Feature-specific keys
         private const val KEY_DASHBOARD_LOGS = "dashboard_logs_enabled"
         private const val KEY_SMS_LOGS = "sms_logs_enabled"
@@ -55,17 +63,6 @@ class LogConfig @Inject constructor(
         const val ERROR = "ERROR"
     }
     
-    /**
-     * Log levels
-     */
-    object LogLevel {
-        const val VERBOSE = Log.VERBOSE
-        const val DEBUG = Log.DEBUG
-        const val INFO = Log.INFO
-        const val WARN = Log.WARN
-        const val ERROR = Log.ERROR
-    }
-    
     // Global logging settings
     var isGlobalLoggingEnabled: Boolean
         get() = preferences.getBoolean(KEY_GLOBAL_LOGGING_ENABLED, true)
@@ -80,7 +77,7 @@ class LogConfig @Inject constructor(
         set(value) = preferences.edit().putBoolean(KEY_EXTERNAL_LOGGING_ENABLED, value).apply()
     
     var logLevel: Int
-        get() = preferences.getInt(KEY_LOG_LEVEL, Log.DEBUG)
+        get() = preferences.getInt(KEY_LOG_LEVEL, DEBUG)
         set(value) = preferences.edit().putInt(KEY_LOG_LEVEL, value).apply()
     
     // Feature-specific logging settings
@@ -237,11 +234,11 @@ class LogConfig @Inject constructor(
     
     private fun getLogLevelString(level: Int): String {
         return when (level) {
-            Log.VERBOSE -> "VERBOSE"
-            Log.DEBUG -> "DEBUG"
-            Log.INFO -> "INFO"
-            Log.WARN -> "WARN"
-            Log.ERROR -> "ERROR"
+            VERBOSE -> "VERBOSE"
+            DEBUG -> "DEBUG"
+            INFO -> "INFO"
+            WARN -> "WARN"
+            ERROR -> "ERROR"
             else -> "UNKNOWN"
         }
     }

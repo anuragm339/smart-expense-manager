@@ -7,6 +7,7 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.expensemanager.app.R
+import timber.log.Timber
 
 data class CategorySpending(
     val categoryName: String,
@@ -22,14 +23,14 @@ class TopCategoriesAdapter(
     private var categories = listOf<CategorySpending>()
     
     fun submitList(newCategories: List<CategorySpending>) {
-        android.util.Log.d("TopCategoriesAdapter", "submitList called with ${newCategories.size} categories")
+        Timber.tag("TopCategoriesAdapter").d("submitList called with ${newCategories.size} categories")
         categories = newCategories
         notifyDataSetChanged()
-        android.util.Log.d("TopCategoriesAdapter", "notifyDataSetChanged called, itemCount: $itemCount")
+        Timber.tag("TopCategoriesAdapter").d("notifyDataSetChanged called, itemCount: $itemCount")
     }
     
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): CategoryViewHolder {
-        android.util.Log.d("TopCategoriesAdapter", "onCreateViewHolder called")
+        Timber.tag("TopCategoriesAdapter").d("onCreateViewHolder called")
         val view = LayoutInflater.from(parent.context).inflate(
             R.layout.item_dashboard_category, parent, false
         )
@@ -38,7 +39,7 @@ class TopCategoriesAdapter(
     
     override fun onBindViewHolder(holder: CategoryViewHolder, position: Int) {
         val category = categories[position]
-        android.util.Log.d("TopCategoriesAdapter", "onBindViewHolder called for position $position: ${category.categoryName} = ₹${String.format("%.0f", category.amount)}")
+        Timber.tag("TopCategoriesAdapter").d("onBindViewHolder called for position $position: ${category.categoryName} = ₹${String.format("%.0f", category.amount)}")
         holder.bind(category)
     }
     
@@ -69,8 +70,8 @@ class TopCategoriesAdapter(
             
             // Debug logging for view dimensions
             itemView.post {
-                android.util.Log.d("TopCategoriesAdapter", "ViewHolder bound - itemView dimensions: ${itemView.width}x${itemView.height}, visibility: ${itemView.visibility}")
-                android.util.Log.d("TopCategoriesAdapter", "Parent dimensions: ${(itemView.parent as? android.view.View)?.width}x${(itemView.parent as? android.view.View)?.height}")
+                Timber.tag("TopCategoriesAdapter").d("ViewHolder bound - itemView dimensions: ${itemView.width}x${itemView.height}, visibility: ${itemView.visibility}")
+                Timber.tag("TopCategoriesAdapter").d("Parent dimensions: ${(itemView.parent as? android.view.View)?.width}x${(itemView.parent as? android.view.View)?.height}")
             }
         }
     }

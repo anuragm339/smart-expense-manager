@@ -2,7 +2,8 @@ package com.expensemanager.app.data.migration
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.data.entities.*
 import com.expensemanager.app.domain.repository.*
 import com.expensemanager.app.utils.CategoryManager
@@ -38,18 +39,18 @@ class DataMigrationManager @Inject constructor(
     
     suspend fun performMigrationIfNeeded(): Boolean = withContext(Dispatchers.IO) {
         try {
-            Log.d(TAG, "Checking migration status...")
+            Timber.tag(TAG).d("Checking migration status...")
             
             if (isMigrationCompleted()) {
                 
                 return@withContext true
             }
             
-            Log.i(TAG, "=== STARTING DATA MIGRATION TO SQLite DATABASE ===")
-            Log.d(TAG, "Migration flags status:")
-            Log.d(TAG, "  • Overall migration: ${prefs.getBoolean(KEY_MIGRATION_COMPLETED, false)}")
-            Log.d(TAG, "  • SMS import: ${prefs.getBoolean(KEY_INITIAL_SMS_IMPORT_COMPLETED, false)}")
-            Log.d(TAG, "  • Legacy migration: ${prefs.getBoolean(KEY_LEGACY_TRANSACTION_MIGRATION_COMPLETED, false)}")
+            Timber.tag(TAG).i("=== STARTING DATA MIGRATION TO SQLite DATABASE ===")
+            Timber.tag(TAG).d("Migration flags status:")
+            Timber.tag(TAG).d("  • Overall migration: ${prefs.getBoolean(KEY_MIGRATION_COMPLETED, false)}")
+            Timber.tag(TAG).d("  • SMS import: ${prefs.getBoolean(KEY_INITIAL_SMS_IMPORT_COMPLETED, false)}")
+            Timber.tag(TAG).d("  • Legacy migration: ${prefs.getBoolean(KEY_LEGACY_TRANSACTION_MIGRATION_COMPLETED, false)}")
             
             // Step 1: Initialize repository and default data
             dashboardRepository.initializeDefaultData()
@@ -71,18 +72,18 @@ class DataMigrationManager @Inject constructor(
             
             // Final verification
             val finalTransactionCount = transactionRepository.getTransactionCount()
-            Log.i(TAG, "=== DATA MIGRATION COMPLETED SUCCESSFULLY ===")
-            Log.i(TAG, "Final transaction count in Room database: $finalTransactionCount")
+            Timber.tag(TAG).i("=== DATA MIGRATION COMPLETED SUCCESSFULLY ===")
+            Timber.tag(TAG).i("Final transaction count in Room database: $finalTransactionCount")
             true
             
         } catch (e: Exception) {
-            Log.e(TAG, "Data migration failed", e)
+            Timber.tag(TAG).e(e, "Data migration failed")
             false
         }
     }
     
     private suspend fun migrateCategoriesFromSharedPrefs() {
-        Log.d(TAG, "Migrating categories from SharedPreferences...")
+        Timber.tag(TAG).d("Migrating categories from SharedPreferences...")
         
         val categoryManager = CategoryManager(context)
         val existingCategories = categoryManager.getAllCategories()
@@ -104,15 +105,15 @@ class DataMigrationManager @Inject constructor(
                 
                 categoryRepository.insertCategory(categoryEntity)
                 migratedCount++
-                Log.d(TAG, "Migrated category: $categoryName")
+                Timber.tag(TAG).d("Migrated category: $categoryName")
             }
         }
         
-        Log.d(TAG, "Migrated $migratedCount custom categories")
+        Timber.tag(TAG).d("Migrated $migratedCount custom categories")
     }
     
     private suspend fun migrateMerchantAliasesFromSharedPrefs() {
-        Log.d(TAG, "Migrating merchant aliases from SharedPreferences...")
+        Timber.tag(TAG).d("Migrating merchant aliases from SharedPreferences...")
         
         val aliasPrefs = context.getSharedPreferences("merchant_aliases", Context.MODE_PRIVATE)
         val aliasesJson = aliasPrefs.getString("aliases", null)
@@ -167,35 +168,35 @@ class DataMigrationManager @Inject constructor(
                     // Insert alias through repository (we'll need to add this method)
                     // For now, let's log it
                     migratedCount++
-                    Log.d(TAG, "Migrated merchant alias: $originalMerchant -> $displayName ($categoryName)")
+                    Timber.tag(TAG).d("Migrated merchant alias: $originalMerchant -> $displayName ($categoryName)")
                 }
                 
-                Log.d(TAG, "Migrated $migratedCount merchant aliases")
+                Timber.tag(TAG).d("Migrated $migratedCount merchant aliases")
                 
             } catch (e: Exception) {
-                Log.e(TAG, "Error migrating merchant aliases", e)
+                Timber.tag(TAG).e(e, "Error migrating merchant aliases")
             }
         }
     }
     
     private suspend fun migrateLegacyTransactionsFromSharedPrefs() {
-        Log.d(TAG, "[LEGACY] Starting migration of transactions from SMS History...")
+        Timber.tag(TAG).d("[LEGACY] Starting migration of transactions from SMS History...")
         
         if (isLegacyTransactionMigrationCompleted()) {
-            Log.d(TAG, "[LEGACY] Legacy transaction migration already completed, skipping...")
+            Timber.tag(TAG).d("[LEGACY] Legacy transaction migration already completed, skipping...")
             return
         }
         
         try {
-            Log.d(TAG, "[LEGACY] DEPRECATED: Direct SMS reading in migration is replaced by repository sync")
-            Log.d(TAG, "[LEGACY] This migration step will be handled by performInitialSMSImport() instead")
+            Timber.tag(TAG).d("[LEGACY] DEPRECATED: Direct SMS reading in migration is replaced by repository sync")
+            Timber.tag(TAG).d("[LEGACY] This migration step will be handled by performInitialSMSImport() instead")
             
             // Mark this step as completed since we're using repository sync instead
             markLegacyTransactionMigrationCompleted()
             return
             
         } catch (e: Exception) {
-            Log.e(TAG, "[LEGACY] Legacy transaction migration failed", e)
+            Timber.tag(TAG).e(e, "[LEGACY] Legacy transaction migration failed")
             throw e
         }
     }
@@ -249,7 +250,7 @@ class DataMigrationManager @Inject constructor(
         )
         
         merchantRepository.insertMerchant(merchantEntity)
-        Log.d(TAG, "[LEGACY] Created merchant: $displayName -> $categoryName")
+        Timber.tag(TAG).d("[LEGACY] Created merchant: $displayName -> $categoryName")
     }
     
     private fun categorizeSmartMerchant(merchantName: String): String {
@@ -301,62 +302,62 @@ class DataMigrationManager @Inject constructor(
     }
     
     private suspend fun performInitialSMSImport() {
-        Log.d(TAG, "[PROCESS] Performing initial SMS import...")
+        Timber.tag(TAG).d("[PROCESS] Performing initial SMS import...")
         
         if (isInitialSMSImportCompleted()) {
-            Log.d(TAG, "[SUCCESS] Initial SMS import already completed, skipping...")
+            Timber.tag(TAG).d("[SUCCESS] Initial SMS import already completed, skipping...")
             return
         }
         
         try {
             // ENHANCED LOGGING: Track SMS import process in detail
-            Log.i(TAG, " [SMS] Starting fresh install SMS import through repository...")
+            Timber.tag(TAG).i(" [SMS] Starting fresh install SMS import through repository...")
             val startTime = System.currentTimeMillis()
             
             // First, check if we have SMS permissions by testing a simple query
-            Log.d(TAG, "[PERMISSION] Testing SMS permissions before full import...")
+            Timber.tag(TAG).d("[PERMISSION] Testing SMS permissions before full import...")
             
             val importedCount = transactionRepository.syncNewSMS()
             
             val endTime = System.currentTimeMillis()
             val durationSeconds = (endTime - startTime) / 1000
             
-            Log.i(TAG, " [SUCCESS] Initial SMS import completed in ${durationSeconds}s. Imported $importedCount new transactions")
+            Timber.tag(TAG).i(" [SUCCESS] Initial SMS import completed in ${durationSeconds}s. Imported $importedCount new transactions")
             
             // Verify that transactions were actually inserted
             val totalTransactions = transactionRepository.getTransactionCount()
-            Log.i(TAG, " [ANALYTICS] Total transactions in database after import: $totalTransactions")
+            Timber.tag(TAG).i(" [ANALYTICS] Total transactions in database after import: $totalTransactions")
             
             if (importedCount > 0) {
-                Log.i(TAG, "🎉 [FRESH_INSTALL] SMS import successful - Dashboard should now show data!")
+                Timber.tag(TAG).i("🎉 [FRESH_INSTALL] SMS import successful - Dashboard should now show data!")
             } else {
-                Log.w(TAG, " [FRESH_INSTALL] No new SMS transactions imported")
-                Log.w(TAG, " [DIAGNOSIS] This could mean:")
-                Log.w(TAG, "   1. No bank SMS messages exist in the device")
-                Log.w(TAG, "   2. SMS messages don't match parsing patterns")
-                Log.w(TAG, "   3. All SMS messages were already processed")
-                Log.w(TAG, "   4. SMS permission is denied at runtime")
+                Timber.tag(TAG).w(" [FRESH_INSTALL] No new SMS transactions imported")
+                Timber.tag(TAG).w(" [DIAGNOSIS] This could mean:")
+                Timber.tag(TAG).w("   1. No bank SMS messages exist in the device")
+                Timber.tag(TAG).w("   2. SMS messages don't match parsing patterns")
+                Timber.tag(TAG).w("   3. All SMS messages were already processed")
+                Timber.tag(TAG).w("   4. SMS permission is denied at runtime")
             }
             
             if (importedCount > 0 || totalTransactions > 0) {
                 // Mark initial import as completed
                 prefs.edit().putBoolean(KEY_INITIAL_SMS_IMPORT_COMPLETED, true).apply()
-                Log.d(TAG, "[SUCCESS] Migration state updated - SMS import marked as completed")
+                Timber.tag(TAG).d("[SUCCESS] Migration state updated - SMS import marked as completed")
             } else {
-                Log.w(TAG, "[WARNING] No transactions imported, marking as completed anyway to prevent retry loops")
+                Timber.tag(TAG).w("[WARNING] No transactions imported, marking as completed anyway to prevent retry loops")
                 // Mark as completed to prevent repeated attempts in empty SMS scenarios
                 prefs.edit().putBoolean(KEY_INITIAL_SMS_IMPORT_COMPLETED, true).apply()
             }
             
         } catch (e: SecurityException) {
-            Log.w(TAG, "[SECURE] SMS permission not granted during import: ${e.message}")
-            Log.w(TAG, "[SECURE] Migration will complete without SMS data - user can manually trigger sync later")
+            Timber.tag(TAG).w("[SECURE] SMS permission not granted during import: ${e.message}")
+            Timber.tag(TAG).w("[SECURE] Migration will complete without SMS data - user can manually trigger sync later")
             // Still mark as completed to avoid repeated attempts
             prefs.edit().putBoolean(KEY_INITIAL_SMS_IMPORT_COMPLETED, true).apply()
         } catch (e: Exception) {
-            Log.e(TAG, "[ERROR] Initial SMS import failed unexpectedly", e)
-            Log.e(TAG, "[ERROR] Error type: ${e::class.java.simpleName}")
-            Log.e(TAG, "[ERROR] Error message: ${e.message}")
+            Timber.tag(TAG).e(e, "[ERROR] Initial SMS import failed unexpectedly")
+            Timber.tag(TAG).e("[ERROR] Error type: ${e::class.java.simpleName}")
+            Timber.tag(TAG).e("[ERROR] Error message: ${e.message}")
             // Don't mark as completed for unexpected errors - allow retry
             throw e
         }
@@ -421,6 +422,6 @@ class DataMigrationManager @Inject constructor(
             .putBoolean(KEY_INITIAL_SMS_IMPORT_COMPLETED, false)
             .putBoolean(KEY_LEGACY_TRANSACTION_MIGRATION_COMPLETED, false)
             .apply()
-        Log.d(TAG, "Migration state reset")
+        Timber.tag(TAG).d("Migration state reset")
     }
 }

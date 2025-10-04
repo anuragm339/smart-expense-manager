@@ -2,7 +2,8 @@ package com.expensemanager.app.ui.categories
 
 import android.content.Context
 import android.content.Intent
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.expensemanager.app.data.repository.ExpenseRepository
@@ -44,14 +45,14 @@ class CategoryTransactionsViewModel @Inject constructor(
     private val merchantAliasManager = MerchantAliasManager(context)
     
     init {
-        Log.d(TAG, "ViewModel initialized")
+        Timber.tag(TAG).d("ViewModel initialized")
     }
     
     /**
      * Handle UI events from the Fragment
      */
     fun handleEvent(event: CategoryTransactionsUIEvent) {
-        Log.d(TAG, "Handling event: $event")
+        Timber.tag(TAG).d("Handling event: $event")
         
         when (event) {
             is CategoryTransactionsUIEvent.LoadTransactions -> loadTransactions()
@@ -70,7 +71,7 @@ class CategoryTransactionsViewModel @Inject constructor(
      * Set category name and load related data
      */
     private fun setCategoryName(categoryName: String) {
-        Log.d(TAG, "Setting category name: $categoryName")
+        Timber.tag(TAG).d("Setting category name: $categoryName")
         
         val categoryColor = categoryManager.getCategoryColor(categoryName)
         
@@ -87,7 +88,7 @@ class CategoryTransactionsViewModel @Inject constructor(
      * Initial loading of category transactions
      */
     private fun loadTransactions() {
-        Log.d(TAG, "Loading transactions for category: ${_uiState.value.categoryName}")
+        Timber.tag(TAG).d("Loading transactions for category: ${_uiState.value.categoryName}")
         
         _uiState.value = _uiState.value.copy(
             isInitialLoading = true,
@@ -110,7 +111,7 @@ class CategoryTransactionsViewModel @Inject constructor(
                 applyFilterAndSort()
                 
             } catch (e: Exception) {
-                Log.e(TAG, "Error loading transactions", e)
+                Timber.tag(TAG).e(e, "Error loading transactions")
                 handleTransactionError(e)
             }
         }
@@ -120,7 +121,7 @@ class CategoryTransactionsViewModel @Inject constructor(
      * Refresh category transactions
      */
     private fun refreshTransactions() {
-        Log.d(TAG, "Refreshing transactions...")
+        Timber.tag(TAG).d("Refreshing transactions...")
         
         _uiState.value = _uiState.value.copy(
             isRefreshing = true,
@@ -143,7 +144,7 @@ class CategoryTransactionsViewModel @Inject constructor(
                 applyFilterAndSort()
                 
             } catch (e: Exception) {
-                Log.e(TAG, "Error refreshing transactions", e)
+                Timber.tag(TAG).e(e, "Error refreshing transactions")
                 handleTransactionError(e)
             }
         }
@@ -153,7 +154,7 @@ class CategoryTransactionsViewModel @Inject constructor(
      * Change sort option and reapply
      */
     private fun changeSortOption(sortOption: String) {
-        Log.d(TAG, "Changing sort option to: $sortOption")
+        Timber.tag(TAG).d("Changing sort option to: $sortOption")
         
         _uiState.value = _uiState.value.copy(
             currentSortOption = sortOption
@@ -166,7 +167,7 @@ class CategoryTransactionsViewModel @Inject constructor(
      * Change filter option and reapply
      */
     private fun changeFilterOption(filterOption: String) {
-        Log.d(TAG, "Changing filter option to: $filterOption")
+        Timber.tag(TAG).d("Changing filter option to: $filterOption")
         
         _uiState.value = _uiState.value.copy(
             currentFilterOption = filterOption
@@ -184,7 +185,7 @@ class CategoryTransactionsViewModel @Inject constructor(
         // newCategory is now expected to be a plain category name (no emoji extraction needed)
         val plainCategoryName = newCategory.trim()
         
-        Log.d(TAG, "Updating merchant ${messageItem.merchant} (raw: ${messageItem.rawMerchant}) from ${messageItem.category} to $plainCategoryName")
+        Timber.tag(TAG).d("Updating merchant ${messageItem.merchant} (raw: ${messageItem.rawMerchant}) from ${messageItem.category} to $plainCategoryName")
         
         _uiState.value = _uiState.value.copy(
             isUpdatingCategory = true,
@@ -202,21 +203,21 @@ class CategoryTransactionsViewModel @Inject constructor(
                     .replace(Regex("\\s+"), " ") // Normalize spaces
                     .trim()
                 
-                Log.d(TAG, "MERCHANT_UPDATE: rawMerchant='${messageItem.rawMerchant}' -> normalizedMerchant='$normalizedMerchant'")
+                Timber.tag(TAG).d("MERCHANT_UPDATE: rawMerchant='${messageItem.rawMerchant}' -> normalizedMerchant='$normalizedMerchant'")
                 
                 // Try to find the merchant in database
                 var merchant = repository.getMerchantByNormalizedName(normalizedMerchant)
                 
                 // FALLBACK: If merchant not found, try alternative normalization strategies
                 if (merchant == null) {
-                    Log.w(TAG, "Merchant not found with normalization '$normalizedMerchant', trying alternatives...")
+                    Timber.tag(TAG).w("Merchant not found with normalization '$normalizedMerchant', trying alternatives...")
                     
                     // Try without removing suffixes
                     val alternativeNormalized1 = messageItem.rawMerchant.uppercase()
                         .replace(Regex("\\s+"), " ")
                         .trim()
                     merchant = repository.getMerchantByNormalizedName(alternativeNormalized1)
-                    Log.d(TAG, "Alternative 1: '$alternativeNormalized1' -> ${if (merchant != null) "FOUND" else "NOT FOUND"}")
+                    Timber.tag(TAG).d("Alternative 1: '$alternativeNormalized1' -> ${if (merchant != null) "FOUND" else "NOT FOUND"}")
                     
                     if (merchant == null) {
                         // Try using the display name as-is
@@ -224,24 +225,24 @@ class CategoryTransactionsViewModel @Inject constructor(
                             .replace(Regex("\\s+"), " ")
                             .trim()
                         merchant = repository.getMerchantByNormalizedName(alternativeNormalized2)
-                        Log.d(TAG, "Alternative 2: '$alternativeNormalized2' -> ${if (merchant != null) "FOUND" else "NOT FOUND"}")
+                        Timber.tag(TAG).d("Alternative 2: '$alternativeNormalized2' -> ${if (merchant != null) "FOUND" else "NOT FOUND"}")
                     }
                     
                     if (merchant == null) {
                         // Try exact raw merchant as stored
                         merchant = repository.getMerchantByNormalizedName(messageItem.rawMerchant)
-                        Log.d(TAG, "Alternative 3: '${messageItem.rawMerchant}' -> ${if (merchant != null) "FOUND" else "NOT FOUND"}")
+                        Timber.tag(TAG).d("Alternative 3: '${messageItem.rawMerchant}' -> ${if (merchant != null) "FOUND" else "NOT FOUND"}")
                     }
                 }
                 
                 if (merchant != null) {
-                    Log.d(TAG, "MERCHANT_FOUND: id=${merchant.id}, normalizedName='${merchant.normalizedName}', displayName='${merchant.displayName}'")
+                    Timber.tag(TAG).d("MERCHANT_FOUND: id=${merchant.id}, normalizedName='${merchant.normalizedName}', displayName='${merchant.displayName}'")
                     
                     // Get or create the new category using plain category name (without emoji)
                     var newCategoryEntity = repository.getCategoryByName(plainCategoryName)
                     if (newCategoryEntity == null) {
                         // Category doesn't exist in database, create it
-                        Log.d(TAG, "Creating new category: $plainCategoryName")
+                        Timber.tag(TAG).d("Creating new category: $plainCategoryName")
                         
                         // Use display provider to get appropriate emoji for this category
                         val categoryIcon = categoryDisplayProvider.getDisplayIcon(plainCategoryName)
@@ -261,16 +262,16 @@ class CategoryTransactionsViewModel @Inject constructor(
                         
                         val categoryId = repository.insertCategory(categoryToCreate)
                         newCategoryEntity = repository.getCategoryById(categoryId)
-                        Log.d(TAG, "Created category with ID: $categoryId")
+                        Timber.tag(TAG).d("Created category with ID: $categoryId")
                     }
                     
                     if (newCategoryEntity != null) {
-                        Log.d(TAG, "TARGET_CATEGORY: id=${newCategoryEntity.id}, name='${newCategoryEntity.name}'")
+                        Timber.tag(TAG).d("TARGET_CATEGORY: id=${newCategoryEntity.id}, name='${newCategoryEntity.name}'")
                         
                         // Update merchant's category in database
                         val updatedMerchant = merchant.copy(categoryId = newCategoryEntity.id)
                         repository.updateMerchant(updatedMerchant)
-                        Log.d(TAG, "Updated merchant category in database: ${merchant.id} -> categoryId=${newCategoryEntity.id}")
+                        Timber.tag(TAG).d("Updated merchant category in database: ${merchant.id} -> categoryId=${newCategoryEntity.id}")
                         
                         // FIXED: Update MerchantAliasManager to ensure consistent behavior across all screens
                         val currentDisplayName = merchantAliasManager.getDisplayName(messageItem.rawMerchant)
@@ -281,14 +282,14 @@ class CategoryTransactionsViewModel @Inject constructor(
                         )
                         
                         if (!aliasUpdateSuccess) {
-                            Log.w(TAG, "Failed to update merchant alias for: ${messageItem.rawMerchant}")
+                            Timber.tag(TAG).w("Failed to update merchant alias for: ${messageItem.rawMerchant}")
                         } else {
-                            Log.d(TAG, "Updated MerchantAliasManager for: ${messageItem.rawMerchant}")
+                            Timber.tag(TAG).d("Updated MerchantAliasManager for: ${messageItem.rawMerchant}")
                         }
                         
                         // Update CategoryManager for backwards compatibility
                         categoryManager.updateCategory(messageItem.rawMerchant, plainCategoryName)
-                        Log.d(TAG, "Updated CategoryManager for: ${messageItem.rawMerchant}")
+                        Timber.tag(TAG).d("Updated CategoryManager for: ${messageItem.rawMerchant}")
                         
                         // FIXED: Send broadcast to notify Dashboard and other screens about category change
                         val intent = Intent("com.expensemanager.CATEGORY_UPDATED").apply {
@@ -297,7 +298,7 @@ class CategoryTransactionsViewModel @Inject constructor(
                             putExtra("category", plainCategoryName) // Use plain category name for broadcast consistency
                         }
                         context.sendBroadcast(intent)
-                        Log.d(TAG, "BROADCAST_SENT: Category updated ${messageItem.merchant} -> $plainCategoryName")
+                        Timber.tag(TAG).d("BROADCAST_SENT: Category updated ${messageItem.merchant} -> $plainCategoryName")
                         
                         // Show success message
                         _uiState.value = _uiState.value.copy(
@@ -311,11 +312,11 @@ class CategoryTransactionsViewModel @Inject constructor(
                         val currentCategoryName = _uiState.value.categoryName
                         if (plainCategoryName != currentCategoryName) {
                             // Merchant moved to different category, refresh list to remove it
-                            Log.d(TAG, "Merchant moved from '$currentCategoryName' to '$plainCategoryName', refreshing list")
+                            Timber.tag(TAG).d("Merchant moved from '$currentCategoryName' to '$plainCategoryName', refreshing list")
                             refreshTransactions()
                         } else {
                             // Update the item in the current list (use plain category name)
-                            Log.d(TAG, "Merchant stayed in same category '$currentCategoryName', updating list item")
+                            Timber.tag(TAG).d("Merchant stayed in same category '$currentCategoryName', updating list item")
                             updateTransactionInList(messageItem, plainCategoryName)
                         }
                         
@@ -325,15 +326,15 @@ class CategoryTransactionsViewModel @Inject constructor(
                 } else {
                     // Log available merchants for debugging
                     try {
-                        Log.e(TAG, "MERCHANT_NOT_FOUND: Tried normalizations: '$normalizedMerchant', '${messageItem.rawMerchant}', '${messageItem.merchant}'")
+                        Timber.tag(TAG).e("MERCHANT_NOT_FOUND: Tried normalizations: '$normalizedMerchant', '${messageItem.rawMerchant}', '${messageItem.merchant}'")
                     } catch (e: Exception) {
-                        Log.e(TAG, "Error logging merchant details", e)
+                        Timber.tag(TAG).e(e, "Error logging merchant details")
                     }
                     throw Exception("Merchant not found in database. Tried normalizations: '$normalizedMerchant', '${messageItem.rawMerchant}', '${messageItem.merchant}'")
                 }
                 
             } catch (e: Exception) {
-                Log.e(TAG, "Error updating transaction category for merchant '${messageItem.rawMerchant}'", e)
+                Timber.tag(TAG).e(e, "Error updating transaction category for merchant '${messageItem.rawMerchant}'")
                 _uiState.value = _uiState.value.copy(isUpdatingCategory = false)
                 handleTransactionError(e)
             }
@@ -344,7 +345,7 @@ class CategoryTransactionsViewModel @Inject constructor(
      * Show category edit dialog (handled by fragment)
      */
     private fun showCategoryEditDialog(messageItem: MessageItem) {
-        Log.d(TAG, "Show category edit dialog for: ${messageItem.merchant}")
+        Timber.tag(TAG).d("Show category edit dialog for: ${messageItem.merchant}")
         // This is handled by the fragment UI
     }
     
@@ -357,12 +358,12 @@ class CategoryTransactionsViewModel @Inject constructor(
             // Always fetch fresh data from database to include newly created categories
             kotlinx.coroutines.runBlocking {
                 val dbCategories = repository.getAllCategoriesSync()
-                Log.d(TAG, "=== LOADING CATEGORIES FOR DROPDOWN ===")
-                Log.d(TAG, "Loading categories from database: ${dbCategories.size} categories found")
+                Timber.tag(TAG).d("=== LOADING CATEGORIES FOR DROPDOWN ===")
+                Timber.tag(TAG).d("Loading categories from database: ${dbCategories.size} categories found")
                 
                 // Debug: Log each category individually
                 dbCategories.forEachIndexed { index, category ->
-                    Log.d(TAG, "Category $index: id=${category.id}, name='${category.name}', emoji='${category.emoji}'")
+                    Timber.tag(TAG).d("Category $index: id=${category.id}, name='${category.name}', emoji='${category.emoji}'")
                 }
                 
                 if (dbCategories.isNotEmpty()) {
@@ -374,10 +375,10 @@ class CategoryTransactionsViewModel @Inject constructor(
                         }
                         .map { it.name } // Just the plain name
                     
-                    Log.d(TAG, "Plain category names: ${plainCategoryNames.joinToString(", ")}")
+                    Timber.tag(TAG).d("Plain category names: ${plainCategoryNames.joinToString(", ")}")
                     plainCategoryNames
                 } else {
-                    Log.d(TAG, "No database categories found, using fallback defaults")
+                    Timber.tag(TAG).d("No database categories found, using fallback defaults")
                     // Fallback to default categories (plain names)
                     listOf(
                         "Food & Dining", "Transportation", "Groceries",
@@ -387,7 +388,7 @@ class CategoryTransactionsViewModel @Inject constructor(
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error loading categories", e)
+            Timber.tag(TAG).e(e, "Error loading categories")
             listOf("Food & Dining", "Transportation", "Other")
         }
     }
@@ -429,18 +430,18 @@ class CategoryTransactionsViewModel @Inject constructor(
             val endDate = Calendar.getInstance().time
 
             val dateFormatter = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
-            Log.d(TAG, "Loading category transactions from start of month: ${dateFormatter.format(startDate)}")
+            Timber.tag(TAG).d("Loading category transactions from start of month: ${dateFormatter.format(startDate)}")
             
             // Load transactions from repository
             val allDbTransactions = repository.getTransactionsByDateRange(startDate, endDate)
-            Log.d(TAG, "Found ${allDbTransactions.size} total transactions")
+            Timber.tag(TAG).d("Found ${allDbTransactions.size} total transactions")
             
             // Filter transactions by category
             val categoryTransactions = allDbTransactions.mapNotNull { transaction ->
                 val merchantWithCategory = repository.getMerchantWithCategory(transaction.normalizedMerchant)
                 val transactionCategory = merchantWithCategory?.category_name ?: "Other"
                 
-                Log.d(TAG, "Transaction ${transaction.rawMerchant} -> normalized: ${transaction.normalizedMerchant} -> category: $transactionCategory")
+                Timber.tag(TAG).d("Transaction ${transaction.rawMerchant} -> normalized: ${transaction.normalizedMerchant} -> category: $transactionCategory")
                 
                 if (transactionCategory == categoryName) {
                     MessageItem(
@@ -458,11 +459,11 @@ class CategoryTransactionsViewModel @Inject constructor(
                 } else null
             }
             
-            Log.d(TAG, "Filtered to ${categoryTransactions.size} transactions for $categoryName")
+            Timber.tag(TAG).d("Filtered to ${categoryTransactions.size} transactions for $categoryName")
             categoryTransactions
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error loading transactions from repository", e)
+            Timber.tag(TAG).e(e, "Error loading transactions from repository")
             emptyList()
         }
     }

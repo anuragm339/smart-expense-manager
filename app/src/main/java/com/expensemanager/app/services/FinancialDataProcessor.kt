@@ -1,6 +1,7 @@
 package com.expensemanager.app.services
 
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.data.api.insights.*
 import com.expensemanager.app.data.models.Transaction
 import kotlinx.coroutines.Dispatchers
@@ -33,7 +34,7 @@ class FinancialDataProcessor @Inject constructor() {
         timeframe: String = "last_30_days"
     ): AnonymizedFinancialData = withContext(Dispatchers.IO) {
 
-        Log.d(TAG, "Processing ${transactions.size} transactions for anonymization")
+        Timber.tag(TAG).d("Processing ${transactions.size} transactions for anonymization")
 
         try {
             // Filter out any transactions with insufficient data
@@ -60,7 +61,7 @@ class FinancialDataProcessor @Inject constructor() {
             )
 
         } catch (e: Exception) {
-            Log.e(TAG, "Error processing financial data", e)
+            Timber.tag(TAG).e(e, "Error processing financial data")
             createEmptyData(timeframe)
         }
     }
@@ -307,13 +308,13 @@ class FinancialDataProcessor @Inject constructor() {
             }
 
             if (hasPersonalInfo) {
-                Log.w(TAG, "Potential personal info detected in merchant data")
+                Timber.tag(TAG).w("Potential personal info detected in merchant data")
                 return false
             }
 
             return true
         } catch (e: Exception) {
-            Log.e(TAG, "Error validating anonymization", e)
+            Timber.tag(TAG).e(e, "Error validating anonymization")
             return false
         }
     }

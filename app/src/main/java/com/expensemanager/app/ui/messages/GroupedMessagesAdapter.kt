@@ -8,6 +8,7 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.expensemanager.app.databinding.ItemMerchantGroupBinding
+import timber.log.Timber
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -34,7 +35,7 @@ class GroupedMessagesAdapter(
                 try {
                     notifyDataSetChanged()
                 } catch (e: Exception) {
-                    android.util.Log.e("GroupedMessagesAdapter", "Error updating filter tab", e)
+                    Timber.tag("GroupedMessagesAdapter").e(e, "Error updating filter tab")
                 }
             }
         }
@@ -70,7 +71,7 @@ class GroupedMessagesAdapter(
                 processPendingUpdate()
                 return
             } catch (e: Exception) {
-                android.util.Log.e("GroupedMessagesAdapter", "Error in initial load", e)
+                Timber.tag("GroupedMessagesAdapter").e(e, "Error in initial load")
                 isUpdating = false
                 processPendingUpdate()
                 return
@@ -86,13 +87,13 @@ class GroupedMessagesAdapter(
                 updateWithDiff(oldList, groups)
                 
             } catch (e: Exception) {
-                android.util.Log.e("GroupedMessagesAdapter", "Error in submitList", e)
+                Timber.tag("GroupedMessagesAdapter").e(e, "Error in submitList")
                 // Emergency fallback - set data and notify
                 _merchantGroups = groups
                 try {
                     notifyDataSetChanged()
                 } catch (notifyError: Exception) {
-                    android.util.Log.e("GroupedMessagesAdapter", "Emergency notify failed", notifyError)
+                    Timber.tag("GroupedMessagesAdapter").e(notifyError, "Emergency notify failed")
                 }
                 isUpdating = false
                 processPendingUpdate()
@@ -116,7 +117,7 @@ class GroupedMessagesAdapter(
             processPendingUpdate()
             
         } catch (e: Exception) {
-            android.util.Log.e("GroupedMessagesAdapter", "DiffUtil update failed", e)
+            Timber.tag("GroupedMessagesAdapter").e(e, "DiffUtil update failed")
             // Fallback to notifyDataSetChanged with additional safety delay
             android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                 try {
@@ -124,7 +125,7 @@ class GroupedMessagesAdapter(
                         notifyDataSetChanged()
                     }
                 } catch (ex: Exception) {
-                    android.util.Log.e("GroupedMessagesAdapter", "Fallback update failed", ex)
+                    Timber.tag("GroupedMessagesAdapter").e(ex, "Fallback update failed")
                 } finally {
                     // Always mark as complete even if fallback fails
                     isUpdating = false
@@ -152,13 +153,13 @@ class GroupedMessagesAdapter(
         // CRITICAL SAFETY CHECKS: Prevent IndexOutOfBoundsException crashes
         try {
             if (position < 0 || position >= _merchantGroups.size || _merchantGroups.isEmpty()) {
-                android.util.Log.w("GroupedMessagesAdapter", "Invalid position: $position, size: ${_merchantGroups.size}")
+                Timber.tag("GroupedMessagesAdapter").w("Invalid position: $position, size: ${_merchantGroups.size}")
                 return
             }
             
             // Additional check during rapid updates
             if (isUpdating) {
-                android.util.Log.d("GroupedMessagesAdapter", "Skipping bind during update, position: $position")
+                Timber.tag("GroupedMessagesAdapter").d("Skipping bind during update, position: $position")
                 return
             }
             
@@ -166,11 +167,11 @@ class GroupedMessagesAdapter(
             if (group != null) {
                 holder.bind(group)
             } else {
-                android.util.Log.w("GroupedMessagesAdapter", "Null group at position: $position")
+                Timber.tag("GroupedMessagesAdapter").w("Null group at position: $position")
             }
             
         } catch (e: Exception) {
-            android.util.Log.e("GroupedMessagesAdapter", "Error in onBindViewHolder at position $position", e)
+            Timber.tag("GroupedMessagesAdapter").e(e, "Error in onBindViewHolder at position $position")
         }
     }
     
@@ -179,13 +180,13 @@ class GroupedMessagesAdapter(
             val size = _merchantGroups.size
             // Additional validation to prevent crashes
             if (size < 0) {
-                android.util.Log.w("GroupedMessagesAdapter", "Negative item count detected: $size")
+                Timber.tag("GroupedMessagesAdapter").w("Negative item count detected: $size")
                 0
             } else {
                 size
             }
         } catch (e: Exception) {
-            android.util.Log.e("GroupedMessagesAdapter", "Error in getItemCount", e)
+            Timber.tag("GroupedMessagesAdapter").e(e, "Error in getItemCount")
             0 // Return 0 on any error
         }
     }
@@ -261,7 +262,7 @@ class GroupedMessagesAdapter(
                                             switchIncludeGroup.isEnabled = true
                                         }, 500)
                                     } catch (callbackError: Exception) {
-                                        android.util.Log.e("GroupedMessagesAdapter", "Toggle callback error", callbackError)
+                                        Timber.tag("GroupedMessagesAdapter").e(callbackError, "Toggle callback error")
                                         // Revert state on callback error
                                         group.isIncludedInCalculations = !isChecked
                                         switchIncludeGroup.isChecked = !isChecked
@@ -293,7 +294,7 @@ class GroupedMessagesAdapter(
                                                 switchIncludeGroup.isEnabled = true
                                             }, 500)
                                         } catch (callbackError: Exception) {
-                                            android.util.Log.e("GroupedMessagesAdapter", "Toggle callback error", callbackError)
+                                            Timber.tag("GroupedMessagesAdapter").e(callbackError, "Toggle callback error")
                                             // Revert state
                                             group.isIncludedInCalculations = true
                                             switchIncludeGroup.isChecked = true
@@ -329,7 +330,7 @@ class GroupedMessagesAdapter(
                                                 switchIncludeGroup.isEnabled = true
                                             }, 500)
                                         } catch (callbackError: Exception) {
-                                            android.util.Log.e("GroupedMessagesAdapter", "Toggle callback error", callbackError)
+                                            Timber.tag("GroupedMessagesAdapter").e(callbackError, "Toggle callback error")
                                             // Revert state
                                             group.isIncludedInCalculations = false
                                             switchIncludeGroup.isChecked = false
@@ -352,7 +353,7 @@ class GroupedMessagesAdapter(
                         }
                         
                     } catch (e: Exception) {
-                        android.util.Log.e("GroupedMessagesAdapter", "Toggle switch error", e)
+                        Timber.tag("GroupedMessagesAdapter").e(e, "Toggle switch error")
                         switchIncludeGroup.isEnabled = true
                         android.widget.Toast.makeText(
                             binding.root.context,
@@ -392,13 +393,13 @@ class GroupedMessagesAdapter(
                             recyclerTransactions.visibility = View.GONE
                         }
                     } catch (e: Exception) {
-                        android.util.Log.e("GroupedMessagesAdapter", "Error expanding/collapsing group", e)
+                        Timber.tag("GroupedMessagesAdapter").e(e, "Error expanding/collapsing group")
                     }
                 }
                 
                 // Setup long click listener for editing group
                 root.setOnLongClickListener {
-                    android.util.Log.d("LongPressDebug", "Long press detected for merchant: '${group.merchantName}', expanded: ${group.isExpanded}")
+                    Timber.tag("LongPressDebug").d("Long press detected for merchant: '${group.merchantName}', expanded: ${group.isExpanded}")
                     onGroupEdit(group)
                     true
                 }
@@ -450,20 +451,20 @@ class GroupedMessagesAdapter(
                             android.view.MotionEvent.ACTION_DOWN -> {
                                 initialY = e.y
                                 // Don't immediately disallow parent intercept - wait to see if user is scrolling
-                                android.util.Log.d("TouchHandler", "ACTION_DOWN at y=${e.y}, allowing parent touch events")
+                                Timber.tag("TouchHandler").d("ACTION_DOWN at y=${e.y}, allowing parent touch events")
                             }
                             android.view.MotionEvent.ACTION_MOVE -> {
                                 val deltaY = kotlin.math.abs(e.y - initialY)
                                 if (deltaY > touchSlop) {
                                     // User is scrolling, now prevent parent from intercepting
                                     rv.parent.requestDisallowInterceptTouchEvent(true)
-                                    android.util.Log.d("TouchHandler", "ACTION_MOVE detected scroll, disallowing parent intercept")
+                                    Timber.tag("TouchHandler").d("ACTION_MOVE detected scroll, disallowing parent intercept")
                                 }
                             }
                             android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
                                 // Re-enable parent touch event interception for next touch sequence
                                 rv.parent.requestDisallowInterceptTouchEvent(false)
-                                android.util.Log.d("TouchHandler", "Touch sequence ended, re-enabling parent intercept")
+                                Timber.tag("TouchHandler").d("Touch sequence ended, re-enabling parent intercept")
                             }
                         }
                         return false
@@ -551,7 +552,7 @@ class TransactionItemAdapter(
                 try {
                     onTransactionClick(transaction)
                 } catch (e: Exception) {
-                    android.util.Log.e("GroupedMessagesAdapter", "Error handling transaction click", e)
+                    Timber.tag("GroupedMessagesAdapter").e(e, "Error handling transaction click")
                 }
             }
         }

@@ -1,6 +1,7 @@
 package com.expensemanager.app.domain.insights
 
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.data.models.AIInsight
 import com.expensemanager.app.data.models.InsightType
 import com.expensemanager.app.data.models.InsightPriority
@@ -38,7 +39,7 @@ class GetAIInsightsUseCase @Inject constructor(
      * Force refresh insights from API
      */
     suspend fun refreshInsights(): Result<List<AIInsight>> {
-        Log.d(TAG, "Requesting force refresh")
+        Timber.tag(TAG).d("Requesting force refresh")
         return repository.refreshInsights().map { insights ->
             processInsights(insights, GetInsightsParams())
         }
@@ -48,7 +49,7 @@ class GetAIInsightsUseCase @Inject constructor(
      * Clear insights cache
      */
     suspend fun clearCache(): Result<Unit> {
-        Log.d(TAG, "Clearing insights cache")
+        Timber.tag(TAG).d("Clearing insights cache")
         return repository.clearCache()
     }
     
@@ -56,7 +57,7 @@ class GetAIInsightsUseCase @Inject constructor(
      * Process insights with business logic
      */
     private fun processInsights(insights: List<AIInsight>, params: GetInsightsParams): List<AIInsight> {
-        Log.d(TAG, "Processing ${insights.size} insights with params: $params")
+        Timber.tag(TAG).d("Processing ${insights.size} insights with params: $params")
         
         return insights
             .let { list ->
@@ -100,12 +101,12 @@ class GetAIInsightsUseCase @Inject constructor(
                 }
             }
             .also { processedList ->
-                Log.d(TAG, "Processed insights: ${processedList.size} after filtering and sorting")
+                Timber.tag(TAG).d("Processed insights: ${processedList.size} after filtering and sorting")
                 
                 // Log insight summary for debugging
                 if (processedList.isNotEmpty()) {
                     val summary = processedList.groupBy { it.type }.mapValues { it.value.size }
-                    Log.d(TAG, "Insight types: $summary")
+                    Timber.tag(TAG).d("Insight types: $summary")
                 }
             }
     }

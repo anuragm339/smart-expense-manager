@@ -1,6 +1,7 @@
 package com.expensemanager.app.domain.usecase.transaction
 
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.data.entities.TransactionEntity
 import com.expensemanager.app.domain.repository.TransactionRepositoryInterface
 import com.expensemanager.app.domain.repository.MerchantRepositoryInterface
@@ -26,12 +27,12 @@ class AddTransactionUseCase @Inject constructor(
      */
     suspend fun execute(transaction: TransactionEntity): Result<Long> {
         return try {
-            Log.d(TAG, "Adding new transaction: ${transaction.rawMerchant} - ₹${transaction.amount}")
+            Timber.tag(TAG).d("Adding new transaction: ${transaction.rawMerchant} - ₹${transaction.amount}")
             
             // Validate transaction data
             val validationResult = validateTransaction(transaction)
             if (!validationResult.isValid) {
-                Log.w(TAG, "Transaction validation failed: ${validationResult.error}")
+                Timber.tag(TAG).w("Transaction validation failed: ${validationResult.error}")
                 return Result.failure(IllegalArgumentException(validationResult.error))
             }
             
@@ -39,7 +40,7 @@ class AddTransactionUseCase @Inject constructor(
             if (transaction.smsId.isNotEmpty()) {
                 val existingTransaction = transactionRepository.getTransactionBySmsId(transaction.smsId)
                 if (existingTransaction != null) {
-                    Log.w(TAG, "Duplicate transaction found with SMS ID: ${transaction.smsId}")
+                    Timber.tag(TAG).w("Duplicate transaction found with SMS ID: ${transaction.smsId}")
                     return Result.failure(DuplicateTransactionException("Transaction already exists"))
                 }
             }
@@ -52,15 +53,15 @@ class AddTransactionUseCase @Inject constructor(
             // Insert the transaction
             val insertedId = transactionRepository.insertTransaction(transaction)
             if (insertedId > 0) {
-                Log.d(TAG, "Transaction added successfully with ID: $insertedId")
+                Timber.tag(TAG).d("Transaction added successfully with ID: $insertedId")
                 Result.success(insertedId)
             } else {
-                Log.e(TAG, "Failed to insert transaction")
+                Timber.tag(TAG).e("Failed to insert transaction")
                 Result.failure(Exception("Failed to insert transaction"))
             }
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error adding transaction", e)
+            Timber.tag(TAG).e(e, "Error adding transaction")
             Result.failure(e)
         }
     }
@@ -70,7 +71,7 @@ class AddTransactionUseCase @Inject constructor(
      */
     suspend fun executeMultiple(transactions: List<TransactionEntity>): Result<Int> {
         return try {
-            Log.d(TAG, "Adding ${transactions.size} transactions")
+            Timber.tag(TAG).d("Adding ${transactions.size} transactions")
             
             var successCount = 0
             var duplicateCount = 0
@@ -85,11 +86,11 @@ class AddTransactionUseCase @Inject constructor(
                 }
             }
             
-            Log.d(TAG, "Bulk insert completed: $successCount added, $duplicateCount duplicates, $errorCount errors")
+            Timber.tag(TAG).d("Bulk insert completed: $successCount added, $duplicateCount duplicates, $errorCount errors")
             Result.success(successCount)
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error in bulk transaction insert", e)
+            Timber.tag(TAG).e(e, "Error in bulk transaction insert")
             Result.failure(e)
         }
     }
@@ -153,7 +154,7 @@ class AddTransactionUseCase @Inject constructor(
      */
     private suspend fun ensureMerchantAndCategoryExist(transaction: TransactionEntity) {
         try {
-            Log.d(TAG, "Ensuring merchant and category entities exist for manual transaction")
+            Timber.tag(TAG).d("Ensuring merchant and category entities exist for manual transaction")
             
             // Extract category name from SMS body (format: "MANUAL_ENTRY: ₹amount at merchant (category)")
             val categoryName = extractCategoryFromManualEntry(transaction.rawSmsBody)
@@ -161,7 +162,7 @@ class AddTransactionUseCase @Inject constructor(
             // First, ensure the category exists
             var category = categoryRepository.getCategoryByName(categoryName)
             if (category == null) {
-                Log.d(TAG, "Creating new category: $categoryName")
+                Timber.tag(TAG).d("Creating new category: $categoryName")
                 val categoryId = categoryRepository.insertCategory(
                     com.expensemanager.app.data.entities.CategoryEntity(
                         name = categoryName,
@@ -179,7 +180,7 @@ class AddTransactionUseCase @Inject constructor(
                 // Next, ensure the merchant exists and is linked to the category
                 var merchant = merchantRepository.getMerchantByNormalizedName(transaction.normalizedMerchant)
                 if (merchant == null) {
-                    Log.d(TAG, "Creating new merchant: ${transaction.rawMerchant} -> ${transaction.normalizedMerchant}")
+                    Timber.tag(TAG).d("Creating new merchant: ${transaction.rawMerchant} -> ${transaction.normalizedMerchant}")
                     merchantRepository.insertMerchant(
                         com.expensemanager.app.data.entities.MerchantEntity(
                             normalizedName = transaction.normalizedMerchant,
@@ -190,12 +191,12 @@ class AddTransactionUseCase @Inject constructor(
                             createdAt = java.util.Date()
                         )
                     )
-                    Log.d(TAG, "[SUCCESS] Created merchant ${transaction.rawMerchant} in category ${category.name}")
+                    Timber.tag(TAG).d("[SUCCESS] Created merchant ${transaction.rawMerchant} in category ${category.name}")
                 }
             }
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error ensuring merchant and category entities exist", e)
+            Timber.tag(TAG).e(e, "Error ensuring merchant and category entities exist")
             // Don't fail the transaction if merchant/category setup fails
         }
     }
@@ -214,7 +215,7 @@ class AddTransactionUseCase @Inject constructor(
                 "Other"
             }
         } catch (e: Exception) {
-            Log.w(TAG, "Error extracting category from manual entry: $rawSmsBody", e)
+            Timber.tag(TAG).w("Error extracting category from manual entry: $rawSmsBody", e)
             "Other"
         }
     }

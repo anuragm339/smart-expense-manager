@@ -8,7 +8,8 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
@@ -342,17 +343,17 @@ class BudgetGoalsFragment : Fragment() {
             val mainActivity = activity as? MainActivity
             if (mainActivity != null) {
                 // Bottom navigation removed for space - navigation disabled
-                Log.d("BudgetGoalsFragment", "[SUCCESS] Successfully navigated to tab: $tabId")
+                Timber.tag("BudgetGoalsFragment").d("[SUCCESS] Successfully navigated to tab: $tabId")
             } else {
-                Log.w("BudgetGoalsFragment", "[WARNING] MainActivity not available, using fallback navigation")
+                Timber.tag("BudgetGoalsFragment").w("[WARNING] MainActivity not available, using fallback navigation")
                 findNavController().navigate(tabId)
             }
         } catch (e: Exception) {
-            Log.e("BudgetGoalsFragment", "[ERROR] Error navigating to tab $tabId, using fallback", e)
+            Timber.tag("BudgetGoalsFragment").e(e, "[ERROR] Error navigating to tab $tabId, using fallback")
             try {
                 findNavController().navigate(tabId)
             } catch (fallbackError: Exception) {
-                Log.e("BudgetGoalsFragment", "[ERROR] Fallback navigation also failed", fallbackError)
+                Timber.tag("BudgetGoalsFragment").e(fallbackError, "[ERROR] Fallback navigation also failed")
                 Toast.makeText(requireContext(), "Navigation error. Please use bottom navigation.", Toast.LENGTH_SHORT).show()
             }
         }

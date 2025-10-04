@@ -2,7 +2,8 @@ package com.expensemanager.app.ui.profile
 
 import android.content.SharedPreferences
 import android.os.Bundle
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -97,7 +98,7 @@ class AIInsightsSettingsFragment : Fragment() {
         // Cost estimates toggle
         binding.switchShowCosts.setOnCheckedChangeListener { _, isChecked ->
             prefs.edit().putBoolean(PREF_SHOW_COSTS, isChecked).apply()
-            Log.d(TAG, "Show cost estimates: $isChecked")
+            Timber.tag(TAG).d("Show cost estimates: $isChecked")
         }
     }
 
@@ -120,7 +121,7 @@ class AIInsightsSettingsFragment : Fragment() {
                 binding.switchShowCosts.isChecked = showCosts
 
             } catch (e: Exception) {
-                Log.e(TAG, "Error loading settings", e)
+                Timber.tag(TAG).e(e, "Error loading settings")
                 Toast.makeText(context, "Error loading settings", Toast.LENGTH_SHORT).show()
             }
         }
@@ -148,7 +149,7 @@ class AIInsightsSettingsFragment : Fragment() {
                 }
 
             } catch (e: Exception) {
-                Log.e(TAG, "Error loading usage statistics", e)
+                Timber.tag(TAG).e(e, "Error loading usage statistics")
                 binding.tvMonthlyCalls.text = "N/A"
                 binding.tvEstimatedCost.text = "N/A"
                 binding.tvLastCall.text = "N/A"
@@ -175,10 +176,10 @@ class AIInsightsSettingsFragment : Fragment() {
                     Toast.LENGTH_SHORT
                 ).show()
 
-                Log.d(TAG, "Updated call frequency to: ${frequency.displayName}")
+                Timber.tag(TAG).d("Updated call frequency to: ${frequency.displayName}")
 
             } catch (e: Exception) {
-                Log.e(TAG, "Error updating frequency", e)
+                Timber.tag(TAG).e(e, "Error updating frequency")
                 Toast.makeText(context, "Error updating frequency", Toast.LENGTH_SHORT).show()
             }
         }
@@ -255,7 +256,7 @@ class AIInsightsSettingsFragment : Fragment() {
                 )
 
             } catch (e: Exception) {
-                Log.e(TAG, "Error during manual refresh", e)
+                Timber.tag(TAG).e(e, "Error during manual refresh")
                 Toast.makeText(context, "Error generating insights", Toast.LENGTH_SHORT).show()
             } finally {
                 binding.btnManualRefresh.isEnabled = true
@@ -285,10 +286,10 @@ class AIInsightsSettingsFragment : Fragment() {
                 // Refresh UI
                 loadUsageStatistics()
 
-                Log.d(TAG, "Cache cleared successfully")
+                Timber.tag(TAG).d("Cache cleared successfully")
 
             } catch (e: Exception) {
-                Log.e(TAG, "Error clearing cache", e)
+                Timber.tag(TAG).e(e, "Error clearing cache")
                 Toast.makeText(context, "Error clearing cache", Toast.LENGTH_SHORT).show()
             }
         }

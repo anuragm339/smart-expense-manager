@@ -1,7 +1,9 @@
 package com.expensemanager.app.utils
 
+
 import android.content.Context
-import android.util.Log
+import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
 import org.json.JSONObject
 
 /**
@@ -13,7 +15,7 @@ object ExclusionStatesFixer {
     
     fun fixLargeTransactionExclusions(context: Context) {
         try {
-            Log.d(TAG, "[FIX] Fixing exclusion states for large transactions...")
+            Timber.tag(TAG).d("[FIX] Fixing exclusion states for large transactions...")
             
             val prefs = context.getSharedPreferences("expense_calculations", Context.MODE_PRIVATE)
             val inclusionStatesJson = prefs.getString("group_inclusion_states", null)
@@ -48,7 +50,7 @@ object ExclusionStatesFixer {
                 if (currentValue) {
                     inclusionStates.put(merchant, false)
                     changesCount++
-                    Log.d(TAG, "🚫 Excluded: $merchant")
+                    Timber.tag(TAG).d("🚫 Excluded: $merchant")
                 }
             }
             
@@ -58,13 +60,13 @@ object ExclusionStatesFixer {
                     .putString("group_inclusion_states", inclusionStates.toString())
                     .apply()
                 
-                Log.d(TAG, "[SUCCESS] Fixed $changesCount exclusion states")
+                Timber.tag(TAG).d("[SUCCESS] Fixed $changesCount exclusion states")
             } else {
-                Log.d(TAG, "[SUCCESS] All large transactions already excluded")
+                Timber.tag(TAG).d("[SUCCESS] All large transactions already excluded")
             }
             
         } catch (e: Exception) {
-            Log.e(TAG, "[ERROR] Error fixing exclusion states", e)
+            Timber.tag(TAG).e(e, "[ERROR] Error fixing exclusion states")
         }
     }
 }
