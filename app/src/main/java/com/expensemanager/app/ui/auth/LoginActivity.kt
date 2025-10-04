@@ -59,26 +59,78 @@ class LoginActivity : AppCompatActivity() {
     private fun setupGoogleSignIn() {
         binding.btnGoogleSignIn.setOnClickListener {
             Timber.tag(TAG).d("🔑 Sign-in button clicked")
-            showLoading(true)
 
-            authManager.signIn(
-                activity = this,
-                onSuccess = { user ->
-                    Timber.tag(TAG).i("✅ Sign-in successful: ${user.email}")
-                    showLoading(false)
-                    navigateToMain()
-                },
-                onError = { exception ->
-                    Timber.tag(TAG).e(exception, "❌ Sign-in failed")
-                    showLoading(false)
-                    Toast.makeText(
-                        this,
-                        "Sign-in failed: ${exception.localizedMessage}",
-                        Toast.LENGTH_LONG
-                    ).show()
-                }
-            )
+            // In mock mode, show user selection dialog
+            if (DebugConfig.useMockAuth) {
+                showTestUserSelectionDialog()
+            } else {
+                // Real Google Sign-In
+                showLoading(true)
+                authManager.signIn(
+                    activity = this,
+                    onSuccess = { user ->
+                        Timber.tag(TAG).i("✅ Sign-in successful: ${user.email}")
+                        showLoading(false)
+                        navigateToMain()
+                    },
+                    onError = { exception ->
+                        Timber.tag(TAG).e(exception, "❌ Sign-in failed")
+                        showLoading(false)
+                        Toast.makeText(
+                            this,
+                            "Sign-in failed: ${exception.localizedMessage}",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                )
+            }
         }
+    }
+
+    private fun showTestUserSelectionDialog() {
+        val mockAuthManager = authManager as? com.expensemanager.app.auth.MockAuthManager
+        if (mockAuthManager == null) {
+            Toast.makeText(this, "Mock auth not available", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val users = com.expensemanager.app.auth.MockAuthManager.TEST_USERS
+        val userNames = users.map { "${it.displayName}\n${it.email}" }.toTypedArray()
+
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Select Test User")
+            .setItems(userNames) { dialog, which ->
+                val selectedUser = users[which]
+                signInWithTestUser(mockAuthManager, selectedUser)
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun signInWithTestUser(
+        mockAuthManager: com.expensemanager.app.auth.MockAuthManager,
+        testUser: com.expensemanager.app.auth.MockAuthManager.TestUser
+    ) {
+        Timber.tag(TAG).d("🔑 Selected test user: ${testUser.email}")
+        showLoading(true)
+
+        mockAuthManager.signInWithTestUser(
+            testUser = testUser,
+            onSuccess = { user ->
+                Timber.tag(TAG).i("✅ Test user sign-in successful: ${user.email}")
+                showLoading(false)
+                navigateToMain()
+            },
+            onError = { exception ->
+                Timber.tag(TAG).e(exception, "❌ Test user sign-in failed")
+                showLoading(false)
+                Toast.makeText(
+                    this,
+                    "Sign-in failed: ${exception.localizedMessage}",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        )
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {

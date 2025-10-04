@@ -24,9 +24,35 @@ class MockAuthManager @Inject constructor(
 
     companion object {
         private const val TAG = "MockAuthManager"
-        private const val DEBUG_USER_ID = "debug_user_001"
         private const val MOCK_SIGN_IN_DELAY = 500L // Simulate network delay
+
+        // Test user IDs
+        const val USER_FREE_ID = "test_user_free"
+        const val USER_PREMIUM_ID = "test_user_premium"
+
+        // Test user data
+        val TEST_USERS = listOf(
+            TestUser(
+                userId = USER_FREE_ID,
+                email = "free@test.com",
+                displayName = "Test User (Free)",
+                tier = "FREE"
+            ),
+            TestUser(
+                userId = USER_PREMIUM_ID,
+                email = "premium@test.com",
+                displayName = "Test User (Premium)",
+                tier = "PREMIUM"
+            )
+        )
     }
+
+    data class TestUser(
+        val userId: String,
+        val email: String,
+        val displayName: String,
+        val tier: String
+    )
 
     override suspend fun isAuthenticated(): Boolean {
         DebugConfig.logMockUsage("Authentication", "Checking mock authentication status")
@@ -44,31 +70,42 @@ class MockAuthManager @Inject constructor(
         return user
     }
 
-    override fun signIn(
-        activity: Activity,
+    /**
+     * Sign in with a specific test user
+     */
+    fun signInWithTestUser(
+        testUser: TestUser,
         onSuccess: (UserEntity) -> Unit,
         onError: (Exception) -> Unit
     ) {
-        DebugConfig.logMockUsage("Authentication", "Starting mock sign-in")
-        Timber.tag(TAG).d("🎭 Mock sign-in started")
+        DebugConfig.logMockUsage("Authentication", "Starting mock sign-in with ${testUser.tier} user")
+        Timber.tag(TAG).d("🎭 Mock sign-in started for: ${testUser.email}")
 
-        // Launch sign-in in coroutine
-        kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.Main) {
+        GlobalScope.launch(Dispatchers.Main) {
             try {
-                // Simulate network delay
                 delay(MOCK_SIGN_IN_DELAY)
 
-                val debugUser = createDebugUser()
-                userDao.insertUser(debugUser)
+                val userEntity = createTestUserEntity(testUser)
+                userDao.insertUser(userEntity)
 
-                Timber.tag(TAG).i("🎭 Mock sign-in successful: ${debugUser.email}")
-                onSuccess(debugUser)
+                Timber.tag(TAG).i("🎭 Mock sign-in successful: ${testUser.email} (${testUser.tier})")
+                onSuccess(userEntity)
 
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "🎭 Mock sign-in failed")
                 onError(e)
             }
         }
+    }
+
+    override fun signIn(
+        activity: Activity,
+        onSuccess: (UserEntity) -> Unit,
+        onError: (Exception) -> Unit
+    ) {
+        // This will be called from LoginActivity which will show user selection
+        DebugConfig.logMockUsage("Authentication", "Mock sign-in - use signInWithTestUser instead")
+        Timber.tag(TAG).w("🎭 signIn() called - should use signInWithTestUser() for test users")
     }
 
     override suspend fun signOut() {
@@ -80,12 +117,12 @@ class MockAuthManager @Inject constructor(
     }
 
     override suspend fun handleSignInResult(data: android.content.Intent?): Result<UserEntity> {
-        // Mock implementation always succeeds
+        // Mock implementation always succeeds - use default Free user
         DebugConfig.logMockUsage("Authentication", "Handling mock sign-in result")
 
         return try {
             delay(MOCK_SIGN_IN_DELAY)
-            val debugUser = createDebugUser()
+            val debugUser = createTestUserEntity(TEST_USERS[0]) // Default to Free user
             userDao.insertUser(debugUser)
 
             Timber.tag(TAG).i("🎭 Mock sign-in result handled successfully")
@@ -101,17 +138,15 @@ class MockAuthManager @Inject constructor(
     }
 
     /**
-     * Create debug user entity
+     * Create test user entity
      */
-    private fun createDebugUser(): UserEntity {
-        val debugName = context.getString(R.string.debug_user_name)
-        val debugEmail = context.getString(R.string.debug_user_email)
+    private fun createTestUserEntity(testUser: TestUser): UserEntity {
         val now = System.currentTimeMillis()
 
         return UserEntity(
-            userId = DEBUG_USER_ID,
-            email = debugEmail,
-            displayName = debugName,
+            userId = testUser.userId,
+            email = testUser.email,
+            displayName = testUser.displayName,
             photoUrl = null, // No profile picture in mock mode
             isAuthenticated = true,
             lastLoginTimestamp = now,
