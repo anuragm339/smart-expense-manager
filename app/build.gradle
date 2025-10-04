@@ -20,9 +20,21 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Mock mode enabled for development - bypasses authentication and subscription
+            buildConfigField "boolean", "MOCK_AUTH", "true"
+            buildConfigField "boolean", "MOCK_SUBSCRIPTION", "true"
+            buildConfigField "String", "BUILD_TYPE_NAME", '"Debug"'
+        }
+
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+
+            // Production mode - uses real Google Sign-In and Billing
+            buildConfigField "boolean", "MOCK_AUTH", "false"
+            buildConfigField "boolean", "MOCK_SUBSCRIPTION", "false"
+            buildConfigField "String", "BUILD_TYPE_NAME", '"Release"'
         }
     }
     
@@ -38,6 +50,7 @@ android {
     
     buildFeatures {
         viewBinding true
+        buildConfig true
     }
 }
 
