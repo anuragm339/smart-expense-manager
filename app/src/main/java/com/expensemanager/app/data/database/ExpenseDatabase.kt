@@ -20,9 +20,10 @@ import com.expensemanager.app.data.dao.*
         SyncStateEntity::class,
         BudgetEntity::class,
         CategorySpendingCacheEntity::class,
-        com.expensemanager.app.data.models.AICallTracker::class
+        com.expensemanager.app.data.models.AICallTracker::class,
+        UserEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 @TypeConverters(DateConverter::class)
@@ -33,6 +34,7 @@ abstract class ExpenseDatabase : RoomDatabase() {
     abstract fun merchantDao(): MerchantDao
     abstract fun syncStateDao(): SyncStateDao
     abstract fun aiCallDao(): AICallDao
+    abstract fun userDao(): UserDao
     
     companion object {
         @Volatile
@@ -46,7 +48,7 @@ abstract class ExpenseDatabase : RoomDatabase() {
                     "expense_database"
                 )
                 .addCallback(DatabaseCallback())
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .build()
                 INSTANCE = instance
                 instance
@@ -81,6 +83,23 @@ abstract class ExpenseDatabase : RoomDatabase() {
                         `totalApiCalls` INTEGER NOT NULL,
                         `lastErrorTimestamp` INTEGER NOT NULL,
                         `consecutiveErrors` INTEGER NOT NULL
+                    )
+                """)
+            }
+        }
+
+        // Migration from version 3 to 4: Add users table for authentication
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `users` (
+                        `userId` TEXT NOT NULL PRIMARY KEY,
+                        `email` TEXT NOT NULL,
+                        `displayName` TEXT NOT NULL,
+                        `photoUrl` TEXT,
+                        `isAuthenticated` INTEGER NOT NULL,
+                        `lastLoginTimestamp` INTEGER NOT NULL,
+                        `createdAt` INTEGER NOT NULL
                     )
                 """)
             }
