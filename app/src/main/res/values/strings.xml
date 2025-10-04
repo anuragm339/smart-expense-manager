@@ -62,6 +62,14 @@
     <string name="permission_notification_denied_title">Notifications Disabled</string>
     <string name="permission_notification_denied_message">You won\'t receive push notifications for new transactions. You can enable them later in Settings > Apps > Smart Expense Manager > Permissions.</string>
     
+    <!-- Debug Mode -->
+    <string name="debug_banner">🛠️ DEBUG MODE</string>
+    <string name="debug_mode_enabled">Running in debug mode with mock services</string>
+    <string name="mock_auth_active">Mock authentication active</string>
+    <string name="mock_subscription_active">Mock subscription active (Premium)</string>
+    <string name="debug_user_name">Debug User</string>
+    <string name="debug_user_email">debug@expensemanager.dev</string>
+
     <!-- Common -->
     <string name="currency_symbol">₹</string>
     <string name="loading">Loading...</string>
