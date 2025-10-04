@@ -152,4 +152,23 @@ object AppModule {
     ): CategoryDisplayProvider {
         return DefaultCategoryDisplayProvider(context, repository)
     }
+
+    /**
+     * Provides AuthManager based on build configuration
+     * - Debug builds: MockAuthManager (auto-login, no Google account needed)
+     * - Release builds: GoogleAuthManager (real Google Sign-In)
+     */
+    @Provides
+    @Singleton
+    fun provideAuthManager(
+        @ApplicationContext context: Context,
+        mockAuthManager: com.expensemanager.app.auth.MockAuthManager,
+        googleAuthManager: com.expensemanager.app.auth.GoogleAuthManager
+    ): com.expensemanager.app.auth.AuthManager {
+        return if (com.expensemanager.app.core.DebugConfig.useMockAuth) {
+            mockAuthManager
+        } else {
+            googleAuthManager
+        }
+    }
 }

@@ -21,8 +21,9 @@
         android:usesCleartextTraffic="true"
         tools:targetApi="31">
         
+        <!-- Splash Activity - Entry Point -->
         <activity
-            android:name=".MainActivity"
+            android:name=".ui.auth.SplashActivity"
             android:exported="true"
             android:theme="@style/Theme.ExpenseManager">
             <intent-filter>
@@ -30,6 +31,19 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Login Activity -->
+        <activity
+            android:name=".ui.auth.LoginActivity"
+            android:exported="false"
+            android:theme="@style/Theme.ExpenseManager" />
+
+        <!-- Main Activity -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="false"
+            android:theme="@style/Theme.ExpenseManager" />
+
 
         <receiver
             android:name=".utils.SMSReceiver"

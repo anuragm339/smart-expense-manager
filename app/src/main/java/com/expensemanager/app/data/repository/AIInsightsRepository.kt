@@ -6,17 +6,25 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
 import com.expensemanager.app.data.api.insights.*
+import com.expensemanager.app.data.dao.AICallDao
+import com.expensemanager.app.data.dao.UserDao
 import com.expensemanager.app.data.models.AIInsight
 import com.expensemanager.app.data.models.MonthlySummary
 import com.expensemanager.app.data.models.SampleInsights
+import com.expensemanager.app.data.models.Transaction
 import com.expensemanager.app.utils.logging.LogConfig
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import timber.log.Timber
 import java.util.*
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Named
 import javax.inject.Singleton
@@ -33,7 +41,8 @@ class AIInsightsRepository @Inject constructor(
     private val apiService: AIInsightsApiService,
     @Named("ai_insights_cache") private val prefs: SharedPreferences,
     private val insightsHistoryManager: com.expensemanager.app.services.InsightsHistoryManager,
-    private val csvGenerator: com.expensemanager.app.services.TransactionCSVGenerator
+    private val csvGenerator: com.expensemanager.app.services.TransactionCSVGenerator,
+    private val aiThresholdService: com.expensemanager.app.services.AIThresholdService
 ) {
     
     companion object {
@@ -49,7 +58,9 @@ class AIInsightsRepository @Inject constructor(
         @Volatile
         private var INSTANCE: AIInsightsRepository? = null
 
-        fun getInstance(context: Context, expenseRepository: ExpenseRepository): AIInsightsRepository {
+        fun getInstance(context: Context, expenseRepository: ExpenseRepository, aiCallDao: AICallDao,
+                        userDao: UserDao
+        ): AIInsightsRepository {
             return INSTANCE ?: synchronized(this) {
                 val gson = com.google.gson.Gson()
                 val instance = AIInsightsRepository(
@@ -58,14 +69,115 @@ class AIInsightsRepository @Inject constructor(
                     ApiServiceFactory.getAIInsightsApiService(),
                     context.getSharedPreferences("ai_insights_cache", Context.MODE_PRIVATE),
                     com.expensemanager.app.services.InsightsHistoryManager(context.applicationContext, gson),
-                    com.expensemanager.app.services.TransactionCSVGenerator(expenseRepository)
+                    com.expensemanager.app.services.TransactionCSVGenerator(expenseRepository),
+                            com.expensemanager.app.services.AIThresholdService (
+                        context.applicationContext,
+                        expenseRepository,
+                        aiCallDao,
+                        userDao,
+                        context.getSharedPreferences("ai_insights_prefs", Context.MODE_PRIVATE)
+                    )
                 )
                 INSTANCE = instance
                 instance
             }
         }
     }
-    
+
+    // Mutex to prevent concurrent API calls
+    private val apiCallMutex = Mutex()
+
+    /**
+     * Smart cache-first loading - loads cached data immediately, only calls API when needed
+     * This should be used for initial load when app opens
+     */
+    suspend fun loadInsightsSmartly(): Result<List<AIInsight>> = withContext(Dispatchers.IO) {
+        return@withContext try {
+            // Step 1: Try to load cached insights
+            val cachedInsights = getCachedInsights()
+            val isCacheExpired = isCacheExpired()
+
+            // Step 2: Determine action based on cache state
+            when {
+                // Case 1: Valid cache exists (not expired) - return immediately
+                cachedInsights.isNotEmpty() && !isCacheExpired -> {
+                    Timber.tag(TAG).d("✅ Returning valid cached insights (${cachedInsights.size} items)")
+                    Result.success(cachedInsights)
+                }
+
+                // Case 2: Cache expired but exists - check if we should refresh
+                cachedInsights.isNotEmpty() && isCacheExpired -> {
+                    Timber.tag(TAG).d("⏰ Cache expired, checking if refresh is needed...")
+                    val shouldRefresh = aiThresholdService.shouldCallAI()
+
+                    if (shouldRefresh && isNetworkAvailable()) {
+                        Timber.tag(TAG).d("🔄 Cache expired + thresholds met - returning cache and refreshing in background")
+                        // Return cached data immediately, trigger background refresh
+                        // Note: The refresh will update cache for next time
+                        kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
+                            refreshInsightsWithMutex()
+                        }
+                        Result.success(cachedInsights)
+                    } else {
+                        Timber.tag(TAG).d("📋 Cache expired but thresholds not met - returning stale cache")
+                        Result.success(cachedInsights)
+                    }
+                }
+
+                // Case 3: No cache (first launch) - check thresholds and try API
+                else -> {
+                    Timber.tag(TAG).d("📭 No cache found (first launch)")
+                    val shouldCallAPI = aiThresholdService.shouldCallAI()
+
+                    if (shouldCallAPI && isNetworkAvailable()) {
+                        Timber.tag(TAG).d("🌐 Making initial API call...")
+                        refreshInsightsWithMutex()
+                    } else {
+                        Timber.tag(TAG).d("⚠️ Cannot call API (thresholds/network) - returning empty")
+                        Result.success(emptyList())
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Timber.tag(TAG).e(e, "Error in smart loading")
+            // Try to return any cached data as fallback
+            val cachedData = getCachedInsights()
+            if (cachedData.isNotEmpty()) {
+                Result.success(cachedData)
+            } else {
+                Result.failure(e)
+            }
+        }
+    }
+
+    /**
+     * Check if cache has expired based on TTL
+     */
+    private fun isCacheExpired(): Boolean {
+        val lastRefresh = prefs.getLong(LAST_REFRESH_KEY, 0L)
+        if (lastRefresh == 0L) return true // No cache
+
+        val cacheAge = System.currentTimeMillis() - lastRefresh
+        val expiryThreshold = TimeUnit.HOURS.toMillis(CACHE_EXPIRY_HOURS)
+        val isExpired = cacheAge > expiryThreshold
+
+        if (isExpired) {
+            val ageHours = TimeUnit.MILLISECONDS.toHours(cacheAge)
+            Timber.tag(TAG).d("Cache is expired (age: ${ageHours}h, TTL: ${CACHE_EXPIRY_HOURS}h)")
+        }
+
+        return isExpired
+    }
+
+    /**
+     * Refresh insights with mutex protection to prevent concurrent calls
+     */
+    private suspend fun refreshInsightsWithMutex(): Result<List<AIInsight>> {
+        return apiCallMutex.withLock {
+            refreshInsights()
+        }
+    }
+
     /**
      * Get AI insights with offline support and automatic refresh logic
      * Returns cached data immediately if available, then fetches fresh data if online
@@ -173,6 +285,19 @@ class AIInsightsRepository @Inject constructor(
      */
     private suspend fun fetchInsightsFromApi(): Result<List<AIInsight>> = withContext(Dispatchers.IO) {
         return@withContext try {
+            // Check subscription tier rate limits before making API call
+            val shouldCallAI = aiThresholdService.shouldCallAI()
+            if (!shouldCallAI) {
+                Timber.tag(LogConfig.FeatureTags.INSIGHTS).w("⚠️ AI call blocked by subscription tier rate limit")
+                // Return cached data if available
+                val cachedData = getCachedInsights()
+                return@withContext if (cachedData.isNotEmpty()) {
+                    Result.success(cachedData)
+                } else {
+                    Result.failure(Exception("AI call limit reached for your subscription tier. Please upgrade or try again tomorrow."))
+                }
+            }
+
             // Gather transaction data from ExpenseRepository
             val transactionData = gatherTransactionData()
 
@@ -222,6 +347,11 @@ class AIInsightsRepository @Inject constructor(
                 if (apiResponse != null) {
                     val insights = InsightsDataMapper.mapToDomainInsights(apiResponse)
                     Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("API call successful: ${insights.size} insights received")
+
+                    // Update AI call tracking (increment counters for subscription tier limits)
+                    val allTransactionsForTracking = Transaction.fromEntities(expenseRepository.getAllTransactionsSync())
+                    aiThresholdService.updateAfterSuccessfulCall(allTransactionsForTracking)
+
                     // Save insights to history for future context
                     val topCategories = transactionData.transactionSummary.categoryBreakdown
                         .take(3)
@@ -499,15 +629,28 @@ class AIInsightsRepository @Inject constructor(
     private fun getCachedInsights(): List<AIInsight> {
         return try {
             val cachedJson = prefs.getString(CACHED_INSIGHTS_KEY, null)
-            if (cachedJson != null) {
-                // For simplicity, using sample insights as cached data
-                // In production, you'd deserialize JSON to actual insights
-                getSampleInsights()
+            if (cachedJson != null && cachedJson.isNotEmpty()) {
+                // Check if it's valid JSON (starts with '[' for array)
+                if (!cachedJson.startsWith("[")) {
+                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).w("Invalid cached format (old version), clearing cache")
+                    prefs.edit().remove(CACHED_INSIGHTS_KEY).apply()
+                    return emptyList()
+                }
+
+                // Deserialize JSON to actual insights
+                val gson = com.google.gson.Gson()
+                val type = object : com.google.gson.reflect.TypeToken<List<AIInsight>>() {}.type
+                val insights: List<AIInsight> = gson.fromJson(cachedJson, type)
+                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Loaded ${insights.size} cached insights from storage")
+                insights
             } else {
+                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("No cached insights found")
                 emptyList()
             }
         } catch (e: Exception) {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "Error loading cached insights")
+            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "Error loading cached insights, clearing cache")
+            // Clear corrupted cache
+            prefs.edit().remove(CACHED_INSIGHTS_KEY).apply()
             emptyList()
         }
     }
@@ -517,15 +660,17 @@ class AIInsightsRepository @Inject constructor(
      */
     private fun cacheInsights(insights: List<AIInsight>) {
         try {
-            // For simplicity, just store timestamp and count
-            // In production, you'd serialize insights to JSON
+            // Serialize insights to JSON
+            val gson = com.google.gson.Gson()
+            val json = gson.toJson(insights)
+
             prefs.edit()
                 .putLong(LAST_REFRESH_KEY, System.currentTimeMillis())
-                .putString(CACHED_INSIGHTS_KEY, "cached_${insights.size}_insights")
+                .putString(CACHED_INSIGHTS_KEY, json)
                 .putInt(CACHE_VERSION_KEY, CURRENT_CACHE_VERSION)
                 .apply()
-            
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Cached ${insights.size} insights")
+
+            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Cached ${insights.size} insights to storage (${json.length} bytes)")
         } catch (e: Exception) {
             Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "Error caching insights")
         }

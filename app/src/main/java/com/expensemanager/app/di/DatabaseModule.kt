@@ -84,4 +84,15 @@ object DatabaseModule {
     ): AICallDao {
         return database.aiCallDao()
     }
+
+    /**
+     * Provides UserDao for user authentication and profile management
+     */
+    @Provides
+    @Singleton
+    fun provideUserDao(
+        database: ExpenseDatabase
+    ): UserDao {
+        return database.userDao()
+    }
 }

@@ -36,6 +36,17 @@ class GetAIInsightsUseCase @Inject constructor(
     }
     
     /**
+     * Load insights smartly (cache-first with threshold checking)
+     * This should be used for initial loading to avoid unnecessary API calls
+     */
+    suspend fun loadInsightsSmartly(): Result<List<AIInsight>> {
+        Timber.tag(TAG).d("Requesting smart load (cache-first)")
+        return repository.loadInsightsSmartly().map { insights ->
+            processInsights(insights, GetInsightsParams())
+        }
+    }
+
+    /**
      * Force refresh insights from API
      */
     suspend fun refreshInsights(): Result<List<AIInsight>> {
