@@ -92,6 +92,9 @@ lint/tmp/
 
 # Shell script files that might contain sensitive data
 *.sh
-
+ReadMe
+ui-sample
+app/src/test
+app/src/androidTest
 # Temp files
 *~
