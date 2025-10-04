@@ -27,12 +27,12 @@ class AIThresholdService @Inject constructor(
     @ApplicationContext private val context: Context,
     private val expenseRepository: ExpenseRepository,
     private val aiCallDao: AICallDao,
+    private val userDao: com.expensemanager.app.data.dao.UserDao,
     @Named("ai_insights_prefs") private val prefs: SharedPreferences
 ) {
 
     companion object {
         private const val TAG = "AIThresholdService"
-        private const val MAX_DAILY_CALLS = 5 // Rate limiting
         private const val MAX_CONSECUTIVE_ERRORS = 3
         private const val ERROR_BACKOFF_HOURS = 2
     }
@@ -86,7 +86,7 @@ class AIThresholdService @Inject constructor(
         val thresholds = getCurrentThresholds()
         val now = System.currentTimeMillis()
 
-        // Check rate limiting
+        // Check subscription tier rate limiting
         if (isRateLimited(tracker, now)) {
             return@withContext createRateLimitedResult(tracker, thresholds)
         }
@@ -138,9 +138,23 @@ class AIThresholdService @Inject constructor(
             nextEligibleTime = nextEligibleTime
         )
 
+        // Increment daily and monthly call counts for tier limits
+        aiCallDao.incrementCallCounts()
+
         aiCallDao.resetErrorCount()
 
-        Timber.tag(TAG).d("Updated tracking after successful call. Next eligible: ${Date(nextEligibleTime)}")
+        // Get updated counts for logging
+        val tracker = aiCallDao.getCurrentTracker()
+        val user = userDao.getCurrentUser()
+        val tier = user?.let { com.expensemanager.app.data.entities.SubscriptionTier.fromString(it.subscriptionTier) }
+
+        Timber.tag(TAG).d("✅ Updated tracking after successful call. " +
+                "Next eligible: ${Date(nextEligibleTime)}")
+        if (tracker != null && tier != null) {
+            Timber.tag(TAG).d("📊 ${tier.displayName} tier usage: " +
+                    "daily=${tracker.dailyCallCount}/${tier.dailyAICallLimit}, " +
+                    "monthly=${tracker.monthlyCallCount}/${tier.monthlyAICallLimit}")
+        }
     }
 
     /**
@@ -223,7 +237,15 @@ class AIThresholdService @Inject constructor(
         return uniqueCategories.size >= thresholds.minCategoryChanges
     }
 
-    private fun isRateLimited(tracker: AICallTracker, now: Long): Boolean {
+    /**
+     * Check if user has exceeded their subscription tier limits
+     */
+    private suspend fun isRateLimited(tracker: AICallTracker, now: Long): Boolean {
+        // Get current user and their subscription tier
+        val user = userDao.getCurrentUser() ?: return true // No user = rate limited
+        val tier = com.expensemanager.app.data.entities.SubscriptionTier.fromString(user.subscriptionTier)
+
+        // Check if we need to reset daily/monthly counters
         val todayStart = Calendar.getInstance().apply {
             timeInMillis = now
             set(Calendar.HOUR_OF_DAY, 0)
@@ -232,8 +254,41 @@ class AIThresholdService @Inject constructor(
             set(Calendar.MILLISECOND, 0)
         }.timeInMillis
 
-        // This is simplified - in real implementation, you'd track daily calls
-        return false // TODO: Implement proper daily rate limiting
+        val monthStart = Calendar.getInstance().apply {
+            timeInMillis = now
+            set(Calendar.DAY_OF_MONTH, 1)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+
+        // Reset daily count if new day
+        if (tracker.lastDailyResetTimestamp < todayStart) {
+            aiCallDao.resetDailyCallCount(todayStart)
+        }
+
+        // Reset monthly count if new month
+        if (tracker.lastMonthlyResetTimestamp < monthStart) {
+            aiCallDao.resetMonthlyCallCount(monthStart)
+        }
+
+        // Get current counts (after potential reset)
+        val updatedTracker = aiCallDao.getCurrentTracker() ?: return true
+        val dailyCount = updatedTracker.dailyCallCount
+        val monthlyCount = updatedTracker.monthlyCallCount
+
+        // Check against tier limits
+        val dailyLimitReached = dailyCount >= tier.dailyAICallLimit
+        val monthlyLimitReached = monthlyCount >= tier.monthlyAICallLimit
+
+        if (dailyLimitReached || monthlyLimitReached) {
+            Timber.tag(TAG).w("🚫 AI call rate limited for ${tier.displayName} tier: " +
+                    "daily=$dailyCount/${tier.dailyAICallLimit}, " +
+                    "monthly=$monthlyCount/${tier.monthlyAICallLimit}")
+        }
+
+        return dailyLimitReached || monthlyLimitReached
     }
 
     private fun shouldBackoffDueToErrors(tracker: AICallTracker, now: Long): Boolean {

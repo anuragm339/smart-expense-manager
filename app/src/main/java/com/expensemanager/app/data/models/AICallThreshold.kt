@@ -38,7 +38,13 @@ data class AICallTracker(
     // Usage tracking
     val totalApiCalls: Int = 0,
     val lastErrorTimestamp: Long = 0L,
-    val consecutiveErrors: Int = 0
+    val consecutiveErrors: Int = 0,
+
+    // Subscription tier limits tracking
+    val dailyCallCount: Int = 0,
+    val lastDailyResetTimestamp: Long = 0L,
+    val monthlyCallCount: Int = 0,
+    val lastMonthlyResetTimestamp: Long = 0L
 )
 
 /**

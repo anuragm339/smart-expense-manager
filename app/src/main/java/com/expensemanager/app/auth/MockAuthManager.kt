@@ -150,7 +150,8 @@ class MockAuthManager @Inject constructor(
             photoUrl = null, // No profile picture in mock mode
             isAuthenticated = true,
             lastLoginTimestamp = now,
-            createdAt = now
+            createdAt = now,
+            subscriptionTier = testUser.tier
         )
     }
 }

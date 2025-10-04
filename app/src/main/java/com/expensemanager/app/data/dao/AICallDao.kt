@@ -113,8 +113,55 @@ interface AICallDao {
     }
 
     /**
+     * Increment daily and monthly call counts
+     */
+    @Query("""
+        UPDATE ai_call_tracking
+        SET dailyCallCount = dailyCallCount + 1,
+            monthlyCallCount = monthlyCallCount + 1
+        WHERE id = 'current'
+    """)
+    suspend fun incrementCallCounts()
+
+    /**
+     * Reset daily call count
+     */
+    @Query("""
+        UPDATE ai_call_tracking
+        SET dailyCallCount = 0,
+            lastDailyResetTimestamp = :resetTimestamp
+        WHERE id = 'current'
+    """)
+    suspend fun resetDailyCallCount(resetTimestamp: Long)
+
+    /**
+     * Reset monthly call count
+     */
+    @Query("""
+        UPDATE ai_call_tracking
+        SET monthlyCallCount = 0,
+            lastMonthlyResetTimestamp = :resetTimestamp
+        WHERE id = 'current'
+    """)
+    suspend fun resetMonthlyCallCount(resetTimestamp: Long)
+
+    /**
+     * Get current daily and monthly call counts
+     */
+    @Query("SELECT dailyCallCount, monthlyCallCount FROM ai_call_tracking WHERE id = 'current'")
+    suspend fun getCallCounts(): CallCounts?
+
+    /**
      * Clear all tracking data (for reset functionality)
      */
     @Query("DELETE FROM ai_call_tracking")
     suspend fun clearAllTracking()
 }
+
+/**
+ * Data class for call counts query result
+ */
+data class CallCounts(
+    val dailyCallCount: Int,
+    val monthlyCallCount: Int
+)

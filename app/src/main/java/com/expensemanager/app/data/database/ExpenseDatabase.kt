@@ -23,7 +23,7 @@ import com.expensemanager.app.data.dao.*
         com.expensemanager.app.data.models.AICallTracker::class,
         UserEntity::class
     ],
-    version = 4,
+    version = 6,
     exportSchema = false
 )
 @TypeConverters(DateConverter::class)
@@ -48,7 +48,7 @@ abstract class ExpenseDatabase : RoomDatabase() {
                     "expense_database"
                 )
                 .addCallback(DatabaseCallback())
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                 .build()
                 INSTANCE = instance
                 instance
@@ -101,6 +101,33 @@ abstract class ExpenseDatabase : RoomDatabase() {
                         `lastLoginTimestamp` INTEGER NOT NULL,
                         `createdAt` INTEGER NOT NULL
                     )
+                """)
+            }
+        }
+
+        // Migration from version 4 to 5: Add subscriptionTier column to users table
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("""
+                    ALTER TABLE users ADD COLUMN subscriptionTier TEXT NOT NULL DEFAULT 'FREE'
+                """)
+            }
+        }
+
+        // Migration from version 5 to 6: Add tier-based call tracking to ai_call_tracking table
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("""
+                    ALTER TABLE ai_call_tracking ADD COLUMN dailyCallCount INTEGER NOT NULL DEFAULT 0
+                """)
+                database.execSQL("""
+                    ALTER TABLE ai_call_tracking ADD COLUMN lastDailyResetTimestamp INTEGER NOT NULL DEFAULT 0
+                """)
+                database.execSQL("""
+                    ALTER TABLE ai_call_tracking ADD COLUMN monthlyCallCount INTEGER NOT NULL DEFAULT 0
+                """)
+                database.execSQL("""
+                    ALTER TABLE ai_call_tracking ADD COLUMN lastMonthlyResetTimestamp INTEGER NOT NULL DEFAULT 0
                 """)
             }
         }
