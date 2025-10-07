@@ -12,12 +12,13 @@ import com.expensemanager.app.MainActivity
 import com.expensemanager.app.R
 import com.expensemanager.app.data.models.Transaction
 import androidx.core.content.ContextCompat
-import timber.log.Timber
 import com.expensemanager.app.utils.logging.LogConfig
+import com.expensemanager.app.utils.logging.StructuredLogger
 
 class TransactionNotificationManager(private val context: Context) {
     
     companion object {
+        private const val LOGGER_TAG = "TransactionNotificationManager"
         private const val CHANNEL_ID = "transaction_notifications"
         private const val CHANNEL_NAME = "Transaction Notifications"
         private const val CHANNEL_DESCRIPTION = "Notifications for new transaction detections"
@@ -34,8 +35,9 @@ class TransactionNotificationManager(private val context: Context) {
         const val EXTRA_TRANSACTION_MERCHANT = "transaction_merchant"
         const val EXTRA_CATEGORY = "category"
     }
-    
+
     private val notificationManager = NotificationManagerCompat.from(context)
+    private val logger = StructuredLogger(LogConfig.FeatureTags.UI, LOGGER_TAG)
     
     init {
         createNotificationChannel()
@@ -104,7 +106,7 @@ class TransactionNotificationManager(private val context: Context) {
         ) {
             // In a real app, you would request the permission here.
             // For this example, we'll just log it.
-            Timber.tag("TransactionNotificationManager").w("POST_NOTIFICATIONS permission not granted")
+            logger.warn("showNewTransactionNotification", "POST_NOTIFICATIONS permission not granted")
             return
         }
         notificationManager.notify(notificationId, notification)
@@ -173,7 +175,7 @@ class TransactionNotificationManager(private val context: Context) {
         ) {
             // In a real app, you would request the permission here.
             // For this example, we'll just log it.
-            Timber.tag("TransactionNotificationManager").w("POST_NOTIFICATIONS permission not granted")
+            logger.warn("showCategoryUpdateConfirmation", "POST_NOTIFICATIONS permission not granted")
             return
         }
         notificationManager.notify(notificationId, notification)
@@ -219,7 +221,7 @@ class TransactionNotificationManager(private val context: Context) {
         ) {
             // In a real app, you would request the permission here.
             // For this example, we'll just log it.
-            Timber.tag("TransactionNotificationManager").w("POST_NOTIFICATIONS permission not granted")
+            logger.warn("showBulkTransactionsSummary", "POST_NOTIFICATIONS permission not granted")
             return
         }
         notificationManager.notify(notificationId, notification)

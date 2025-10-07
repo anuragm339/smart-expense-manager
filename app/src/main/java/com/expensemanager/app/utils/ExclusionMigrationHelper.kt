@@ -2,9 +2,8 @@ package com.expensemanager.app.utils
 
 
 import android.content.Context
-import timber.log.Timber
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.data.repository.ExpenseRepository
+import com.expensemanager.app.utils.logging.StructuredLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -15,10 +14,10 @@ import org.json.JSONObject
 object ExclusionMigrationHelper {
     
     private const val TAG = "ExclusionMigrationHelper"
-    
+    private val logger = StructuredLogger("DataMigrationHelper", "DataMigrationHelper")
     suspend fun migrateExclusionStatesToDatabase(context: Context, repository: ExpenseRepository) = withContext(Dispatchers.IO) {
         try {
-            Timber.tag(TAG).d("[PROCESS] Starting migration of exclusion states from SharedPreferences to database...")
+            logger.debug("migrateExclusionStatesToDatabase","Starting migration of exclusion states from SharedPreferences to database...")
             
             // Read existing exclusion states from SharedPreferences
             val prefs = context.getSharedPreferences("expense_calculations", Context.MODE_PRIVATE)
@@ -49,27 +48,27 @@ object ExclusionMigrationHelper {
                             migratedCount++
                             
                             if (isExcluded) {
-                                Timber.tag(TAG).d("Migrated exclusion: $merchantDisplayName -> $normalizedName")
+                                logger.debug("migrateExclusionStatesToDatabase","Migrated exclusion: $merchantDisplayName -> $normalizedName")
                             }
                         } else {
-                            Timber.tag(TAG).w("[WARNING] Merchant not found in database: $merchantDisplayName -> $normalizedName")
+                            logger.warn("migrateExclusionStatesToDatabase","Merchant not found in database: $merchantDisplayName -> $normalizedName")
                         }
                     } catch (e: Exception) {
-                        Timber.tag(TAG).e(e, "[ERROR] Error migrating merchant: $merchantDisplayName")
+                        logger.error("migrateExclusionStatesToDatabase","Error migrating merchant: $merchantDisplayName",e)
                     }
                 }
                 
-                Timber.tag(TAG).d("[SUCCESS] Migration completed: $migratedCount merchants migrated")
+
                 
                 // Optionally clear SharedPreferences after successful migration
                 // prefs.edit().remove("group_inclusion_states").apply()
                 
             } else {
-                Timber.tag(TAG).d("ℹ️ No exclusion states found in SharedPreferences")
+
             }
             
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "[ERROR] Error during exclusion states migration")
+            ExclusionMigrationHelper.logger.error("migrateExclusionStatesToDatabase" ,"Error during exclusion states migration",e)
         }
     }
     

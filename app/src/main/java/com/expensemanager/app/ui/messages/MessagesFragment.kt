@@ -11,7 +11,6 @@ import android.view.ContextThemeWrapper
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -24,7 +23,6 @@ import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.navigation.fragment.findNavController
-import androidx.recyclerview.widget.LinearLayoutManager
 import com.expensemanager.app.databinding.FragmentMessagesBinding
 import com.expensemanager.app.R
 import com.expensemanager.app.utils.SMSHistoryReader
@@ -54,23 +52,17 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import android.os.Environment
 import javax.inject.Inject
+import com.expensemanager.app.utils.logging.LogConfig
+import com.expensemanager.app.utils.logging.StructuredLogger
 
 @AndroidEntryPoint
 class MessagesFragment : Fragment() {
     
     private var _binding: FragmentMessagesBinding? = null
     private val binding get() = _binding!!
-    
-    // UI elements from included layouts
-    private lateinit var tvTotalMessages: TextView
-    private lateinit var tvAutoCategorized: TextView
-    private lateinit var tvUniqueMerchants: TextView
-    private lateinit var tvUniqueBanks: TextView
-    private lateinit var tvAvgConfidence: TextView
-    private lateinit var tabLayoutFilter: TabLayout
-    private lateinit var btnSort: com.google.android.material.button.MaterialButton
-    private lateinit var btnFilter: com.google.android.material.button.MaterialButton
-    
+    private lateinit var viewBinder: MessagesViewBinder
+    private lateinit var groupedMessagesAdapter: GroupedMessagesAdapter
+
     // ViewModel injection
     private val messagesViewModel: MessagesViewModel by viewModels()
     
@@ -83,8 +75,8 @@ class MessagesFragment : Fragment() {
     
     @Inject
     lateinit var appLogger: AppLogger
-    
-    private lateinit var groupedMessagesAdapter: GroupedMessagesAdapter
+
+    private val logger = StructuredLogger(LogConfig.FeatureTags.UI, MessagesFragment::class.java.simpleName)
     private lateinit var categoryManager: CategoryManager
     private lateinit var merchantAliasManager: MerchantAliasManager
     
@@ -117,28 +109,28 @@ class MessagesFragment : Fragment() {
             if (intent?.action == "com.expensemanager.NEW_TRANSACTION_ADDED") {
                 val merchant = intent.getStringExtra("merchant") ?: "Unknown"
                 val amount = intent.getDoubleExtra("amount", 0.0)
-                Log.d("MessagesFragment", "New transaction broadcast: $merchant - ₹${String.format("%.0f", amount)}")
+                logger.debug("MessagesFragment", "New transaction broadcast: $merchant - ₹${String.format("%.0f", amount)}")
                 
                 // Refresh messages data on the main thread
                 lifecycleScope.launch {
                     try {
-                        Log.d("MessagesFragment", "[REFRESH] Refreshing messages via ViewModel due to new transaction")
+                        logger.debug("MessagesFragment", "[REFRESH] Refreshing messages via ViewModel due to new transaction")
                         
                         // Invalidate ViewModel's cache to ensure it gets fresh alias data
                         try {
                             messagesViewModel.invalidateMerchantAliasCache()
                         } catch (e: Exception) {
-                            Log.w("MessagesFragment", "Could not invalidate ViewModel cache for new transaction", e)
+                            logger.warnWithThrowable("MessagesFragment", "Could not invalidate ViewModel cache for new transaction", e)
                         }
-                        
+
                         try {
                             messagesViewModel.handleEvent(MessagesUIEvent.LoadMessages)
                         } catch (e: Exception) {
-                            Log.w("MessagesFragment", "Could not trigger ViewModel refresh for new transaction", e)
+                            logger.warnWithThrowable("MessagesFragment", "Could not trigger ViewModel refresh for new transaction", e)
                         }
                         
                     } catch (e: Exception) {
-                        Log.e("MessagesFragment", "Error refreshing messages after new transaction", e)
+                        logger.error("MessagesFragment", "Error refreshing messages after new transaction", e)
                     }
                 }
             }
@@ -159,39 +151,45 @@ class MessagesFragment : Fragment() {
         categoryManager = CategoryManager(requireContext())
         merchantAliasManager = MerchantAliasManager(requireContext())
         
-        // Initialize UI elements from included layouts
-        initializeIncludedLayoutViews()
-        
-        // Setup UI components
-        setupRecyclerView()
-        setupClickListeners()
-        
-        // Observe ViewModel state
+        viewBinder = MessagesViewBinder(
+            binding = binding,
+            context = requireContext(),
+            logger = StructuredLogger(LogConfig.FeatureTags.UI, "MessagesViewBinder"),
+            onTransactionClick = { messageItem -> navigateToTransactionDetails(messageItem) },
+            onGroupToggle = { group, isIncluded -> handleGroupToggle(group, isIncluded) },
+            onGroupEdit = { group -> showMerchantGroupEditDialog(group) }
+        )
+
+        viewBinder.bindSearch { query ->
+            messagesViewModel.handleEvent(MessagesUIEvent.Search(query))
+            currentSearchQuery = query
+        }
+
+        viewBinder.bindFilterTabs { filterTab ->
+            messagesViewModel.handleEvent(MessagesUIEvent.ApplyFilterTab(filterTab))
+        }
+
+        viewBinder.bindFilterButtons(
+            onSortClick = { showSortMenu() },
+            onFilterClick = { showFilterDialog() },
+            onGrantPermissionClick = { openAppSettings() }
+        )
+
+        groupedMessagesAdapter = viewBinder.groupedAdapter
+
         observeViewModelState()
-        
-        // Check permissions and setup legacy UI (parallel approach)
         checkPermissionsAndSetupUI()
     }
-    
-    /**
-     * Initialize UI elements from included layouts
-     */
-    private fun initializeIncludedLayoutViews() {
-        // Elements from layout_messages_summary.xml
-        tvTotalMessages = binding.root.findViewById(R.id.tv_total_messages)
-        tvAutoCategorized = binding.root.findViewById(R.id.tv_auto_categorized)
-        tvUniqueMerchants = binding.root.findViewById(R.id.tv_unique_merchants)
-        tvUniqueBanks = binding.root.findViewById(R.id.tv_unique_banks)
-        tvAvgConfidence = binding.root.findViewById(R.id.tv_avg_confidence)
 
-        // Sort and Filter buttons
-        btnSort = binding.root.findViewById(R.id.btn_sort)
-        btnFilter = binding.root.findViewById(R.id.btn_filter)
-
-        // Filter tabs
-        tabLayoutFilter = binding.root.findViewById(R.id.tab_layout_filter)
+    private fun handleGroupToggle(group: MerchantGroup, isIncluded: Boolean) {
+        messagesViewModel.handleEvent(
+            MessagesUIEvent.ToggleGroupInclusion(
+                merchantName = group.merchantName,
+                isIncluded = isIncluded
+            )
+        )
     }
-    
+
     /**
      * Observe ViewModel state changes
      */
@@ -209,66 +207,88 @@ class MessagesFragment : Fragment() {
      * Update UI based on ViewModel state
      */
     private fun updateUI(state: MessagesUIState) {
-        Log.d("MessagesFragment", "Updating UI with ViewModel state: loading=${state.isLoading}, messages=${state.filteredMessages.size}")
-        
-        // Handle loading states
-        if (state.isAnyLoading) {
-            // Show loading indicator if appropriate
-            Log.d("MessagesFragment", "ViewModel is loading data...")
+        logger.debug("MessagesFragment", "State updated: loading=${state.isAnyLoading}, groups=${state.groupedMessages.size}, filtered=${state.filteredMessages.size}")
+
+        allMessageItems = state.allMessages
+        filteredMessageItems = state.filteredMessages
+
+        // Update visibility BEFORE submitting data
+        when {
+            state.isAnyLoading -> {
+                viewBinder.showLoadingState()
+                // Don't submit data while loading
+                return
+            }
+            state.shouldShowEmptyState -> {
+                viewBinder.showEmptyState()
+                // Clear adapter when showing empty state
+                viewBinder.submitMerchantGroups(emptyList())
+            }
+            state.groupedMessages.isNotEmpty() -> {
+                viewBinder.showContent()
+                // Submit data AFTER making RecyclerView visible
+                viewBinder.submitMerchantGroups(state.groupedMessages)
+            }
+            else -> {
+                // Fallback case - no data and not loading
+                viewBinder.showEmptyState()
+                viewBinder.submitMerchantGroups(emptyList())
+            }
         }
-        
-        // Update message counts
-        tvTotalMessages.text = state.totalMessagesCount.toString()
-        tvAutoCategorized.text = state.autoCategorizedCount.toString()
-        
-        // 🔧 BUG FIX: ALWAYS update adapter, even with empty list (to clear old data when filtered to 0)
-        groupedMessagesAdapter.submitList(state.groupedMessages)
 
-        if (state.groupedMessages.isNotEmpty()) {
-            binding.recyclerMessages.visibility = View.VISIBLE
-            binding.layoutEmpty.visibility = View.GONE
-        } else if (state.shouldShowEmptyState) {
-            binding.recyclerMessages.visibility = View.GONE
-            binding.layoutEmpty.visibility = View.VISIBLE
-        }
-
-        // Update sort button
-        btnSort.text = "Sort: ${state.currentSortOption.displayText}"
-
-        // Update filter button
-        btnFilter.text = if (state.hasActiveFilters) {
-            "Filter (${state.activeFilterCount})"
+        val uniqueMerchants = state.filteredMessages.map { it.merchant }.toSet().size
+        val uniqueBanks = state.filteredMessages.map { it.bankName }.toSet().size
+        val averageConfidence = if (state.filteredMessages.isNotEmpty()) {
+            state.filteredMessages.map { it.confidence }.average().toInt()
         } else {
-            "Filter"
+            0
         }
 
-        // Update filter tab selection
-        updateFilterTabSelection(state.currentFilterTab)
-        
-        // Update adapter's filter tab state for toggle synchronization
-        if (::groupedMessagesAdapter.isInitialized) {
-            groupedMessagesAdapter.updateFilterTab(state.currentFilterTab)
-        }
-        
-        // Handle error states
+        viewBinder.updateSummary(
+            totalMessages = state.totalMessagesCount,
+            autoCategorized = state.autoCategorizedCount,
+            uniqueMerchants = uniqueMerchants,
+            uniqueBanks = uniqueBanks,
+            averageConfidence = averageConfidence
+        )
+
+        currentSortOption = SortOption(
+            name = state.currentSortOption.name,
+            field = state.currentSortOption.field,
+            ascending = state.currentSortOption.ascending
+        )
+        currentFilterOptions = FilterOptions(
+            minAmount = state.currentFilterOptions.minAmount,
+            maxAmount = state.currentFilterOptions.maxAmount,
+            selectedBanks = state.currentFilterOptions.selectedBanks,
+            minConfidence = state.currentFilterOptions.minConfidence,
+            dateFrom = state.currentFilterOptions.dateFrom,
+            dateTo = state.currentFilterOptions.dateTo
+        )
+        currentSearchQuery = state.searchQuery
+
+        viewBinder.updateSortLabel("Sort: ${state.currentSortOption.displayText}")
+        viewBinder.updateFilterLabel(
+            if (state.hasActiveFilters) "Filter (${state.activeFilterCount})" else "Filter"
+        )
+
+        viewBinder.updateFilterTabSelection(state.currentFilterTab)
+
         if (state.shouldShowError && state.error != null) {
             Toast.makeText(requireContext(), state.error, Toast.LENGTH_LONG).show()
             messagesViewModel.handleEvent(MessagesUIEvent.ClearError)
         }
-        
-        // Handle success messages
+
         state.successMessage?.let { message ->
             Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
             messagesViewModel.handleEvent(MessagesUIEvent.ClearError)
         }
-        
-        // Handle sync messages
+
         state.syncMessage?.let { message ->
             Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
             messagesViewModel.handleEvent(MessagesUIEvent.ClearError)
         }
-        
-        // Handle test results
+
         state.testResults?.let { results ->
             MaterialAlertDialogBuilder(requireContext())
                 .setTitle("SMS Test Results")
@@ -280,7 +300,8 @@ class MessagesFragment : Fragment() {
                 .show()
         }
     }
-    
+
+
     private fun checkPermissionsAndSetupUI() {
         val hasReadSmsPermission = ContextCompat.checkSelfPermission(
             requireContext(),
@@ -293,150 +314,19 @@ class MessagesFragment : Fragment() {
         ) == PackageManager.PERMISSION_GRANTED
         
         if (hasReadSmsPermission && hasReceiveSmsPermission) {
-            // Permissions granted - show normal UI
-            // ViewModel will handle data loading and empty state automatically
-            setupRecyclerView()
-            setupUI()
-            setupClickListeners()
-            // REMOVED: loadHistoricalTransactions() - ViewModel now handles all data loading
-            // REMOVED: Manual visibility control - updateUI() observes ViewModel state
+            viewBinder.showLoadingState()
         } else {
-            // Permissions not granted - show empty state
-            showNoPermissionState()
+            viewBinder.showPermissionState()
         }
     }
-    
-    private fun showNoPermissionState() {
-        binding.recyclerMessages.visibility = View.GONE
-        binding.layoutEmpty.visibility = View.VISIBLE
-        
-        // Update the empty state message for permissions
-        tvTotalMessages.text = "0"
-        tvAutoCategorized.text = "0"
-    }
-    
-    private fun setupRecyclerView() {
-        groupedMessagesAdapter = GroupedMessagesAdapter(
-            onTransactionClick = { messageItem ->
-                navigateToTransactionDetails(messageItem)
-            },
-            onGroupToggle = { group, isIncluded ->
-                try {
-                    Log.d("MessagesFragment", "Group toggle requested: '${group.merchantName}' -> $isIncluded")
-                    
-                    // CRITICAL FIX: Use ViewModel event which now handles database sync + data refresh
-                    messagesViewModel.handleEvent(MessagesUIEvent.ToggleGroupInclusion(group.merchantName, isIncluded))
-                    
-                    // Update local UI calculations immediately
-                    updateExpenseCalculations()
-                    
-                    Log.d("MessagesFragment", "[DATA_SYNC] Toggle completed, data refresh triggered")
-                    
-                } catch (e: Exception) {
-                    Log.e("MessagesFragment", "Error handling group toggle", e)
-                    Toast.makeText(
-                        requireContext(),
-                        "Failed to update merchant exclusion. Please try again.",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-            },
-            onGroupEdit = { group ->
-                showMerchantGroupEditDialog(group)
-            }
-        )
-        binding.recyclerMessages.apply {
-            adapter = groupedMessagesAdapter
-            layoutManager = LinearLayoutManager(requireContext())
-            
-            // PERFORMANCE: Optimize RecyclerView for better performance
-            setHasFixedSize(true) // Size won't change
-            setItemViewCacheSize(20) // Cache more views
-            isDrawingCacheEnabled = true
-            drawingCacheQuality = View.DRAWING_CACHE_QUALITY_HIGH
-            
-            // Enable item animator optimizations
-            itemAnimator?.changeDuration = 0
-            itemAnimator?.moveDuration = 0
-        }
-        
-        // Initialize with empty list - data will be loaded by ViewModel
-        groupedMessagesAdapter.submitList(emptyList())
-    }
-    
-    private fun setupUI() {
-        tvTotalMessages.text = "0"
-        tvAutoCategorized.text = "0"
-    }
-    
-    private fun setupClickListeners() {
-        btnSort.setOnClickListener {
-            showSortMenu()
-        }
 
-        btnFilter.setOnClickListener {
-            showFilterDialog()
+    private fun openAppSettings() {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.fromParts("package", requireContext().packageName, null)
         }
+        startActivity(intent)
+    }
 
-        // Setup filter tab listener
-        setupFilterTabListener()
-        
-        binding.btnGrantPermissions.setOnClickListener {
-            // Open app settings to grant permissions
-            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                data = Uri.fromParts("package", requireContext().packageName, null)
-            }
-            startActivity(intent)
-        }
-        
-        // Setup search functionality
-        binding.etSearch.addTextChangedListener(object : android.text.TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: android.text.Editable?) {
-                val query = s?.toString() ?: ""
-                // Use ViewModel event
-                messagesViewModel.handleEvent(MessagesUIEvent.Search(query))
-                // Keep legacy for fallback
-                currentSearchQuery = query
-                applyFiltersAndSort()
-            }
-        })
-    }
-    
-    /**
-     * Setup filter tab listener for ALL/INCLUDED/EXCLUDED tabs
-     */
-    private fun setupFilterTabListener() {
-        tabLayoutFilter.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
-            override fun onTabSelected(tab: TabLayout.Tab?) {
-                tab?.position?.let { position ->
-                    val filterTab = TransactionFilterTab.fromIndex(position)
-                    Log.d("MessagesFragment", "Filter tab selected: ${filterTab.displayName} (position: $position)")
-                    messagesViewModel.handleEvent(MessagesUIEvent.ApplyFilterTab(filterTab))
-                }
-            }
-            
-            override fun onTabUnselected(tab: TabLayout.Tab?) {
-                // No action needed
-            }
-            
-            override fun onTabReselected(tab: TabLayout.Tab?) {
-                // No action needed
-            }
-        })
-    }
-    
-    /**
-     * Update filter tab selection based on current state
-     */
-    private fun updateFilterTabSelection(currentFilterTab: TransactionFilterTab) {
-        // Only update if the tab selection is different to avoid triggering listener
-        if (tabLayoutFilter.selectedTabPosition != currentFilterTab.index) {
-            tabLayoutFilter.getTabAt(currentFilterTab.index)?.select()
-        }
-    }
-    
     private fun showFilterMenu() {
         val options = arrayOf(
             "[PROCESS] Resync SMS Messages", 
@@ -638,7 +528,7 @@ class MessagesFragment : Fragment() {
                 setHintTextColor(ContextCompat.getColor(requireContext(), R.color.dialog_text_hint))
             }
         } catch (e: Exception) {
-            Log.w("MessagesFragment", "Error applying high contrast styling to filter dialog", e)
+            logger.warnWithThrowable("MessagesFragment", "Error applying high contrast styling to filter dialog", e)
         }
     }
     
@@ -666,11 +556,11 @@ class MessagesFragment : Fragment() {
                     excludedFiltered
                 }
                 
-                Log.d("MessagesFragment", "[UNIFIED] Final filtering result: ${filtered.size} items")
+                logger.debug("MessagesFragment", "[UNIFIED] Final filtering result: ${filtered.size} items")
                 
                 if (filtered.isNotEmpty()) {
                     filtered.take(3).forEach { item ->
-                        Log.d("MessagesFragment", "  - ${item.merchant}: ₹${item.amount} (${item.dateTime})")
+                        logger.debug("MessagesFragment", "  - ${item.merchant}: ₹${item.amount} (${item.dateTime})")
                     }
                 }
                 
@@ -681,10 +571,10 @@ class MessagesFragment : Fragment() {
                 updateTransactionsList(filteredMessageItems)
                 updateSummaryStats(filteredMessageItems)
                 
-                Log.d("MessagesFragment", "[UNIFIED] applyFiltersAndSort() completed using unified services - ${filtered.size} transactions displayed")
+                logger.debug("MessagesFragment", "[UNIFIED] applyFiltersAndSort() completed using unified services - ${filtered.size} transactions displayed")
                 
             } catch (e: Exception) {
-                Log.e("MessagesFragment", "Error applying unified filters", e)
+                logger.error("MessagesFragment", "Error applying unified filters", e)
                 // Fallback to original data on error
                 filteredMessageItems = allMessageItems
                 updateTransactionsList(filteredMessageItems)
@@ -695,23 +585,32 @@ class MessagesFragment : Fragment() {
     
     private fun updateTransactionsList(messageItems: List<MessageItem>) {
         if (messageItems.isEmpty()) {
-            binding.recyclerMessages.visibility = View.GONE
-            binding.layoutEmpty.visibility = View.VISIBLE
+            viewBinder.showEmptyState()
             return
         }
-        
-        binding.recyclerMessages.visibility = View.VISIBLE
-        binding.layoutEmpty.visibility = View.GONE
-        
-        // Group filtered messages by merchant for display
-        val merchantGroups = groupTransactionsByMerchant(messageItems)
-        groupedMessagesAdapter.submitList(merchantGroups)
+
+        viewBinder.showContent()
+        viewBinder.submitMerchantGroups(groupTransactionsByMerchant(messageItems))
     }
-    
+
     private fun updateSummaryStats(messageItems: List<MessageItem>) {
-        tvTotalMessages.text = messageItems.size.toString()
+        val totalMessages = messageItems.size
         val autoCategorized = messageItems.count { it.category != "Other" && it.confidence >= 80 }
-        tvAutoCategorized.text = autoCategorized.toString()
+        val uniqueMerchants = messageItems.map { it.merchant }.toSet().size
+        val uniqueBanks = messageItems.map { it.bankName }.toSet().size
+        val averageConfidence = if (messageItems.isNotEmpty()) {
+            messageItems.map { it.confidence }.average().toInt()
+        } else {
+            0
+        }
+
+        viewBinder.updateSummary(
+            totalMessages = totalMessages,
+            autoCategorized = autoCategorized,
+            uniqueMerchants = uniqueMerchants,
+            uniqueBanks = uniqueBanks,
+            averageConfidence = averageConfidence
+        )
     }
     
     private fun resyncSMSMessages() {
@@ -738,7 +637,7 @@ class MessagesFragment : Fragment() {
             try {
                 progressDialog.show()
                 
-                Log.d("MessagesFragment", "Starting SMS resync...")
+                logger.debug("MessagesFragment", "Starting SMS resync...")
                 
                 // Clear current adapter to show fresh data
                 groupedMessagesAdapter.submitList(emptyList())
@@ -747,7 +646,7 @@ class MessagesFragment : Fragment() {
                 val smsReader = SMSHistoryReader(requireContext())
                 val historicalTransactions = smsReader.scanHistoricalSMS()
                 
-                Log.d("MessagesFragment", "SMS resync found ${historicalTransactions.size} transactions")
+                logger.debug("MessagesFragment", "SMS resync found ${historicalTransactions.size} transactions")
                 
                 // Process the scanned data
                 if (historicalTransactions.isNotEmpty()) {
@@ -774,8 +673,7 @@ class MessagesFragment : Fragment() {
                     
                     // Apply initial sorting and filtering
                     applyFiltersAndSort()
-                    binding.recyclerMessages.visibility = View.VISIBLE
-                    binding.layoutEmpty.visibility = View.GONE
+                    viewBinder.showContent()
                     
                     // Update UI stats (initially all groups are included)
                     updateExpenseCalculations()
@@ -802,16 +700,16 @@ class MessagesFragment : Fragment() {
                 
             } catch (e: SecurityException) {
                 progressDialog.dismiss()
-                Log.w("MessagesFragment", "SMS permission denied during resync", e)
+                logger.warnWithThrowable("MessagesFragment", "SMS permission denied during resync", e)
                 Toast.makeText(
                     requireContext(),
                     "SMS permission is required to sync transaction messages",
                     Toast.LENGTH_LONG
                 ).show()
-                showNoPermissionState()
+                viewBinder.showPermissionState()
             } catch (e: Exception) {
                 progressDialog.dismiss()
-                Log.e("MessagesFragment", "Error during SMS resync", e)
+                logger.error("MessagesFragment", "Error during SMS resync", e)
                 Toast.makeText(
                     requireContext(),
                     "Unable to sync SMS messages: ${e.message ?: "Please try again"}",
@@ -827,7 +725,7 @@ class MessagesFragment : Fragment() {
     private fun testSMSScanning() {
         lifecycleScope.launch {
             try {
-                Log.d("MessagesFragment", "Starting SMS scanning test...")
+                logger.debug("MessagesFragment", "Starting SMS scanning test...")
                 val smsReader = SMSHistoryReader(requireContext())
                 val transactions = smsReader.scanHistoricalSMS()
                 
@@ -880,7 +778,7 @@ class MessagesFragment : Fragment() {
                     }
                     .show()
                 
-                Log.d("MessagesFragment", "SMS Test: Found ${transactions.size} transactions")
+                logger.debug("MessagesFragment", "SMS Test: Found ${transactions.size} transactions")
                 
             } catch (e: SecurityException) {
                 MaterialAlertDialogBuilder(requireContext())
@@ -904,7 +802,7 @@ class MessagesFragment : Fragment() {
                         dialog.dismiss()
                     }
                     .show()
-                Log.e("MessagesFragment", "SMS test error", e)
+                logger.error("MessagesFragment", "SMS test error", e)
             }
         }
     }
@@ -1013,7 +911,7 @@ class MessagesFragment : Fragment() {
         }
         
         val filterNames = arrayOf("Today", "Yesterday", "This Week", "This Month", "Last Month", "All Time")
-        Log.d("MessagesFragment", "[DATE_FILTER] Applying filter: ${filterNames[filterOption]} from ${java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(startDate)} to ${java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(endDate)}")
+        logger.debug("MessagesFragment", "[DATE_FILTER] Applying filter: ${filterNames[filterOption]} from ${java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(startDate)} to ${java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(endDate)}")
         
         // Reload transactions with new date range
         loadTransactionsWithDateRange(startDate, endDate)
@@ -1026,21 +924,19 @@ class MessagesFragment : Fragment() {
             try {
                 val repository = com.expensemanager.app.data.repository.ExpenseRepository.getInstance(requireContext())
                 val dbTransactions = repository.getTransactionsByDateRange(startDate, endDate)
-                Log.d("MessagesFragment", "[DATA] Found ${dbTransactions.size} transactions for date range")
+                logger.debug("MessagesFragment", "[DATA] Found ${dbTransactions.size} transactions for date range")
                 
                 if (dbTransactions.isNotEmpty()) {
                     processAndDisplayTransactions(dbTransactions, isPartial = false)
                 } else {
                     withContext(Dispatchers.Main) {
                         groupedMessagesAdapter.submitList(emptyList())
-                        binding.recyclerMessages.visibility = View.GONE
-                        binding.layoutEmpty.visibility = View.VISIBLE
-                        tvTotalMessages.text = "0"
-                        tvAutoCategorized.text = "0"
+                        viewBinder.showEmptyState()
+                        updateSummaryStats(emptyList())
                     }
                 }
             } catch (e: Exception) {
-                Log.e("MessagesFragment", "Error loading transactions with date filter", e)
+                logger.error("MessagesFragment", "Error loading transactions with date filter", e)
                 withContext(Dispatchers.Main) {
                     Toast.makeText(requireContext(), "Error filtering transactions: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
@@ -1093,11 +989,11 @@ class MessagesFragment : Fragment() {
                 // Set end date to current time to exclude future transactions
                 val endDate = java.util.Calendar.getInstance().time
                 
-                Log.d("MessagesFragment", "[DATE_FILTER] Loading transactions for current month from ${java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(startDate)}")
+                logger.debug("MessagesFragment", "[DATE_FILTER] Loading transactions for current month from ${java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(startDate)}")
                 
                 // PERFORMANCE: Load transactions with limit for faster initial display
                 val dbTransactions = repository.getTransactionsByDateRange(startDate, endDate)
-                Log.d("MessagesFragment", "[DATA] Found ${dbTransactions.size} transactions in database")
+                logger.debug("MessagesFragment", "[DATA] Found ${dbTransactions.size} transactions in database")
                 
                 // PERFORMANCE: Show partial results immediately if we have many transactions
                 val shouldShowProgressively = dbTransactions.size > 50
@@ -1118,26 +1014,24 @@ class MessagesFragment : Fragment() {
                     }
                 } else {
                     // No database data found - fallback to SMS scanning
-                    Log.d("MessagesFragment", "[SMS] No database transactions found, falling back to SMS scanning...")
+                    logger.debug("MessagesFragment", "[SMS] No database transactions found, falling back to SMS scanning...")
                     loadFromSMSFallback()
                 }
             } catch (e: SecurityException) {
                 // Permission denied
-                Log.w("MessagesFragment", "SMS permission denied", e)
+                logger.warnWithThrowable("MessagesFragment", "SMS permission denied", e)
                 Toast.makeText(
                     requireContext(),
                     "SMS permission is required to read transaction messages",
                     Toast.LENGTH_LONG
                 ).show()
-                showNoPermissionState()
+                viewBinder.showPermissionState()
             } catch (e: Exception) {
                 // Other error loading historical data, show empty state
-                Log.e("MessagesFragment", "Error loading SMS data", e)
+                logger.error("MessagesFragment", "Error loading SMS data", e)
+                viewBinder.showEmptyState()
                 groupedMessagesAdapter.submitList(emptyList())
-                binding.recyclerMessages.visibility = View.GONE
-                binding.layoutEmpty.visibility = View.VISIBLE
-                tvTotalMessages.text = "0"
-                tvAutoCategorized.text = "0"
+                updateSummaryStats(emptyList())
                 
                 Toast.makeText(
                     requireContext(),
@@ -1154,7 +1048,7 @@ class MessagesFragment : Fragment() {
                 val smsReader = SMSHistoryReader(requireContext())
                 val historicalTransactions = smsReader.scanHistoricalSMS()
                 
-                Log.d("MessagesFragment", "[SMS] SMS Fallback: Found ${historicalTransactions.size} transactions")
+                logger.debug("MessagesFragment", "[SMS] SMS Fallback: Found ${historicalTransactions.size} transactions")
                 
                 if (historicalTransactions.isNotEmpty()) {
                     // Convert to MessageItem format
@@ -1184,44 +1078,30 @@ class MessagesFragment : Fragment() {
                     
                     // Apply initial sorting and filtering
                     applyFiltersAndSort()
-                    binding.recyclerMessages.visibility = View.VISIBLE
-                    binding.layoutEmpty.visibility = View.GONE
+                    viewBinder.showContent()
                     
                     // Update stats with real data
                     updateExpenseCalculations()
                     
                 } else {
                     // FIXED: Show empty state instead of falling back to old approach
-                    Log.d("MessagesFragment", "Database has no transactions, showing empty state")
+                    logger.debug("MessagesFragment", "Database has no transactions, showing empty state")
                     showEmptyState()
                 }
             } catch (e: Exception) {
-                Log.e("MessagesFragment", "Error in SMS fallback", e)
+                logger.error("MessagesFragment", "Error in SMS fallback", e)
                 showEmptyState()
             }
         }
     }
     
     private fun showEmptyState() {
-        // FIXED: Clear all message data and show proper empty state
-        groupedMessagesAdapter.submitList(emptyList())
-        binding.recyclerMessages.visibility = View.GONE
-        binding.layoutEmpty.visibility = View.VISIBLE
-        
-        // Reset counters to zero
-        tvTotalMessages.text = "0"
-        tvAutoCategorized.text = "0"
-        
-        // Clear internal data structures
+        viewBinder.showEmptyState()
         allMessageItems = emptyList()
         filteredMessageItems = emptyList()
-        
-        // Reset search and filters
-        binding.etSearch.setText("")
         currentSearchQuery = ""
         currentFilterOptions = FilterOptions()
-
-        Log.d("MessagesFragment", "[INFO] Showing proper empty state - all data cleared")
+        logger.debug("MessagesFragment", "Showing empty state; datasets cleared")
     }
     
     private fun showCategoryEditDialog(messageItem: MessageItem) {
@@ -1233,7 +1113,7 @@ class MessagesFragment : Fragment() {
             "${getCategoryEmoji(category)} $category"
         }.toTypedArray()
         
-        Log.d("MessagesFragment", "[TARGET] Showing custom category dialog for ${messageItem.merchant}")
+        logger.debug("MessagesFragment", "[TARGET] Showing custom category dialog for ${messageItem.merchant}")
         
         val dialog = CategorySelectionDialogFragment.newInstance(
             categories = enhancedCategories,
@@ -1279,18 +1159,18 @@ class MessagesFragment : Fragment() {
                 
                 // Invalidate ViewModel's cache to ensure it gets fresh alias data
                 try {
-                    Log.d("MessagesFragment", "[CACHE_SYNC] Invalidating ViewModel cache for category update")
+                    logger.debug("MessagesFragment", "[CACHE_SYNC] Invalidating ViewModel cache for category update")
                     messagesViewModel.invalidateMerchantAliasCache()
                 } catch (e: Exception) {
-                    Log.w("MessagesFragment", "Could not invalidate ViewModel cache for category update", e)
+                    logger.warnWithThrowable("MessagesFragment", "Could not invalidate ViewModel cache for category update", e)
                 }
                 
                 // Trigger ViewModel update to reflect category changes
                 try {
-                    Log.d("MessagesFragment", "[UI_FIX] Using ONLY ViewModel refresh for category update")
+                    logger.debug("MessagesFragment", "[UI_FIX] Using ONLY ViewModel refresh for category update")
                     messagesViewModel.handleEvent(MessagesUIEvent.LoadMessages)
                 } catch (e: Exception) {
-                    Log.w("MessagesFragment", "Could not trigger ViewModel refresh for category update", e)
+                    logger.warnWithThrowable("MessagesFragment", "Could not trigger ViewModel refresh for category update", e)
                 }
                 
                 // Show feedback
@@ -1513,15 +1393,15 @@ class MessagesFragment : Fragment() {
         if (sortedGroups.isNotEmpty()) {
             sortedGroups.take(3).forEach { group ->
                 when (currentSortOption.field) {
-                    "amount" -> Log.d("MessagesFragment", "  - ${group.merchantName}: ₹${String.format("%.2f", group.totalAmount)} (${group.transactions.size} transactions)")
-                    "merchant" -> Log.d("MessagesFragment", "  - ${group.merchantName}: ${group.transactions.size} transactions")
-                    "bank" -> Log.d("MessagesFragment", "  - ${group.merchantName}: ${group.primaryBankName} (${group.transactions.size} transactions)")
-                    "confidence" -> Log.d("MessagesFragment", "  - ${group.merchantName}: ${String.format("%.1f", group.averageConfidence)}% confidence")
+                    "amount" -> logger.debug("MessagesFragment", "  - ${group.merchantName}: ₹${String.format("%.2f", group.totalAmount)} (${group.transactions.size} transactions)")
+                    "merchant" -> logger.debug("MessagesFragment", "  - ${group.merchantName}: ${group.transactions.size} transactions")
+                    "bank" -> logger.debug("MessagesFragment", "  - ${group.merchantName}: ${group.primaryBankName} (${group.transactions.size} transactions)")
+                    "confidence" -> logger.debug("MessagesFragment", "  - ${group.merchantName}: ${String.format("%.1f", group.averageConfidence)}% confidence")
                     "date" -> {
                         val dateStr = group.transactions.firstOrNull()?.dateTime ?: "N/A"
-                        Log.d("MessagesFragment", "  - ${group.merchantName}: $dateStr (${group.transactions.size} transactions)")
+                        logger.debug("MessagesFragment", "  - ${group.merchantName}: $dateStr (${group.transactions.size} transactions)")
                     }
-                    else -> Log.d("MessagesFragment", "  - ${group.merchantName}: ${group.transactions.size} transactions")
+                    else -> logger.debug("MessagesFragment", "  - ${group.merchantName}: ${group.transactions.size} transactions")
                 }
             }
         }
@@ -1533,21 +1413,28 @@ class MessagesFragment : Fragment() {
     
     private fun updateExpenseCalculations() {
         try {
-            Log.d("MessagesFragment", "Updating expense calculations...")
-            
-            // Get current groups from adapter
+            logger.debug("MessagesFragment", "Updating expense calculations...")
+
             val currentGroups = groupedMessagesAdapter.merchantGroups
-            
-            // Calculate totals only for included groups
             val includedGroups = currentGroups.filter { it.isIncludedInCalculations }
             val totalMessages = includedGroups.sumOf { it.transactions.size }
-            val autoCategorized = includedGroups.sumOf { group -> 
-                group.transactions.count { it.confidence >= 85 } 
+            val autoCategorized = includedGroups.sumOf { group ->
+                group.transactions.count { it.confidence >= 85 }
             }
-            
-            // Update Messages UI
-            tvTotalMessages.text = totalMessages.toString()
-            tvAutoCategorized.text = autoCategorized.toString()
+            val uniqueMerchants = includedGroups.size
+            val uniqueBanks = includedGroups.flatMap { group -> group.transactions.map { it.bankName } }
+                .toSet().size
+            val averageConfidence = if (includedGroups.isNotEmpty()) {
+                includedGroups.flatMap { it.transactions }.map { it.confidence }.average().toInt()
+            } else 0
+
+            viewBinder.updateSummary(
+                totalMessages = totalMessages,
+                autoCategorized = autoCategorized,
+                uniqueMerchants = uniqueMerchants,
+                uniqueBanks = uniqueBanks,
+                averageConfidence = averageConfidence
+            )
             
             // Store the inclusion state in SharedPreferences for other screens to use
             saveGroupInclusionStates(currentGroups)
@@ -1559,14 +1446,14 @@ class MessagesFragment : Fragment() {
             intent.putExtra("source", "messages_exclusion_change")
             requireContext().sendBroadcast(intent)
             
-            Log.d("MessagesFragment", "[DATA_SYNC] Broadcast sent to refresh Dashboard after exclusion change")
+            logger.debug("MessagesFragment", "[DATA_SYNC] Broadcast sent to refresh Dashboard after exclusion change")
             
             // Log for debugging
             val totalIncludedAmount = includedGroups.sumOf { it.totalAmount }
-            Log.d("MessagesFragment", "Successfully updated calculations: $totalMessages messages, ₹${String.format("%.0f", totalIncludedAmount)} total from included groups")
+            logger.debug("MessagesFragment", "Successfully updated calculations: $totalMessages messages, ₹${String.format("%.0f", totalIncludedAmount)} total from included groups")
             
         } catch (e: Exception) {
-            Log.e("MessagesFragment", "Error updating expense calculations", e)
+            logger.error("MessagesFragment", "Error updating expense calculations", e)
             Toast.makeText(
                 requireContext(),
                 "Error updating calculations. Some data may not be saved.",
@@ -1577,7 +1464,7 @@ class MessagesFragment : Fragment() {
     
     private fun saveGroupInclusionStates(groups: List<MerchantGroup>) {
         try {
-            Log.d("MessagesFragment", "Saving inclusion states for ${groups.size} groups")
+            logger.debug("MessagesFragment", "Saving inclusion states for ${groups.size} groups")
             
             val prefs = requireContext().getSharedPreferences("expense_calculations", android.content.Context.MODE_PRIVATE)
             val editor = prefs.edit()
@@ -1591,7 +1478,7 @@ class MessagesFragment : Fragment() {
                     inclusionStates.put(group.merchantName, group.isIncludedInCalculations)
                     savedCount++
                 } catch (e: Exception) {
-                    Log.w("MessagesFragment", "Failed to save inclusion state for '${group.merchantName}'", e)
+                    logger.warnWithThrowable("MessagesFragment", "Failed to save inclusion state for '${group.merchantName}'", e)
                 }
             }
             
@@ -1599,20 +1486,20 @@ class MessagesFragment : Fragment() {
             val success = editor.commit()
             
             if (success) {
-                Log.d("MessagesFragment", "Successfully saved $savedCount inclusion states")
+                logger.debug("MessagesFragment", "Successfully saved $savedCount inclusion states")
             } else {
-                Log.e("MessagesFragment", "Failed to commit inclusion states to SharedPreferences")
+                logger.error("MessagesFragment", "Failed to commit inclusion states to SharedPreferences")
             }
             
         } catch (e: Exception) {
-            Log.e("MessagesFragment", "Error saving group inclusion states", e)
+            logger.error("MessagesFragment", "Error saving group inclusion states", e)
             // Don't show error to user for this - it's not critical for immediate functionality
         }
     }
     
     private fun loadGroupInclusionStates(groups: List<MerchantGroup>): List<MerchantGroup> {
         return try {
-            Log.d("MessagesFragment", "Loading inclusion states for ${groups.size} groups")
+            logger.debug("MessagesFragment", "Loading inclusion states for ${groups.size} groups")
             
             val prefs = requireContext().getSharedPreferences("expense_calculations", android.content.Context.MODE_PRIVATE)
             val inclusionStatesJson = prefs.getString("group_inclusion_states", null)
@@ -1631,27 +1518,27 @@ class MessagesFragment : Fragment() {
                                 true // Default to included
                             }
                         } catch (e: Exception) {
-                            Log.w("MessagesFragment", "Error loading inclusion state for '${group.merchantName}'", e)
+                            logger.warnWithThrowable("MessagesFragment", "Error loading inclusion state for '${group.merchantName}'", e)
                             true // Default to included on error
                         }
                         group.copy(isIncludedInCalculations = isIncluded)
                     }
                     
-                    Log.d("MessagesFragment", "Successfully loaded $loadedCount inclusion states")
+                    logger.debug("MessagesFragment", "Successfully loaded $loadedCount inclusion states")
                     return updatedGroups
                     
                 } catch (e: Exception) {
-                    Log.w("MessagesFragment", "Error parsing inclusion states JSON", e)
+                    logger.warnWithThrowable("MessagesFragment", "Error parsing inclusion states JSON", e)
                 }
             } else {
-                Log.d("MessagesFragment", "No inclusion states found, using defaults")
+                logger.debug("MessagesFragment", "No inclusion states found, using defaults")
             }
             
             // Return original groups with default inclusion states
             groups
             
         } catch (e: Exception) {
-            Log.e("MessagesFragment", "Critical error loading inclusion states", e)
+            logger.error("MessagesFragment", "Critical error loading inclusion states", e)
             // Return original groups as fallback
             groups
         }
@@ -1665,7 +1552,7 @@ class MessagesFragment : Fragment() {
             "${getCategoryEmoji(category)} $category"
         }.toTypedArray()
         
-        Log.d("MessagesFragment", "[TARGET] Showing custom category selection dialog, current: $currentSelection")
+        logger.debug("MessagesFragment", "[TARGET] Showing custom category selection dialog, current: $currentSelection")
         
         val dialog = CategorySelectionDialogFragment.newInstance(
             categories = enhancedCategories,
@@ -1681,7 +1568,10 @@ class MessagesFragment : Fragment() {
     }
     
     private fun showMerchantGroupEditDialog(group: MerchantGroup) {
-        Log.d("MerchantEdit", "showMerchantGroupEditDialog called for merchant: '${group.merchantName}', category: '${group.category}', transactions: ${group.transactions.size}")
+        logger.debug(
+            "showMerchantGroupEditDialog",
+            "Editing merchant '${group.merchantName}' in category '${group.category}' with ${group.transactions.size} transactions"
+        )
         val dialogView = LayoutInflater.from(requireContext()).inflate(
             R.layout.dialog_edit_merchant_group,
             null
@@ -1708,20 +1598,20 @@ class MessagesFragment : Fragment() {
             categories.add("Money")
         }
         
-        Log.d("MessagesFragment", "Loading categories for selector: $categories")
+        logger.debug("MessagesFragment", "Loading categories for selector: $categories")
         
         // Set current category
         val initialCategory = if (categories.contains(group.category)) group.category else categories.firstOrNull() ?: "Other"
         tvSelectedCategory.text = initialCategory
         
-        Log.d("MessagesFragment", "Set initial category to: $initialCategory")
+        logger.debug("MessagesFragment", "Set initial category to: $initialCategory")
         
         // Handle category selection
         categorySelectorCard.setOnClickListener {
-            Log.d("MessagesFragment", "Category selector clicked, showing dialog")
+            logger.debug("MessagesFragment", "Category selector clicked, showing dialog")
             showCategorySelectionDialog(categories, tvSelectedCategory.text.toString()) { newCategory ->
                 tvSelectedCategory.text = newCategory
-                Log.d("MessagesFragment", "Category updated to: $newCategory")
+                logger.debug("MessagesFragment", "Category updated to: $newCategory")
             }
         }
         
@@ -1734,19 +1624,19 @@ class MessagesFragment : Fragment() {
                 val newGroupName = etGroupName.text.toString().trim()
                 val newCategory = tvSelectedCategory.text.toString().trim()
                 
-                Log.d("MessagesFragment", "Save button clicked - Group: '$newGroupName', Category: '$newCategory'")
-                Log.d("MessagesFragment", "Original values - Group: '${group.merchantName}', Category: '${group.category}'")
+                logger.debug("MessagesFragment", "Save button clicked - Group: '$newGroupName', Category: '$newCategory'")
+                logger.debug("MessagesFragment", "Original values - Group: '${group.merchantName}', Category: '${group.category}'")
                 
                 // Check if anything actually changed
                 val groupNameChanged = newGroupName != group.merchantName
                 val categoryChanged = newCategory != group.category
-                Log.d("MessagesFragment", "Changes detected - Group name changed: $groupNameChanged, Category changed: $categoryChanged")
+                logger.debug("MessagesFragment", "Changes detected - Group name changed: $groupNameChanged, Category changed: $categoryChanged")
                 
                 if (newGroupName.isNotEmpty() && newCategory.isNotEmpty()) {
                     if (groupNameChanged || categoryChanged) {
                         updateMerchantGroup(group, newGroupName, newCategory)
                     } else {
-                        Log.d("MessagesFragment", "No changes detected, skipping update")
+                        logger.debug("MessagesFragment", "No changes detected, skipping update")
                         Toast.makeText(
                             requireContext(),
                             "ℹ️ No changes made",
@@ -1754,7 +1644,7 @@ class MessagesFragment : Fragment() {
                         ).show()
                     }
                 } else {
-                    Log.w("MessagesFragment", "Empty fields detected - Group: '$newGroupName', Category: '$newCategory'")
+                    logger.warn("MessagesFragment", "Empty fields detected - Group: '$newGroupName', Category: '$newCategory'")
                     Toast.makeText(
                         requireContext(),
                         "Please fill all fields",
@@ -1813,48 +1703,48 @@ class MessagesFragment : Fragment() {
                 
                 // Enhanced input validation before conflict check
                 if (newDisplayName.isBlank()) {
-                    Log.w("MessagesFragment", "[VALIDATION] Empty display name provided")
+                    logger.warn("MessagesFragment", "[VALIDATION] Empty display name provided")
                     Toast.makeText(requireContext(), "⚠️ Please enter a valid merchant name", Toast.LENGTH_SHORT).show()
                     return@launch
                 }
                 
                 if (newDisplayName.length < 2) {
-                    Log.w("MessagesFragment", "[VALIDATION] Display name too short: '$newDisplayName'")
+                    logger.warn("MessagesFragment", "[VALIDATION] Display name too short: '$newDisplayName'")
                     Toast.makeText(requireContext(), "⚠️ Merchant name must be at least 2 characters", Toast.LENGTH_SHORT).show()
                     return@launch
                 }
                 
                 if (newDisplayName.length > 50) {
-                    Log.w("MessagesFragment", "[VALIDATION] Display name too long: ${newDisplayName.length} characters")
+                    logger.warn("MessagesFragment", "[VALIDATION] Display name too long: ${newDisplayName.length} characters")
                     Toast.makeText(requireContext(), "⚠️ Merchant name too long (max 50 characters)", Toast.LENGTH_SHORT).show()
                     return@launch
                 }
                 
                 // Check for conflicts before proceeding
                 val conflict = merchantAliasManager.checkAliasConflict(group.merchantName, newDisplayName, newCategory)
-                Log.d("MessagesFragment", "[CONFLICT] Conflict check result: ${conflict.type} for '$newDisplayName' -> '$newCategory'")
+                logger.debug("MessagesFragment", "[CONFLICT] Conflict check result: ${conflict.type} for '$newDisplayName' -> '$newCategory'")
                 
                 when (conflict.type) {
                     MerchantAliasManager.ConflictType.CATEGORY_MISMATCH -> {
                         // Show conflict resolution dialog
-                        Log.d("MessagesFragment", "[CONFLICT] Category mismatch detected - showing resolution dialog")
+                        logger.debug("MessagesFragment", "[CONFLICT] Category mismatch detected - showing resolution dialog")
                         showAliasConflictDialog(group, newDisplayName, newCategory, conflict)
                         return@launch
                     }
                     MerchantAliasManager.ConflictType.OVERWRITE_EXISTING -> {
                         // Ask user if they want to overwrite existing alias
-                        Log.d("MessagesFragment", "[CONFLICT] Overwrite existing detected - showing confirmation dialog")
+                        logger.debug("MessagesFragment", "[CONFLICT] Overwrite existing detected - showing confirmation dialog")
                         showOverwriteConfirmationDialog(group, newDisplayName, newCategory, conflict)
                         return@launch
                     }
                     MerchantAliasManager.ConflictType.DISPLAY_NAME_EXISTS -> {
                         // Display name exists but should be treated as grouping (handled in conflict checking logic)
-                        Log.d("MessagesFragment", "[CONFLICT] Display name exists but no conflict - proceeding with grouping")
+                        logger.debug("MessagesFragment", "[CONFLICT] Display name exists but no conflict - proceeding with grouping")
                         Toast.makeText(requireContext(), "✅ Grouping with existing '$newDisplayName' merchants", Toast.LENGTH_SHORT).show()
                     }
                     MerchantAliasManager.ConflictType.NONE -> {
                         // No conflict, proceed normally
-                        Log.d("MessagesFragment", "[CONFLICT] No conflicts detected, proceeding with alias update")
+                        logger.debug("MessagesFragment", "[CONFLICT] No conflicts detected, proceeding with alias update")
                     }
                 }
                 
@@ -1865,7 +1755,7 @@ class MessagesFragment : Fragment() {
                 
                 // METHOD 1: Check if this group already has aliases
                 val existingOriginalNames = merchantAliasManager.getMerchantsByDisplayName(group.merchantName)
-                Log.d("MessagesFragment", "[LIST] Existing original names from aliases: $existingOriginalNames")
+                logger.debug("MessagesFragment", "[LIST] Existing original names from aliases: $existingOriginalNames")
                 
                 if (existingOriginalNames.isNotEmpty()) {
                     originalMerchantNames.addAll(existingOriginalNames)
@@ -1878,16 +1768,16 @@ class MessagesFragment : Fragment() {
                         if (extractedName.isNotEmpty() && extractedName.length >= 3) { // Minimum length check
                             originalMerchantNames.add(extractedName)
                             extractedCount++
-                            Log.d("MessagesFragment", "Extracted: $extractedName from SMS: ${transaction.rawSMS.take(50)}...")
+                            logger.debug("MessagesFragment", "Extracted: $extractedName from SMS: ${transaction.rawSMS.take(50)}...")
                         }
                     }
                     
-                    Log.d("MessagesFragment", "[ANALYTICS] Extracted $extractedCount original names from ${group.transactions.size} transactions")
+                    logger.debug("MessagesFragment", "[ANALYTICS] Extracted $extractedCount original names from ${group.transactions.size} transactions")
                     
                     // METHOD 3: Fallback to current display name if no extraction worked
                     if (originalMerchantNames.isEmpty()) {
                         originalMerchantNames.add(group.merchantName)
-                        Log.w("MessagesFragment", "Using display name as original: ${group.merchantName}")
+                        logger.warn("MessagesFragment", "Using display name as original: ${group.merchantName}")
                     }
                     
                     // METHOD 4: Try alternative extraction using transaction data
@@ -1898,25 +1788,28 @@ class MessagesFragment : Fragment() {
                             alternativeNames.forEach { name ->
                                 if (name.isNotEmpty() && name != group.merchantName) {
                                     originalMerchantNames.add(name)
-                                    Log.d("MessagesFragment", "[TARGET] Alternative extraction: $name")
+                                    logger.debug("MessagesFragment", "[TARGET] Alternative extraction: $name")
                                 }
                             }
                         }
                     }
                 }
                 
-                Log.d("MessagesFragment", "Final original merchant names to update: $originalMerchantNames")
+                logger.debug("MessagesFragment", "Final original merchant names to update: $originalMerchantNames")
                 
                 // Enhanced category validation and creation
                 val allCategories = categoryManager.getAllCategories()
-                Log.d("MessagesFragment", "Available categories: $allCategories")
+                logger.debug("MessagesFragment", "Available categories: $allCategories")
                 
                 if (!allCategories.contains(newCategory)) {
-                    Log.i("MessagesFragment", "Creating new category: $newCategory")
+                    logger.info(
+                        where = "showMerchantGroupEditDialog",
+                        what = "Creating new category: $newCategory"
+                    )
                     try {
                         categoryManager.addCustomCategory(newCategory)
                     } catch (e: Exception) {
-                        Log.e("MessagesFragment", "Failed to add category: $newCategory", e)
+                        logger.error("MessagesFragment", "Failed to add category: $newCategory", e)
                         Toast.makeText(
                             requireContext(),
                             "Unable to create category '$newCategory': ${e.message ?: "Please try again"}",
@@ -1927,7 +1820,7 @@ class MessagesFragment : Fragment() {
                 }
                 
                 // STEP 1: Update SharedPreferences (MerchantAliasManager)
-                Log.d("MessagesFragment", "Step 1: Updating SharedPreferences aliases...")
+                logger.debug("MessagesFragment", "Step 1: Updating SharedPreferences aliases...")
                 var aliasUpdateSuccess = true
                 var aliasUpdateError: String? = null
                 
@@ -1936,7 +1829,7 @@ class MessagesFragment : Fragment() {
                 
                 try {
                     originalMerchantNames.forEachIndexed { index, originalName ->
-                        Log.d("MessagesFragment", "Setting alias ${index + 1}/${originalMerchantNames.size}: $originalName -> $newDisplayName ($newCategory)")
+                        logger.debug("MessagesFragment", "Setting alias ${index + 1}/${originalMerchantNames.size}: $originalName -> $newDisplayName ($newCategory)")
                         
                         val aliasSetSuccess = merchantAliasManager.setMerchantAlias(originalName, newDisplayName, newCategory)
                         
@@ -1948,39 +1841,39 @@ class MessagesFragment : Fragment() {
                             val verifyCategory = merchantAliasManager.getMerchantCategory(originalName)
                             
                             if (verifyDisplayName != newDisplayName || verifyCategory != newCategory) {
-                                Log.w("MessagesFragment", "Alias verification failed for $originalName")
+                                logger.warn("MessagesFragment", "Alias verification failed for $originalName")
                             }
                         } else {
                             aliasFailCount++
-                            Log.e("MessagesFragment", "Failed to set alias: $originalName")
+                            logger.error("MessagesFragment", "Failed to set alias: $originalName")
                         }
                     }
                     
-                    Log.d("MessagesFragment", "[ANALYTICS] SharedPreferences update summary: ${aliasSetCount} success, ${aliasFailCount} failed out of ${originalMerchantNames.size}")
+                    logger.debug("MessagesFragment", "[ANALYTICS] SharedPreferences update summary: ${aliasSetCount} success, ${aliasFailCount} failed out of ${originalMerchantNames.size}")
                     
                     // Consider successful if majority of aliases were set
                     if (aliasSetCount > 0 && aliasSetCount >= aliasFailCount) {
                     } else {
-                        Log.e("MessagesFragment", "SharedPreferences update failed")
+                        logger.error("MessagesFragment", "SharedPreferences update failed")
                         aliasUpdateSuccess = false
                         aliasUpdateError = "$aliasFailCount out of ${originalMerchantNames.size} aliases failed to set"
                     }
                     
                 } catch (e: Exception) {
-                    Log.e("MessagesFragment", "SharedPreferences update failed", e)
+                    logger.error("MessagesFragment", "SharedPreferences update failed", e)
                     aliasUpdateSuccess = false
                     aliasUpdateError = e.message
                 }
                 
                 // STEP 2: Update Database (ExpenseRepository)
-                Log.d("MessagesFragment", "[DATABASE] Step 2: Updating database...")
+                logger.debug("MessagesFragment", "[DATABASE] Step 2: Updating database...")
                 var databaseUpdateSuccess = false
                 var databaseUpdateError: String? = null
                 
                 if (aliasUpdateSuccess) {
                     try {
                         val repository = com.expensemanager.app.data.repository.ExpenseRepository.getInstance(requireContext())
-                        Log.d("MessagesFragment", "[DATABASE] Calling repository.updateMerchantAliasInDatabase with ${originalMerchantNames.size} merchants")
+                        logger.debug("MessagesFragment", "[DATABASE] Calling repository.updateMerchantAliasInDatabase with ${originalMerchantNames.size} merchants")
                         
                         databaseUpdateSuccess = repository.updateMerchantAliasInDatabase(
                             originalMerchantNames.toList(),
@@ -1997,20 +1890,20 @@ class MessagesFragment : Fragment() {
                                     val normalizedName = merchantAliasManager.normalizeMerchantName(originalName)
                                     val merchantWithCategory = repository.getMerchantWithCategory(normalizedName)
                                 } catch (e: Exception) {
-                                    Log.w("MessagesFragment", "Could not verify database changes for $originalName", e)
+                                    logger.warnWithThrowable("MessagesFragment", "Could not verify database changes for $originalName", e)
                                 }
                             }
                         } else {
-                            Log.e("MessagesFragment", "Database update failed")
+                            logger.error("MessagesFragment", "Database update failed")
                             databaseUpdateError = "Database update returned false"
                         }
                     } catch (e: Exception) {
-                        Log.e("MessagesFragment", "Database update failed", e)
+                        logger.error("MessagesFragment", "Database update failed", e)
                         databaseUpdateSuccess = false
                         databaseUpdateError = e.message
                     }
                 } else {
-                    Log.w("MessagesFragment", "Skipping database update due to SharedPreferences failure")
+                    logger.warn("MessagesFragment", "Skipping database update due to SharedPreferences failure")
                     databaseUpdateError = "SharedPreferences update failed first"
                 }
                 
@@ -2020,18 +1913,18 @@ class MessagesFragment : Fragment() {
                         
                         // Invalidate ViewModel's cache to ensure it gets fresh alias data
                         try {
-                            Log.d("MessagesFragment", "[CACHE_SYNC] Invalidating ViewModel cache before refresh")
+                            logger.debug("MessagesFragment", "[CACHE_SYNC] Invalidating ViewModel cache before refresh")
                             messagesViewModel.invalidateMerchantAliasCache()
                         } catch (e: Exception) {
-                            Log.w("MessagesFragment", "Could not invalidate ViewModel cache", e)
+                            logger.warnWithThrowable("MessagesFragment", "Could not invalidate ViewModel cache", e)
                         }
                         
                         // Trigger ViewModel update to reflect changes (respecting date filtering)
                         try {
-                            Log.d("MessagesFragment", "[UI_FIX] Using ONLY ViewModel refresh to show updated merchant names immediately")
+                            logger.debug("MessagesFragment", "[UI_FIX] Using ONLY ViewModel refresh to show updated merchant names immediately")
                             messagesViewModel.handleEvent(MessagesUIEvent.LoadMessages)
                         } catch (e: Exception) {
-                            Log.w("MessagesFragment", "Could not trigger ViewModel date-aware refresh", e)
+                            logger.warnWithThrowable("MessagesFragment", "Could not trigger ViewModel date-aware refresh", e)
                         }
                         
                         // Enhanced success feedback
@@ -2047,7 +1940,7 @@ class MessagesFragment : Fragment() {
                             Toast.LENGTH_LONG
                         ).show()
                         
-                        Log.d("MessagesFragment", "[SUCCESS] Merchant alias update completed successfully: ${group.merchantName} -> $newDisplayName ($newCategory)")
+                        logger.debug("MessagesFragment", "[SUCCESS] Merchant alias update completed successfully: ${group.merchantName} -> $newDisplayName ($newCategory)")
                         
                         // Notify Dashboard and other screens about merchant category change
                         val intent = Intent("com.expensemanager.MERCHANT_CATEGORY_CHANGED")
@@ -2055,26 +1948,26 @@ class MessagesFragment : Fragment() {
                         intent.putExtra("display_name", newDisplayName)
                         intent.putExtra("new_category", newCategory)
                         requireContext().sendBroadcast(intent)
-                        Log.d("MessagesFragment", "[BROADCAST] Sent merchant category change broadcast for '${group.merchantName}' -> '$newCategory'")
+                        logger.debug("MessagesFragment", "[BROADCAST] Sent merchant category change broadcast for '${group.merchantName}' -> '$newCategory'")
                     }
                     
                     aliasUpdateSuccess && !databaseUpdateSuccess -> {
-                        Log.w("MessagesFragment", "SharedPreferences updated but database failed")
+                        logger.warn("MessagesFragment", "SharedPreferences updated but database failed")
                         
                         // Invalidate ViewModel's cache to ensure it gets fresh alias data
                         try {
-                            Log.d("MessagesFragment", "[CACHE_SYNC] Invalidating ViewModel cache before partial success refresh")
+                            logger.debug("MessagesFragment", "[CACHE_SYNC] Invalidating ViewModel cache before partial success refresh")
                             messagesViewModel.invalidateMerchantAliasCache()
                         } catch (e: Exception) {
-                            Log.w("MessagesFragment", "Could not invalidate ViewModel cache for partial success", e)
+                            logger.warnWithThrowable("MessagesFragment", "Could not invalidate ViewModel cache for partial success", e)
                         }
                         
                         // Trigger ViewModel update to show UI changes (no Fragment data loading)
                         try {
-                            Log.d("MessagesFragment", "[UI_FIX] Using ONLY ViewModel refresh for partial success case")
+                            logger.debug("MessagesFragment", "[UI_FIX] Using ONLY ViewModel refresh for partial success case")
                             messagesViewModel.handleEvent(MessagesUIEvent.LoadMessages)
                         } catch (e: Exception) {
-                            Log.w("MessagesFragment", "Could not trigger ViewModel refresh for partial success", e)
+                            logger.warnWithThrowable("MessagesFragment", "Could not trigger ViewModel refresh for partial success", e)
                         }
                         
                         Toast.makeText(
@@ -2085,7 +1978,7 @@ class MessagesFragment : Fragment() {
                     }
                     
                     !aliasUpdateSuccess -> {
-                        Log.e("MessagesFragment", "SharedPreferences update failed")
+                        logger.error("MessagesFragment", "SharedPreferences update failed")
                         
                         Toast.makeText(
                             requireContext(),
@@ -2095,10 +1988,10 @@ class MessagesFragment : Fragment() {
                     }
                 }
                 
-                Log.d("MessagesFragment", "Merchant group update process completed - Success: Alias=$aliasUpdateSuccess, DB=$databaseUpdateSuccess")
+                logger.debug("MessagesFragment", "Merchant group update process completed - Success: Alias=$aliasUpdateSuccess, DB=$databaseUpdateSuccess")
                 
             } catch (e: Exception) {
-                Log.e("MessagesFragment", "Critical error during merchant group update", e)
+                logger.error("MessagesFragment", "Critical error during merchant group update", e)
                 Toast.makeText(
                     requireContext(),
                     "Critical error updating group: ${e.message ?: "Unknown error"}\n\nPlease restart the app and try again.",
@@ -2131,13 +2024,13 @@ class MessagesFragment : Fragment() {
                 val merchantName = match.groupValues[1].trim()
                 val cleaned = cleanMerchantName(merchantName)
                 if (cleaned.isNotEmpty() && cleaned.length >= 3) {
-                    Log.d("MessagesFragment", "[TARGET] Extracted merchant: '$cleaned' from SMS using pattern: ${pattern.pattern.take(20)}...")
+                    logger.debug("MessagesFragment", "[TARGET] Extracted merchant: '$cleaned' from SMS using pattern: ${pattern.pattern.take(20)}...")
                     return cleaned
                 }
             }
         }
         
-        Log.d("MessagesFragment", "No merchant extracted from SMS: ${rawSMS.take(100)}...")
+        logger.debug("MessagesFragment", "No merchant extracted from SMS: ${rawSMS.take(100)}...")
         return ""
     }
     
@@ -2185,7 +2078,7 @@ class MessagesFragment : Fragment() {
             }
             
         } catch (e: Exception) {
-            Log.w("MessagesFragment", "Error in alternative merchant name extraction", e)
+            logger.warnWithThrowable("MessagesFragment", "Error in alternative merchant name extraction", e)
         }
         
         return names.distinct().filter { it.length >= 3 }
@@ -2227,18 +2120,18 @@ class MessagesFragment : Fragment() {
                 
                 // Invalidate ViewModel's cache to ensure it gets fresh alias data
                 try {
-                    Log.d("MessagesFragment", "[CACHE_SYNC] Invalidating ViewModel cache for reset operation")
+                    logger.debug("MessagesFragment", "[CACHE_SYNC] Invalidating ViewModel cache for reset operation")
                     messagesViewModel.invalidateMerchantAliasCache()
                 } catch (e: Exception) {
-                    Log.w("MessagesFragment", "Could not invalidate ViewModel cache for reset", e)
+                    logger.warnWithThrowable("MessagesFragment", "Could not invalidate ViewModel cache for reset", e)
                 }
                 
                 // Trigger ViewModel update to reflect changes
                 try {
-                    Log.d("MessagesFragment", "[UI_FIX] Using ONLY ViewModel refresh for merchant reset operation")
+                    logger.debug("MessagesFragment", "[UI_FIX] Using ONLY ViewModel refresh for merchant reset operation")
                     messagesViewModel.handleEvent(MessagesUIEvent.LoadMessages)
                 } catch (e: Exception) {
-                    Log.w("MessagesFragment", "Could not trigger ViewModel refresh for reset", e)
+                    logger.warnWithThrowable("MessagesFragment", "Could not trigger ViewModel refresh for reset", e)
                 }
                 
                 Toast.makeText(
@@ -2248,7 +2141,7 @@ class MessagesFragment : Fragment() {
                 ).show()
                 
             } catch (e: Exception) {
-                Log.e("MessagesFragment", "Error resetting merchant group", e)
+                logger.error("MessagesFragment", "Error resetting merchant group", e)
                 Toast.makeText(
                     requireContext(),
                     "Unable to reset group: ${e.message ?: "Please try again"}",
@@ -2286,9 +2179,7 @@ class MessagesFragment : Fragment() {
     }
     
     private fun showLoadingState() {
-        binding.recyclerMessages.visibility = View.GONE
-        binding.layoutEmpty.visibility = View.VISIBLE
-        // You could also show a progress bar here if available
+        viewBinder.showLoadingState()
     }
     
     private suspend fun processAndDisplayTransactions(transactions: List<com.expensemanager.app.data.entities.TransactionEntity>, isPartial: Boolean) {
@@ -2306,8 +2197,7 @@ class MessagesFragment : Fragment() {
             
             // Apply initial sorting and filtering
             applyFiltersAndSort()
-            binding.recyclerMessages.visibility = View.VISIBLE
-            binding.layoutEmpty.visibility = View.GONE
+            viewBinder.showContent()
             
             // Update stats with current data
             updateExpenseCalculations()
@@ -2371,7 +2261,7 @@ class MessagesFragment : Fragment() {
                     isDebit = transaction.isDebit
                 )
             } catch (e: Exception) {
-                Log.w("MessagesFragment", "Error converting transaction: ${e.message}")
+                logger.warn("MessagesFragment", "Error converting transaction: ${e.message}")
                 null
             }
         }.distinctBy { 
@@ -2458,7 +2348,7 @@ class MessagesFragment : Fragment() {
         } else {
             requireContext().registerReceiver(newTransactionReceiver, intentFilter)
         }
-        Log.d("MessagesFragment", "Registered broadcast receiver for new transactions")
+        logger.debug("MessagesFragment", "Registered broadcast receiver for new transactions")
         
         // Refresh UI when user returns (in case they granted permissions in settings)
         checkPermissionsAndSetupUI()
@@ -2470,10 +2360,10 @@ class MessagesFragment : Fragment() {
         // Unregister broadcast receiver to prevent memory leaks
         try {
             requireContext().unregisterReceiver(newTransactionReceiver)
-            Log.d("MessagesFragment", "Unregistered broadcast receiver for new transactions")
+            logger.debug("MessagesFragment", "Unregistered broadcast receiver for new transactions")
         } catch (e: Exception) {
             // Receiver may not have been registered, ignore
-            Log.w("MessagesFragment", "Broadcast receiver was not registered, ignoring unregister", e)
+            logger.warnWithThrowable("MessagesFragment", "Broadcast receiver was not registered, ignoring unregister", e)
         }
     }
     
@@ -2491,7 +2381,7 @@ class MessagesFragment : Fragment() {
         newCategory: String, 
         conflict: MerchantAliasManager.AliasConflict
     ) {
-        Log.d("MessagesFragment", "[CONFLICT] Showing enhanced category mismatch dialog")
+        logger.debug("MessagesFragment", "[CONFLICT] Showing enhanced category mismatch dialog")
         
         val affectedMerchantCount = conflict.affectedMerchants.size
         val merchantText = if (affectedMerchantCount == 1) "merchant" else "merchants"
@@ -2525,7 +2415,7 @@ class MessagesFragment : Fragment() {
                 showMerchantGroupEditDialogWithSuggestion(group, suggestedName, newCategory)
             }
             .setNegativeButton("❌ Cancel") { dialog, _ ->
-                Log.d("MessagesFragment", "[CONFLICT] User cancelled merchant aliasing")
+                logger.debug("MessagesFragment", "[CONFLICT] User cancelled merchant aliasing")
                 dialog.dismiss()
             }
             .show()
@@ -2570,11 +2460,11 @@ class MessagesFragment : Fragment() {
             }
             .setPositiveButton("Merge") { dialog, _ ->
                 dialog.dismiss()
-                Log.d("MessagesFragment", "[MERGE] User confirmed merge with category '$selectedCategory'")
+                logger.debug("MessagesFragment", "[MERGE] User confirmed merge with category '$selectedCategory'")
                 performMerchantAliasUpdateDirectly(group, displayName, selectedCategory)
             }
             .setNegativeButton("❌ Cancel") { dialog, _ ->
-                Log.d("MessagesFragment", "[MERGE] User cancelled category merge")
+                logger.debug("MessagesFragment", "[MERGE] User cancelled category merge")
                 dialog.dismiss()
             }
             .show()
@@ -2589,7 +2479,7 @@ class MessagesFragment : Fragment() {
         newCategory: String,
         conflict: MerchantAliasManager.AliasConflict
     ) {
-        Log.d("MessagesFragment", "[CONFLICT] Showing enhanced overwrite confirmation dialog")
+        logger.debug("MessagesFragment", "[CONFLICT] Showing enhanced overwrite confirmation dialog")
         
         val currentEmojiCategory = getCategoryEmoji(conflict.existingCategory ?: "")
         val newEmojiCategory = getCategoryEmoji(newCategory)
@@ -2622,11 +2512,11 @@ class MessagesFragment : Fragment() {
             .setTitle("🔄 Update Merchant Settings")
             .setMessage(message)
             .setPositiveButton("✅ Update") { _, _ ->
-                Log.d("MessagesFragment", "[OVERWRITE] User confirmed overwrite: '$changeType' update")
+                logger.debug("MessagesFragment", "[OVERWRITE] User confirmed overwrite: '$changeType' update")
                 performMerchantAliasUpdateDirectly(group, newDisplayName, newCategory)
             }
             .setNegativeButton("❌ Cancel") { dialog, _ ->
-                Log.d("MessagesFragment", "[OVERWRITE] User cancelled overwrite")
+                logger.debug("MessagesFragment", "[OVERWRITE] User cancelled overwrite")
                 dialog.dismiss()
             }
             .show()
@@ -2680,7 +2570,7 @@ class MessagesFragment : Fragment() {
     private fun performMerchantAliasUpdateDirectly(group: MerchantGroup, newDisplayName: String, newCategory: String) {
         lifecycleScope.launch {
             try {
-                Log.d("MessagesFragment", "[DIRECT] Performing direct merchant update: '${group.merchantName}' -> '$newDisplayName' in '$newCategory'")
+                logger.debug("MessagesFragment", "[DIRECT] Performing direct merchant update: '${group.merchantName}' -> '$newDisplayName' in '$newCategory'")
                 
                 // Continue with the normal update flow but skip conflict checking
                 val originalMerchantNames = mutableSetOf<String>()
@@ -2730,18 +2620,18 @@ class MessagesFragment : Fragment() {
                     if (databaseUpdateSuccess) {
                         // Invalidate ViewModel's cache to ensure it gets fresh alias data
                         try {
-                            Log.d("MessagesFragment", "[CACHE_SYNC] Invalidating ViewModel cache for database success")
+                            logger.debug("MessagesFragment", "[CACHE_SYNC] Invalidating ViewModel cache for database success")
                             messagesViewModel.invalidateMerchantAliasCache()
                         } catch (e: Exception) {
-                            Log.w("MessagesFragment", "Could not invalidate ViewModel cache for database success", e)
+                            logger.warnWithThrowable("MessagesFragment", "Could not invalidate ViewModel cache for database success", e)
                         }
                         
                         // Trigger ViewModel update to reflect changes
                         try {
-                            Log.d("MessagesFragment", "[UI_FIX] Using ONLY ViewModel refresh for database success case")
+                            logger.debug("MessagesFragment", "[UI_FIX] Using ONLY ViewModel refresh for database success case")
                             messagesViewModel.handleEvent(MessagesUIEvent.LoadMessages)
                         } catch (e: Exception) {
-                            Log.w("MessagesFragment", "Could not trigger ViewModel refresh for database success", e)
+                            logger.warnWithThrowable("MessagesFragment", "Could not trigger ViewModel refresh for database success", e)
                         }
                         Toast.makeText(
                             requireContext(),
@@ -2758,7 +2648,7 @@ class MessagesFragment : Fragment() {
                 }
                 
             } catch (e: Exception) {
-                Log.e("MessagesFragment", "Error in direct merchant update", e)
+                logger.error("MessagesFragment", "Error in direct merchant update", e)
                 Toast.makeText(
                     requireContext(),
                     "Failed to update merchant: ${e.message}",

@@ -7,7 +7,8 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.expensemanager.app.R
-import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
+import com.expensemanager.app.utils.logging.StructuredLogger
 
 data class CategorySpending(
     val categoryName: String,
@@ -21,16 +22,16 @@ class TopCategoriesAdapter(
 ) : RecyclerView.Adapter<TopCategoriesAdapter.CategoryViewHolder>() {
     
     private var categories = listOf<CategorySpending>()
-    
+    private val logger = StructuredLogger(LogConfig.FeatureTags.TOPCATEGORIESADAPTER, "TopCategoriesAdapter")
     fun submitList(newCategories: List<CategorySpending>) {
-        Timber.tag("TopCategoriesAdapter").d("submitList called with ${newCategories.size} categories")
+        logger.debug("submitList","submitList called with ${newCategories.size} categories")
         categories = newCategories
         notifyDataSetChanged()
-        Timber.tag("TopCategoriesAdapter").d("notifyDataSetChanged called, itemCount: $itemCount")
+        logger.debug("submitList","notifyDataSetChanged called, itemCount: $itemCount")
     }
     
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): CategoryViewHolder {
-        Timber.tag("TopCategoriesAdapter").d("onCreateViewHolder called")
+        logger.debug("onCreateViewHolder","onCreateViewHolder called")
         val view = LayoutInflater.from(parent.context).inflate(
             R.layout.item_dashboard_category, parent, false
         )
@@ -39,7 +40,7 @@ class TopCategoriesAdapter(
     
     override fun onBindViewHolder(holder: CategoryViewHolder, position: Int) {
         val category = categories[position]
-        Timber.tag("TopCategoriesAdapter").d("onBindViewHolder called for position $position: ${category.categoryName} = ₹${String.format("%.0f", category.amount)}")
+        logger.debug("onBindViewHolder","onBindViewHolder called for position $position: ${category.categoryName} = ₹${String.format("%.0f", category.amount)}")
         holder.bind(category)
     }
     
@@ -70,8 +71,8 @@ class TopCategoriesAdapter(
             
             // Debug logging for view dimensions
             itemView.post {
-                Timber.tag("TopCategoriesAdapter").d("ViewHolder bound - itemView dimensions: ${itemView.width}x${itemView.height}, visibility: ${itemView.visibility}")
-                Timber.tag("TopCategoriesAdapter").d("Parent dimensions: ${(itemView.parent as? android.view.View)?.width}x${(itemView.parent as? android.view.View)?.height}")
+                logger.debug("categoryviewholder","ViewHolder bound - itemView dimensions: ${itemView.width}x${itemView.height}, visibility: ${itemView.visibility}")
+                logger.debug("categoryviewholder","Parent dimensions: ${(itemView.parent as? android.view.View)?.width}x${(itemView.parent as? android.view.View)?.height}")
             }
         }
     }

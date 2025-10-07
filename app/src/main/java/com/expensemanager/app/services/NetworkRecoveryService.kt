@@ -1,7 +1,7 @@
 package com.expensemanager.app.services
 
-import timber.log.Timber
 import com.expensemanager.app.utils.logging.LogConfig
+import com.expensemanager.app.utils.logging.StructuredLogger
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import javax.inject.Inject
@@ -20,6 +20,8 @@ class NetworkRecoveryService @Inject constructor(
         private const val TAG = "NetworkRecoveryService"
         private const val RECOVERY_DELAY_MS = 5000L // 5 seconds after network recovery
     }
+
+    private val logger = StructuredLogger(LogConfig.FeatureTags.NETWORK, TAG)
 
     private val _networkState = MutableStateFlow(false)
     val networkState: StateFlow<Boolean> = _networkState.asStateFlow()
@@ -59,7 +61,7 @@ class NetworkRecoveryService @Inject constructor(
                 }
         }
 
-        Timber.tag(TAG).d("Network monitoring started")
+        logger.debug("startNetworkMonitoring", "Network monitoring started")
     }
 
     /**
@@ -68,7 +70,7 @@ class NetworkRecoveryService @Inject constructor(
     fun stopNetworkMonitoring() {
         networkMonitoringJob?.cancel()
         networkMonitoringJob = null
-        Timber.tag(TAG).d("Network monitoring stopped")
+        logger.debug("stopNetworkMonitoring", "Network monitoring stopped")
     }
 
     /**
@@ -94,7 +96,7 @@ class NetworkRecoveryService @Inject constructor(
                 )
             )
 
-            Timber.tag(TAG).d("Added pending operation: $description (ID: $id)")
+            logger.debug("addPendingOperation", "Added pending operation: $description (ID: $id)")
         }
 
         // If network is available, execute immediately
@@ -112,7 +114,7 @@ class NetworkRecoveryService @Inject constructor(
         synchronized(pendingOperations) {
             val removed = pendingOperations.removeAll { it.id == id }
             if (removed) {
-                Timber.tag(TAG).d("Removed pending operation: $id")
+                logger.debug("removePendingOperation", "Removed pending operation: $id")
             }
         }
     }
@@ -133,7 +135,7 @@ class NetworkRecoveryService @Inject constructor(
         synchronized(pendingOperations) {
             val count = pendingOperations.size
             pendingOperations.clear()
-            Timber.tag(TAG).d("Cleared $count pending operations")
+            logger.debug("clearPendingOperations", "Cleared $count pending operations")
         }
     }
 
@@ -144,11 +146,11 @@ class NetworkRecoveryService @Inject constructor(
         val previousState = _networkState.value
         _networkState.value = isConnected
 
-        Timber.tag(TAG).d("Network state changed: $previousState -> $isConnected")
+        logger.debug("handleNetworkStateChange", "Network state changed: $previousState -> $isConnected")
 
         if (!previousState && isConnected) {
             // Network was restored
-            Timber.tag(TAG).i("Network connectivity restored")
+            logger.info("handleNetworkStateChange", "Network connectivity restored")
             _recoveryEvents.emit(RecoveryEvent.NetworkRestored)
 
             // Wait a bit for network to stabilize
@@ -168,15 +170,15 @@ class NetworkRecoveryService @Inject constructor(
         }
 
         if (operations.isEmpty()) {
-            Timber.tag(TAG).d("No pending operations to execute")
+            logger.debug("executePendingOperations", "No pending operations to execute")
             return
         }
 
-        Timber.tag(TAG).i("Executing ${operations.size} pending operations")
+        logger.info("executePendingOperations", "Executing ${operations.size} pending operations")
 
         for (operation in operations) {
             try {
-                Timber.tag(TAG).d("Executing operation: ${operation.description}")
+                logger.debug("executePendingOperations", "Executing operation: ${operation.description}")
 
                 // Execute with retry
                 val result = retryMechanism.executeWithRetry(
@@ -186,12 +188,12 @@ class NetworkRecoveryService @Inject constructor(
                 }
 
                 if (result.isSuccess) {
-                    Timber.tag(TAG).i("Operation succeeded: ${operation.description}")
+                    logger.info("executePendingOperations", "Operation succeeded: ${operation.description}")
                     _recoveryEvents.emit(RecoveryEvent.OperationRetried(operation.id, true))
                     removePendingOperation(operation.id)
                 } else {
                     val error = result.exceptionOrNull()
-                    Timber.tag(TAG).e(error, "Operation failed: ${operation.description}")
+                    logger.error("executePendingOperations", "Operation failed: ${operation.description}", error)
                     _recoveryEvents.emit(
                         RecoveryEvent.OperationFailed(
                             operation.id,
@@ -201,7 +203,7 @@ class NetworkRecoveryService @Inject constructor(
                 }
 
             } catch (e: Exception) {
-                Timber.tag(TAG).e(e, "Error executing operation: ${operation.description}")
+                logger.error("executePendingOperations", "Error executing operation: ${operation.description}", e)
                 _recoveryEvents.emit(
                     RecoveryEvent.OperationFailed(operation.id, e.message ?: "Unknown error")
                 )
@@ -238,7 +240,7 @@ class NetworkRecoveryService @Inject constructor(
                     operation = { operation() }
                 )
 
-                Timber.tag(TAG).i("Operation queued for network recovery: $description")
+                logger.info("executeWithNetworkRecovery", "Operation queued for network recovery: $description")
             }
 
             Result.failure(e)

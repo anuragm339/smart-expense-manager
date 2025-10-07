@@ -5,9 +5,12 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import timber.log.Timber
+import android.widget.ProgressBar
+import android.widget.TextView
+
 import com.expensemanager.app.utils.logging.LogConfig
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -21,6 +24,10 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.launch
 import dagger.hilt.android.AndroidEntryPoint
 import com.expensemanager.app.domain.repository.TransactionRepositoryInterface
+import com.expensemanager.app.utils.logging.StructuredLogger
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeoutOrNull
+import java.util.Date
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -33,8 +40,8 @@ class MainActivity : AppCompatActivity() {
     lateinit var dataMigrationManager: com.expensemanager.app.data.migration.DataMigrationManager
 
     private lateinit var binding: ActivityMainBinding
-    
-    companion object {
+    private val logger = StructuredLogger("MainActivity","MainActivity")
+        companion object {
         private const val SMS_PERMISSION_REQUEST_CODE = 1001
         private const val NOTIFICATION_PERMISSION_REQUEST_CODE = 1002
         private val REQUIRED_PERMISSIONS = arrayOf(
@@ -54,10 +61,10 @@ class MainActivity : AppCompatActivity() {
         
         // If SMS permissions are already granted, check notification permission
         if (hasSMSPermissions()) {
-            Timber.tag("MainActivity").d("SMS permissions already granted, checking notification permission")
+            logger.debug("onCreate","SMS permissions already granted, checking notification permission")
             requestNotificationPermissionIfNeeded()
         } else {
-            Timber.tag("MainActivity").d("SMS permissions not granted, will request notification permission after SMS is granted")
+            logger.debug("onCreate","SMS permissions not granted, will request notification permission after SMS is granted")
         }
     }
     
@@ -109,7 +116,7 @@ class MainActivity : AppCompatActivity() {
             }
         } catch (e: Exception) {
             // Prevent crash from notification handling
-            Timber.tag("MainActivity").e(e, "Error handling notification intent")
+            logger.error("onCreate","Error handling notification intent",e)
             Toast.makeText(this, "Opening expense manager...", Toast.LENGTH_SHORT).show()
         }
     }
@@ -117,25 +124,25 @@ class MainActivity : AppCompatActivity() {
     private fun requestNotificationPermissionIfNeeded() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val hasNotificationPermission = ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
-            
-            Timber.tag("MainActivity").d("Android API ${Build.VERSION.SDK_INT}, Notification permission granted: $hasNotificationPermission")
+
+            logger.debug("requestNotificationPermissionIfNeeded","Android API ${Build.VERSION.SDK_INT}, Notification permission granted: $hasNotificationPermission")
             
             if (!hasNotificationPermission) {
-                Timber.tag("MainActivity").d("Requesting notification permission")
+                logger.debug("requestNotificationPermissionIfNeeded","Requesting notification permission")
                 
                 // Check if we should show rationale for notification permission
                 if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.POST_NOTIFICATIONS)) {
-                    Timber.tag("MainActivity").d("Showing notification permission rationale")
+                    logger.debug("requestNotificationPermissionIfNeeded","Showing notification permission rationale")
                     showNotificationPermissionRationale()
                 } else {
-                    Timber.tag("MainActivity").d("Directly requesting notification permission")
+                    logger.debug("requestNotificationPermissionIfNeeded","Directly requesting notification permission")
                     requestNotificationPermissions()
                 }
             } else {
-                Timber.tag("MainActivity").d("Notification permission already granted")
+                logger.debug("requestNotificationPermissionIfNeeded","Notification permission already granted")
             }
         } else {
-            Timber.tag("MainActivity").d("Android API ${Build.VERSION.SDK_INT}, notification permission not required")
+            logger.debug("requestNotificationPermissionIfNeeded","Android API ${Build.VERSION.SDK_INT}, notification permission not required")
         }
     }
     
@@ -238,7 +245,7 @@ class MainActivity : AppCompatActivity() {
 
                     // 🔧 BUG FIX #1: Retry initial SMS import if it was skipped during app launch
                     lifecycleScope.launch {
-                        Timber.tag(LogConfig.FeatureTags.MIGRATION).d("🔄 [BUG_FIX] SMS permission granted - triggering migration retry...")
+                        logger.debug("onRequestPermissionsResult","SMS permission granted - triggering migration retry...")
                         dataMigrationManager.retryInitialSMSImportIfNeeded()
                     }
 
@@ -292,7 +299,7 @@ class MainActivity : AppCompatActivity() {
         
         // Log notification capability for debugging
         val notificationManager = TransactionNotificationManager(this)
-        Timber.tag("MainActivity").d("Notifications enabled: ${notificationManager.areNotificationsEnabled()}")
+        logger.debug("showNotificationPermissionGrantedInfo","Notifications enabled: ${notificationManager.areNotificationsEnabled()}")
     }
     
     private fun showNotificationPermissionDeniedInfo() {
@@ -307,24 +314,24 @@ class MainActivity : AppCompatActivity() {
     
     private fun scanHistoricalSMS() {
         lifecycleScope.launch {
-            var progressDialog: androidx.appcompat.app.AlertDialog? = null
-            var progressView: android.widget.ProgressBar? = null
-            var progressText: android.widget.TextView? = null
+            var progressDialog: AlertDialog? = null
+            var progressView: ProgressBar? = null
+            var progressText: TextView? = null
             
             try {
                 
                 // Create custom progress dialog with percentage indicator
                 val dialogView = layoutInflater.inflate(R.layout.dialog_sms_progress, null)
-                progressView = dialogView.findViewById<android.widget.ProgressBar>(R.id.progressBar)
-                progressText = dialogView.findViewById<android.widget.TextView>(R.id.progressText)
-                val statusText = dialogView.findViewById<android.widget.TextView>(R.id.statusText)
+                progressView = dialogView.findViewById<ProgressBar>(R.id.progressBar)
+                progressText = dialogView.findViewById<TextView>(R.id.progressText)
+                val statusText = dialogView.findViewById<TextView>(R.id.statusText)
                 
                 progressDialog = MaterialAlertDialogBuilder(this@MainActivity)
                     .setTitle("Scanning SMS History")
                     .setView(dialogView)
                     .setCancelable(true)
                     .setNegativeButton("Cancel") { dialog, _ ->
-                        Timber.tag("MainActivity").d("[CANCELLED] User cancelled SMS scan")
+                        logger.debug("scanHistoricalSMS","User cancelled SMS scan")
                         dialog.dismiss()
                     }
                     .create()
@@ -343,7 +350,7 @@ class MainActivity : AppCompatActivity() {
                 val repository = transactionRepository
                 
                 // Create SMS reader with progress callback for repository sync
-                val syncResult = kotlinx.coroutines.withTimeoutOrNull(timeoutMillis) {
+                val syncResult = withTimeoutOrNull(timeoutMillis) {
                     // Create a progress-enabled SMS reader for repository sync
                     val smsReader = SMSHistoryReader(this@MainActivity) { current, total, status ->
                         // Update progress on main thread
@@ -352,8 +359,8 @@ class MainActivity : AppCompatActivity() {
                             progressView?.progress = percentage
                             progressText?.text = "$percentage%"
                             statusText?.text = status
-                            
-                            Timber.tag("MainActivity").d("[PROGRESS] Progress: $percentage% ($current/$total) - $status")
+
+                            logger.debug("scanHistoricalSMS", "Progress: $percentage% ($current/$total) - $status")
                         }
                     }
                     
@@ -362,25 +369,25 @@ class MainActivity : AppCompatActivity() {
                     
                     // Now sync transactions through repository (repository handles conversion internally)
                     val insertedCount = repository.syncNewSMS()
-                    
-                    Timber.tag("MainActivity").d("[DATABASE] Inserted $insertedCount new transactions into database")
+
+                    logger.debug("scanHistoricalSMS", "Inserted $insertedCount new transactions into database")
                     
                     // Update sync state
-                    repository.updateSyncState(java.util.Date())
+                    repository.updateSyncState(Date())
                     
                     // Return both scan results and insert count
                     Pair(transactions, insertedCount)
                 }
                 
                 val scanDuration = System.currentTimeMillis() - startTime
-                Timber.tag("MainActivity").d("[TIMING] SMS scan completed in ${scanDuration}ms")
+                logger.debug("scanHistoricalSMS", "SMS scan completed in ${scanDuration}ms")
                 
                 progressDialog?.dismiss()
                 progressDialog = null
                 
                 if (syncResult == null) {
                     // Timeout occurred
-                    Timber.tag("MainActivity").w("[TIMEOUT] SMS scan timed out after ${timeoutMillis}ms")
+                    logger.debug("scanHistoricalSMS", "SMS scan timed out after ${timeoutMillis}ms")
                     Toast.makeText(
                         this@MainActivity,
                         "SMS scan is taking longer than expected. You can try again later or check the Messages tab.",
@@ -416,11 +423,11 @@ class MainActivity : AppCompatActivity() {
                 
             } catch (e: Exception) {
                 progressDialog?.dismiss()
-                Timber.tag("MainActivity").e(e, "[ERROR] Error during SMS scan")
+                logger.error("scanHistoricalSMS", "Error during SMS scan",e)
                 
                 val errorMessage = when (e) {
                     is SecurityException -> "SMS permission was revoked during scan"
-                    is kotlinx.coroutines.TimeoutCancellationException -> "SMS scan timed out - too many messages to process"
+                    is TimeoutCancellationException -> "SMS scan timed out - too many messages to process"
                     else -> "Error scanning SMS: ${e.message ?: "Unknown error"}"
                 }
                 

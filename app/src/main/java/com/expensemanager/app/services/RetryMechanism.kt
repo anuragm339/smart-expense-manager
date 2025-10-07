@@ -1,7 +1,7 @@
 package com.expensemanager.app.services
 
-import timber.log.Timber
 import com.expensemanager.app.utils.logging.LogConfig
+import com.expensemanager.app.utils.logging.StructuredLogger
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -20,9 +20,10 @@ class RetryMechanism @Inject constructor(
     private val errorHandler: NetworkErrorHandler
 ) {
 
-    companion object {
-        private const val TAG = "RetryMechanism"
-    }
+    private val logger = StructuredLogger(
+        featureTag = LogConfig.FeatureTags.NETWORK,
+        className = "RetryMechanism"
+    )
 
     /**
      * Retry configuration for different scenarios
@@ -49,11 +50,17 @@ class RetryMechanism @Inject constructor(
             attemptCount = attempt + 1
 
             try {
-                Timber.tag(TAG).d("Attempt $attemptCount/${config.maxAttempts}")
+                logger.debug(
+                    where = "executeWithRetry",
+                    what = "Attempt $attemptCount/${config.maxAttempts}"
+                )
                 val result = operation()
 
                 if (attemptCount > 1) {
-                    Timber.tag(TAG).i("Operation succeeded on attempt $attemptCount")
+                    logger.info(
+                        where = "executeWithRetry",
+                        what = "Operation succeeded on attempt $attemptCount"
+                    )
                 }
 
                 return Result.success(result)
@@ -66,14 +73,20 @@ class RetryMechanism @Inject constructor(
 
                 // Check if we should retry this error
                 if (!config.retryOnCondition(e) || !networkError.recoverable) {
-                    Timber.tag(TAG).w("Error is not recoverable, stopping retries")
+                    logger.warn(
+                        where = "executeWithRetry",
+                        what = "Error is not recoverable, stopping retries"
+                    )
                     return Result.failure(e)
                 }
 
                 // Don't delay on the last attempt
                 if (attempt < config.maxAttempts - 1) {
                     val delayMs = calculateDelay(attempt, config)
-                    Timber.tag(TAG).d("Retrying in ${delayMs}ms...")
+                    logger.debug(
+                        where = "executeWithRetry",
+                        what = "Retrying in ${delayMs}ms..."
+                    )
                     delay(delayMs)
                 }
             }
@@ -165,6 +178,10 @@ class RetryMechanism @Inject constructor(
         private val failureThreshold: Int = 5,
         private val recoveryTimeMs: Long = 60000L // 1 minute
     ) {
+        private val logger = StructuredLogger(
+            featureTag = LogConfig.FeatureTags.NETWORK,
+            className = "RetryMechanism.CircuitBreaker"
+        )
         private var failureCount = 0
         private var lastFailureTime = 0L
         private var state = State.CLOSED
@@ -189,7 +206,10 @@ class RetryMechanism @Inject constructor(
         fun onSuccess() {
             failureCount = 0
             state = State.CLOSED
-            Timber.tag(TAG).d("Circuit breaker reset - service recovered")
+            logger.debug(
+                where = "onSuccess",
+                what = "Circuit breaker reset - service recovered"
+            )
         }
 
         fun onFailure() {
@@ -198,7 +218,10 @@ class RetryMechanism @Inject constructor(
 
             if (failureCount >= failureThreshold) {
                 state = State.OPEN
-                Timber.tag(TAG).w("Circuit breaker opened - service temporarily disabled")
+                logger.warn(
+                    where = "onFailure",
+                    what = "Circuit breaker opened - service temporarily disabled"
+                )
             }
         }
 

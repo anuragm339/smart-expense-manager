@@ -1,6 +1,5 @@
 package com.expensemanager.app.services
 
-import timber.log.Timber
 import java.util.*
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -42,7 +41,6 @@ class DateRangeService @Inject constructor() {
             YEARLY
         }
     }
-    
     /**
      * Get date range for the specified type
      */
@@ -86,8 +84,6 @@ class DateRangeService @Inject constructor() {
         calendar.set(Calendar.SECOND, 59)
         calendar.set(Calendar.MILLISECOND, 999)
         val endDate = calendar.time
-        
-        Timber.d("Current month range: $startDate to $endDate")
         return Pair(startDate, endDate)
     }
     
@@ -111,8 +107,6 @@ class DateRangeService @Inject constructor() {
         calendar.set(Calendar.SECOND, 0)
         calendar.set(Calendar.MILLISECOND, 0)
         val startDate = calendar.time
-        
-        Timber.d("Last 7 days range: $startDate to $endDate")
         return Pair(startDate, endDate)
     }
     
@@ -136,8 +130,6 @@ class DateRangeService @Inject constructor() {
         calendar.set(Calendar.SECOND, 0)
         calendar.set(Calendar.MILLISECOND, 0)
         val startDate = calendar.time
-        
-        Timber.d("Last 30 days range: $startDate to $endDate")
         return Pair(startDate, endDate)
     }
     
@@ -161,8 +153,6 @@ class DateRangeService @Inject constructor() {
         calendar.set(Calendar.SECOND, 0)
         calendar.set(Calendar.MILLISECOND, 0)
         val startDate = calendar.time
-        
-        Timber.d("Last 3 months range: $startDate to $endDate")
         return Pair(startDate, endDate)
     }
     
@@ -186,8 +176,6 @@ class DateRangeService @Inject constructor() {
         calendar.set(Calendar.SECOND, 0)
         calendar.set(Calendar.MILLISECOND, 0)
         val startDate = calendar.time
-        
-        Timber.d("Last 6 months range: $startDate to $endDate")
         return Pair(startDate, endDate)
     }
     
@@ -208,8 +196,6 @@ class DateRangeService @Inject constructor() {
         calendar.set(Calendar.SECOND, 0)
         calendar.set(Calendar.MILLISECOND, 0)
         val startDate = calendar.time
-        
-        Timber.d("This year range: $startDate to $endDate")
         return Pair(startDate, endDate)
     }
     
@@ -239,8 +225,6 @@ class DateRangeService @Inject constructor() {
         calendar.set(Calendar.SECOND, 59)
         calendar.set(Calendar.MILLISECOND, 999)
         val endDate = calendar.time
-        
-        Timber.d("Last year range: $startDate to $endDate")
         return Pair(startDate, endDate)
     }
     
@@ -265,8 +249,6 @@ class DateRangeService @Inject constructor() {
         calendar.set(Calendar.SECOND, 59)
         calendar.set(Calendar.MILLISECOND, 999)
         val endDate = calendar.time
-        
-        Timber.d("Current week range: $startDate to $endDate")
         return Pair(startDate, endDate)
     }
     
@@ -302,8 +284,6 @@ class DateRangeService @Inject constructor() {
         calendar.set(Calendar.SECOND, 59)
         calendar.set(Calendar.MILLISECOND, 999)
         val endDate = calendar.time
-        
-        Timber.d("Current quarter range: $startDate to $endDate")
         return Pair(startDate, endDate)
     }
     
@@ -344,8 +324,6 @@ class DateRangeService @Inject constructor() {
         calendar.set(Calendar.SECOND, 59)
         calendar.set(Calendar.MILLISECOND, 999)
         val endDate = calendar.time
-        
-        Timber.d("Last quarter range: $startDate to $endDate")
         return Pair(startDate, endDate)
     }
     
@@ -365,8 +343,6 @@ class DateRangeService @Inject constructor() {
         calendar.set(Calendar.SECOND, 0)
         calendar.set(Calendar.MILLISECOND, 0)
         val startDate = calendar.time
-        
-        Timber.d("Month to date range: $startDate to $endDate")
         return Pair(startDate, endDate)
     }
     
@@ -387,8 +363,6 @@ class DateRangeService @Inject constructor() {
         calendar.set(Calendar.SECOND, 0)
         calendar.set(Calendar.MILLISECOND, 0)
         val startDate = calendar.time
-        
-        Timber.d("Year to date range: $startDate to $endDate")
         return Pair(startDate, endDate)
     }
     
@@ -413,8 +387,6 @@ class DateRangeService @Inject constructor() {
         calendar.set(Calendar.SECOND, 59)
         calendar.set(Calendar.MILLISECOND, 999)
         val normalizedEndDate = calendar.time
-        
-        Timber.d("Custom range: $normalizedStartDate to $normalizedEndDate")
         return Pair(normalizedStartDate, normalizedEndDate)
     }
     
@@ -651,9 +623,7 @@ class DateRangeService @Inject constructor() {
         aggregationType: TimeAggregation,
         startDate: Date,
         endDate: Date
-    ): List<Pair<Date, Date>> {
-        Timber.d("Generating periods in range: $startDate to $endDate with aggregation: $aggregationType")
-        
+    ): List<Pair<Date, Date>> {        
         val periods = mutableListOf<Pair<Date, Date>>()
         val calendar = Calendar.getInstance()
         calendar.time = startDate
@@ -753,10 +723,7 @@ class DateRangeService @Inject constructor() {
             
             val periodEnd = if (periodEndCalendar.time.after(endDate)) endDate else periodEndCalendar.time
             
-            periods.add(Pair(periodStart, periodEnd))
-            
-            Timber.d("Generated period: $periodStart to $periodEnd")
-            
+            periods.add(Pair(periodStart, periodEnd))            
             // Move to next period
             when (aggregationType) {
                 TimeAggregation.DAILY -> calendar.add(Calendar.DAY_OF_MONTH, 1)
@@ -766,8 +733,6 @@ class DateRangeService @Inject constructor() {
                 TimeAggregation.YEARLY -> calendar.add(Calendar.YEAR, 1)
             }
         }
-        
-        Timber.d("Generated ${periods.size} periods in range")
         return periods
     }
     
@@ -803,28 +768,18 @@ class DateRangeService @Inject constructor() {
         aggregationType: TimeAggregation,
         startDate: Date,
         endDate: Date
-    ): List<Pair<Date, Date>> {
-        Timber.d("ENHANCED_DATE_RANGE: Generating periods with special handling")
-        Timber.d("ENHANCED_DATE_RANGE: Date filter: $dateRangeFilter, Aggregation: $aggregationType")
-        Timber.d("ENHANCED_DATE_RANGE: Range: $startDate to $endDate")
-        
+    ): List<Pair<Date, Date>> {        
         return when {
             // Special case 1: "This Month" + "Weekly" → Show weeks within current month only
-            dateRangeFilter == "This Month" && aggregationType == TimeAggregation.WEEKLY -> {
-                Timber.d("ENHANCED_DATE_RANGE: Applying 'This Month + Weekly' special handling")
-                generateWeeksWithinCurrentMonth()
+            dateRangeFilter == "This Month" && aggregationType == TimeAggregation.WEEKLY -> {                generateWeeksWithinCurrentMonth()
             }
             
             // Special case 2: "Last 30 Days" + "Monthly" → Show multiple months if span crosses months
-            dateRangeFilter == "Last 30 Days" && aggregationType == TimeAggregation.MONTHLY -> {
-                Timber.d("ENHANCED_DATE_RANGE: Applying 'Last 30 Days + Monthly' special handling")
-                generateMonthsWithinLast30Days(startDate, endDate)
+            dateRangeFilter == "Last 30 Days" && aggregationType == TimeAggregation.MONTHLY -> {                generateMonthsWithinLast30Days(startDate, endDate)
             }
             
             // Default case: Use standard period generation
-            else -> {
-                Timber.d("ENHANCED_DATE_RANGE: Using standard period generation")
-                generatePeriodsInRange(aggregationType, startDate, endDate)
+            else -> {                generatePeriodsInRange(aggregationType, startDate, endDate)
             }
         }
     }
@@ -833,9 +788,7 @@ class DateRangeService @Inject constructor() {
      * Generate weeks within the current month only
      * Used for "This Month" + "Weekly" combination
      */
-    private fun generateWeeksWithinCurrentMonth(): List<Pair<Date, Date>> {
-        Timber.d("ENHANCED_DATE_RANGE: Generating weeks within current month")
-        
+    private fun generateWeeksWithinCurrentMonth(): List<Pair<Date, Date>> {        
         val calendar = Calendar.getInstance()
         val currentMonth = calendar.get(Calendar.MONTH)
         val currentYear = calendar.get(Calendar.YEAR)
@@ -859,10 +812,7 @@ class DateRangeService @Inject constructor() {
             set(Calendar.MINUTE, 59)
             set(Calendar.SECOND, 59)
             set(Calendar.MILLISECOND, 999)
-        }
-        
-        Timber.d("ENHANCED_DATE_RANGE: Current month boundaries: ${monthStart.time} to ${monthEnd.time}")
-        
+        }        
         val periods = mutableListOf<Pair<Date, Date>>()
         val weekCalendar = Calendar.getInstance()
         weekCalendar.time = monthStart.time
@@ -889,15 +839,11 @@ class DateRangeService @Inject constructor() {
             
             // Only include weeks that have at least one day in the current month
             if (actualWeekStart.before(monthEnd.time) || actualWeekStart.equals(monthEnd.time)) {
-                periods.add(Pair(actualWeekStart, actualWeekEnd))
-                Timber.d("ENHANCED_DATE_RANGE: Generated month-bounded week: $actualWeekStart to $actualWeekEnd")
-            }
+                periods.add(Pair(actualWeekStart, actualWeekEnd))            }
             
             // Move to next week
             weekCalendar.add(Calendar.WEEK_OF_YEAR, 1)
         }
-        
-        Timber.d("ENHANCED_DATE_RANGE: Generated ${periods.size} weeks within current month")
         return periods
     }
     
@@ -905,10 +851,7 @@ class DateRangeService @Inject constructor() {
      * Generate months within the last 30 days period
      * Used for "Last 30 Days" + "Monthly" combination
      */
-    private fun generateMonthsWithinLast30Days(startDate: Date, endDate: Date): List<Pair<Date, Date>> {
-        Timber.d("ENHANCED_DATE_RANGE: Generating months within last 30 days period")
-        Timber.d("ENHANCED_DATE_RANGE: 30-day period: $startDate to $endDate")
-        
+    private fun generateMonthsWithinLast30Days(startDate: Date, endDate: Date): List<Pair<Date, Date>> {        
         val periods = mutableListOf<Pair<Date, Date>>()
         val calendar = Calendar.getInstance()
         calendar.time = startDate
@@ -954,15 +897,11 @@ class DateRangeService @Inject constructor() {
             
             // Only add if there's actual overlap
             if (actualStart.before(actualEnd) || actualStart.equals(actualEnd)) {
-                periods.add(Pair(actualStart, actualEnd))
-                Timber.d("ENHANCED_DATE_RANGE: Generated month period: $actualStart to $actualEnd")
-            }
+                periods.add(Pair(actualStart, actualEnd))            }
             
             // Move to next month
             monthCalendar.add(Calendar.MONTH, 1)
         }
-        
-        Timber.d("ENHANCED_DATE_RANGE: Generated ${periods.size} months within last 30 days")
         return periods
     }
 }

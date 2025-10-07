@@ -26,15 +26,15 @@ import com.expensemanager.app.utils.MerchantAliasManager
 import com.expensemanager.app.utils.SMSHistoryReader
 import com.expensemanager.app.data.repository.ExpenseRepository
 import com.expensemanager.app.R
+import com.expensemanager.app.utils.logging.StructuredLogger
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.launch
-import timber.log.Timber
 import java.text.SimpleDateFormat
 import java.util.*
 
 @AndroidEntryPoint
 class CategoryTransactionsFragment : Fragment() {
-    
+    private val logger = StructuredLogger("CategoryTransactionsFragment", "CategoryTransactionsFragment")
     private var _binding: FragmentCategoryTransactionsBinding? = null
     private val binding get() = _binding!!
     
@@ -63,16 +63,16 @@ class CategoryTransactionsFragment : Fragment() {
             if (intent?.action == "com.expensemanager.NEW_TRANSACTION_ADDED") {
                 val merchant = intent.getStringExtra("merchant") ?: "Unknown"
                 val amount = intent.getDoubleExtra("amount", 0.0)
-                Timber.tag("CategoryTransactions").d("Received new transaction broadcast: $merchant - ₹${String.format("%.0f", amount)}")
+                logger.debug("onReceive","Received new transaction broadcast: $merchant - ₹${String.format("%.0f", amount)}")
                 
                 // Refresh category transactions data on the main thread using ViewModel
                 lifecycleScope.launch {
                     try {
-                        Timber.tag("CategoryTransactions").d("[PROCESS] Refreshing category transactions due to new transaction")
+                        logger.debug("onReceive","[PROCESS] Refreshing category transactions due to new transaction")
                         viewModel.handleEvent(CategoryTransactionsUIEvent.Refresh)
                         
                     } catch (e: Exception) {
-                        Timber.tag("CategoryTransactions").e(e, "Error refreshing category transactions after new transaction")
+                        logger.error("onReceive", "Error refreshing category transactions after new transaction",e)
                     }
                 }
             }
@@ -217,7 +217,7 @@ class CategoryTransactionsFragment : Fragment() {
     private fun loadCategoryTransactions() {
         lifecycleScope.launch {
             try {
-                Timber.tag("CategoryTransactions").d("[DEBUG] Loading transactions for category: $categoryName")
+                logger.debug("loadCategoryTransactions","Loading transactions for category: $categoryName")
                 
                 // Get current date range (this month)
                 val calendar = Calendar.getInstance()
@@ -237,7 +237,7 @@ class CategoryTransactionsFragment : Fragment() {
                 
                 // Load transactions from repository (SQLite database)
                 val allDbTransactions = repository.getTransactionsByDateRange(startDate, endDate)
-                Timber.tag("CategoryTransactions").d("[ANALYTICS] Found ${allDbTransactions.size} total transactions")
+                logger.debug("loadCategoryTransactions","Found ${allDbTransactions.size} total transactions")
                 
                 // Filter transactions by category using the merchant-category mapping
                 val categoryTransactions = allDbTransactions.mapNotNull { transaction ->
@@ -259,8 +259,8 @@ class CategoryTransactionsFragment : Fragment() {
                         )
                     } else null
                 }
-                
-                Timber.tag("CategoryTransactions").d("Filtered to ${categoryTransactions.size} transactions for $categoryName")
+
+                logger.debug("loadCategoryTransactions","Filtered to ${categoryTransactions.size} transactions for $categoryName")
                 
                 // Store all transactions for filtering/sorting
                 allTransactions.clear()
@@ -278,19 +278,19 @@ class CategoryTransactionsFragment : Fragment() {
                     val totalAmount = filteredAndSortedTransactions.sumOf { it.amount }
                     binding.tvCategoryTotal.text = "₹${String.format("%.0f", totalAmount)}"
                     binding.tvCategorySummary.text = "${filteredAndSortedTransactions.size} transactions • $currentFilterOption"
-                    
-                    Timber.tag("CategoryTransactions").d("[FINANCIAL] Category total: ₹${String.format("%.0f", totalAmount)}")
+
+                    logger.debug("loadCategoryTransactions","Category total: ₹${String.format("%.0f", totalAmount)}")
                 } else {
                     binding.recyclerTransactions.visibility = View.GONE
                     binding.layoutEmpty.visibility = View.VISIBLE
                     binding.tvCategoryTotal.text = "₹0"
                     binding.tvCategorySummary.text = "0 transactions • $currentFilterOption"
-                    
-                    Timber.tag("CategoryTransactions").d("[INFO] No transactions found for $categoryName")
+
+                    logger.debug("loadCategoryTransactions","No transactions found for $categoryName")
                 }
                 
             } catch (e: Exception) {
-                Timber.tag("CategoryTransactions").e(e, "[ERROR] Error loading transactions")
+                logger.error("loadCategoryTransactions","Error loading transactions",e)
                 // Show empty state on error
                 binding.recyclerTransactions.visibility = View.GONE
                 binding.layoutEmpty.visibility = View.VISIBLE
@@ -306,29 +306,29 @@ class CategoryTransactionsFragment : Fragment() {
             try {
                 // Get categories from ViewModel (which handles database and fallbacks)
                 val categoryNames = viewModel.getAllCategories()
-                Timber.tag("CategoryDialog").d("[ANALYTICS] Using ViewModel categories: ${categoryNames.joinToString(", ")}")
+                logger.debug("showCategoryEditDialog","Using ViewModel categories: ${categoryNames.joinToString(", ")}")
                 
                 // ViewModel already handles database and fallbacks
                 if (categoryNames.isNotEmpty()) {
                     val currentCategoryIndex = categoryNames.indexOf(messageItem.category)
-                    Timber.tag("CategoryDialog").d("[TARGET] Current category: ${messageItem.category}, Index: $currentCategoryIndex")
+                    logger.debug("showCategoryEditDialog","Current category: ${messageItem.category}, Index: $currentCategoryIndex")
                     
                     // Create enhanced category list with emojis for better visibility using display provider
                     val enhancedCategories = categoryNames.map { category ->
                         categoryDisplayProvider.formatForDisplay(category)
                     }.toTypedArray()
-                    
-                    Timber.tag("CategoryDialog").d("Enhanced categories: ${enhancedCategories.joinToString(", ")}")
+
+                    logger.debug("showCategoryEditDialog","Enhanced categories: ${enhancedCategories.joinToString(", ")}")
                     
                     // Use custom DialogFragment for guaranteed visibility
-                    Timber.tag("CategoryDialog").d("[TARGET] Creating custom DialogFragment...")
+                    logger.debug("showCategoryEditDialog","Creating custom DialogFragment...")
                     
                     val dialog = CategorySelectionDialogFragment.newInstance(
                         categories = enhancedCategories,
                         currentIndex = currentCategoryIndex,
                         merchantName = messageItem.merchant
                     ) { selectedCategory ->
-                        Timber.tag("CategoryDialog").d("[SUCCESS] Custom dialog selected: $selectedCategory")
+                        logger.debug("showCategoryEditDialog","Custom dialog selected: $selectedCategory")
                         
                         // Find the corresponding plain category name from the original list
                         val selectedIndex = enhancedCategories.indexOf(selectedCategory)
@@ -338,17 +338,17 @@ class CategoryTransactionsFragment : Fragment() {
                             // Fallback: extract from display format
                             categoryDisplayProvider.getDisplayName(selectedCategory)
                         }
-                        Timber.tag("CategoryDialog").d("[FIX] Mapped '$selectedCategory' to database name: '$plainCategoryName'")
+                        logger.debug("showCategoryEditDialog","Mapped '$selectedCategory' to database name: '$plainCategoryName'")
                         
                         updateCategoryForMerchant(messageItem, plainCategoryName)
                     }
                     
                     dialog.show(parentFragmentManager, "CategorySelectionDialog")
-                    Timber.tag("CategoryDialog").d("[SMS] Custom DialogFragment shown")
+
                 }
                     
             } catch (e: Exception) {
-                Timber.tag("CategoryDialog").e(e, "[ERROR] Error loading categories for dialog")
+                logger.error("showCategoryEditDialog","[ERROR] Error loading categories for dialog",e)
                 
                 // Multiple fallback approaches using display provider
                 val fallbackCategoryNames = listOf(
@@ -360,8 +360,8 @@ class CategoryTransactionsFragment : Fragment() {
                     categoryDisplayProvider.formatForDisplay(category)
                 }
                 val currentIndex = fallbackCategoryNames.indexOf(messageItem.category)
-                
-                Timber.tag("CategoryDialog").d("[FIX] Using fallback categories, current index: $currentIndex")
+
+                logger.debug("showCategoryEditDialog","Using fallback categories, current index: $currentIndex")
                 
                 try {
                     // Try enhanced fallback first
@@ -370,30 +370,30 @@ class CategoryTransactionsFragment : Fragment() {
                         .setMessage("Select a new category for ${messageItem.merchant}")
                         .setItems(enhancedFallback.toTypedArray()) { _, which ->
                             val newCategory = fallbackCategoryNames[which]
-                            Timber.tag("CategoryDialog").d("[SUCCESS] Enhanced fallback selected category: $newCategory")
+                            logger.debug("showCategoryEditDialog","Enhanced fallback selected category: $newCategory")
                             updateCategoryForMerchant(messageItem, newCategory)
                         }
                         .setNegativeButton("Cancel") { dialog, _ ->
                             dialog.dismiss()
                         }
                         .show()
-                        
-                    Timber.tag("CategoryDialog").d("[SMS] Enhanced fallback dialog shown")
+
+                    logger.debug("showCategoryEditDialog","Enhanced fallback dialog shown")
                         
                 } catch (e2: Exception) {
-                    Timber.tag("CategoryDialog").e(e2, "[ERROR] Enhanced fallback failed, using basic approach")
+                    logger.error("showCategoryEditDialog","Enhanced fallback failed, using basic approach",e2)
                     
                     // Ultra-simple fallback
                     MaterialAlertDialogBuilder(requireContext())
                         .setTitle("Change Category")
                         .setItems(fallbackCategoryNames.toTypedArray()) { _, which ->
                             val newCategory = fallbackCategoryNames[which]
-                            Timber.tag("CategoryDialog").d("[SUCCESS] Basic fallback selected category: $newCategory")
+                            logger.debug("showCategoryEditDialog","Basic fallback selected category: $newCategory")
                             updateCategoryForMerchant(messageItem, newCategory)
                         }
                         .show()
-                        
-                    Timber.tag("CategoryDialog").d("[SMS] Basic fallback dialog shown")
+
+                    logger.debug("showCategoryEditDialog","[SMS] Basic fallback dialog shown")
                 }
             }
         }
@@ -404,7 +404,7 @@ class CategoryTransactionsFragment : Fragment() {
         viewModel.handleEvent(CategoryTransactionsUIEvent.UpdateTransactionCategory(messageItem, newCategory))
         
         // FIXED: Removed false success message - ViewModel will handle success/error feedback through UI state
-        Timber.tag("CategoryTransactions").d("Initiated category update for ${messageItem.merchant} to $newCategory")
+        logger.debug("updateCategoryForMerchant","Initiated category update for ${messageItem.merchant} to $newCategory")
     }
     
     private fun applyFilterAndSort(transactions: List<MessageItem>): List<MessageItem> {
@@ -521,7 +521,7 @@ class CategoryTransactionsFragment : Fragment() {
                 val newFilterOption = options[which]
                 viewModel.handleEvent(CategoryTransactionsUIEvent.ChangeFilterOption(newFilterOption))
                 dialog.dismiss()
-                Timber.tag("CategoryTransactions").d("Applied filter: $newFilterOption")
+                logger.debug("showDateFilterDialog","Applied filter: $newFilterOption")
             }
             .setNegativeButton("Cancel") { dialog, _ -> dialog.dismiss() }
             .show()
@@ -538,7 +538,7 @@ class CategoryTransactionsFragment : Fragment() {
                 val newSortOption = options[which]
                 viewModel.handleEvent(CategoryTransactionsUIEvent.ChangeSortOption(newSortOption))
                 dialog.dismiss()
-                Timber.tag("CategoryTransactions").d("[PROCESS] Applied sort: $newSortOption")
+                logger.debug("showSortDialog","Applied sort: $newSortOption")
             }
             .setNegativeButton("Cancel") { dialog, _ -> dialog.dismiss() }
             .show()
@@ -605,7 +605,7 @@ class CategoryTransactionsFragment : Fragment() {
         } else {
             requireContext().registerReceiver(newTransactionReceiver, intentFilter)
         }
-        Timber.tag("CategoryTransactions").d("Registered broadcast receiver for new transactions")
+        logger.debug("onResume","Registered broadcast receiver for new transactions")
     }
     
     override fun onPause() {
@@ -614,10 +614,10 @@ class CategoryTransactionsFragment : Fragment() {
         // Unregister broadcast receiver to prevent memory leaks
         try {
             requireContext().unregisterReceiver(newTransactionReceiver)
-            Timber.tag("CategoryTransactions").d("Unregistered broadcast receiver for new transactions")
+            logger.debug("onPause","Unregistered broadcast receiver for new transactions")
         } catch (e: Exception) {
             // Receiver may not have been registered, ignore
-            Timber.tag("CategoryTransactions").w(e, "Broadcast receiver was not registered, ignoring unregister")
+            logger.warn("onPause", "Broadcast receiver was not registered, ignoring unregister")
         }
     }
     

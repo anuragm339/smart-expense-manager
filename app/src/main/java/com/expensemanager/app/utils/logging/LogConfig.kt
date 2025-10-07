@@ -61,6 +61,8 @@ class LogConfig @Inject constructor(
         const val MIGRATION = "MIGRATION"
         const val APP = "APP"
         const val ERROR = "ERROR"
+        const val TOPCATEGORIESADAPTER="TopCategoriesAdapter"
+        const val CATEGORIESFRAGMENT="CategoriesFragment"
     }
     
     // Global logging settings
@@ -77,7 +79,7 @@ class LogConfig @Inject constructor(
         set(value) = preferences.edit().putBoolean(KEY_EXTERNAL_LOGGING_ENABLED, value).apply()
     
     var logLevel: Int
-        get() = preferences.getInt(KEY_LOG_LEVEL, DEBUG)
+        get() = preferences.getInt(KEY_LOG_LEVEL, INFO) // Changed from DEBUG to INFO to reduce log noise
         set(value) = preferences.edit().putInt(KEY_LOG_LEVEL, value).apply()
     
     // Feature-specific logging settings

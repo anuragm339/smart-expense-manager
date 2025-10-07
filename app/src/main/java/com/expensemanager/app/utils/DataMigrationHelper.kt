@@ -2,12 +2,12 @@ package com.expensemanager.app.utils
 
 
 import android.content.Context
-import timber.log.Timber
 import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.data.entities.TransactionEntity
 import com.expensemanager.app.data.models.Transaction
 import com.expensemanager.app.data.repository.ExpenseRepository
 import com.expensemanager.app.data.storage.TransactionStorage
+import com.expensemanager.app.utils.logging.StructuredLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.*
@@ -30,7 +30,8 @@ class DataMigrationHelper @Inject constructor(
     }
     
     private val transactionStorage = TransactionStorage(context)
-    
+    private val logger = StructuredLogger("DataMigrationHelper", "DataMigrationHelper")
+
     /**
      * Migrate data from TransactionStorage to Room database
      * This fixes the issue where SMS data is stored in SharedPreferences 
@@ -38,21 +39,21 @@ class DataMigrationHelper @Inject constructor(
      */
     suspend fun migrateTransactionStorageToRoom(): Int = withContext(Dispatchers.IO) {
         try {
-            Timber.tag(TAG).d("[MIGRATION] Starting data migration from TransactionStorage to Room...")
+            logger.debug("migrateTransactionStorageToRoom","Starting data migration from TransactionStorage to Room...")
             
             // Check if migration already completed
             val prefs = context.getSharedPreferences("app_migration", Context.MODE_PRIVATE)
             if (prefs.getBoolean(MIGRATION_PREF_KEY, false)) {
-                Timber.tag(TAG).d("[SKIP] Migration already completed previously")
+                logger.debug("migrateTransactionStorageToRoom","Migration already completed previously")
                 return@withContext 0
             }
             
             // Load all transactions from SharedPreferences storage
             val legacyTransactions = transactionStorage.loadTransactions()
-            Timber.tag(TAG).d("[SOURCE] Found ${legacyTransactions.size} transactions in TransactionStorage (SharedPreferences)")
+            logger.debug("migrateTransactionStorageToRoom","Found ${legacyTransactions.size} transactions in TransactionStorage (SharedPreferences)")
             
             if (legacyTransactions.isEmpty()) {
-                Timber.tag(TAG).d("[EMPTY] No legacy transactions to migrate")
+                logger.debug("migrateTransactionStorageToRoom","No legacy transactions to migrate")
                 // Mark migration as complete even if no data
                 prefs.edit().putBoolean(MIGRATION_PREF_KEY, true).apply()
                 return@withContext 0
@@ -65,7 +66,7 @@ class DataMigrationHelper @Inject constructor(
             // Convert and insert each transaction
             for (transaction in legacyTransactions) {
                 try {
-                    Timber.tag(TAG).d("[PROCESS] Migrating transaction: ${transaction.merchant} - ₹${transaction.amount} (${Date(transaction.date)})")
+                    logger.debug("migrateTransactionStorageToRoom","Migrating transaction: ${transaction.merchant} - ₹${transaction.amount} (${Date(transaction.date)})")
                     
                     // Check if transaction already exists in Room database
                     val smsId = TransactionEntity.generateSmsId("LEGACY", transaction.rawSMS, transaction.date)
@@ -73,7 +74,7 @@ class DataMigrationHelper @Inject constructor(
                     
                     if (existingTransaction != null) {
                         duplicateCount++
-                        Timber.tag(TAG).d("[DUPLICATE] Transaction already exists in Room: ${transaction.merchant}")
+                        logger.debug("migrateTransactionStorageToRoom", "Transaction already exists in Room: ${transaction.merchant}")
                         continue
                     }
                     
@@ -85,7 +86,7 @@ class DataMigrationHelper @Inject constructor(
                     
                     if (insertedId > 0) {
                         migratedCount++
-                        Timber.tag(TAG).d("[SUCCESS] Migrated transaction ID $insertedId: ${transaction.merchant} - ₹${transaction.amount}")
+                        logger.debug("migrateTransactionStorageToRoom","Migrated transaction ID $insertedId: ${transaction.merchant} - ₹${transaction.amount}")
                     } else {
                         migrationErrors.add("Failed to insert: ${transaction.merchant} - ₹${transaction.amount}")
                     }
@@ -93,7 +94,7 @@ class DataMigrationHelper @Inject constructor(
                 } catch (e: Exception) {
                     val errorMessage = "Error migrating ${transaction.merchant}: ${e.message}"
                     migrationErrors.add(errorMessage)
-                    Timber.tag(TAG).e(e, "[ERROR] $errorMessage")
+                    logger.error("migrateTransactionStorageToRoom","$errorMessage",e)
                 }
             }
             
@@ -104,24 +105,24 @@ class DataMigrationHelper @Inject constructor(
             prefs.edit().putBoolean(MIGRATION_PREF_KEY, true).apply()
             
             // Log final results
-            Timber.tag(TAG).d("[STATS] Migration completed:")
-            Timber.tag(TAG).d("  Migrated: $migratedCount transactions")
-            Timber.tag(TAG).d("  Duplicates skipped: $duplicateCount")
-            Timber.tag(TAG).d("  Errors: ${migrationErrors.size}")
+            logger.debug("migrateTransactionStorageToRoom","Migration completed:")
+            logger.debug("migrateTransactionStorageToRoom","Migrated: $migratedCount transactions")
+            logger.debug("migrateTransactionStorageToRoom","Duplicates skipped: $duplicateCount")
+            logger.debug("migrateTransactionStorageToRoom","Errors: ${migrationErrors.size}")
             
             if (migrationErrors.isNotEmpty()) {
-                Timber.tag(TAG).w("[ERRORS] Migration errors encountered:")
+                //Timber.tag(TAG).w("[ERRORS] Migration errors encountered:")
                 migrationErrors.forEach { error ->
-                    Timber.tag(TAG).w("  • $error")
+                    //Timber.tag(TAG).w("  • $error")
                 }
             }
-            
-            Timber.tag(TAG).d("[SUCCESS] Data migration completed successfully")
+
+            logger.debug("migrateTransactionStorageToRoom","Data migration completed successfully")
             
             return@withContext migratedCount
             
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "[CRITICAL] Data migration failed catastrophically")
+            logger.error("migrateTransactionStorageToRoom","Data migration failed catastrophically",e)
             throw e
         }
     }
@@ -181,7 +182,7 @@ class DataMigrationHelper @Inject constructor(
         )
         
         expenseRepository.insertMerchant(merchantEntity)
-        Timber.tag(TAG).d("[MERCHANT] Created merchant: $displayName -> $categoryName")
+        logger.debug("ensureMerchantExists","Created merchant: $displayName -> $categoryName")
     }
     
     /**
@@ -260,7 +261,7 @@ class DataMigrationHelper @Inject constructor(
                     createdAt = Date()
                 )
                 expenseRepository.insertCategory(categoryEntity)
-                Timber.tag(TAG).d("[CATEGORY] Created default category: $name")
+                logger.debug("ensureDefaultCategories","Created default category: $name")
             }
         }
     }
@@ -282,13 +283,13 @@ class DataMigrationHelper @Inject constructor(
             val roomCount = expenseRepository.getTransactionCount()
             
             val needsMigration = legacyCount > 0 && roomCount < legacyCount
-            
-            Timber.tag(TAG).d("[CHECK] Migration needed: $needsMigration (Legacy: $legacyCount, Room: $roomCount)")
+
+            logger.debug("isMigrationNeeded","Migration needed: $needsMigration (Legacy: $legacyCount, Room: $roomCount)")
             
             return@withContext needsMigration
             
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error checking migration status")
+            logger.error("isMigrationNeeded","Error checking migration status",e)
             return@withContext false
         }
     }
@@ -299,7 +300,7 @@ class DataMigrationHelper @Inject constructor(
     suspend fun resetMigrationFlag() {
         val prefs = context.getSharedPreferences("app_migration", Context.MODE_PRIVATE)
         prefs.edit().remove(MIGRATION_PREF_KEY).apply()
-        Timber.tag(TAG).d("[RESET] Migration flag reset for testing")
+       logger.debug("resetMigrationFlag","Migration flag reset for testing")
     }
     
     /**

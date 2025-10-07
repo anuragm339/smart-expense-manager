@@ -1,7 +1,7 @@
 package com.expensemanager.app.services
 
-import timber.log.Timber
 import com.expensemanager.app.utils.logging.LogConfig
+import com.expensemanager.app.utils.logging.StructuredLogger
 import com.expensemanager.app.data.api.insights.*
 import com.expensemanager.app.data.models.Transaction
 import kotlinx.coroutines.Dispatchers
@@ -25,6 +25,8 @@ class FinancialDataProcessor @Inject constructor() {
         private const val MIN_AMOUNT_FOR_MERCHANT = 100.0 // Minimum spending to include merchant
     }
 
+    private val logger = StructuredLogger(LogConfig.FeatureTags.INSIGHTS, TAG)
+
     /**
      * Main method to create anonymized financial data from transactions
      * Removes all personal identifiers while preserving spending patterns
@@ -34,7 +36,7 @@ class FinancialDataProcessor @Inject constructor() {
         timeframe: String = "last_30_days"
     ): AnonymizedFinancialData = withContext(Dispatchers.IO) {
 
-        Timber.tag(TAG).d("Processing ${transactions.size} transactions for anonymization")
+        logger.debug("createAnonymizedData", "Processing ${transactions.size} transactions for anonymization")
 
         try {
             // Filter out any transactions with insufficient data
@@ -61,7 +63,7 @@ class FinancialDataProcessor @Inject constructor() {
             )
 
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error processing financial data")
+            logger.error("createAnonymizedData", "Error processing financial data", e)
             createEmptyData(timeframe)
         }
     }
@@ -308,13 +310,13 @@ class FinancialDataProcessor @Inject constructor() {
             }
 
             if (hasPersonalInfo) {
-                Timber.tag(TAG).w("Potential personal info detected in merchant data")
+                logger.warn("validateAnonymization", "Potential personal info detected in merchant data")
                 return false
             }
 
             return true
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error validating anonymization")
+            logger.error("validateAnonymization", "Error validating anonymization", e)
             return false
         }
     }

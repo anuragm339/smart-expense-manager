@@ -8,7 +8,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
-import timber.log.Timber
 import com.expensemanager.app.utils.logging.LogConfig
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
@@ -23,6 +22,7 @@ import com.expensemanager.app.databinding.ItemCategoryBudgetBinding
 import com.expensemanager.app.data.repository.ExpenseRepository
 import com.expensemanager.app.utils.CategoryManager
 import com.expensemanager.app.utils.MerchantAliasManager
+import com.expensemanager.app.utils.logging.StructuredLogger
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
 import dagger.hilt.android.AndroidEntryPoint
@@ -39,7 +39,8 @@ class BudgetGoalsFragment : Fragment() {
     
     private val viewModel: BudgetGoalsViewModel by viewModels()
     private lateinit var categoryBudgetsAdapter: CategoryBudgetsAdapter
-    
+    private val logger = StructuredLogger("BudgetGoalsFragment", "BudgetGoalsFragment")
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -343,17 +344,17 @@ class BudgetGoalsFragment : Fragment() {
             val mainActivity = activity as? MainActivity
             if (mainActivity != null) {
                 // Bottom navigation removed for space - navigation disabled
-                Timber.tag("BudgetGoalsFragment").d("[SUCCESS] Successfully navigated to tab: $tabId")
+                logger.debug("navigateToBottomTab","[SUCCESS] Successfully navigated to tab: $tabId")
             } else {
-                Timber.tag("BudgetGoalsFragment").w("[WARNING] MainActivity not available, using fallback navigation")
+                logger.debug("navigateToBottomTab","MainActivity not available, using fallback navigation")
                 findNavController().navigate(tabId)
             }
         } catch (e: Exception) {
-            Timber.tag("BudgetGoalsFragment").e(e, "[ERROR] Error navigating to tab $tabId, using fallback")
+            logger.error("navigateToBottomTab","Error navigating to tab $tabId, using fallback",e)
             try {
                 findNavController().navigate(tabId)
             } catch (fallbackError: Exception) {
-                Timber.tag("BudgetGoalsFragment").e(fallbackError, "[ERROR] Fallback navigation also failed")
+                logger.error("navigateToBottomTab","Fallback navigation also failed",fallbackError)
                 Toast.makeText(requireContext(), "Navigation error. Please use bottom navigation.", Toast.LENGTH_SHORT).show()
             }
         }

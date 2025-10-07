@@ -1,8 +1,8 @@
 package com.expensemanager.app.services
 
 import android.content.Context
-import timber.log.Timber
 import com.expensemanager.app.utils.logging.LogConfig
+import com.expensemanager.app.utils.logging.StructuredLogger
 import com.expensemanager.app.data.api.insights.AnonymizedFinancialData
 import com.expensemanager.app.data.models.InsightType
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -23,6 +23,8 @@ class InsightsPromptBuilder @Inject constructor(
         private const val TAG = "InsightsPromptBuilder"
         private const val MAX_PROMPT_LENGTH = 2000 // Keep prompts concise for API efficiency
     }
+
+    private val logger = StructuredLogger(LogConfig.FeatureTags.INSIGHTS, TAG)
 
     /**
      * Build appropriate prompt based on insight type and financial data
@@ -432,7 +434,10 @@ class InsightsPromptBuilder @Inject constructor(
 
         // Ensure prompt isn't too long
         if (prompt.length > MAX_PROMPT_LENGTH) {
-            Timber.tag(TAG).w("Prompt too long (${prompt.length} chars), truncating")
+            logger.warn(
+                "validatePrompt",
+                "Prompt too long (${prompt.length} chars), truncating"
+            )
             validatedPrompt = prompt.take(MAX_PROMPT_LENGTH - 100) + "\n\n[Content truncated for API efficiency]"
         }
 

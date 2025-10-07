@@ -13,9 +13,9 @@ import com.expensemanager.app.R
 import com.expensemanager.app.auth.AuthManager
 import com.expensemanager.app.databinding.FragmentProfileBinding
 import com.expensemanager.app.ui.auth.SplashActivity
+import com.expensemanager.app.utils.logging.StructuredLogger
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
-import timber.log.Timber
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -23,6 +23,7 @@ class ProfileFragment : Fragment() {
 
     private var _binding: FragmentProfileBinding? = null
     private val binding get() = _binding!!
+    private val logger = StructuredLogger("ProfileFragment", "ProfileFragment")
 
     @Inject
     lateinit var authManager: AuthManager
@@ -30,7 +31,8 @@ class ProfileFragment : Fragment() {
     companion object {
         private const val TAG = "ProfileFragment"
     }
-    
+
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -87,18 +89,18 @@ class ProfileFragment : Fragment() {
     }
 
     private fun performLogout() {
-        Timber.tag(TAG).d("🔓 Logout initiated")
+        logger.debug( "performLogout","Logout initiated")
 
         lifecycleScope.launch {
             try {
                 // Get current user info before logout
                 val currentUser = authManager.getCurrentUser()
-                Timber.tag(TAG).i("🔓 Logging out user: ${currentUser?.email}")
+                logger.debug( "performLogout","Logging out user: ${currentUser?.email}")
 
                 // Sign out
                 authManager.signOut()
 
-                Timber.tag(TAG).i("✅ Logout successful")
+                logger.info( "performLogout","Logout successful")
                 Toast.makeText(requireContext(), "Logged out successfully", Toast.LENGTH_SHORT).show()
 
                 // Navigate to SplashActivity (which will redirect to Login)
@@ -108,7 +110,7 @@ class ProfileFragment : Fragment() {
                 requireActivity().finish()
 
             } catch (e: Exception) {
-                Timber.tag(TAG).e(e, "❌ Logout failed")
+                logger.error( "performLogout", "Logout failed",e)
                 Toast.makeText(
                     requireContext(),
                     "Logout failed: ${e.localizedMessage}",

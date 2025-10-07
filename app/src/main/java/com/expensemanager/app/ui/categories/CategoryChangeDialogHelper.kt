@@ -7,11 +7,11 @@ import android.widget.AutoCompleteTextView
 import com.expensemanager.app.R
 import com.expensemanager.app.databinding.DialogChangeMerchantCategoryBinding
 import com.expensemanager.app.utils.CategoryManager
+import com.expensemanager.app.utils.logging.StructuredLogger
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import timber.log.Timber
 
 class CategoryChangeDialogHelper(private val context: Context) {
-
+    private val logger = StructuredLogger("CategoryChangeDialogHelper","CategoryChangeDialogHelper")
     companion object {
         private const val TAG = "CategoryChangeDialog"
     }
@@ -54,7 +54,7 @@ class CategoryChangeDialogHelper(private val context: Context) {
 
         // Set up button listeners
         binding.btnCancel.setOnClickListener {
-            Timber.tag(TAG).d("Category change cancelled for merchant: %s", merchant.merchantName)
+            logger.debug("showChangeCategoryDialog","Category change cancelled for merchant: %s", merchant.merchantName)
             dialog.dismiss()
         }
 
@@ -63,13 +63,13 @@ class CategoryChangeDialogHelper(private val context: Context) {
             val applyToFuture = binding.cbApplyToFuture.isChecked
 
             if (selectedCategory.isNotEmpty() && selectedCategory != merchant.currentCategory) {
-                Timber.tag(TAG).d(
+                logger.debug("showChangeCategoryDialog",String.format(
                     "Changing category for %s from %s to %s (apply to future: %s)",
                     merchant.merchantName,
                     merchant.currentCategory,
                     selectedCategory,
                     applyToFuture
-                )
+                ))
 
                 onCategoryChanged(merchant.merchantName, selectedCategory, applyToFuture)
                 dialog.dismiss()

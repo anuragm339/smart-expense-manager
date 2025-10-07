@@ -1,7 +1,6 @@
 package com.expensemanager.app.ui.insights
 
 import android.os.Bundle
-import timber.log.Timber
 import com.expensemanager.app.utils.logging.LogConfig
 import android.view.LayoutInflater
 import android.view.View
@@ -47,44 +46,46 @@ import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.adapter.FragmentStateAdapter
+import com.expensemanager.app.utils.logging.StructuredLogger
 import kotlinx.coroutines.launch
 
 class InsightsFragment : Fragment() {
-    
+
     private var _binding: FragmentInsightsBinding? = null
     private val binding get() = _binding!!
-    
+
     private lateinit var viewModel: InsightsViewModel
-    
+
     // Chart setup state tracking to prevent duplicates
     private var isChartSetupInProgress = false
-    
+
     // Service dependencies
     private lateinit var dateRangeService: DateRangeService
     private lateinit var timeSeriesAggregationService: TimeSeriesAggregationService
     private lateinit var chartConfigurationService: ChartConfigurationService
-    
+
     // State management views
     private lateinit var swipeRefreshLayout: SwipeRefreshLayout
     private lateinit var shimmerLoading: View
     private lateinit var errorState: View
     private lateinit var emptyState: View
     private lateinit var contentLayout: View
-    
+
     // Enhanced Analytics Components
     private lateinit var filtersCard: View
     private lateinit var chartsCard: View
-    
+
     // Filter conditions for charts
     private var currentFilters = ChartFilterConditions()
-    
+
     // Flag to track if user has explicitly set time aggregation
     private var userHasSetTimeAggregation = false
-    
+    private val logger = StructuredLogger("InsightsFragment", "InsightsFragment")
+
     companion object {
         private const val TAG = "InsightsFragment"
     }
-    
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -106,8 +107,8 @@ class InsightsFragment : Fragment() {
         setupInteractiveCharts()
         setupDefaultFilters()
     }
-    
-    
+
+
     /**
      * Initialize view references
      */
@@ -117,12 +118,12 @@ class InsightsFragment : Fragment() {
         errorState = binding.layoutErrorState.root
         emptyState = binding.layoutEmptyState.root
         contentLayout = binding.layoutContent
-        
+
         // Initialize enhanced analytics components
         filtersCard = binding.root.findViewById(R.id.cardFilters)
         chartsCard = binding.root.findViewById(R.id.cardCharts)
     }
-    
+
     /**
      * Setup ViewModel with dependencies
      */
@@ -135,56 +136,56 @@ class InsightsFragment : Fragment() {
             val userDao = database.userDao()
             val aiInsightsRepository = AIInsightsRepository.getInstance(requireContext(), expenseRepository, aiCallDao, userDao)
             val getAIInsightsUseCase = InsightsUseCaseFactory.createGetAIInsightsUseCase(aiInsightsRepository)
-            
+
             // Create service dependencies
             val dateRangeService = DateRangeService()
             val timeSeriesAggregationService = TimeSeriesAggregationService(dateRangeService)
             val chartConfigurationService = ChartConfigurationService(requireContext())
-            
+
             // Store services for use in fragment
             this.dateRangeService = dateRangeService
             this.timeSeriesAggregationService = timeSeriesAggregationService
             this.chartConfigurationService = chartConfigurationService
-            
+
             // Create ViewModel
             val factory = InsightsViewModelFactory(getAIInsightsUseCase)
             viewModel = factory.create()
-            
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("ViewModel setup completed")
+
+            logger.debug("setupViewModel","ViewModel setup completed")
         } catch (e: Exception) {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "Error setting up ViewModel")
+            logger.error("setupViewModel", "Error setting up ViewModel",e)
             showError("Failed to initialize AI insights")
         }
     }
-    
+
     /**
      * Setup initial UI elements and loading states
      */
     private fun setupUI() {
         // Initially show shimmer loading state
         showShimmerLoading(true)
-        
+
         // Setup swipe to refresh
         setupSwipeRefresh()
-        
+
         // Setup error state retry buttons
         setupErrorStateButtons()
-        
+
         // Setup empty state button
         setupEmptyStateButton()
-        
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("UI setup completed")
+
+        logger.debug("setupUI","UI setup completed")
     }
-    
+
     /**
      * Setup swipe to refresh functionality
      */
     private fun setupSwipeRefresh() {
         swipeRefreshLayout.setOnRefreshListener {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Pull-to-refresh triggered")
+            logger.debug("setupSwipeRefresh","Pull-to-refresh triggered")
             viewModel.handleEvent(InsightsUIEvent.Refresh)
         }
-        
+
         // Customize refresh colors
         swipeRefreshLayout.setColorSchemeResources(
             R.color.primary,
@@ -192,72 +193,72 @@ class InsightsFragment : Fragment() {
             R.color.success
         )
     }
-    
+
     /**
      * Setup error state buttons
      */
     private fun setupErrorStateButtons() {
         errorState.findViewById<MaterialButton>(R.id.btnRetry)?.setOnClickListener {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Retry button clicked")
+            logger.debug("setupErrorStateButtons","Retry button clicked")
             viewModel.handleEvent(InsightsUIEvent.Retry)
         }
-        
+
         errorState.findViewById<MaterialButton>(R.id.btnUseSampleData)?.setOnClickListener {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Use sample data button clicked")
+            logger.debug("setupErrorStateButtons","Use sample data button clicked")
             // Load sample insights for demo purposes
             Toast.makeText(requireContext(), "Loading sample insights...", Toast.LENGTH_SHORT).show()
             // This would trigger loading sample data in production
         }
     }
-    
+
     /**
      * Setup empty state button
      */
     private fun setupEmptyStateButton() {
         emptyState.findViewById<MaterialButton>(R.id.btnGoToMessages)?.setOnClickListener {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Go to messages button clicked")
+            logger.debug("setupEmptyStateButton","Go to messages button clicked")
             // Navigate to messages tab (simplified approach)
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Navigate to messages requested")
+            logger.debug("setupEmptyStateButton","Navigate to messages requested")
             Toast.makeText(requireContext(), "Navigate to Messages tab to add transactions", Toast.LENGTH_SHORT).show()
         }
     }
-    
+
     /**
      * Observe ViewModel UI state and update UI accordingly
      */
     private fun observeUIState() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                
+
                 // Observe main UI state
                 launch {
                     viewModel.uiState.collect { state ->
-                        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("UI State updated: loading=${state.isLoading}, insights=${state.insights.size}, error=${state.hasError}")
+                        logger.debug("observeUIState","UI State updated: loading=${state.isLoading}, insights=${state.insights.size}, error=${state.hasError}")
                         updateUI(state)
                     }
                 }
-                
+
                 // Observe spending forecast data
                 launch {
                     viewModel.spendingForecastData.collect { forecastData ->
                         updateSpendingForecast(forecastData)
                     }
                 }
-                
+
                 // Observe pattern alerts
                 launch {
                     viewModel.patternAlerts.collect { alerts ->
                         updatePatternAlerts(alerts)
                     }
                 }
-                
+
                 // Observe savings opportunities
                 launch {
                     viewModel.savingsOpportunities.collect { savingsData ->
                         updateSavingsOpportunities(savingsData)
                     }
                 }
-                
+
                 // Observe budget recommendations
                 launch {
                     viewModel.budgetRecommendations.collect { recommendations ->
@@ -267,7 +268,7 @@ class InsightsFragment : Fragment() {
             }
         }
     }
-    
+
     /**
      * Setup click listeners for interactive elements
      */
@@ -275,9 +276,9 @@ class InsightsFragment : Fragment() {
         // Card click listeners for expansion (example)
         binding.root.findViewById<MaterialCardView>(R.id.cardSpendingForecast)?.setOnClickListener {
             // Handle spending forecast card click
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Spending forecast card clicked")
+            logger.debug("setupClickListeners", "Spending forecast card clicked")
         }
-        
+
         // Action button listeners
         binding.root.findViewById<View>(R.id.btnCreateSavingsPlan)?.setOnClickListener {
             viewModel.handleEvent(InsightsUIEvent.ActionClicked(
@@ -286,43 +287,43 @@ class InsightsFragment : Fragment() {
             ))
         }
     }
-    
+
     /**
      * Update UI based on state changes
      */
     private fun updateUI(state: InsightsUIState) {
         // Handle pull-to-refresh state
         swipeRefreshLayout.isRefreshing = state.isRefreshing
-        
+
         when {
             state.isInitialLoading -> {
                 showShimmerLoading(true)
                 hideAllOtherStates()
             }
-            
+
             state.shouldShowError -> {
                 showErrorState(state.error)
                 hideAllOtherStates(except = "error")
             }
-            
+
             state.shouldShowContent -> {
                 showContentState()
                 hideAllOtherStates(except = "content")
                 updateInsightsContent(state)
             }
-            
+
             state.shouldShowEmptyState -> {
                 showEmptyState()
                 hideAllOtherStates(except = "empty")
             }
         }
-        
+
         // Show sample data indicator if applicable
         if (state.showingSampleData && state.shouldShowContent) {
             showSampleDataIndicator()
         }
     }
-    
+
     /**
      * Show shimmer loading state
      */
@@ -331,44 +332,44 @@ class InsightsFragment : Fragment() {
             shimmerLoading.visibility = View.VISIBLE
             // Start shimmer animations
             startAllShimmerAnimations(shimmerLoading)
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Showing shimmer loading")
+            logger.debug("showShimmerLoading", "Showing shimmer loading")
         } else {
             shimmerLoading.visibility = View.GONE
             // Stop shimmer animations
             stopAllShimmerAnimations(shimmerLoading)
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Hiding shimmer loading")
+            logger.debug("showShimmerLoading", "Hiding shimmer loading")
         }
     }
-    
+
     /**
      * Show error state with message
      */
     private fun showErrorState(errorMessage: String?) {
         errorState.visibility = View.VISIBLE
-        
+
         // Update error message
-        errorState.findViewById<TextView>(R.id.tvErrorMessage)?.text = 
+        errorState.findViewById<TextView>(R.id.tvErrorMessage)?.text =
             errorMessage ?: "Something went wrong. Please try again."
-        
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Showing error state: $errorMessage")
+
+        logger.debug("showErrorState", "Showing error state: $errorMessage")
     }
-    
+
     /**
      * Show content state
      */
     private fun showContentState() {
         contentLayout.visibility = View.VISIBLE
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Showing content state")
+        logger.debug("showContentState", "Showing content state")
     }
-    
+
     /**
      * Show empty state
      */
     private fun showEmptyState() {
         emptyState.visibility = View.VISIBLE
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Showing empty state")
+        logger.debug("showEmptyState", "Showing empty state")
     }
-    
+
     /**
      * Hide all states except the specified one
      */
@@ -378,7 +379,7 @@ class InsightsFragment : Fragment() {
         if (except != "content") contentLayout.visibility = View.GONE
         if (except != "empty") emptyState.visibility = View.GONE
     }
-    
+
     /**
      * Start all shimmer animations in a view hierarchy
      */
@@ -391,7 +392,7 @@ class InsightsFragment : Fragment() {
             }
         }
     }
-    
+
     /**
      * Stop all shimmer animations in a view hierarchy
      */
@@ -404,17 +405,17 @@ class InsightsFragment : Fragment() {
             }
         }
     }
-    
+
     /**
      * Update insights content in UI
      */
     private fun updateInsightsContent(state: InsightsUIState) {
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Updating insights content with ${state.insights.size} insights")
+        logger.debug("updateInsightsContent", "Updating insights content with ${state.insights.size} insights")
 
         // Show content sections
         binding.root.visibility = View.VISIBLE
     }
-    
+
     /**
      * Update spending forecast section with direct API data
      */
@@ -424,32 +425,32 @@ class InsightsFragment : Fragment() {
             val forecastInsights = viewModel.uiState.value.getInsightsByType(InsightType.SPENDING_FORECAST)
             if (forecastInsights.isNotEmpty()) {
                 val forecastInsight = forecastInsights.first()
-                
+
                 // Show API description directly (contains all the forecast info)
                 binding.root.findViewById<TextView>(R.id.tvSpendingAmount)?.text = forecastInsight.description
                 binding.root.findViewById<TextView>(R.id.tvSpendingAdvice)?.text = forecastInsight.actionableAdvice
-                
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Spending forecast updated with direct API data")
+
+                logger.debug("updateSpendingForecast", "Spending forecast updated with direct API data")
             } else {
                 // Fallback to calculated data if no API insight available
-                binding.root.findViewById<TextView>(R.id.tvSpendingAmount)?.text = 
+                binding.root.findViewById<TextView>(R.id.tvSpendingAmount)?.text =
                     "Based on your current spending pattern, you're likely to spend ₹${String.format("%.0f", forecastData.projectedAmount)} this month."
-                
+
                 binding.root.findViewById<TextView>(R.id.tvSpendingAdvice)?.text = forecastData.advice.ifEmpty {
                     "That's ${String.format("%.0f", forecastData.comparisonToLastMonth)}% more than last month."
                 }
             }
-            
+
             // Update progress bar with API data if available
             binding.root.findViewById<View>(R.id.progressSpending)?.let { progressBar ->
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Updated spending progress: ${forecastData.progressPercentage}%")
+                logger.debug("updateSpendingForecast", "Updated spending progress: ${forecastData.progressPercentage}%")
             }
-            
+
         } catch (e: Exception) {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "Error updating spending forecast")
+            logger.error("updateSpendingForecast", "Error updating spending forecast", e)
         }
     }
-    
+
     /**
      * Update pattern alerts section with direct API data
      */
@@ -457,79 +458,79 @@ class InsightsFragment : Fragment() {
         try {
             // Get pattern alert insights directly from API
             val patternInsights = viewModel.uiState.value.getInsightsByType(InsightType.PATTERN_ALERT)
-            
+
             if (patternInsights.isNotEmpty()) {
                 // Show first alert directly from API
-                binding.root.findViewById<TextView>(R.id.tvPatternAlert1)?.text = 
+                binding.root.findViewById<TextView>(R.id.tvPatternAlert1)?.text =
                     patternInsights[0].description
-                
+
                 // Show second alert if available
                 if (patternInsights.size > 1) {
-                    binding.root.findViewById<TextView>(R.id.tvPatternAlert2)?.text = 
+                    binding.root.findViewById<TextView>(R.id.tvPatternAlert2)?.text =
                         patternInsights[1].description
                 } else {
-                    binding.root.findViewById<TextView>(R.id.tvPatternAlert2)?.text = 
+                    binding.root.findViewById<TextView>(R.id.tvPatternAlert2)?.text =
                         "No additional alerts"
                 }
-                
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Pattern alerts updated with direct API data: ${patternInsights.size} alerts")
+
+                logger.debug("updatePatternAlerts", "Pattern alerts updated with direct API data: ${patternInsights.size} alerts")
             } else {
                 // Show no alerts message
-                binding.root.findViewById<TextView>(R.id.tvPatternAlert1)?.text = 
+                binding.root.findViewById<TextView>(R.id.tvPatternAlert1)?.text =
                     "No pattern alerts from API"
-                binding.root.findViewById<TextView>(R.id.tvPatternAlert2)?.text = 
+                binding.root.findViewById<TextView>(R.id.tvPatternAlert2)?.text =
                     "All spending patterns appear normal"
             }
         } catch (e: Exception) {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "Error updating pattern alerts")
+            logger.error("updatePatternAlerts", "Error updating pattern alerts", e)
         }
     }
-    
+
     /**
      * Update savings opportunities section with direct API data
      */
     private fun updateSavingsOpportunities(savingsData: SavingsOpportunityUIData) {
         try {
             // Keep the calculated savings amounts (API doesn't provide specific amounts)
-            binding.root.findViewById<TextView>(R.id.tvMonthlySavings)?.text = 
+            binding.root.findViewById<TextView>(R.id.tvMonthlySavings)?.text =
                 "₹${String.format("%.0f", savingsData.monthlyPotential)}"
-            
-            binding.root.findViewById<TextView>(R.id.tvYearlySavings)?.text = 
+
+            binding.root.findViewById<TextView>(R.id.tvYearlySavings)?.text =
                 "₹${String.format("%.0f", savingsData.yearlyImpact)}"
-            
+
             // But use actual API recommendations for the text
             val savingsInsights = viewModel.uiState.value.getInsightsByType(InsightType.SAVINGS_OPPORTUNITY)
             if (savingsInsights.isNotEmpty()) {
                 // Show first API recommendation
-                binding.root.findViewById<TextView>(R.id.tvSavingsRecommendation1)?.text = 
+                binding.root.findViewById<TextView>(R.id.tvSavingsRecommendation1)?.text =
                     savingsInsights[0].description
-                
+
                 // Show second recommendation if available from API
                 if (savingsInsights.size > 1) {
-                    binding.root.findViewById<TextView>(R.id.tvSavingsRecommendation2)?.text = 
+                    binding.root.findViewById<TextView>(R.id.tvSavingsRecommendation2)?.text =
                         savingsInsights[1].description
                 } else {
                     // Hide second recommendation or show placeholder
-                    binding.root.findViewById<TextView>(R.id.tvSavingsRecommendation2)?.text = 
+                    binding.root.findViewById<TextView>(R.id.tvSavingsRecommendation2)?.text =
                         "Continue monitoring spending for more opportunities"
                 }
-                
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Savings opportunities updated with API recommendations: ${savingsInsights.size}")
+
+                logger.debug("updateSavingsOpportunities", "Savings opportunities updated with API recommendations: ${savingsInsights.size}")
             } else {
                 // Fallback to calculated data
                 if (savingsData.recommendations.isNotEmpty()) {
-                    binding.root.findViewById<TextView>(R.id.tvSavingsRecommendation1)?.text = 
+                    binding.root.findViewById<TextView>(R.id.tvSavingsRecommendation1)?.text =
                         savingsData.recommendations.firstOrNull() ?: "No specific recommendations available"
-                    
+
                     if (savingsData.recommendations.size > 1) {
-                        binding.root.findViewById<TextView>(R.id.tvSavingsRecommendation2)?.text = 
+                        binding.root.findViewById<TextView>(R.id.tvSavingsRecommendation2)?.text =
                             savingsData.recommendations[1]
                     }
                 }
             }
-            
+
         } catch (e: Exception) {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "Error updating savings opportunities")
+            logger.error("updateSavingsOpportunities", "Error updating savings opportunities", e)
         }
     }
 
@@ -540,7 +541,7 @@ class InsightsFragment : Fragment() {
     private fun showLoadingState(isLoading: Boolean) {
         showShimmerLoading(isLoading)
     }
-    
+
     /**
      * Update budget optimization section with API recommendations
      */
@@ -548,46 +549,46 @@ class InsightsFragment : Fragment() {
         try {
             // Update first recommendation if available
             if (recommendations.isNotEmpty()) {
-                binding.root.findViewById<TextView>(R.id.tvSavingsRecommendation1)?.text = 
+                binding.root.findViewById<TextView>(R.id.tvSavingsRecommendation1)?.text =
                     recommendations.first()
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Updated first budget recommendation: ${recommendations.first()}")
+                logger.debug("updateBudgetOptimization", "Updated first budget recommendation: ${recommendations.first()}")
             }
-            
+
             // Update second recommendation if available
             if (recommendations.size > 1) {
-                binding.root.findViewById<TextView>(R.id.tvSavingsRecommendation2)?.text = 
+                binding.root.findViewById<TextView>(R.id.tvSavingsRecommendation2)?.text =
                     recommendations[1]
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Updated second budget recommendation: ${recommendations[1]}")
+                logger.debug("updateBudgetOptimization", "Updated second budget recommendation: ${recommendations[1]}")
             } else {
                 // Hide second recommendation if only one available
-                binding.root.findViewById<TextView>(R.id.tvSavingsRecommendation2)?.visibility = 
+                binding.root.findViewById<TextView>(R.id.tvSavingsRecommendation2)?.visibility =
                     android.view.View.GONE
             }
-            
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Budget optimization updated with ${recommendations.size} recommendations")
+
+            logger.debug("updateBudgetOptimization", "Budget optimization updated with ${recommendations.size} recommendations")
         } catch (e: Exception) {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "Error updating budget optimization")
+            logger.error("updateBudgetOptimization", "Error updating budget optimization", e)
         }
     }
-    
+
     /**
      * Show error message via Toast (for additional feedback)
      */
     private fun showError(message: String?) {
         if (message != null) {
             Toast.makeText(requireContext(), "Insights: $message", Toast.LENGTH_LONG).show()
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e("Showing error toast: $message")
+            logger.error("showError", "Showing error toast: $message",null)
         }
     }
-    
+
     /**
      * Show indicator that we're using sample data
      */
     private fun showSampleDataIndicator() {
         // Could show a small badge or toast indicating sample data
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Using sample insights data")
+        logger.debug("showSampleDataIndicator", "Using sample insights data")
     }
-    
+
     private fun setupDefaultFilters() {
         val calendar = Calendar.getInstance()
         val currentDay = calendar.get(Calendar.DAY_OF_MONTH)
@@ -607,25 +608,25 @@ class InsightsFragment : Fragment() {
         // Apply the default filters
         applyDateRangeFilter("This Month")
     }
-    
+
     /**
      * Handle refresh action (connected to pull-to-refresh)
      */
     private fun onRefresh() {
         viewModel.handleEvent(InsightsUIEvent.Refresh)
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Manual refresh triggered")
+        logger.debug("onRefresh", "Manual refresh triggered")
     }
-    
+
     override fun onDestroyView() {
         super.onDestroyView()
-        
+
         // Stop any running shimmer animations
         stopAllShimmerAnimations(binding.root)
-        
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Fragment view destroyed")
+
+        logger.debug("onDestroyView", "Fragment view destroyed")
         _binding = null
     }
-    
+
     override fun onPause() {
         super.onPause()
         // Stop shimmer animations when fragment is not visible
@@ -633,7 +634,7 @@ class InsightsFragment : Fragment() {
             stopAllShimmerAnimations(shimmerLoading)
         }
     }
-    
+
     override fun onResume() {
         super.onResume()
         // Restart shimmer animations if we're in loading state
@@ -643,127 +644,127 @@ class InsightsFragment : Fragment() {
 
         // Refresh charts when fragment becomes visible if content is already loaded
         if (::viewModel.isInitialized && ::contentLayout.isInitialized && contentLayout.visibility == View.VISIBLE) {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Fragment resumed with content visible - refreshing charts to ensure proper rendering")
+            logger.debug("onResume", "Fragment resumed with content visible - refreshing charts to ensure proper rendering")
             viewLifecycleOwner.lifecycleScope.launch {
                 // Small delay to ensure fragment is fully visible
                 kotlinx.coroutines.delay(100)
                 updateChartsWithFilteredData()
             }
         }
-        
+
         // Force refresh if no data is currently displayed
         if (::viewModel.isInitialized && viewModel.uiState.value.insights.isEmpty()) {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Fragment resumed with no data - triggering refresh")
+            logger.debug("onResume", "Fragment resumed with no data - triggering refresh")
             viewModel.handleEvent(InsightsUIEvent.Refresh)
         }
     }
-    
+
     // ===== ENHANCED ANALYTICS FUNCTIONALITY =====
-    
+
     /**
      * Setup enhanced filter functionality
      */
     private fun setupAnalyticsFilters() {
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Setting up enhanced analytics filters")
-        
+        logger.debug("setupAnalyticsFilters", "Setting up enhanced analytics filters")
+
         // First ensure the filter card is visible
         val cardFilters = binding.root.findViewById<View>(R.id.cardFilters)
         if (cardFilters != null) {
             cardFilters.visibility = View.VISIBLE
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("FILTER: Filter card found and set to visible")
+            logger.debug("setupAnalyticsFilters", "Filter card found and set to visible")
         } else {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).w("FILTER: Filter card not found in layout")
+            logger.warn("setupAnalyticsFilters", "Filter card not found in layout")
         }
-        
+
         // Date Range Filter
         val btnDateRange = binding.root.findViewById<View>(R.id.btnDateRange)
         if (btnDateRange != null) {
             btnDateRange.setOnClickListener {
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("FILTER: Date range button clicked")
+                logger.debug("setupAnalyticsFilters", "Date range button clicked")
                 showDateRangeDialog()
             }
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("FILTER: Date range button found and listener set")
+            logger.debug("setupAnalyticsFilters", "Date range button found and listener set")
         } else {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).w("FILTER: Date range button not found in layout")
+            logger.warn("setupAnalyticsFilters", "Date range button not found in layout")
         }
-        
+
         // Time Period Filter
         val btnTimePeriod = binding.root.findViewById<View>(R.id.btnTimePeriod)
         if (btnTimePeriod != null) {
             btnTimePeriod.setOnClickListener {
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("FILTER: Time period button clicked")
+                logger.debug("setupAnalyticsFilters", "Time period button clicked")
                 showTimePeriodDialog()
             }
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("FILTER: Time period button found and listener set")
+            logger.debug("setupAnalyticsFilters", "Time period button found and listener set")
         } else {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).w("FILTER: Time period button not found in layout")
+            logger.warn("setupAnalyticsFilters", "Time period button not found in layout")
         }
-        
+
         // Category Filter
         val btnCategoryFilter = binding.root.findViewById<View>(R.id.btnCategoryFilter)
         if (btnCategoryFilter != null) {
             btnCategoryFilter.setOnClickListener {
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("FILTER: Category filter button clicked")
+                logger.debug("setupAnalyticsFilters", "Category filter button clicked")
                 showCategoryFilterDialog()
             }
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("FILTER: Category filter button found and listener set")
+            logger.debug("setupAnalyticsFilters", "Category filter button found and listener set")
         } else {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).w("FILTER: Category filter button not found in layout")
+            logger.warn("setupAnalyticsFilters", "Category filter button not found in layout")
         }
-        
+
         // Merchant Filter
         val btnMerchantFilter = binding.root.findViewById<View>(R.id.btnMerchantFilter)
         if (btnMerchantFilter != null) {
             btnMerchantFilter.setOnClickListener {
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("FILTER: Merchant filter button clicked")
+                logger.debug("setupAnalyticsFilters", "Merchant filter button clicked")
                 showMerchantFilterDialog()
             }
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("FILTER: Merchant filter button found and listener set")
+            logger.debug("setupAnalyticsFilters", "Merchant filter button found and listener set")
         } else {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).w("FILTER: Merchant filter button not found in layout")
+            logger.warn("setupAnalyticsFilters", "Merchant filter button not found in layout")
         }
-        
+
         // Amount Range Slider
         val rangeSlider = binding.root.findViewById<com.google.android.material.slider.RangeSlider>(R.id.rangeSliderAmount)
         if (rangeSlider != null) {
             rangeSlider.addOnChangeListener {
-                _, _, _ ->
+                    _, _, _ ->
                 updateAmountRangeDisplay(rangeSlider.values)
-                
+
                 // Update filter conditions
                 currentFilters.minAmount = rangeSlider.values[0].toDouble()
                 currentFilters.maxAmount = rangeSlider.values[1].toDouble()
-                
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("FILTER: Amount range updated: ₹${currentFilters.minAmount} - ₹${currentFilters.maxAmount}")
-                
+
+                logger.debug("setupAnalyticsFilters", "Amount range updated: ₹${currentFilters.minAmount} - ₹${currentFilters.maxAmount}")
+
                 // Trigger analytics refresh with new filters
                 applyFiltersAndRefresh()
             }
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("FILTER: Range slider found and listener set")
+            logger.debug("setupAnalyticsFilters", "Range slider found and listener set")
         } else {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).w("FILTER: Range slider not found in layout")
+            logger.warn("setupAnalyticsFilters", "Range slider not found in layout")
         }
     }
-    
-    
+
+
     /**
      * Show date range selection dialog
      */
     private fun showDateRangeDialog() {
         val dateRanges = resources.getStringArray(R.array.date_ranges)
-        
+
         androidx.appcompat.app.AlertDialog.Builder(requireContext())
             .setTitle("Select Date Range")
             .setItems(dateRanges) { _, which ->
                 val selectedRange = dateRanges[which]
                 binding.root.findViewById<android.widget.TextView>(R.id.btnDateRange)?.text = selectedRange
-                
+
                 // Apply the selected date range
                 applyDateRangeFilter(selectedRange)
             }
             .show()
     }
-    
+
     /**
      * Show time period selection dialog
      */
@@ -771,49 +772,49 @@ class InsightsFragment : Fragment() {
         // PIE_CHART_FIX: Check if we're currently in PIE Chart tab (position 0)
         val tabLayout = binding.root.findViewById<com.google.android.material.tabs.TabLayout>(R.id.tabLayoutCharts)
         val currentTab = tabLayout?.selectedTabPosition ?: 0
-        
+
         if (currentTab == 0) {
             // We're in PIE chart tab - time period doesn't apply to pie charts
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("PIE_CHART_FIX: Time period dialog blocked - currently in PIE Chart tab")
+            logger.debug("showTimePeriodDialog", "Time period dialog blocked - currently in PIE Chart tab")
             return
         }
-        
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("TIME_PERIOD_FILTER: Showing time period dialog for tab position: $currentTab")
+
+        logger.debug("showTimePeriodDialog", "Showing time period dialog for tab position: $currentTab")
         val timePeriods = resources.getStringArray(R.array.time_periods)
-        
+
         androidx.appcompat.app.AlertDialog.Builder(requireContext())
             .setTitle("Select Time Period")
             .setItems(timePeriods) { _, which ->
                 val selectedPeriod = timePeriods[which]
                 binding.root.findViewById<android.widget.TextView>(R.id.btnTimePeriod)?.text = selectedPeriod
-                
+
                 // Apply the selected time period
                 applyTimePeriodFilter(selectedPeriod)
             }
             .show()
     }
-    
+
     /**
      * Show category filter dialog
      */
     private fun showCategoryFilterDialog() {
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("FILTER: Category filter dialog requested")
-        
+        logger.debug("showCategoryFilterDialog", "Category filter dialog requested")
+
         viewLifecycleOwner.lifecycleScope.launch {
             try {
                 val expenseRepository = ExpenseRepository.getInstance(requireContext())
                 val categories = expenseRepository.getAllCategoriesSync()
-                
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("PIE_CHART_FIX: Loading categories from DB - Found ${categories.size} categories")
+
+                logger.debug("showCategoryFilterDialog", "Loading categories from DB - Found ${categories.size} categories")
                 categories.forEach { category ->
-                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("PIE_CHART_FIX: Category from DB: ${category.name} (ID: ${category.id})")
+                    logger.debug("showCategoryFilterDialog", "Category from DB: ${category.name} (ID: ${category.id})")
                 }
-                
+
                 val categoryNames = categories.map { category -> category.name }.toTypedArray()
                 val selectedItems = BooleanArray(categoryNames.size) { index ->
                     currentFilters.selectedCategories.contains(categoryNames[index])
                 }
-                
+
                 androidx.appcompat.app.AlertDialog.Builder(requireContext())
                     .setTitle("Select Categories")
                     .setMultiChoiceItems(categoryNames, selectedItems) { _, which: Int, isChecked: Boolean ->
@@ -827,8 +828,8 @@ class InsightsFragment : Fragment() {
                             }
                         }
                         currentFilters.selectedCategories = selectedCategories
-                        
-                        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("FILTER: Selected categories: ${selectedCategories.joinToString()}")
+
+                        logger.debug("showCategoryFilterDialog", "Selected categories: ${selectedCategories.joinToString()}")
                         applyFiltersAndRefresh()
                     }
                     .setNegativeButton("Clear") { _: android.content.DialogInterface, _: Int ->
@@ -836,30 +837,30 @@ class InsightsFragment : Fragment() {
                         applyFiltersAndRefresh()
                     }
                     .show()
-                    
+
             } catch (e: Exception) {
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "FILTER: Error loading categories")
+                logger.error("showCategoryFilterDialog", "Error loading categories", e)
                 Toast.makeText(requireContext(), "Error loading categories", Toast.LENGTH_SHORT).show()
             }
         }
     }
-    
+
     /**
      * Show merchant filter dialog
      */
     private fun showMerchantFilterDialog() {
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("FILTER: Merchant filter dialog requested")
-        
+        logger.debug("showMerchantFilterDialog", "Merchant filter dialog requested")
+
         viewLifecycleOwner.lifecycleScope.launch {
             try {
                 val expenseRepository = ExpenseRepository.getInstance(requireContext())
                 val merchants = expenseRepository.getAllMerchants()
-                
+
                 val merchantNames = merchants.map { merchant -> merchant.displayName }.toTypedArray()
                 val selectedItems = BooleanArray(merchantNames.size) { index ->
                     currentFilters.selectedMerchants.contains(merchants[index].normalizedName)
                 }
-                
+
                 androidx.appcompat.app.AlertDialog.Builder(requireContext())
                     .setTitle("Select Merchants")
                     .setMultiChoiceItems(merchantNames, selectedItems) { _, which: Int, isChecked: Boolean ->
@@ -874,8 +875,8 @@ class InsightsFragment : Fragment() {
                             }
                         }
                         currentFilters.selectedMerchants = selectedMerchants
-                        
-                        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("FILTER: Selected merchants: ${selectedMerchants.joinToString()}")
+
+                        logger.debug("showMerchantFilterDialog", "Selected merchants: ${selectedMerchants.joinToString()}")
                         applyFiltersAndRefresh()
                     }
                     .setNegativeButton("Clear") { _: android.content.DialogInterface, _: Int ->
@@ -883,14 +884,14 @@ class InsightsFragment : Fragment() {
                         applyFiltersAndRefresh()
                     }
                     .show()
-                    
+
             } catch (e: Exception) {
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "FILTER: Error loading merchants")
+                logger.error("showMerchantFilterDialog", "Error loading merchants", e)
                 Toast.makeText(requireContext(), "Error loading merchants", Toast.LENGTH_SHORT).show()
             }
         }
     }
-    
+
     /**
      * Update amount range display
      */
@@ -902,11 +903,11 @@ class InsightsFragment : Fragment() {
         } else {
             "$minAmount-$maxAmount"
         }
-        
+
         binding.root.findViewById<android.widget.TextView>(R.id.tvAmountRange)?.text = displayText
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Amount range updated: $displayText")
+        logger.debug("updateAmountRangeDisplay", "Amount range updated: $displayText")
     }
-    
+
     /**
      * Apply filters to transaction list
      */
@@ -920,20 +921,20 @@ class InsightsFragment : Fragment() {
                 val categoryName = getCategoryNameForTransaction(transaction)
                 filters.selectedCategories.contains(categoryName)
             } else true
-            
+
             // Merchant filter - use normalized merchant name
             val merchantMatch = if (filters.selectedMerchants.isNotEmpty()) {
                 filters.selectedMerchants.contains(transaction.normalizedMerchant)
             } else true
-            
+
             // Amount range filter
-            val amountMatch = transaction.amount >= filters.minAmount && 
-                             transaction.amount <= filters.maxAmount
-            
+            val amountMatch = transaction.amount >= filters.minAmount &&
+                    transaction.amount <= filters.maxAmount
+
             categoryMatch && merchantMatch && amountMatch
         }
     }
-    
+
     /**
      * Get category name for a transaction through merchant relationship
      */
@@ -943,16 +944,16 @@ class InsightsFragment : Fragment() {
             val merchantWithCategory = expenseRepository.getMerchantWithCategory(transaction.normalizedMerchant)
             merchantWithCategory?.category_name ?: "Other"
         } catch (e: Exception) {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "Error getting category for transaction")
+            logger.error("getCategoryNameForTransaction", "Error getting category for transaction", e)
             "Other"
         }
     }
-    
+
     /**
      * Apply date range filter with smart time aggregation update
      */
     private fun applyDateRangeFilter(dateRange: String) {
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("FILTER: Applying date range filter: $dateRange")
+        logger.debug("applyDateRangeFilter", "Applying date range filter: $dateRange")
 
         try {
             val dateRangeType = when (dateRange) {
@@ -975,20 +976,20 @@ class InsightsFragment : Fragment() {
                 if (!userHasSetTimeAggregation) {
                     currentFilters.timeAggregation = getSmartTimeAggregation(startDate, endDate)
                     binding.root.findViewById<TextView>(R.id.btnTimePeriod)?.text = currentFilters.timeAggregation
-                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("BAR_CHART_FIX: Applied smart time aggregation: ${currentFilters.timeAggregation}")
+                    logger.debug("applyDateRangeFilter", "Applied smart time aggregation: ${currentFilters.timeAggregation}")
                 } else {
-                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("BAR_CHART_FIX: Preserving user-selected time aggregation: ${currentFilters.timeAggregation}")
+                    logger.debug("applyDateRangeFilter", "Preserving user-selected time aggregation: ${currentFilters.timeAggregation}")
                 }
 
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("BAR_CHART_FIX: Applied ${dateRange} filter: ${startDate} to ${endDate}")
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("BAR_CHART_FIX: Updated time aggregation to: ${currentFilters.timeAggregation}")
+                logger.debug("applyDateRangeFilter", "Applied ${dateRange} filter: ${startDate} to ${endDate}")
+                logger.debug("applyDateRangeFilter", "Updated time aggregation to: ${currentFilters.timeAggregation}")
             } else {
                 currentFilters.startDate = null
                 currentFilters.endDate = null
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("FILTER: No specific date range filter applied for: $dateRange")
+                logger.debug("applyDateRangeFilter", "No specific date range filter applied for: $dateRange")
             }
         } catch (e: Exception) {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "FILTER: Error applying date range filter")
+            logger.error("applyDateRangeFilter", "Error applying date range filter", e)
             currentFilters.startDate = null
             currentFilters.endDate = null
         }
@@ -997,67 +998,67 @@ class InsightsFragment : Fragment() {
         binding.root.findViewById<TextView>(R.id.btnDateRange)?.text = dateRange
         applyFiltersAndRefresh()
     }
-    
+
     /**
      * Apply time period filter (user override of smart aggregation)
      */
     private fun applyTimePeriodFilter(timePeriod: String) {
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("TIME_PERIOD_FILTER: User overriding time period filter: $timePeriod")
-        
+        logger.debug("applyTimePeriodFilter", "User overriding time period filter: $timePeriod")
+
         // User can override smart aggregation - this takes precedence
         currentFilters.timeAggregation = timePeriod
         userHasSetTimeAggregation = true  // Mark that user explicitly set this
-        
+
         // Log for debugging
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("BAR_CHART_USER_OVERRIDE: User manually set timeAggregation to: ${currentFilters.timeAggregation}")
-        
+        logger.debug("applyTimePeriodFilter", "User manually set timeAggregation to: ${currentFilters.timeAggregation}")
+
         // Apply the filter and refresh the charts
         applyFiltersAndRefresh()
     }
-    
+
     /**
      * Apply all current filters and refresh analytics
      */
     private fun applyFiltersAndRefresh() {
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Applying all filters and refreshing analytics")
-        
+        logger.debug("applyFiltersAndRefresh", "Applying all filters and refreshing analytics")
+
         // Show loading state
         showShimmerLoading(true)
-        
+
         // Trigger refresh with current filters
         viewModel.handleEvent(InsightsUIEvent.Refresh)
-        
+
         // Update chart data with filtered results
         updateChartsWithFilteredData()
     }
-    
+
     /**
      * Setup interactive charts
      */
     private fun setupInteractiveCharts() {
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Setting up interactive charts")
-        
+        logger.debug("setupInteractiveCharts", "Setting up interactive charts")
+
         // Setup chart tabs
         setupChartTabs()
-        
+
         // Initialize chart view pager
         setupChartViewPager()
-        
+
         // Chart summary stats will be updated when real data is loaded
     }
-    
+
     /**
      * Setup chart tabs
      */
     private fun setupChartTabs() {
         val tabLayout = binding.root.findViewById<com.google.android.material.tabs.TabLayout>(R.id.tabLayoutCharts)
-        
+
         tabLayout?.let { tabs ->
             tabs.removeAllTabs()
             tabs.addTab(tabs.newTab().setText("Categories").setIcon(R.drawable.ic_chart))
             tabs.addTab(tabs.newTab().setText("Monthly").setIcon(R.drawable.ic_chart))
             // UI_SIMPLIFICATION: Hide Trends tab to keep only PIE and BAR charts
-            
+
             tabs.addOnTabSelectedListener(object : com.google.android.material.tabs.TabLayout.OnTabSelectedListener {
                 override fun onTabSelected(tab: com.google.android.material.tabs.TabLayout.Tab?) {
                     tab?.let {
@@ -1069,79 +1070,83 @@ class InsightsFragment : Fragment() {
             })
         }
     }
-    
+
     /**
      * Setup chart ViewPager
      */
     private fun setupChartViewPager() {
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Setting up chart ViewPager")
+        logger.debug("setupChartViewPager", "Setting up chart ViewPager")
         // ViewPager2 setup would be implemented with chart fragments
         // This is a placeholder for the actual chart implementation
     }
-    
+
     /**
      * Update chart ViewPager
      */
     private fun updateChartViewPager(position: Int) {
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("UI_SIMPLIFICATION: Updating chart ViewPager to position: $position")
+        logger.debug("updateChartViewPager", "Updating chart ViewPager to position: $position")
         // Switch between PIE and BAR charts only (Trends tab removed)
         when (position) {
             0 -> showCategoryPieChart()
             1 -> showMonthlyBarChart()
             // UI_SIMPLIFICATION: Removed Trends chart case (position 2)
+            else -> {
+                logger.warn("updateChartViewPager", "Unknown tab position: $position, defaulting to PIE chart")
+                showCategoryPieChart()
+            }
         }
     }
-    
+
     /**
      * Show category pie chart
      */
     private fun showCategoryPieChart() {
         if (isChartSetupInProgress) {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("PIE_CHART: Chart setup already in progress, skipping duplicate call")
+            logger.debug("showCategoryPieChart", "Chart setup already in progress, skipping duplicate call")
             return
         }
-        
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("PIE_CHART: FILTER_ENABLED Showing category pie chart with applied filters")
+
+        logger.debug("showCategoryPieChart", "Showing category pie chart with applied filters")
         isChartSetupInProgress = true
-        
+
         viewLifecycleOwner.lifecycleScope.launch {
             try {
                 val expenseRepository = ExpenseRepository.getInstance(requireContext())
-                
+
                 // Get filtered category spending data
                 val categorySpendingResults = getFilteredCategorySpending(expenseRepository)
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("PIE_CHART: Retrieved ${categorySpendingResults.size} categories with filters applied")
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("FILTER: Active filters - Categories: ${currentFilters.selectedCategories.joinToString()}, Amount: ₹${currentFilters.minAmount}-₹${currentFilters.maxAmount}")
-                
+                logger.debug("showCategoryPieChart", "Retrieved ${categorySpendingResults.size} categories with filters applied")
+                logger.debug("showCategoryPieChart", "Active filters - Categories: ${currentFilters.selectedCategories.joinToString()}, Amount: ₹${currentFilters.minAmount}-₹${currentFilters.maxAmount}")
+
                 // PIE_CHART_FIX: Debug which categories are coming from spending data
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("PIE_CHART_FIX: Categories from spending data:")
+                logger.debug("showCategoryPieChart", "Categories from spending data:")
                 categorySpendingResults.forEach { category ->
-                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("PIE_CHART_FIX: Spending category: ${category.category_name} - ₹${category.total_amount} (${category.transaction_count} transactions)")
+                    logger.debug("showCategoryPieChart", "Spending category: ${category.category_name} - ₹${category.total_amount} (${category.transaction_count} transactions)")
                 }
-                
+
                 if (categorySpendingResults.isNotEmpty()) {
                     setupCategoryPieChart(categorySpendingResults)
                 } else {
-                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("PIE_CHART: No category data available for filtered period, showing empty state")
+                    logger.debug("showCategoryPieChart", "No category data available for filtered period, showing empty state")
                     showEmptyPieChart()
                 }
-                
+
             } catch (e: Exception) {
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "PIE_CHART: Error loading filtered category data")
+                logger.error("showCategoryPieChart", "Error loading filtered category data", e)
                 showEmptyPieChart()
             } finally {
                 isChartSetupInProgress = false
             }
         }
     }
-    
+
     /**
      * Get current date filter range based on system date and user context
      */
     private fun getCurrentDateFilterRange(): Pair<Date, Date> {
         val calendar = Calendar.getInstance()
         val today = calendar.time
-        
+
         // Default to current month for better relevance
         calendar.set(Calendar.DAY_OF_MONTH, 1)
         calendar.set(Calendar.HOUR_OF_DAY, 0)
@@ -1149,7 +1154,7 @@ class InsightsFragment : Fragment() {
         calendar.set(Calendar.SECOND, 0)
         calendar.set(Calendar.MILLISECOND, 0)
         val startOfMonth = calendar.time
-        
+
         // End of current month
         calendar.add(Calendar.MONTH, 1)
         calendar.add(Calendar.DAY_OF_MONTH, -1)
@@ -1158,92 +1163,92 @@ class InsightsFragment : Fragment() {
         calendar.set(Calendar.SECOND, 59)
         calendar.set(Calendar.MILLISECOND, 999)
         val endOfMonth = calendar.time
-        
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("PIE_CHART: Current system date filter - Start: $startOfMonth, End: $endOfMonth")
-        
+
+        logger.debug("getCurrentDateFilterRange", "Current system date filter - Start: $startOfMonth, End: $endOfMonth")
+
         return Pair(startOfMonth, endOfMonth)
     }
-    
+
     /**
      * Setup category pie chart with actual data
      */
     private fun setupCategoryPieChart(categorySpendingResults: List<com.expensemanager.app.data.dao.CategorySpendingResult>) {
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("PIE_CHART: Setting up pie chart with ${categorySpendingResults.size} categories")
-        
+        logger.debug("setupCategoryPieChart", "Setting up pie chart with ${categorySpendingResults.size} categories")
+
         try {
             // LAYOUT_FIX: Find the pie chart with ViewPager2 support
             val chartView = findChartView()
             if (chartView == null) {
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).e("PIE_CHART: Could not find chart view")
+                logger.error("setupCategoryPieChart", "Could not find chart view",null)
                 return
             }
-            
+
             // Show pie chart layout and find PieChart component
             showPieChartLayout()
-            
+
             // LAYOUT_FIX: Handle ViewPager2 properly like BAR chart does
             val pieChart = if (chartView is androidx.viewpager2.widget.ViewPager2) {
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("PIE_CHART_LAYOUT_FIX: chartView is ViewPager2, setting up adapter and finding PieChart")
-                
+                logger.debug("setupCategoryPieChart", "chartView is ViewPager2, setting up adapter and finding PieChart")
+
                 // Set up ViewPager2 adapter if not already set
                 if (chartView.adapter == null) {
                     chartView.adapter = ChartPagerAdapter(this@InsightsFragment)
                 }
-                
+
                 // Switch to pie chart page (index 0)
                 chartView.currentItem = 0
-                
+
                 // Give time for the ViewPager2 to settle and then find the PieChart
                 chartView.post {
                     try {
-                        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("PIE_CHART_LAYOUT_FIX: Looking for PieChart in ViewPager2 at position 0")
+                        logger.debug("setupCategoryPieChart", "Looking for PieChart in ViewPager2 at position 0")
                         val currentFragment = chartView.getChildAt(0)
                         currentFragment?.findViewById<PieChart>(R.id.pieChartCategories)?.let { chart ->
-                            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("PIE_CHART_LAYOUT_FIX: Found PieChart in ViewPager2")
+                            logger.debug("setupCategoryPieChart", "Found PieChart in ViewPager2")
                             setupPieChartData(chart, categorySpendingResults)
                         } ?: run {
-                            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e("PIE_CHART_LAYOUT_FIX: PieChart not found in ViewPager2 fragment")
+                            logger.error("setupCategoryPieChart", "PieChart not found in ViewPager2 fragment",null)
                             // Try direct lookup as fallback
                             binding.root.findViewById<PieChart>(R.id.pieChartCategories)?.let { chart ->
-                                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("PIE_CHART_LAYOUT_FIX: Found PieChart via direct lookup fallback")
+                                logger.debug("setupCategoryPieChart", "Found PieChart via direct lookup fallback")
                                 setupPieChartData(chart, categorySpendingResults)
                             }
                         }
                     } catch (e: Exception) {
-                        Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "PIE_CHART_LAYOUT_FIX: Error in ViewPager2 post block")
+                        logger.error("setupCategoryPieChart", "Error in ViewPager2 post block", e)
                     }
                 }
-                
+
                 return // Exit early for ViewPager2 case
             } else {
                 // Direct layout case
                 chartView.findViewById<PieChart>(R.id.pieChartCategories)
             }
-            
+
             if (pieChart == null) {
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).e("PIE_CHART: PieChart component not found in layout")
+                logger.error("setupCategoryPieChart", "PieChart component not found in layout",null)
                 return
             }
-            
+
             // Setup chart data for direct layout case
             setupPieChartData(pieChart, categorySpendingResults)
-            
+
         } catch (e: Exception) {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "PIE_CHART: Error setting up pie chart")
+            logger.error("setupCategoryPieChart", "Error setting up pie chart", e)
         }
     }
-    
+
     /**
      * LAYOUT_FIX: Setup pie chart data - extracted to separate method for ViewPager2 compatibility
      */
     private fun setupPieChartData(pieChart: PieChart, categorySpendingResults: List<com.expensemanager.app.data.dao.CategorySpendingResult>) {
         try {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("PIE_CHART_LAYOUT_FIX: Setting up pie chart data for ${categorySpendingResults.size} categories")
-            
+            logger.debug("setupPieChartData", "Setting up pie chart data for ${categorySpendingResults.size} categories")
+
             // Calculate total for percentages
             val totalAmount = categorySpendingResults.sumOf { result -> result.total_amount }
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("PIE_CHART: Total amount: ₹${String.format("%.2f", totalAmount)}")
-            
+            logger.debug("setupPieChartData", "Total amount: ₹${String.format("%.2f", totalAmount)}")
+
             // Create pie entries
             val pieEntries = categorySpendingResults.map {
                 PieEntry(
@@ -1251,7 +1256,7 @@ class InsightsFragment : Fragment() {
                     it.category_name
                 )
             }
-            
+
             // Create dataset
             val dataSet = PieDataSet(pieEntries, "Categories").apply {
                 colors = getCategoryColors(categorySpendingResults)
@@ -1260,14 +1265,14 @@ class InsightsFragment : Fragment() {
                 sliceSpace = 2f
                 selectionShift = 8f
             }
-            
+
             // Create pie data
             val pieData = PieData(dataSet).apply {
                 setValueFormatter(PercentFormatter(pieChart))
                 setValueTextSize(12f)
                 setValueTextColor(Color.WHITE)
             }
-            
+
             // Configure pie chart
             pieChart.apply {
                 data = pieData
@@ -1279,35 +1284,35 @@ class InsightsFragment : Fragment() {
                 holeRadius = 40f
                 transparentCircleRadius = 45f
                 animateY(1000)
-                
+
                 // CHART_REFRESH_FIX: Force pie chart refresh after setup
                 post {
                     notifyDataSetChanged()
                     invalidate()
-                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("CHART_REFRESH_FIX: Pie chart explicitly refreshed")
+                    logger.debug("setupPieChartData", "Pie chart explicitly refreshed")
                 }
             }
-            
+
             // Setup legend/category list - try to find chart view for context
             val chartView = findChartView()
             if (chartView != null) {
                 setupCategoryLegend(chartView, categorySpendingResults, totalAmount)
                 updateCategoryChartSummaryStats(chartView, categorySpendingResults)
             }
-            
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("PIE_CHART_LAYOUT_FIX: Pie chart data setup completed successfully")
-            
+
+            logger.debug("setupPieChartData", "Pie chart data setup completed successfully")
+
         } catch (e: Exception) {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "PIE_CHART_LAYOUT_FIX: Error setting up pie chart data")
+            logger.error("setupPieChartData", "Error setting up pie chart data", e)
         }
     }
-    
+
     /**
      * Show empty pie chart state
      */
     private fun showEmptyPieChart() {
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("PIE_CHART: Showing empty pie chart state")
-        
+        logger.debug("showEmptyPieChart", "Showing empty pie chart state")
+
         try {
             val chartView = findChartView()
             if (chartView != null) {
@@ -1321,54 +1326,54 @@ class InsightsFragment : Fragment() {
                 }
             }
         } catch (e: Exception) {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "PIE_CHART: Error showing empty state")
+            logger.error("showEmptyPieChart", "Error showing empty state", e)
         }
     }
-    
+
     /**
      * Find chart view in the current layout
      */
     private fun findChartView(): View? {
         return try {
             // Try to find the ViewPager2 or direct chart container
-            binding.root.findViewById(R.id.viewPagerCharts) ?: 
+            binding.root.findViewById(R.id.viewPagerCharts) ?:
             binding.root.findViewById(R.id.cardCharts)
         } catch (e: Exception) {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "PIE_CHART: Error finding chart view")
+            logger.error("findChartView", "Error finding chart view", e)
             null
         }
     }
-    
+
     /**
      * Show pie chart layout (inflate if needed)
      */
     private fun showPieChartLayout() {
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("PIE_CHART: Showing pie chart layout")
-        
+        logger.debug("showPieChartLayout", "Showing pie chart layout")
+
         try {
             val viewPager = binding.root.findViewById<androidx.viewpager2.widget.ViewPager2>(R.id.viewPagerCharts)
             if (viewPager != null) {
                 // If ViewPager2 exists, set up the adapter
                 if (viewPager.adapter == null) {
-                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("PIE_CHART: Setting up ViewPager2 adapter")
+                    logger.debug("showPieChartLayout", "Setting up ViewPager2 adapter")
                     viewPager.adapter = ChartPagerAdapter(this)
                 }
                 // Ensure we're on the pie chart page (index 0)
                 viewPager.currentItem = 0
             } else {
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).w("PIE_CHART: ViewPager2 not found, chart layout may not be available")
+                logger.warn("showPieChartLayout", "ViewPager2 not found, chart layout may not be available")
             }
         } catch (e: Exception) {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "PIE_CHART: Error setting up chart layout")
+            logger.error("showPieChartLayout", "Error setting up chart layout", e)
         }
     }
-    
+
     /**
      * Get appropriate colors for categories
      */
     private fun getCategoryColors(categorySpendingResults: List<com.expensemanager.app.data.dao.CategorySpendingResult>): List<Int> {
         return categorySpendingResults.mapIndexed {
-            index, categoryResult ->
+                index, categoryResult ->
             try {
                 // Try to parse category color from database
                 Color.parseColor(categoryResult.color)
@@ -1378,7 +1383,7 @@ class InsightsFragment : Fragment() {
             }
         }
     }
-    
+
     /**
      * Setup category legend with spending details
      */
@@ -1386,8 +1391,8 @@ class InsightsFragment : Fragment() {
         try {
             val recyclerView = chartView.findViewById<RecyclerView>(R.id.recyclerCategoryLegend)
             if (recyclerView != null) {
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("PIE_CHART: Setting up category legend with ${categorySpendingResults.size} items")
-                
+                logger.debug("setupCategoryLegend", "Setting up category legend with ${categorySpendingResults.size} items")
+
                 // Create legend items
                 val legendItems = categorySpendingResults.map {
                     CategoryLegendItem(
@@ -1398,134 +1403,134 @@ class InsightsFragment : Fragment() {
                         transactionCount = it.transaction_count
                     )
                 }
-                
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("PIE_CHART: Created ${legendItems.size} legend items")
+
+                logger.debug("setupCategoryLegend", "Created ${legendItems.size} legend items")
                 legendItems.forEach { item ->
-                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("PIE_CHART: Legend item - ${item.name}, color: ${item.color}, amount: ${item.amount}")
+                    logger.debug("setupCategoryLegend", "Legend item - ${item.name}, color: ${item.color}, amount: ${item.amount}")
                 }
-                
+
                 // Setup RecyclerView with adapter
                 recyclerView.layoutManager = LinearLayoutManager(requireContext())
                 recyclerView.adapter = CategoryLegendAdapter(legendItems)
-                
+
                 // Make sure RecyclerView is visible
                 recyclerView.visibility = View.VISIBLE
-                
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("PIE_CHART: RecyclerView adapter set with ${legendItems.size} items")
-                
+
+                logger.debug("setupCategoryLegend", "RecyclerView adapter set with ${legendItems.size} items")
+
             } else {
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).w("PIE_CHART: Category legend RecyclerView not found in view")
+                logger.warn("setupCategoryLegend", "Category legend RecyclerView not found in view")
             }
         } catch (e: Exception) {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "PIE_CHART: Error setting up category legend")
+            logger.error("setupCategoryLegend", "Error setting up category legend", e)
         }
     }
-    
+
     /**
      * Show monthly bar chart
      */
     private fun showMonthlyBarChart() {
         if (isChartSetupInProgress) {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("BAR_CHART: Chart setup already in progress, skipping duplicate call")
+            logger.debug("showMonthlyBarChart", "Chart setup already in progress, skipping duplicate call")
             return
         }
-        
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("BAR_CHART: Showing monthly bar chart with filters")
+
+        logger.debug("showMonthlyBarChart", "Showing monthly bar chart with filters")
         isChartSetupInProgress = true
-        
+
         viewLifecycleOwner.lifecycleScope.launch {
             try {
                 val expenseRepository = ExpenseRepository.getInstance(requireContext())
-                
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("BAR_CHART: Loading monthly data with filter: ${currentFilters.timePeriod}")
-                
+
+                logger.debug("showMonthlyBarChart", "Loading monthly data with filter: ${currentFilters.timePeriod}")
+
                 // Get monthly spending data based on current filter
                 val chartData = getTimeSeriesSpendingData(expenseRepository)
-                
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("BAR_CHART_FLOW_DEBUG: getTimeSeriesSpendingData returned ${chartData.size} data points")
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("BAR_CHART_FLOW_DEBUG: Data points: ${chartData.map { "${it.label}: ₹${it.amount}" }}")
-                
+
+                logger.debug("showMonthlyBarChart", "getTimeSeriesSpendingData returned ${chartData.size} data points")
+                logger.debug("showMonthlyBarChart", "Data points: ${chartData.map { "${it.label}: ₹${it.amount}" }}")
+
                 val chartView = findChartView()
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("BAR_CHART_FLOW_DEBUG: findChartView() returned: ${chartView != null}")
-                
+                logger.debug("showMonthlyBarChart", "findChartView() returned: ${chartView != null}")
+
                 if (chartView != null) {
                     showBarChartLayout()
-                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("BAR_CHART_FLOW_DEBUG: About to call setupTimeSeriesBarChart with ${chartData.size} data points")
-                    
+                    logger.debug("showMonthlyBarChart", "About to call setupTimeSeriesBarChart with ${chartData.size} data points")
+
                     // BAR_CHART_FIX: For ViewPager2, we need to get the current fragment's BarChart
                     if (chartView is androidx.viewpager2.widget.ViewPager2) {
-                        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("BAR_CHART_FIX: chartView is ViewPager2, setting up adapter and finding BarChart")
-                        
+                        logger.debug("showMonthlyBarChart", "chartView is ViewPager2, setting up adapter and finding BarChart")
+
                         // Set up ViewPager2 adapter if not already set
                         if (chartView.adapter == null) {
                             chartView.adapter = ChartPagerAdapter(this@InsightsFragment)
                         }
-                        
+
                         // Switch to bar chart page (index 1)
                         chartView.currentItem = 1
-                        
+
                         // CHART_REFRESH_FIX: Improved ViewPager2 chart refresh
                         chartView.post {
                             // Try to find the actual BarChart in the current fragment
                             val currentFragment = childFragmentManager.findFragmentByTag("f1") // ViewPager2 uses "f{position}" tags
                             val barChart = currentFragment?.view?.findViewById<BarChart>(R.id.barChartMonthly)
-                            
+
                             if (barChart != null && chartData.isNotEmpty()) {
-                                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("CHART_REFRESH_FIX: Found BarChart in ViewPager2 fragment, setting up chart")
+                                logger.debug("showMonthlyBarChart", "Found BarChart in ViewPager2 fragment, setting up chart")
                                 val success = chartConfigurationService.setupTimeSeriesBarChart(
-                                    barChart, 
-                                    chartData, 
+                                    barChart,
+                                    chartData,
                                     currentFilters.timeAggregation ?: "Monthly"
                                 )
-                                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("CHART_REFRESH_FIX: ChartConfigurationService setup result: $success")
-                                
+                                logger.debug("showMonthlyBarChart", "ChartConfigurationService setup result: $success")
+
                                 if (success) {
                                     // CHART_REFRESH_FIX: Force chart refresh after setup
                                     barChart.post {
                                         barChart.notifyDataSetChanged()
                                         barChart.invalidate()
-                                        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("CHART_REFRESH_FIX: Bar chart explicitly refreshed")
+                                        logger.debug("showMonthlyBarChart", "Bar chart explicitly refreshed")
                                     }
                                 }
                             } else {
-                                Timber.tag(LogConfig.FeatureTags.INSIGHTS).w("CHART_REFRESH_FIX: BarChart not found in ViewPager2 fragment or no data")
+                                logger.warn("showMonthlyBarChart", "BarChart not found in ViewPager2 fragment or no data")
                             }
                         }
                     } else if (chartView is BarChart && chartData.isNotEmpty()) {
                         // Direct BarChart (fallback case)
-                        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("CHART_REFRESH_FIX: Using chartView directly as BarChart")
+                        logger.debug("showMonthlyBarChart", "Using chartView directly as BarChart")
                         val success = chartConfigurationService.setupTimeSeriesBarChart(
-                            chartView, 
-                            chartData, 
+                            chartView,
+                            chartData,
                             currentFilters.timeAggregation ?: "Monthly"
                         )
-                        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("CHART_REFRESH_FIX: ChartConfigurationService setup result: $success")
-                        
+                        logger.debug("showMonthlyBarChart", "ChartConfigurationService setup result: $success")
+
                         if (success) {
                             // CHART_REFRESH_FIX: Force chart refresh after setup
                             chartView.post {
                                 chartView.notifyDataSetChanged()
                                 chartView.invalidate()
-                                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("CHART_REFRESH_FIX: Direct bar chart explicitly refreshed")
+                                logger.debug("showMonthlyBarChart", "Direct bar chart explicitly refreshed")
                             }
                         }
                     } else {
-                        Timber.tag(LogConfig.FeatureTags.INSIGHTS).w("BAR_CHART_FIX: chartView is not BarChart/ViewPager2 or no data available")
-                        Timber.tag(LogConfig.FeatureTags.INSIGHTS).e("BAR_CHART_FIX: chartView type: ${chartView?.javaClass?.simpleName}")
-                        Timber.tag(LogConfig.FeatureTags.INSIGHTS).e("BAR_CHART_FIX: chartData size: ${chartData.size}")
+                        logger.warn("showMonthlyBarChart", "chartView is not BarChart/ViewPager2 or no data available")
+                        logger.error("showMonthlyBarChart", "chartView type: ${chartView?.javaClass?.simpleName}",null)
+                        logger.error("showMonthlyBarChart", "chartData size: ${chartData.size}",null)
                     }
                 } else {
-                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).e("BAR_CHART_FLOW_DEBUG: Chart view not found - cannot setup chart")
+                    logger.error("showMonthlyBarChart", "Chart view not found - cannot setup chart",null)
                 }
-                
+
             } catch (e: Exception) {
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "BAR_CHART: Error loading monthly data")
+                logger.error("showMonthlyBarChart", "Error loading monthly data", e)
             } finally {
                 isChartSetupInProgress = false
             }
         }
     }
-    
+
     /**
      * Calculate the number of periods for a given date range and aggregation type
      */
@@ -1533,15 +1538,15 @@ class InsightsFragment : Fragment() {
         val calendar = Calendar.getInstance()
         calendar.time = startDate
         val startCalendar = calendar.clone() as Calendar
-        
+
         calendar.time = endDate
         val endCalendar = calendar.clone() as Calendar
-        
+
         return when (aggregationType) {
             TimeAggregation.DAILY -> {
                 val diffInMillis = endDate.time - startDate.time
                 val diffInDays = (diffInMillis / (24 * 60 * 60 * 1000)).toInt() + 1 // +1 to include both start and end dates
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("CALCULATE_PERIOD_COUNT: Daily - Start: $startDate, End: $endDate, Days: $diffInDays")
+                logger.debug("calculatePeriodCount", "Daily - Start: $startDate, End: $endDate, Days: $diffInDays")
                 diffInDays
             }
             TimeAggregation.WEEKLY -> {
@@ -1550,7 +1555,7 @@ class InsightsFragment : Fragment() {
                     weeks++
                     startCalendar.add(Calendar.WEEK_OF_YEAR, 1)
                 }
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("CALCULATE_PERIOD_COUNT: Weekly - Weeks: $weeks")
+                logger.debug("calculatePeriodCount", "Weekly - Weeks: $weeks")
                 weeks
             }
             TimeAggregation.MONTHLY -> {
@@ -1559,7 +1564,7 @@ class InsightsFragment : Fragment() {
                     months++
                     startCalendar.add(Calendar.MONTH, 1)
                 }
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("CALCULATE_PERIOD_COUNT: Monthly - Months: $months")
+                logger.debug("calculatePeriodCount", "Monthly - Months: $months")
                 months
             }
             TimeAggregation.QUARTERLY -> {
@@ -1568,7 +1573,7 @@ class InsightsFragment : Fragment() {
                     quarters++
                     startCalendar.add(Calendar.MONTH, 3)
                 }
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("CALCULATE_PERIOD_COUNT: Quarterly - Quarters: $quarters")
+                logger.debug("calculatePeriodCount", "Quarterly - Quarters: $quarters")
                 quarters
             }
             TimeAggregation.YEARLY -> {
@@ -1577,7 +1582,7 @@ class InsightsFragment : Fragment() {
                     years++
                     startCalendar.add(Calendar.YEAR, 1)
                 }
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("CALCULATE_PERIOD_COUNT: Yearly - Years: $years")
+                logger.debug("calculatePeriodCount", "Yearly - Years: $years")
                 years
             }
         }
@@ -1588,18 +1593,18 @@ class InsightsFragment : Fragment() {
      * Now uses TimeSeriesAggregationService to eliminate ~400 lines of duplicated logic
      */
     private suspend fun getTimeSeriesSpendingData(repository: ExpenseRepository): List<TimeSeriesData> {
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("TIME_PERIOD_FILTER: Getting time series data for aggregation: ${currentFilters.timeAggregation}")
-        
+        logger.debug("getTimeSeriesSpendingData", "Getting time series data for aggregation: ${currentFilters.timeAggregation}")
+
         try {
             // Map UI filter strings to TimeAggregation enum
             val aggregationType = when (currentFilters.timeAggregation) {
                 "Daily" -> TimeAggregation.DAILY
-                "Weekly" -> TimeAggregation.WEEKLY 
+                "Weekly" -> TimeAggregation.WEEKLY
                 "Quarterly" -> TimeAggregation.QUARTERLY
                 "Yearly" -> TimeAggregation.YEARLY
                 else -> TimeAggregation.MONTHLY // Default to monthly
             }
-            
+
             // Determine period count based on date range filter
             val periodCount = when (currentFilters.timePeriod) {
                 "Last 7 Days" -> if (aggregationType == TimeAggregation.DAILY) 7 else 1
@@ -1648,16 +1653,16 @@ class InsightsFragment : Fragment() {
                     }
                 }
             }
-            
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("TIME_PERIOD_FILTER: Using aggregation: $aggregationType, periods: $periodCount")
-            
+
+            logger.debug("getTimeSeriesSpendingData", "Using aggregation: $aggregationType, periods: $periodCount")
+
             // Use the existing date range from filters if available, otherwise calculate based on aggregation
             val (startDate, endDate) = if (currentFilters.startDate != null && currentFilters.endDate != null) {
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("BAR_CHART: Using filter date range: ${currentFilters.startDate} to ${currentFilters.endDate}")
+                logger.debug("getTimeSeriesSpendingData", "Using filter date range: ${currentFilters.startDate} to ${currentFilters.endDate}")
                 Pair(currentFilters.startDate!!, currentFilters.endDate!!)
             } else {
                 // Fallback to calculated date range for backward compatibility
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("BAR_CHART: No filter date range set, calculating based on aggregation")
+                logger.debug("getTimeSeriesSpendingData", "No filter date range set, calculating based on aggregation")
                 when (aggregationType) {
                     TimeAggregation.DAILY -> {
                         val cal = Calendar.getInstance()
@@ -1691,31 +1696,31 @@ class InsightsFragment : Fragment() {
                     }
                 }
             }
-            
+
             // Get all transactions in the period
             val allTransactions = repository.getExpenseTransactionsByDateRange(startDate, endDate)
-            
+
             // Apply filters if any
             val filteredTransactions = if (currentFilters.hasFilters()) {
                 applyFiltersToTransactions(allTransactions, currentFilters)
             } else {
                 allTransactions
             }
-            
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("TIME_PERIOD_FILTER: Retrieved ${allTransactions.size} transactions, filtered to ${filteredTransactions.size}")
-            
+
+            logger.debug("getTimeSeriesSpendingData", "Retrieved ${allTransactions.size} transactions, filtered to ${filteredTransactions.size}")
+
             // Use TimeSeriesAggregationService to generate time series data
             val timeSeriesData = if (currentFilters.startDate != null && currentFilters.endDate != null) {
                 // For custom date ranges, use the new range-based method
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("TIME_PERIOD_FILTER: Using range-based generation for custom date range")
-                
+                logger.debug("getTimeSeriesSpendingData", "Using range-based generation for custom date range")
+
                 // BAR_CHART_SMART_FIX: When using smart aggregation with Daily mode, cap end date to today
                 // This ensures we show only bars for days that have actually elapsed
-                val actualEndDate = if (aggregationType == TimeAggregation.DAILY && 
-                                      currentFilters.timePeriod == "This Month") {
+                val actualEndDate = if (aggregationType == TimeAggregation.DAILY &&
+                    currentFilters.timePeriod == "This Month") {
                     val today = Date()
                     if (endDate.after(today)) {
-                        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("BAR_CHART_SMART_FIX: Capping end date from $endDate to today: $today")
+                        logger.debug("getTimeSeriesSpendingData", "Capping end date from $endDate to today: $today")
                         today
                     } else {
                         endDate
@@ -1723,13 +1728,13 @@ class InsightsFragment : Fragment() {
                 } else {
                     endDate
                 }
-                
+
                 // ENHANCED_DATE_RANGE: Use enhanced logic for special combinations
                 if ((currentFilters.timePeriod == "This Month" && aggregationType == TimeAggregation.WEEKLY) ||
                     (currentFilters.timePeriod == "Last 30 Days" && aggregationType == TimeAggregation.MONTHLY)) {
-                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("ENHANCED_DATE_RANGE: Using enhanced date range logic for special combination")
-                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("ENHANCED_DATE_RANGE: Date filter: ${currentFilters.timePeriod}, Aggregation: $aggregationType")
-                    
+                    logger.debug("getTimeSeriesSpendingData", "Using enhanced date range logic for special combination")
+                    logger.debug("getTimeSeriesSpendingData", "Date filter: ${currentFilters.timePeriod}, Aggregation: $aggregationType")
+
                     timeSeriesAggregationService.generateTimeSeriesDataWithEnhancedRanges(
                         filteredTransactions,
                         currentFilters.timePeriod ?: "Unknown",
@@ -1747,32 +1752,30 @@ class InsightsFragment : Fragment() {
                 }
             } else {
                 // For predefined periods, use the count-based method
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("TIME_PERIOD_FILTER: Using count-based generation for period: ${currentFilters.timePeriod}")
+                logger.debug("getTimeSeriesSpendingData", "Using count-based generation for period: ${currentFilters.timePeriod}")
                 timeSeriesAggregationService.generateTimeSeriesData(
                     filteredTransactions,
                     aggregationType,
                     periodCount
                 )
             }
-            
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("TIME_PERIOD_FILTER: Generated ${timeSeriesData.size} time series data points")
+
+            logger.debug("getTimeSeriesSpendingData", "Generated ${timeSeriesData.size} time series data points")
             return timeSeriesData
-            
+
         } catch (e: Exception) {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "TIME_PERIOD_FILTER: Error generating time series data")
+            logger.error("getTimeSeriesSpendingData", "Error generating time series data", e)
             return emptyList()
         }
     }
-    
-    // Old setupTimeSeriesBarChart function removed - now using ChartConfigurationService
-    
-    
+
+
     /**
      * Show bar chart layout
      */
     private fun showBarChartLayout() {
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("BAR_CHART: Showing bar chart layout")
-        
+        logger.debug("showBarChartLayout", "Showing bar chart layout")
+
         try {
             val viewPager = binding.root.findViewById<androidx.viewpager2.widget.ViewPager2>(R.id.viewPagerCharts)
             if (viewPager != null) {
@@ -1780,63 +1783,63 @@ class InsightsFragment : Fragment() {
                 viewPager.currentItem = 1
             }
         } catch (e: Exception) {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "BAR_CHART: Error setting up chart layout")
+            logger.error("showBarChartLayout", "Error setting up chart layout", e)
         }
     }
-    
+
     /**
      * Show trend line chart
      */
     private fun showTrendLineChart() {
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("LINE_CHART: Showing trend line chart with filters")
-        
+        logger.debug("showTrendLineChart", "Showing trend line chart with filters")
+
         viewLifecycleOwner.lifecycleScope.launch {
             try {
                 val expenseRepository = ExpenseRepository.getInstance(requireContext())
-                
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("LINE_CHART: Loading daily trend data for last 30 days")
-                
+
+                logger.debug("showTrendLineChart", "Loading daily trend data for last 30 days")
+
                 // Get daily spending data for last 30 days
                 val dailyData = getDailyTrendData(expenseRepository)
-                
+
                 val chartView = findChartView()
                 if (chartView != null) {
                     showLineChartLayout()
                     setupTrendLineChart(chartView, dailyData)
                 } else {
-                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).e("LINE_CHART: Chart view not found")
+                    logger.error("showTrendLineChart", "Chart view not found",null)
                 }
-                
+
             } catch (e: Exception) {
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "LINE_CHART: Error loading trend data")
+                logger.error("showTrendLineChart", "Error loading trend data", e)
             }
         }
     }
-    
+
     /**
      * Get daily trend data for the last 30 days
      */
     private suspend fun getDailyTrendData(repository: ExpenseRepository): List<DailyTrendData> {
         val dailyData = mutableListOf<DailyTrendData>()
         val calendar = Calendar.getInstance()
-        
+
         // Get data for last 30 days
         for (i in 29 downTo 0) {
             calendar.time = Date()
             calendar.add(Calendar.DAY_OF_MONTH, -i)
-            
+
             val startOfDay = calendar.clone() as Calendar
             startOfDay.set(Calendar.HOUR_OF_DAY, 0)
             startOfDay.set(Calendar.MINUTE, 0)
             startOfDay.set(Calendar.SECOND, 0)
             startOfDay.set(Calendar.MILLISECOND, 0)
-            
+
             val endOfDay = calendar.clone() as Calendar
             endOfDay.set(Calendar.HOUR_OF_DAY, 23)
             endOfDay.set(Calendar.MINUTE, 59)
             endOfDay.set(Calendar.SECOND, 59)
             endOfDay.set(Calendar.MILLISECOND, 999)
-            
+
             // Apply filters if any
             val transactions = if (currentFilters.hasFilters()) {
                 applyFiltersToTransactions(
@@ -1846,10 +1849,10 @@ class InsightsFragment : Fragment() {
             } else {
                 repository.getExpenseTransactionsByDateRange(startOfDay.time, endOfDay.time)
             }
-            
+
             val totalAmount = transactions.sumOf { transaction -> transaction.amount }
             val dayName = SimpleDateFormat("dd", Locale.getDefault()).format(calendar.time)
-            
+
             dailyData.add(DailyTrendData(
                 day = dayName,
                 date = calendar.time,
@@ -1857,11 +1860,11 @@ class InsightsFragment : Fragment() {
                 transactionCount = transactions.size
             ))
         }
-        
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("LINE_CHART: Generated ${dailyData.size} days of trend data")
+
+        logger.debug("getDailyTrendData", "Generated ${dailyData.size} days of trend data")
         return dailyData
     }
-    
+
     /**
      * Setup trend line chart with actual data
      */
@@ -1870,18 +1873,18 @@ class InsightsFragment : Fragment() {
             showLineChartLayout()
             val lineChart = chartView.findViewById<LineChart>(R.id.lineChartTrends)
             if (lineChart == null) {
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).e("LINE_CHART: LineChart component not found in layout")
+                logger.error("setupTrendLineChart", "LineChart component not found in layout",null)
                 return
             }
-            
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("LINE_CHART: Setting up line chart with ${dailyData.size} days")
-            
+
+            logger.debug("setupTrendLineChart", "Setting up line chart with ${dailyData.size} days")
+
             // Create line entries
             val lineEntries = dailyData.mapIndexed {
-                index, data ->
+                    index, data ->
                 Entry(index.toFloat(), data.amount.toFloat())
             }
-            
+
             // Create dataset
             val dataSet = LineDataSet(lineEntries, "Daily Spending").apply {
                 color = ContextCompat.getColor(requireContext(), R.color.primary)
@@ -1895,16 +1898,16 @@ class InsightsFragment : Fragment() {
                 setDrawFilled(true)
                 mode = LineDataSet.Mode.CUBIC_BEZIER
             }
-            
+
             // Create line data
             val lineData = LineData(dataSet)
-            
+
             // Configure line chart
             lineChart.apply {
                 data = lineData
                 description.isEnabled = false
                 legend.isEnabled = false
-                
+
                 // X-axis configuration
                 xAxis.apply {
                     position = XAxis.XAxisPosition.BOTTOM
@@ -1921,7 +1924,7 @@ class InsightsFragment : Fragment() {
                     }
                     textColor = ContextCompat.getColor(requireContext(), R.color.text_primary)
                 }
-                
+
                 // Y-axis configuration
                 axisLeft.apply {
                     setDrawGridLines(true)
@@ -1933,35 +1936,35 @@ class InsightsFragment : Fragment() {
                     }
                     textColor = ContextCompat.getColor(requireContext(), R.color.text_primary)
                 }
-                
+
                 axisRight.isEnabled = false
-                
+
                 // Enable touch interactions
                 setTouchEnabled(true)
                 setDragEnabled(true)
                 setScaleEnabled(true)
                 setPinchZoom(true)
-                
+
                 animateX(1000)
-                
+
                 // CHART_REFRESH_FIX: Force line chart refresh after setup
                 post {
                     notifyDataSetChanged()
                     invalidate()
-                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("CHART_REFRESH_FIX: Line chart explicitly refreshed")
+                    logger.debug("setupTrendLineChart", "Line chart explicitly refreshed")
                 }
             }
-            
+
             // Update trend analysis
             updateTrendAnalysis(chartView, dailyData)
-            
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("LINE_CHART: Trend line chart setup completed successfully")
-            
+
+            logger.debug("setupTrendLineChart", "Trend line chart setup completed successfully")
+
         } catch (e: Exception) {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "LINE_CHART: Error setting up line chart")
+            logger.error("setupTrendLineChart", "Error setting up line chart", e)
         }
     }
-    
+
     /**
      * Update trend analysis statistics
      */
@@ -1970,44 +1973,44 @@ class InsightsFragment : Fragment() {
             // Calculate daily average
             val totalAmount = dailyData.sumOf { data -> data.amount }
             val avgDaily = if (dailyData.isNotEmpty()) totalAmount / dailyData.size else 0.0
-            
+
             // Find peak day
             val peakDay = dailyData.maxByOrNull { it.amount }
-            
+
             // Calculate trend direction
             val recentData = dailyData.takeLast(7) // Last 7 days
             val olderData = dailyData.dropLast(7).takeLast(7) // Previous 7 days
-            
+
             val recentAvg = if (recentData.isNotEmpty()) recentData.sumOf { data -> data.amount } / recentData.size else 0.0
             val olderAvg = if (olderData.isNotEmpty()) olderData.sumOf { data -> data.amount } / olderData.size else 0.0
-            
+
             val trendDirection = when {
                 recentAvg > olderAvg * 1.1 -> "↗️ Rising"
                 recentAvg < olderAvg * 0.9 -> "↘️ Falling"
                 else -> "→ Stable"
             }
-            
+
             val trendColor = when {
                 recentAvg > olderAvg * 1.1 -> ContextCompat.getColor(requireContext(), R.color.error)
                 recentAvg < olderAvg * 0.9 -> ContextCompat.getColor(requireContext(), R.color.success)
                 else -> ContextCompat.getColor(requireContext(), R.color.info)
             }
-            
+
             // Footer removed - no trend UI updates needed
-            
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("LINE_CHART: Updated trend analysis - Avg: ₹$avgDaily, Peak: ₹${peakDay?.amount}, Trend: $trendDirection")
-            
+
+            logger.debug("updateTrendAnalysis", "Updated trend analysis - Avg: ₹$avgDaily, Peak: ₹${peakDay?.amount}, Trend: $trendDirection")
+
         } catch (e: Exception) {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "LINE_CHART: Error updating trend analysis")
+            logger.error("updateTrendAnalysis", "Error updating trend analysis", e)
         }
     }
-    
+
     /**
      * Show line chart layout
      */
     private fun showLineChartLayout() {
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("LINE_CHART: Showing line chart layout")
-        
+        logger.debug("showLineChartLayout", "Showing line chart layout")
+
         try {
             val viewPager = binding.root.findViewById<androidx.viewpager2.widget.ViewPager2>(R.id.viewPagerCharts)
             if (viewPager != null) {
@@ -2015,7 +2018,7 @@ class InsightsFragment : Fragment() {
                 viewPager.currentItem = 2
             }
         } catch (e: Exception) {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "LINE_CHART: Error setting up chart layout")
+            logger.error("showLineChartLayout", "Error setting up chart layout", e)
         }
     }
 
@@ -2023,27 +2026,27 @@ class InsightsFragment : Fragment() {
         // BAR_CHART_SMART_FIX: Use actual elapsed time (start to TODAY) instead of full range
         val today = Date()
         val actualEndDate = if (endDate.after(today)) today else endDate
-        
+
         val diff = actualEndDate.time - startDate.time
         val days = diff / (1000 * 60 * 60 * 24)
-        
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("BAR_CHART_SMART_FIX: Smart aggregation calculation")
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("BAR_CHART_SMART_FIX: Start date: $startDate")
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("BAR_CHART_SMART_FIX: Original end date: $endDate")
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("BAR_CHART_SMART_FIX: Actual end date (capped to today): $actualEndDate")
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("BAR_CHART_SMART_FIX: Actual days elapsed: $days")
-        
+
+        logger.debug("getSmartTimeAggregation", "Smart aggregation calculation")
+        logger.debug("getSmartTimeAggregation", "Start date: $startDate")
+        logger.debug("getSmartTimeAggregation", "Original end date: $endDate")
+        logger.debug("getSmartTimeAggregation", "Actual end date (capped to today): $actualEndDate")
+        logger.debug("getSmartTimeAggregation", "Actual days elapsed: $days")
+
         return when {
             days <= 7 -> {
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("BAR_CHART_SMART_FIX: Selected Daily aggregation (${days} days)")
+                logger.debug("getSmartTimeAggregation", "Selected Daily aggregation ($days days)")
                 "Daily"
             }
             days <= 35 -> {
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("BAR_CHART_SMART_FIX: Selected Weekly aggregation (${days} days)")
+                logger.debug("getSmartTimeAggregation", "Selected Weekly aggregation ($days days)")
                 "Weekly"
             }
             else -> {
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("BAR_CHART_SMART_FIX: Selected Monthly aggregation (${days} days)")
+                logger.debug("getSmartTimeAggregation", "Selected Monthly aggregation ($days days)")
                 "Monthly"
             }
         }
@@ -2051,25 +2054,25 @@ class InsightsFragment : Fragment() {
 
     private fun updateChartsWithFilteredData() {
         // CHART_REFRESH_FIX: Only refresh the currently visible chart to avoid conflicts
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("CHART_REFRESH_FIX: Updating charts with filtered data")
-        
+        logger.debug("updateChartsWithFilteredData", "Updating charts with filtered data")
+
         val tabLayout = binding.root.findViewById<com.google.android.material.tabs.TabLayout>(R.id.tabLayoutCharts)
         val currentTab = tabLayout?.selectedTabPosition ?: 0
-        
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("CHART_REFRESH_FIX: Current tab position: $currentTab")
-        
+
+        logger.debug("updateChartsWithFilteredData", "Current tab position: $currentTab")
+
         when (currentTab) {
             0 -> {
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("CHART_REFRESH_FIX: Refreshing PIE chart")
+                logger.debug("updateChartsWithFilteredData", "Refreshing PIE chart")
                 showCategoryPieChart()
             }
             1 -> {
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("CHART_REFRESH_FIX: Refreshing BAR chart")
+                logger.debug("updateChartsWithFilteredData", "Refreshing BAR chart")
                 showMonthlyBarChart()
             }
             // UI_SIMPLIFICATION: Removed case 2 (LINE chart) - Trends tab is hidden
             else -> {
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).w("CHART_REFRESH_FIX: Unknown tab position: $currentTab, defaulting to PIE chart")
+                logger.warn("updateChartsWithFilteredData", "Unknown tab position: $currentTab, defaulting to PIE chart")
                 showCategoryPieChart()
             }
         }
@@ -2081,22 +2084,22 @@ class InsightsFragment : Fragment() {
      */
     private suspend fun getFilteredCategorySpending(expenseRepository: ExpenseRepository): List<com.expensemanager.app.data.dao.CategorySpendingResult> {
         try {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("PIE_CHART_FILTER_FIX: Getting category spending data for period: ${currentFilters.timePeriod}")
-            
+            logger.debug("getFilteredCategorySpending", "Getting category spending data for period: ${currentFilters.timePeriod}")
+
             // Use the same period calculation logic as BAR chart
             val (startDate, endDate) = calculateDateRangeForFilter()
-            
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("PIE_CHART_FILTER_FIX: Calculated date range: $startDate to $endDate")
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("PIE_CHART_FILTER_FIX: Fetching category data from $startDate to $endDate")
-            
+
+            logger.debug("getFilteredCategorySpending", "Calculated date range: $startDate to $endDate")
+            logger.debug("getFilteredCategorySpending", "Fetching category data from $startDate to $endDate")
+
             return expenseRepository.getCategorySpending(startDate, endDate)
-            
+
         } catch (e: Exception) {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "PIE_CHART_FILTER_FIX: Error getting filtered category spending")
+            logger.error("getFilteredCategorySpending", "Error getting filtered category spending", e)
             return emptyList()
         }
     }
-    
+
     /**
      * PIE_CHART_FILTER_FIX: Calculate date range for current filter using same logic as BAR chart
      */
@@ -2112,15 +2115,15 @@ class InsightsFragment : Fragment() {
             "This Year" -> 1
             else -> 1 // Default to current month
         }
-        
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("PIE_CHART_FILTER_FIX: Period count for '${currentFilters.timePeriod}': $periodCount")
-        
+
+        logger.debug("calculateDateRangeForFilter", "Period count for '${currentFilters.timePeriod}': $periodCount")
+
         // If we have explicit dates from filters, use them
         if (currentFilters.startDate != null && currentFilters.endDate != null) {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("PIE_CHART_FILTER_FIX: Using explicit filter dates")
+            logger.debug("calculateDateRangeForFilter", "Using explicit filter dates")
             return Pair(currentFilters.startDate!!, currentFilters.endDate!!)
         }
-        
+
         // Calculate date range based on period (same logic as BAR chart)
         return when (currentFilters.timePeriod) {
             "Last 7 Days", "Last 30 Days" -> {
@@ -2180,7 +2183,7 @@ class InsightsFragment : Fragment() {
      * Update category chart summary stats in the chart fragment
      */
     private fun updateCategoryChartSummaryStats(chartView: View, categoryData: List<com.expensemanager.app.data.dao.CategorySpendingResult> = emptyList()) {
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Updating category chart summary statistics with ${categoryData.size} categories")
+        logger.debug("updateCategoryChartSummaryStats", "Updating category chart summary statistics with ${categoryData.size} categories")
 
         try {
             // Update total categories
@@ -2200,18 +2203,18 @@ class InsightsFragment : Fragment() {
             val totalAmount = categoryData.sumOf { it.total_amount }
             val totalTransactions = categoryData.sumOf { it.transaction_count }
             val avgTransactionAmount = if (totalTransactions > 0) totalAmount / totalTransactions else 0.0
-            
+
             chartView.findViewById<TextView>(R.id.tvAvgTransaction)?.text = "₹${String.format("%.0f", avgTransactionAmount)}"
-            
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Category summary stats updated: ${categoryData.size} categories, top: ${topCategory?.category_name}, avg: ₹${String.format("%.0f", avgTransactionAmount)}")
+
+            logger.debug("updateCategoryChartSummaryStats", "Category summary stats updated: ${categoryData.size} categories, top: ${topCategory?.category_name}, avg: ₹${String.format("%.0f", avgTransactionAmount)}")
 
         } catch (e: Exception) {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "Error updating category chart summary statistics")
+            logger.error("updateCategoryChartSummaryStats", "Error updating category chart summary statistics", e)
         }
     }
 
     private fun updateChartSummaryStats(categoryData: List<com.expensemanager.app.data.dao.CategorySpendingResult> = emptyList()) {
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Updating chart summary statistics with ${categoryData.size} categories - DEPRECATED, should use chart-specific functions")
+        logger.debug("updateChartSummaryStats", "Updating chart summary statistics with ${categoryData.size} categories - DEPRECATED, should use chart-specific functions")
 
         try {
             // This function is now deprecated as summary stats are in individual chart fragments
@@ -2223,7 +2226,7 @@ class InsightsFragment : Fragment() {
             if (topCategory != null) {
                 binding.root.findViewById<android.widget.TextView>(R.id.tvTopCategoryAmount)?.text = "₹${String.format("%.0f", topCategory.total_amount)}"
                 binding.root.findViewById<android.widget.TextView>(R.id.tvTopCategoryName)?.text = topCategory.category_name
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("PIE_CHART: Top category: ${topCategory.category_name} = ₹${topCategory.total_amount}")
+                logger.debug("updateChartSummaryStats", "Top category: ${topCategory.category_name} = ₹${topCategory.total_amount}")
             } else {
                 binding.root.findViewById<android.widget.TextView>(R.id.tvTopCategoryAmount)?.text = "₹0"
                 binding.root.findViewById<android.widget.TextView>(R.id.tvTopCategoryName)?.text = "No Data"
@@ -2236,10 +2239,10 @@ class InsightsFragment : Fragment() {
 
             binding.root.findViewById<android.widget.TextView>(R.id.tvAvgTransaction)?.text = "₹${String.format("%.0f", avgPerTransaction)}"
 
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("PIE_CHART: Summary stats - Categories: ${categoryData.size}, Total: ₹$totalAmount, Avg: ₹$avgPerTransaction")
+            logger.debug("updateChartSummaryStats", "Summary stats - Categories: ${categoryData.size}, Total: ₹$totalAmount, Avg: ₹$avgPerTransaction")
 
         } catch (e: Exception) {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "Error updating chart summary stats")
+            logger.error("updateChartSummaryStats", "Error updating chart summary stats", e)
             // Fallback to zero values on error
             binding.root.findViewById<android.widget.TextView>(R.id.tvTotalCategories)?.text = "0"
             binding.root.findViewById<android.widget.TextView>(R.id.tvTopCategoryAmount)?.text = "₹0"
@@ -2277,11 +2280,11 @@ data class ChartFilterConditions(
     var timeAggregation: String = "Monthly" // Daily, Weekly, Monthly, Quarterly, Yearly
 ) {
     fun hasFilters(): Boolean {
-        return selectedCategories.isNotEmpty() || 
-               selectedMerchants.isNotEmpty() || 
-               minAmount > 0.0 || 
-               maxAmount < Double.MAX_VALUE ||
-               startDate != null
+        return selectedCategories.isNotEmpty() ||
+                selectedMerchants.isNotEmpty() ||
+                minAmount > 0.0 ||
+                maxAmount < Double.MAX_VALUE ||
+                startDate != null
     }
 }
 
@@ -2294,10 +2297,6 @@ data class MonthlySpendingData(
     val transactionCount: Int,
     val date: Date
 )
-
-/**
- * Generic time series data class that supports Daily, Weekly, Monthly, Quarterly, Yearly aggregations
- */
 
 /**
  * Data class for daily trend data
@@ -2315,37 +2314,39 @@ data class DailyTrendData(
 class CategoryLegendAdapter(
     private val items: List<CategoryLegendItem>
 ) : RecyclerView.Adapter<CategoryLegendAdapter.CategoryLegendViewHolder>() {
-    
+
+    private val logger = StructuredLogger("CategoryLegendAdapter", "CategoryLegendAdapter")
+
     class CategoryLegendViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val colorIndicator: View = view.findViewById(R.id.viewColorIndicator)
         val categoryName: TextView = view.findViewById(R.id.tvCategoryName)
         val categoryDetails: TextView = view.findViewById(R.id.tvCategoryDetails)
         val categoryPercentage: TextView = view.findViewById(R.id.tvCategoryPercentage)
     }
-    
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): CategoryLegendViewHolder {
         val view = LayoutInflater.from(parent.context).inflate(R.layout.item_category_legend, parent, false)
         return CategoryLegendViewHolder(view)
     }
-    
+
     override fun onBindViewHolder(holder: CategoryLegendViewHolder, position: Int) {
         val item = items[position]
-        
+
         // Set color indicator with proper shape
         holder.colorIndicator.setBackgroundColor(item.color)
-        
+
         // Set category name
         holder.categoryName.text = item.name
-        
+
         // Set category details (amount + transaction count)
         holder.categoryDetails.text = "₹${String.format("%.0f", item.amount)} • ${item.transactionCount} transactions"
-        
+
         // Set percentage
         holder.categoryPercentage.text = "${String.format("%.1f", item.percentage)}%"
 
-        Timber.tag(LogConfig.FeatureTags.UI).d("CategoryLegend - Binding item: ${item.name}, color: ${item.color}, amount: ${item.amount}")
+        logger.debug("onBindViewHolder", "Binding item: ${item.name}, color: ${item.color}, amount: ${item.amount}")
     }
-    
+
     override fun getItemCount(): Int = items.size
 }
 
@@ -2355,13 +2356,13 @@ class CategoryLegendAdapter(
 class ChartPagerAdapter(
     private val fragment: Fragment
 ) : androidx.viewpager2.adapter.FragmentStateAdapter(fragment) {
-    
+
     override fun getItemCount(): Int = 3 // Categories, Monthly, Trends
-    
+
     override fun createFragment(position: Int): Fragment {
         return when (position) {
             0 -> ChartFragment.newInstance("pie_category")
-            1 -> ChartFragment.newInstance("bar_monthly") 
+            1 -> ChartFragment.newInstance("bar_monthly")
             2 -> ChartFragment.newInstance("line_trends")
             else -> ChartFragment.newInstance("pie_category")
         }
@@ -2372,10 +2373,12 @@ class ChartPagerAdapter(
  * Simple fragment to hold chart layouts
  */
 class ChartFragment : Fragment() {
-    
+
+    private val logger = StructuredLogger("ChartFragment", "ChartFragment")
+
     companion object {
         private const val ARG_CHART_TYPE = "chart_type"
-        
+
         fun newInstance(chartType: String): ChartFragment {
             val fragment = ChartFragment()
             val args = Bundle()
@@ -2384,14 +2387,14 @@ class ChartFragment : Fragment() {
             return fragment
         }
     }
-    
+
     override fun onCreateView(
-        inflater: LayoutInflater, 
-        container: ViewGroup?, 
+        inflater: LayoutInflater,
+        container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
         val chartType = arguments?.getString(ARG_CHART_TYPE) ?: "pie_category"
-        
+
         return when (chartType) {
             "pie_category" -> inflater.inflate(R.layout.chart_pie_category, container, false)
             "bar_monthly" -> inflater.inflate(R.layout.chart_bar_monthly, container, false)
@@ -2399,13 +2402,13 @@ class ChartFragment : Fragment() {
             else -> inflater.inflate(R.layout.chart_pie_category, container, false)
         }
     }
-    
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        
+
         val chartType = arguments?.getString(ARG_CHART_TYPE) ?: "pie_category"
-        Timber.tag(LogConfig.FeatureTags.UI).d("Chart fragment created for type: $chartType")
-        
+        logger.debug("onViewCreated", "Chart fragment created for type: $chartType")
+
         // Trigger chart setup when fragment is ready
         if (chartType == "pie_category") {
             // Find parent InsightsFragment and trigger pie chart setup

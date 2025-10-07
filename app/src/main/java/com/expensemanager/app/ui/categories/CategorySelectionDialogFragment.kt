@@ -2,7 +2,6 @@ package com.expensemanager.app.ui.categories
 
 import android.app.Dialog
 import android.os.Bundle
-import timber.log.Timber
 import com.expensemanager.app.utils.logging.LogConfig
 import android.view.LayoutInflater
 import android.view.View
@@ -12,11 +11,12 @@ import android.widget.ListView
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.DialogFragment
 import com.expensemanager.app.R
+import com.expensemanager.app.utils.logging.StructuredLogger
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.textview.MaterialTextView
 
 class CategorySelectionDialogFragment : DialogFragment() {
-    
+    private val logger = StructuredLogger("CategorySelectionDialogFragment", CategorySelectionDialogFragment.javaClass.name)
     companion object {
         private const val TAG = "CategorySelectionDialog"
         private const val ARG_CATEGORIES = "categories"
@@ -48,7 +48,7 @@ class CategorySelectionDialogFragment : DialogFragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        Timber.tag(TAG).d("[FIX] Creating custom dialog view")
+        logger.debug("onCreateView","Creating custom dialog view")
         
         val view = inflater.inflate(R.layout.dialog_category_selection_custom, container, false)
         
@@ -57,8 +57,8 @@ class CategorySelectionDialogFragment : DialogFragment() {
         val merchantName = arguments?.getString(ARG_MERCHANT_NAME) ?: ""
         
         selectedIndex = currentIndex
-        
-        Timber.tag(TAG).d("[ANALYTICS] Setting up dialog with ${categories.size} categories, current: $currentIndex")
+
+        logger.debug("onCreateView","Setting up dialog with ${categories.size} categories, current: $currentIndex")
         
         // Set title and message
         view.findViewById<MaterialTextView>(R.id.dialogTitle).text = "📝 Change Category"
@@ -94,8 +94,8 @@ class CategorySelectionDialogFragment : DialogFragment() {
         val layoutParams = listView.layoutParams
         layoutParams.height = finalHeight
         listView.layoutParams = layoutParams
-        
-        Timber.tag(TAG).d("ListView height adjusted: categories=${categories.size}, calculated=$calculatedHeight, final=$finalHeight")
+
+        logger.debug("onCreateView","ListView height adjusted: categories=${categories.size}, calculated=$calculatedHeight, final=$finalHeight")
         
         // Apply dialog styling programmatically
         listView.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.dialog_input_background))
@@ -109,25 +109,25 @@ class CategorySelectionDialogFragment : DialogFragment() {
             // Update the checked state immediately for visual feedback
             listView.clearChoices()
             listView.setItemChecked(position, true)
-            Timber.tag(TAG).d("[SUCCESS] Category selected: ${categories[position]} at position $position")
+            logger.debug("onCreateView","Category selected: ${categories[position]} at position $position")
         }
         
         // Set up buttons
         view.findViewById<MaterialButton>(R.id.btnCancel).setOnClickListener {
-            Timber.tag(TAG).d("[ERROR] Dialog cancelled")
+            logger.debug("onCreateView","Dialog cancelled")
             dismiss()
         }
         
         view.findViewById<MaterialButton>(R.id.btnUpdate).setOnClickListener {
             if (selectedIndex >= 0 && selectedIndex < categories.size) {
                 val selectedCategory = categories[selectedIndex]
-                Timber.tag(TAG).d("[SUCCESS] Updating to category: $selectedCategory")
+                logger.debug("onCreateView","Updating to category: $selectedCategory")
                 onCategorySelected?.invoke(selectedCategory)
             }
             dismiss()
         }
-        
-        Timber.tag(TAG).d("[SMS] Custom dialog view created successfully")
+
+        logger.debug("onCreateView","Custom dialog view created successfully")
         return view
     }
     
@@ -157,8 +157,8 @@ class CategorySelectionDialogFragment : DialogFragment() {
             params.y = 0 // Center vertically
             dialog?.window?.attributes = params
         }
-        
-        Timber.tag(TAG).d("Dialog layout set - Screen height: $screenHeight, Max dialog height: $maxDialogHeight")
+
+        logger.debug("onCreateView","Dialog layout set - Screen height: $screenHeight, Max dialog height: $maxDialogHeight")
         
         // Apply additional programmatic styling for high contrast
         view?.let { dialogView ->

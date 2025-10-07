@@ -2,8 +2,6 @@ package com.expensemanager.app.ui.profile
 
 import android.content.SharedPreferences
 import android.os.Bundle
-import timber.log.Timber
-import com.expensemanager.app.utils.logging.LogConfig
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -15,6 +13,7 @@ import com.expensemanager.app.data.dao.AICallDao
 import com.expensemanager.app.data.models.CallFrequency
 import com.expensemanager.app.data.repository.EnhancedAIInsightsRepository
 import com.expensemanager.app.databinding.FragmentAiInsightsSettingsBinding
+import com.expensemanager.app.utils.logging.StructuredLogger
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -43,6 +42,7 @@ class AIInsightsSettingsFragment : Fragment() {
 
     private var currentFrequency = CallFrequency.BALANCED
 
+    private val logger = StructuredLogger("AIInsightsSettingsFragment", "AIInsightsSettingsFragment")
     companion object {
         private const val TAG = "AIInsightsSettingsFragment"
         private const val PREF_SHOW_COSTS = "show_cost_estimates"
@@ -98,7 +98,7 @@ class AIInsightsSettingsFragment : Fragment() {
         // Cost estimates toggle
         binding.switchShowCosts.setOnCheckedChangeListener { _, isChecked ->
             prefs.edit().putBoolean(PREF_SHOW_COSTS, isChecked).apply()
-            Timber.tag(TAG).d("Show cost estimates: $isChecked")
+            logger.debug("setupAdvancedOptions","Show cost estimates: $isChecked")
         }
     }
 
@@ -121,7 +121,7 @@ class AIInsightsSettingsFragment : Fragment() {
                 binding.switchShowCosts.isChecked = showCosts
 
             } catch (e: Exception) {
-                Timber.tag(TAG).e(e, "Error loading settings")
+                logger.error("loadCurrentSettings","Error loading settings",e)
                 Toast.makeText(context, "Error loading settings", Toast.LENGTH_SHORT).show()
             }
         }
@@ -149,7 +149,7 @@ class AIInsightsSettingsFragment : Fragment() {
                 }
 
             } catch (e: Exception) {
-                Timber.tag(TAG).e(e, "Error loading usage statistics")
+                logger.error("loadUsageStatistics","Error loading usage statistics",e)
                 binding.tvMonthlyCalls.text = "N/A"
                 binding.tvEstimatedCost.text = "N/A"
                 binding.tvLastCall.text = "N/A"
@@ -176,10 +176,10 @@ class AIInsightsSettingsFragment : Fragment() {
                     Toast.LENGTH_SHORT
                 ).show()
 
-                Timber.tag(TAG).d("Updated call frequency to: ${frequency.displayName}")
+                logger.debug("selectFrequency","Updated call frequency to: ${frequency.displayName}")
 
             } catch (e: Exception) {
-                Timber.tag(TAG).e(e, "Error updating frequency")
+                logger.error("selectFrequency","Error updating frequency",e)
                 Toast.makeText(context, "Error updating frequency", Toast.LENGTH_SHORT).show()
             }
         }
@@ -256,7 +256,7 @@ class AIInsightsSettingsFragment : Fragment() {
                 )
 
             } catch (e: Exception) {
-                Timber.tag(TAG).e(e, "Error during manual refresh")
+                logger.error("performManualRefresh","Error during manual refresh",e)
                 Toast.makeText(context, "Error generating insights", Toast.LENGTH_SHORT).show()
             } finally {
                 binding.btnManualRefresh.isEnabled = true
@@ -286,10 +286,10 @@ class AIInsightsSettingsFragment : Fragment() {
                 // Refresh UI
                 loadUsageStatistics()
 
-                Timber.tag(TAG).d("Cache cleared successfully")
+                logger.debug("performClearCache","Cache cleared successfully")
 
             } catch (e: Exception) {
-                Timber.tag(TAG).e(e, "Error clearing cache")
+                logger.error("performManualRefresh","Error clearing cache",e)
                 Toast.makeText(context, "Error clearing cache", Toast.LENGTH_SHORT).show()
             }
         }

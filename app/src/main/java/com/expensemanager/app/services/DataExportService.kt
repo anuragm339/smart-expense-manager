@@ -5,6 +5,7 @@ import android.net.Uri
 import android.os.Build
 import com.expensemanager.app.data.repository.ExpenseRepository
 import com.expensemanager.app.utils.AppLogger
+import com.expensemanager.app.utils.logging.StructuredLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -23,7 +24,7 @@ class DataExportService @Inject constructor(
     private val repository: ExpenseRepository,
     private val appLogger: AppLogger
 ) {
-    
+    private val logger = StructuredLogger("DataExportService","DataExportService")
     companion object {
         private const val TAG = "DataExportService"
     }
@@ -108,12 +109,12 @@ class DataExportService @Inject constructor(
                     outputStream.write(exportData.toString(2).toByteArray())
                 }
             }
-            
-            appLogger.info(TAG, "Successfully exported data to JSON")
+
+            logger.debug("exportToJson", "Successfully exported data to JSON")
             true
             
         } catch (e: Exception) {
-            appLogger.error(TAG, "Error exporting data to JSON", e)
+            logger.error("exportToJson", "Error exporting data to JSON", e)
             false
         }
     }
@@ -156,12 +157,12 @@ class DataExportService @Inject constructor(
                     outputStream.write(csvContent.toString().toByteArray())
                 }
             }
-            
-            appLogger.info(TAG, "Successfully exported data to CSV")
+
+            logger.debug("exportToCsv","Successfully exported data to CSV")
             true
             
         } catch (e: Exception) {
-            appLogger.error(TAG, "Error exporting data to CSV", e)
+            logger.error("exportToJson","Error exporting data to CSV", e)
             false
         }
     }
@@ -245,12 +246,12 @@ class DataExportService @Inject constructor(
                     }
                 }
             }
-            
-            appLogger.info(TAG, "Successfully exported ${transactions.size} transactions for date range")
+
+            logger.debug("exportByDateRange","Successfully exported ${transactions.size} transactions for date range")
             true
             
         } catch (e: Exception) {
-            appLogger.error(TAG, "Error exporting data by date range", e)
+            logger.error("exportByDateRange", "Error exporting data by date range", e)
             false
         }
     }
@@ -287,7 +288,7 @@ class DataExportService @Inject constructor(
                 lastSyncDate = repository.getLastSyncTimestamp()
             )
         } catch (e: Exception) {
-            appLogger.error(TAG, "Error getting export statistics", e)
+            logger.error("getExportStatics", "Error getting export statistics", e)
             ExportStatistics(0, 0, 0, null)
         }
     }

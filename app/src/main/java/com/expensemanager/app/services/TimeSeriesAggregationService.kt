@@ -2,7 +2,8 @@ package com.expensemanager.app.services
 
 import com.expensemanager.app.data.entities.TransactionEntity
 import com.expensemanager.app.services.DateRangeService.Companion.TimeAggregation
-import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
+import com.expensemanager.app.utils.logging.StructuredLogger
 import java.text.SimpleDateFormat
 import java.util.*
 import javax.inject.Inject
@@ -20,6 +21,8 @@ class TimeSeriesAggregationService @Inject constructor(
     companion object {
         private const val TAG = "TimeSeriesAggregationService"
     }
+
+    private val logger = StructuredLogger(LogConfig.FeatureTags.DASHBOARD, TAG)
     
     /**
      * Data class for time series data points
@@ -59,11 +62,9 @@ class TimeSeriesAggregationService @Inject constructor(
         startDate: Date,
         endDate: Date
     ): List<TimeSeriesData> {
-        Timber.d("Generating time series data in range: $startDate to $endDate with ${transactions.size} transactions")
-        
         val periods = dateRangeService.generatePeriodsInRange(aggregationType, startDate, endDate)
         val timeSeriesData = mutableListOf<TimeSeriesData>()
-        
+
         for ((periodStart, periodEnd) in periods) {
             val periodTransactions = transactions.filter { transaction ->
                 transaction.transactionDate.time >= periodStart.time && 
@@ -101,11 +102,12 @@ class TimeSeriesAggregationService @Inject constructor(
                 startDate = periodStart,
                 endDate = periodEnd
             ))
-            
-            Timber.d("Period: $label - ₹$totalAmount ($transactionCount transactions)")
         }
-        
-        Timber.d("Generated ${timeSeriesData.size} time series data points")
+        logger.debug(
+            "generateTimeSeriesDataInRange",
+            "Generated time series data for ${timeSeriesData.size} periods",
+            "Range $startDate to $endDate"
+        )
         return timeSeriesData
     }
     
@@ -113,8 +115,6 @@ class TimeSeriesAggregationService @Inject constructor(
      * Generate daily aggregated data
      */
     fun generateDailyData(transactions: List<TransactionEntity>, days: Int): List<TimeSeriesData> {
-        Timber.d("Generating daily data for $days days with ${transactions.size} transactions")
-        
         val periods = dateRangeService.generatePeriods(TimeAggregation.DAILY, days)
         val dailyData = mutableListOf<TimeSeriesData>()
         
@@ -137,10 +137,12 @@ class TimeSeriesAggregationService @Inject constructor(
                 startDate = startDate,
                 endDate = endDate
             ))
-            
-            Timber.d("Daily: $dayLabel - ₹$totalAmount ($transactionCount transactions)")
         }
-        
+        logger.debug(
+            "generateDailyData",
+            "Generated daily data for $days days",
+            "Created ${dailyData.size} points"
+        )
         return dailyData
     }
     
@@ -148,8 +150,6 @@ class TimeSeriesAggregationService @Inject constructor(
      * Generate weekly aggregated data
      */
     fun generateWeeklyData(transactions: List<TransactionEntity>, weeks: Int): List<TimeSeriesData> {
-        Timber.d("Generating weekly data for $weeks weeks with ${transactions.size} transactions")
-        
         val periods = dateRangeService.generatePeriods(TimeAggregation.WEEKLY, weeks)
         val weeklyData = mutableListOf<TimeSeriesData>()
         
@@ -176,15 +176,12 @@ class TimeSeriesAggregationService @Inject constructor(
                 startDate = startDate,
                 endDate = endDate
             ))
-            
-            Timber.d("BAR_CHART_DEBUG: Weekly period: $startDate to $endDate")
-            Timber.d("BAR_CHART_DEBUG: Filtered ${periodTransactions.size} transactions from ${transactions.size} total")
-            if (periodTransactions.isNotEmpty()) {
-                Timber.d("BAR_CHART_DEBUG: Sample transaction dates: ${periodTransactions.take(3).map { it.transactionDate }}")
-            }
-            Timber.d("Weekly: $weekLabel - ₹$totalAmount ($transactionCount transactions)")
         }
-        
+        logger.debug(
+            "generateWeeklyData",
+            "Generated weekly data for $weeks weeks",
+            "Created ${weeklyData.size} periods"
+        )
         return weeklyData
     }
     
@@ -192,8 +189,6 @@ class TimeSeriesAggregationService @Inject constructor(
      * Generate monthly aggregated data
      */
     fun generateMonthlyData(transactions: List<TransactionEntity>, months: Int): List<TimeSeriesData> {
-        Timber.d("Generating monthly data for $months months with ${transactions.size} transactions")
-        
         val periods = dateRangeService.generatePeriods(TimeAggregation.MONTHLY, months)
         val monthlyData = mutableListOf<TimeSeriesData>()
         
@@ -220,15 +215,12 @@ class TimeSeriesAggregationService @Inject constructor(
                 startDate = startDate,
                 endDate = endDate
             ))
-            
-            Timber.d("BAR_CHART_DEBUG: Monthly period: $startDate to $endDate")
-            Timber.d("BAR_CHART_DEBUG: Filtered ${periodTransactions.size} transactions from ${transactions.size} total")
-            if (periodTransactions.isNotEmpty()) {
-                Timber.d("BAR_CHART_DEBUG: Sample transaction dates: ${periodTransactions.take(3).map { it.transactionDate }}")
-            }
-            Timber.d("Monthly: $monthLabel - ₹$totalAmount ($transactionCount transactions)")
         }
-        
+        logger.debug(
+            "generateMonthlyData",
+            "Generated monthly data for $months months",
+            "Created ${monthlyData.size} periods"
+        )
         return monthlyData
     }
     
@@ -236,8 +228,6 @@ class TimeSeriesAggregationService @Inject constructor(
      * Generate quarterly aggregated data
      */
     fun generateQuarterlyData(transactions: List<TransactionEntity>, quarters: Int): List<TimeSeriesData> {
-        Timber.d("Generating quarterly data for $quarters quarters with ${transactions.size} transactions")
-        
         val periods = dateRangeService.generatePeriods(TimeAggregation.QUARTERLY, quarters)
         val quarterlyData = mutableListOf<TimeSeriesData>()
         
@@ -272,10 +262,12 @@ class TimeSeriesAggregationService @Inject constructor(
                 startDate = startDate,
                 endDate = endDate
             ))
-            
-            Timber.d("Quarterly: $quarterLabel - ₹$totalAmount ($transactionCount transactions)")
         }
-        
+        logger.debug(
+            "generateQuarterlyData",
+            "Generated quarterly data for $quarters quarters",
+            "Created ${quarterlyData.size} periods"
+        )
         return quarterlyData
     }
     
@@ -283,8 +275,6 @@ class TimeSeriesAggregationService @Inject constructor(
      * Generate yearly aggregated data
      */
     fun generateYearlyData(transactions: List<TransactionEntity>, years: Int): List<TimeSeriesData> {
-        Timber.d("Generating yearly data for $years years with ${transactions.size} transactions")
-        
         val periods = dateRangeService.generatePeriods(TimeAggregation.YEARLY, years)
         val yearlyData = mutableListOf<TimeSeriesData>()
         
@@ -307,10 +297,12 @@ class TimeSeriesAggregationService @Inject constructor(
                 startDate = startDate,
                 endDate = endDate
             ))
-            
-            Timber.d("Yearly: $yearLabel - ₹$totalAmount ($transactionCount transactions)")
         }
-        
+        logger.debug(
+            "generateYearlyData",
+            "Generated yearly data for $years years",
+            "Created ${yearlyData.size} periods"
+        )
         return yearlyData
     }
     
@@ -485,10 +477,6 @@ class TimeSeriesAggregationService @Inject constructor(
         startDate: Date,
         endDate: Date
     ): List<TimeSeriesData> {
-        Timber.d("ENHANCED_TIME_SERIES: Generating time series data with enhanced ranges")
-        Timber.d("ENHANCED_TIME_SERIES: Date filter: $dateRangeFilter, Aggregation: $aggregationType")
-        Timber.d("ENHANCED_TIME_SERIES: Range: $startDate to $endDate, Transactions: ${transactions.size}")
-        
         val periods = dateRangeService.generatePeriodsWithSpecialHandling(
             dateRangeFilter, aggregationType, startDate, endDate
         )
@@ -531,11 +519,12 @@ class TimeSeriesAggregationService @Inject constructor(
                 startDate = periodStart,
                 endDate = periodEnd
             ))
-            
-            Timber.d("ENHANCED_TIME_SERIES: Period: $label - ₹$totalAmount ($transactionCount transactions)")
         }
-        
-        Timber.d("ENHANCED_TIME_SERIES: Generated ${timeSeriesData.size} enhanced time series data points")
+        logger.debug(
+            "generateTimeSeriesDataWithEnhancedRanges",
+            "Generated enhanced time series data for filter $dateRangeFilter",
+            "Created ${timeSeriesData.size} periods"
+        )
         return timeSeriesData
     }
 

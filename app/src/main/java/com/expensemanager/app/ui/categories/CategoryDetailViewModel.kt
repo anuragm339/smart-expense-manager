@@ -3,12 +3,12 @@ package com.expensemanager.app.ui.categories
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.expensemanager.app.data.repository.ExpenseRepository
+import com.expensemanager.app.utils.logging.StructuredLogger
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import timber.log.Timber
 import javax.inject.Inject
 
 @HiltViewModel
@@ -18,6 +18,7 @@ class CategoryDetailViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(CategoryDetailUIState())
     val uiState: StateFlow<CategoryDetailUIState> = _uiState.asStateFlow()
+    private val logger = StructuredLogger("CategoryDetailViewModel", CategoryDetailViewModel.javaClass.name)
 
     private var currentCategoryName: String = ""
 
@@ -61,10 +62,10 @@ class CategoryDetailViewModel @Inject constructor(
                     error = null
                 )
 
-                Timber.tag(TAG).d("Loaded %d merchants for category %s", merchants.size, categoryName)
+                logger.debug("loadCategoryDetail", String.format("Loaded %d merchants for category %s", merchants.size, categoryName))
 
             } catch (e: Exception) {
-                Timber.tag(TAG).e(e, "Failed to load category detail for %s", categoryName)
+                logger.error("loadCategoryDetail", String.format("Failed to load category detail for %s", categoryName),e)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     error = "Failed to load category details: ${e.message}"
@@ -96,14 +97,14 @@ class CategoryDetailViewModel @Inject constructor(
                 if (success) {
                     // Reload the category detail to reflect changes
                     loadCategoryDetail(currentCategoryName)
-                    Timber.tag(TAG).d("Changed merchant %s to category %s", merchantName, newCategoryName)
+                    logger.debug("changeMerchantCategory",String.format("Changed merchant %s to category %s", merchantName, newCategoryName))
                 } else {
                     _uiState.value = _uiState.value.copy(
                         error = "Failed to change merchant category"
                     )
                 }
             } catch (e: Exception) {
-                Timber.tag(TAG).e(e, "Failed to change merchant category")
+                logger.error("changeMerchantCategory", "Failed to change merchant category",e)
                 _uiState.value = _uiState.value.copy(
                     error = "Failed to change merchant category: ${e.message}"
                 )
@@ -121,14 +122,14 @@ class CategoryDetailViewModel @Inject constructor(
                         categoryName = newName,
                         categoryEmoji = newEmoji
                     )
-                    Timber.tag(TAG).d("Renamed category to %s", newName)
+                    logger.debug("renameCategory","Renamed category to %s", newName)
                 } else {
                     _uiState.value = _uiState.value.copy(
                         error = "Failed to rename category"
                     )
                 }
             } catch (e: Exception) {
-                Timber.tag(TAG).e(e, "Failed to rename category")
+                logger.error("renameCategory", "Failed to rename category",e)
                 _uiState.value = _uiState.value.copy(
                     error = "Failed to rename category: ${e.message}"
                 )
@@ -144,14 +145,14 @@ class CategoryDetailViewModel @Inject constructor(
                     _uiState.value = _uiState.value.copy(
                         categoryDeleted = true
                     )
-                    Timber.tag(TAG).d("Deleted category %s", currentCategoryName)
+                    logger.debug("deleteCategory","Deleted category %s", currentCategoryName)
                 } else {
                     _uiState.value = _uiState.value.copy(
                         error = "Failed to delete category"
                     )
                 }
             } catch (e: Exception) {
-                Timber.tag(TAG).e(e, "Failed to delete category")
+                logger.error("deleteCategory", "Failed to delete category",e)
                 _uiState.value = _uiState.value.copy(
                     error = "Failed to delete category: ${e.message}"
                 )
