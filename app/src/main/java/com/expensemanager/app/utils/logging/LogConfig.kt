@@ -60,6 +60,7 @@ class LogConfig @Inject constructor(
         const val INSIGHTS = "INSIGHTS"
         const val MIGRATION = "MIGRATION"
         const val APP = "APP"
+        const val AUTH = "AUTH"
         const val ERROR = "ERROR"
         const val TOPCATEGORIESADAPTER="TopCategoriesAdapter"
         const val CATEGORIESFRAGMENT="CategoriesFragment"

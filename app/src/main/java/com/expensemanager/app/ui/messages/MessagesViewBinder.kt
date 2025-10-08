@@ -8,9 +8,10 @@ import android.widget.TextView
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.expensemanager.app.R
 import com.expensemanager.app.databinding.FragmentMessagesBinding
+import com.expensemanager.app.databinding.ShimmerMessagesLoadingBinding
 import com.expensemanager.app.ui.messages.TransactionFilterTab
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.utils.logging.StructuredLogger
+import com.facebook.shimmer.ShimmerFrameLayout
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.textfield.TextInputEditText
@@ -34,6 +35,8 @@ class MessagesViewBinder(
     private val filterButton: MaterialButton = binding.root.findViewById(R.id.btn_filter)
     private val filterTabs: TabLayout = binding.root.findViewById(R.id.tab_layout_filter)
     private val searchInput: TextInputEditText = binding.etSearch
+    private val shimmerBinding: ShimmerMessagesLoadingBinding = binding.layoutShimmerLoading
+    private val shimmerLayout: ShimmerFrameLayout = shimmerBinding.root
 
     private val tvTotalMessages: TextView = binding.root.findViewById(R.id.tv_total_messages)
     private val tvAutoCategorized: TextView = binding.root.findViewById(R.id.tv_auto_categorized)
@@ -128,18 +131,24 @@ class MessagesViewBinder(
     fun showPermissionState() {
         groupedAdapter.submitList(emptyList())
         recyclerView.visibility = View.GONE
+        stopShimmer()
+        shimmerLayout.visibility = View.GONE
         emptyLayout.visibility = View.VISIBLE
         updateSummary(0, 0, 0, 0, 0)
     }
 
     fun showLoadingState() {
         recyclerView.visibility = View.GONE
-        emptyLayout.visibility = View.VISIBLE
+        emptyLayout.visibility = View.GONE
+        shimmerLayout.visibility = View.VISIBLE
+        startShimmer()
     }
 
     fun showEmptyState() {
         groupedAdapter.submitList(emptyList())
         recyclerView.visibility = View.GONE
+        stopShimmer()
+        shimmerLayout.visibility = View.GONE
         emptyLayout.visibility = View.VISIBLE
         updateSummary(0, 0, 0, 0, 0)
     }
@@ -147,6 +156,8 @@ class MessagesViewBinder(
     fun showContent() {
         recyclerView.visibility = View.VISIBLE
         emptyLayout.visibility = View.GONE
+        stopShimmer()
+        shimmerLayout.visibility = View.GONE
     }
 
     fun submitMerchantGroups(groups: List<MerchantGroup>) {
@@ -161,6 +172,9 @@ class MessagesViewBinder(
     private fun submitGroupsInternal(groups: List<MerchantGroup>) {
         groupedAdapter.submitList(groups)
         groupedAdapter.updateFilterTab(currentFilterTab)
+        if (groups.isNotEmpty()) {
+            showContent()
+        }
     }
 
     fun updateSummary(
@@ -212,5 +226,17 @@ class MessagesViewBinder(
         suppressTabCallback = true
         tab.select()
         filterTabs.post { suppressTabCallback = false }
+    }
+
+    private fun startShimmer() {
+        if (!shimmerLayout.isShimmerStarted) {
+            shimmerLayout.startShimmer()
+        }
+    }
+
+    private fun stopShimmer() {
+        if (shimmerLayout.isShimmerStarted) {
+            shimmerLayout.stopShimmer()
+        }
     }
 }

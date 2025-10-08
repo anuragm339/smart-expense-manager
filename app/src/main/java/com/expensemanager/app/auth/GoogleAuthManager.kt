@@ -7,14 +7,16 @@ import com.expensemanager.app.R
 import com.expensemanager.app.core.DebugConfig
 import com.expensemanager.app.data.dao.UserDao
 import com.expensemanager.app.data.entities.UserEntity
+import com.expensemanager.app.utils.logging.LogConfig
+import com.expensemanager.app.utils.logging.StructuredLogger
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
+import com.google.android.gms.common.api.CommonStatusCodes
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.tasks.await
-import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -33,6 +35,8 @@ class GoogleAuthManager @Inject constructor(
         const val RC_SIGN_IN = 9001 // Request code for sign-in intent
     }
 
+    private val logger = StructuredLogger(LogConfig.FeatureTags.AUTH, TAG)
+
     private val googleSignInClient: GoogleSignInClient by lazy {
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestIdToken(context.getString(R.string.default_web_client_id))  // Web client ID from google-services.json
@@ -49,7 +53,7 @@ class GoogleAuthManager @Inject constructor(
         // Check local database first
         val localUser = userDao.getCurrentUser()
         if (localUser != null && localUser.isAuthenticated) {
-            Timber.tag(TAG).d("🔐 User authenticated from local DB: ${localUser.email}")
+            logger.debug("isAuthenticated", "User authenticated from local DB: ${localUser.email}")
             return true
         }
 
@@ -59,12 +63,12 @@ class GoogleAuthManager @Inject constructor(
 
         if (isAuth && localUser == null) {
             // User is signed in with Google but not in local DB - sync it
-            Timber.tag(TAG).d("🔐 Syncing Google account to local DB")
+            logger.debug("isAuthenticated", "Syncing Google account to local DB")
             val user = mapGoogleAccountToUser(account!!)
             userDao.insertUser(user)
         }
 
-        Timber.tag(TAG).d("🔐 Google auth check: $isAuth")
+        logger.debug("isAuthenticated", "Google auth check result: $isAuth")
         return isAuth
     }
 
@@ -72,20 +76,20 @@ class GoogleAuthManager @Inject constructor(
         // Try local database first
         val localUser = userDao.getCurrentUser()
         if (localUser != null) {
-            Timber.tag(TAG).d("🔐 Getting user from local DB: ${localUser.email}")
+            logger.debug("getCurrentUser", "Returning user from local DB: ${localUser.email}")
             return localUser
         }
 
         // Fallback to Google Sign-In account
         val account = GoogleSignIn.getLastSignedInAccount(context)
         if (account != null) {
-            Timber.tag(TAG).d("🔐 Getting user from Google account: ${account.email}")
+            logger.debug("getCurrentUser", "Returning user from Google account: ${account.email}")
             val user = mapGoogleAccountToUser(account)
             userDao.insertUser(user) // Cache in local DB
             return user
         }
 
-        Timber.tag(TAG).d("🔐 No authenticated user found")
+        logger.debug("getCurrentUser", "No authenticated user found")
         return null
     }
 
@@ -95,7 +99,7 @@ class GoogleAuthManager @Inject constructor(
         onError: (Exception) -> Unit
     ) {
         DebugConfig.logRealUsage("Authentication", "Starting Google Sign-In flow")
-        Timber.tag(TAG).d("🔐 Starting Google Sign-In intent")
+        logger.debug("signIn", "Launching Google Sign-In intent")
 
         val signInIntent = googleSignInClient.signInIntent
         activity.startActivityForResult(signInIntent, RC_SIGN_IN)
@@ -103,7 +107,7 @@ class GoogleAuthManager @Inject constructor(
 
     override suspend fun signOut() {
         DebugConfig.logRealUsage("Authentication", "Signing out Google user")
-        Timber.tag(TAG).d("🔐 Google sign-out started")
+        logger.debug("signOut", "Google sign-out started")
 
         try {
             // Sign out from Google
@@ -112,9 +116,9 @@ class GoogleAuthManager @Inject constructor(
             // Clear local database
             userDao.deleteAllUsers()
 
-            Timber.tag(TAG).i("🔐 Google sign-out successful")
+            logger.info("signOut", "Google sign-out successful")
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "🔐 Google sign-out failed")
+            logger.error("signOut", "Google sign-out failed", e)
             throw e
         }
     }
@@ -127,21 +131,21 @@ class GoogleAuthManager @Inject constructor(
             val account = task.getResult(ApiException::class.java)
 
             if (account == null) {
-                Timber.tag(TAG).w("🔐 Google Sign-In result: account is null")
-                return Result.failure(Exception("Sign-in failed: account is null"))
+                logger.warn("handleSignInResult", "Google Sign-In returned a null account")
+                return Result.failure(GoogleAuthException(CommonStatusCodes.INTERNAL_ERROR, context.getString(R.string.error_sign_in_generic, CommonStatusCodes.INTERNAL_ERROR)))
             }
 
             val user = mapGoogleAccountToUser(account)
             userDao.insertUser(user)
 
-            Timber.tag(TAG).i("🔐 Google Sign-In successful: ${account.email}")
+            logger.info("handleSignInResult", "Google Sign-In successful for ${account.email}")
             Result.success(user)
 
         } catch (e: ApiException) {
-            Timber.tag(TAG).e(e, "🔐 Google Sign-In failed with code: ${e.statusCode}")
-            Result.failure(Exception("Google Sign-In failed: ${e.localizedMessage}"))
+            logger.error("handleSignInResult", "Google Sign-In ApiException: code=${e.statusCode}", e)
+            Result.failure(googleAuthErrorForStatus(e))
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "🔐 Google Sign-In error")
+            logger.error("handleSignInResult", "Unexpected Google Sign-In error", e)
             Result.failure(e)
         }
     }
@@ -166,4 +170,20 @@ class GoogleAuthManager @Inject constructor(
             createdAt = now
         )
     }
+
+    private fun googleAuthErrorForStatus(exception: ApiException): GoogleAuthException {
+        val statusCode = exception.statusCode
+        val message = when (statusCode) {
+            CommonStatusCodes.NETWORK_ERROR -> context.getString(R.string.error_sign_in_network)
+            CommonStatusCodes.CANCELED -> context.getString(R.string.error_sign_in_cancelled)
+            else -> context.getString(R.string.error_sign_in_generic, statusCode)
+        }
+        return GoogleAuthException(statusCode, message, exception)
+    }
 }
+
+class GoogleAuthException(
+    val statusCode: Int,
+    message: String,
+    cause: Throwable? = null
+) : Exception(message, cause)

@@ -1,7 +1,6 @@
 package com.expensemanager.app.ui.insights
 
 import android.os.Bundle
-import com.expensemanager.app.utils.logging.LogConfig
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -12,7 +11,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
-import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.expensemanager.app.R
 import com.expensemanager.app.data.models.InsightType
 import com.expensemanager.app.data.repository.AIInsightsRepository
@@ -27,8 +25,6 @@ import com.expensemanager.app.services.TimeSeriesAggregationService
 import com.expensemanager.app.services.TimeSeriesAggregationService.TimeSeriesData
 import com.expensemanager.app.services.DateRangeService.Companion.TimeAggregation
 import com.expensemanager.app.services.ChartConfigurationService
-import com.facebook.shimmer.ShimmerFrameLayout
-import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import com.github.mikephil.charting.charts.PieChart
 import com.github.mikephil.charting.charts.BarChart
@@ -64,12 +60,7 @@ class InsightsFragment : Fragment() {
     private lateinit var timeSeriesAggregationService: TimeSeriesAggregationService
     private lateinit var chartConfigurationService: ChartConfigurationService
 
-    // State management views
-    private lateinit var swipeRefreshLayout: SwipeRefreshLayout
-    private lateinit var shimmerLoading: View
-    private lateinit var errorState: View
-    private lateinit var emptyState: View
-    private lateinit var contentLayout: View
+    private lateinit var viewBinder: InsightsViewBinder
 
     // Enhanced Analytics Components
     private lateinit var filtersCard: View
@@ -113,11 +104,7 @@ class InsightsFragment : Fragment() {
      * Initialize view references
      */
     private fun initializeViews() {
-        swipeRefreshLayout = binding.swipeRefreshLayout
-        shimmerLoading = binding.layoutShimmerLoading.root
-        errorState = binding.layoutErrorState.root
-        emptyState = binding.layoutEmptyState.root
-        contentLayout = binding.layoutContent
+        viewBinder = InsightsViewBinder(binding)
 
         // Initialize enhanced analytics components
         filtersCard = binding.root.findViewById(R.id.cardFilters)
@@ -162,16 +149,8 @@ class InsightsFragment : Fragment() {
      * Setup initial UI elements and loading states
      */
     private fun setupUI() {
-        // Initially show shimmer loading state
-        showShimmerLoading(true)
-
-        // Setup swipe to refresh
         setupSwipeRefresh()
-
-        // Setup error state retry buttons
         setupErrorStateButtons()
-
-        // Setup empty state button
         setupEmptyStateButton()
 
         logger.debug("setupUI","UI setup completed")
@@ -181,13 +160,13 @@ class InsightsFragment : Fragment() {
      * Setup swipe to refresh functionality
      */
     private fun setupSwipeRefresh() {
-        swipeRefreshLayout.setOnRefreshListener {
+        viewBinder.bindSwipeRefresh {
             logger.debug("setupSwipeRefresh","Pull-to-refresh triggered")
             viewModel.handleEvent(InsightsUIEvent.Refresh)
         }
 
         // Customize refresh colors
-        swipeRefreshLayout.setColorSchemeResources(
+        binding.swipeRefreshLayout.setColorSchemeResources(
             R.color.primary,
             R.color.secondary,
             R.color.success
@@ -198,26 +177,24 @@ class InsightsFragment : Fragment() {
      * Setup error state buttons
      */
     private fun setupErrorStateButtons() {
-        errorState.findViewById<MaterialButton>(R.id.btnRetry)?.setOnClickListener {
-            logger.debug("setupErrorStateButtons","Retry button clicked")
-            viewModel.handleEvent(InsightsUIEvent.Retry)
-        }
-
-        errorState.findViewById<MaterialButton>(R.id.btnUseSampleData)?.setOnClickListener {
-            logger.debug("setupErrorStateButtons","Use sample data button clicked")
-            // Load sample insights for demo purposes
-            Toast.makeText(requireContext(), "Loading sample insights...", Toast.LENGTH_SHORT).show()
-            // This would trigger loading sample data in production
-        }
+        viewBinder.bindErrorActions(
+            onRetry = {
+                logger.debug("setupErrorStateButtons","Retry button clicked")
+                viewModel.handleEvent(InsightsUIEvent.Retry)
+            },
+            onUseSample = {
+                logger.debug("setupErrorStateButtons","Use sample data button clicked")
+                Toast.makeText(requireContext(), "Loading sample insights...", Toast.LENGTH_SHORT).show()
+            }
+        )
     }
 
     /**
      * Setup empty state button
      */
     private fun setupEmptyStateButton() {
-        emptyState.findViewById<MaterialButton>(R.id.btnGoToMessages)?.setOnClickListener {
+        viewBinder.bindEmptyState {
             logger.debug("setupEmptyStateButton","Go to messages button clicked")
-            // Navigate to messages tab (simplified approach)
             logger.debug("setupEmptyStateButton","Navigate to messages requested")
             Toast.makeText(requireContext(), "Navigate to Messages tab to add transactions", Toast.LENGTH_SHORT).show()
         }
@@ -292,117 +269,29 @@ class InsightsFragment : Fragment() {
      * Update UI based on state changes
      */
     private fun updateUI(state: InsightsUIState) {
-        // Handle pull-to-refresh state
-        swipeRefreshLayout.isRefreshing = state.isRefreshing
+        viewBinder.updateSwipeRefreshing(state.isRefreshing)
 
         when {
-            state.isInitialLoading -> {
-                showShimmerLoading(true)
-                hideAllOtherStates()
+            state.isLoading && state.insights.isEmpty() -> {
+                viewBinder.showLoadingState()
             }
 
             state.shouldShowError -> {
-                showErrorState(state.error)
-                hideAllOtherStates(except = "error")
+                viewBinder.showErrorState(state.error)
             }
 
             state.shouldShowContent -> {
-                showContentState()
-                hideAllOtherStates(except = "content")
+                viewBinder.showContentState()
                 updateInsightsContent(state)
             }
 
             state.shouldShowEmptyState -> {
-                showEmptyState()
-                hideAllOtherStates(except = "empty")
+                viewBinder.showEmptyState()
             }
         }
 
-        // Show sample data indicator if applicable
         if (state.showingSampleData && state.shouldShowContent) {
             showSampleDataIndicator()
-        }
-    }
-
-    /**
-     * Show shimmer loading state
-     */
-    private fun showShimmerLoading(show: Boolean) {
-        if (show) {
-            shimmerLoading.visibility = View.VISIBLE
-            // Start shimmer animations
-            startAllShimmerAnimations(shimmerLoading)
-            logger.debug("showShimmerLoading", "Showing shimmer loading")
-        } else {
-            shimmerLoading.visibility = View.GONE
-            // Stop shimmer animations
-            stopAllShimmerAnimations(shimmerLoading)
-            logger.debug("showShimmerLoading", "Hiding shimmer loading")
-        }
-    }
-
-    /**
-     * Show error state with message
-     */
-    private fun showErrorState(errorMessage: String?) {
-        errorState.visibility = View.VISIBLE
-
-        // Update error message
-        errorState.findViewById<TextView>(R.id.tvErrorMessage)?.text =
-            errorMessage ?: "Something went wrong. Please try again."
-
-        logger.debug("showErrorState", "Showing error state: $errorMessage")
-    }
-
-    /**
-     * Show content state
-     */
-    private fun showContentState() {
-        contentLayout.visibility = View.VISIBLE
-        logger.debug("showContentState", "Showing content state")
-    }
-
-    /**
-     * Show empty state
-     */
-    private fun showEmptyState() {
-        emptyState.visibility = View.VISIBLE
-        logger.debug("showEmptyState", "Showing empty state")
-    }
-
-    /**
-     * Hide all states except the specified one
-     */
-    private fun hideAllOtherStates(except: String = "") {
-        if (except != "shimmer") showShimmerLoading(false)
-        if (except != "error") errorState.visibility = View.GONE
-        if (except != "content") contentLayout.visibility = View.GONE
-        if (except != "empty") emptyState.visibility = View.GONE
-    }
-
-    /**
-     * Start all shimmer animations in a view hierarchy
-     */
-    private fun startAllShimmerAnimations(parent: View) {
-        if (parent is ShimmerFrameLayout) {
-            parent.startShimmer()
-        } else if (parent is ViewGroup) {
-            for (i in 0 until parent.childCount) {
-                startAllShimmerAnimations(parent.getChildAt(i))
-            }
-        }
-    }
-
-    /**
-     * Stop all shimmer animations in a view hierarchy
-     */
-    private fun stopAllShimmerAnimations(parent: View) {
-        if (parent is ShimmerFrameLayout) {
-            parent.stopShimmer()
-        } else if (parent is ViewGroup) {
-            for (i in 0 until parent.childCount) {
-                stopAllShimmerAnimations(parent.getChildAt(i))
-            }
         }
     }
 
@@ -539,7 +428,7 @@ class InsightsFragment : Fragment() {
      */
     @Deprecated("Use showShimmerLoading instead")
     private fun showLoadingState(isLoading: Boolean) {
-        showShimmerLoading(isLoading)
+        if (isLoading) viewBinder.showLoadingState() else viewBinder.showContentState()
     }
 
     /**
@@ -609,19 +498,9 @@ class InsightsFragment : Fragment() {
         applyDateRangeFilter("This Month")
     }
 
-    /**
-     * Handle refresh action (connected to pull-to-refresh)
-     */
-    private fun onRefresh() {
-        viewModel.handleEvent(InsightsUIEvent.Refresh)
-        logger.debug("onRefresh", "Manual refresh triggered")
-    }
-
     override fun onDestroyView() {
+        viewBinder.stopShimmer()
         super.onDestroyView()
-
-        // Stop any running shimmer animations
-        stopAllShimmerAnimations(binding.root)
 
         logger.debug("onDestroyView", "Fragment view destroyed")
         _binding = null
@@ -629,21 +508,15 @@ class InsightsFragment : Fragment() {
 
     override fun onPause() {
         super.onPause()
-        // Stop shimmer animations when fragment is not visible
-        if (::shimmerLoading.isInitialized) {
-            stopAllShimmerAnimations(shimmerLoading)
-        }
+        viewBinder.stopShimmer()
     }
 
     override fun onResume() {
         super.onResume()
-        // Restart shimmer animations if we're in loading state
-        if (::shimmerLoading.isInitialized && shimmerLoading.visibility == View.VISIBLE) {
-            startAllShimmerAnimations(shimmerLoading)
-        }
+        viewBinder.restartShimmerIfVisible()
 
         // Refresh charts when fragment becomes visible if content is already loaded
-        if (::viewModel.isInitialized && ::contentLayout.isInitialized && contentLayout.visibility == View.VISIBLE) {
+        if (::viewModel.isInitialized && viewBinder.isContentVisible()) {
             logger.debug("onResume", "Fragment resumed with content visible - refreshing charts to ensure proper rendering")
             viewLifecycleOwner.lifecycleScope.launch {
                 // Small delay to ensure fragment is fully visible
@@ -1023,7 +896,7 @@ class InsightsFragment : Fragment() {
         logger.debug("applyFiltersAndRefresh", "Applying all filters and refreshing analytics")
 
         // Show loading state
-        showShimmerLoading(true)
+        viewBinder.showLoadingState()
 
         // Trigger refresh with current filters
         viewModel.handleEvent(InsightsUIEvent.Refresh)
