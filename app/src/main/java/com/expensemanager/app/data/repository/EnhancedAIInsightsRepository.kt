@@ -522,7 +522,11 @@ class EnhancedAIInsightsRepository @Inject constructor(
                 what = "Failed to generate offline fallback insights",
                 throwable = e
             )
-            SampleInsights.getAllSample()
+            logger.debug(
+                where = "generateOfflineFallbackInsights",
+                what = "No cached offline insights available; returning empty list"
+            )
+            emptyList()
         }
     }
 

@@ -3,7 +3,6 @@ package com.expensemanager.app.data.repository.internal
 import android.content.Context
 import android.content.SharedPreferences
 import com.expensemanager.app.data.models.AIInsight
-import com.expensemanager.app.data.models.SampleInsights
 import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.utils.logging.StructuredLogger
 import com.google.gson.Gson
@@ -84,15 +83,16 @@ internal class AIInsightsCacheManager(
 
     fun cacheInsightsForOffline(insights: List<AIInsight>) {
         try {
+            val json = gson.toJson(insights)
             offlinePrefs.edit()
                 .putLong(OFFLINE_CACHE_TIMESTAMP_KEY, System.currentTimeMillis())
-                .putString(OFFLINE_CACHED_INSIGHTS_KEY, "offline_cached_${insights.size}_insights")
+                .putString(OFFLINE_CACHED_INSIGHTS_KEY, json)
                 .putInt(OFFLINE_CACHE_VERSION_KEY, CURRENT_CACHE_VERSION)
                 .apply()
 
             logger.debug(
                 where = "cacheInsightsForOffline",
-                what = "Cached ${insights.size} insights for offline mode"
+                what = "Cached ${insights.size} insights for offline mode (${json.length} bytes)"
             )
         } catch (e: Exception) {
             logger.error(
@@ -109,10 +109,25 @@ internal class AIInsightsCacheManager(
             val now = System.currentTimeMillis()
             val offlineExpiryTime = offlineCacheExpiryDays * 24 * 60 * 60 * 1000
 
-            if ((now - cachedTimestamp) <= offlineExpiryTime) {
-                getSampleInsights()
-            } else {
+            if ((now - cachedTimestamp) > offlineExpiryTime) {
+                logger.debug(
+                    where = "getOfflineCachedInsights",
+                    what = "Offline cache expired"
+                )
                 emptyList()
+            } else {
+                val cachedJson = offlinePrefs.getString(OFFLINE_CACHED_INSIGHTS_KEY, null)
+                if (cachedJson.isNullOrBlank()) {
+                    emptyList()
+                } else {
+                    val type = object : TypeToken<List<AIInsight>>() {}.type
+                    val insights: List<AIInsight> = gson.fromJson(cachedJson, type)
+                    logger.debug(
+                        where = "getOfflineCachedInsights",
+                        what = "Loaded ${insights.size} offline cached insights"
+                    )
+                    insights
+                }
             }
         } catch (e: Exception) {
             logger.error(
@@ -125,25 +140,11 @@ internal class AIInsightsCacheManager(
     }
 
     fun getOfflineFallbackInsights(): List<AIInsight> {
-        return try {
-            getSampleInsights()
-        } catch (e: Exception) {
-            logger.error(
-                where = "getOfflineFallbackInsights",
-                what = "Error getting fallback insights",
-                throwable = e
-            )
-            emptyList()
-        }
+        return getOfflineCachedInsights()
     }
 
     fun handleOfflineMode(): List<AIInsight> {
-        val offlineInsights = getOfflineCachedInsights()
-        return if (offlineInsights.isNotEmpty()) {
-            offlineInsights
-        } else {
-            getSampleInsights()
-        }
+        return getOfflineCachedInsights()
     }
 
     fun setOfflineMode(enabled: Boolean) {
@@ -162,8 +163,6 @@ internal class AIInsightsCacheManager(
     fun getLastRefreshTimestamp(): Long = prefs.getLong(LAST_REFRESH_KEY, 0L)
 
     fun getOfflineLastRefreshTimestamp(): Long = offlinePrefs.getLong(OFFLINE_CACHE_TIMESTAMP_KEY, 0L)
-
-    private fun getSampleInsights(): List<AIInsight> = SampleInsights.getAllSample()
 
     companion object {
         private const val CACHE_VERSION_KEY = "cache_version"
