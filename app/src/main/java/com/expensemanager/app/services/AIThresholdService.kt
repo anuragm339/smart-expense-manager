@@ -2,17 +2,22 @@ package com.expensemanager.app.services
 
 import android.content.Context
 import android.content.SharedPreferences
-import timber.log.Timber
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.data.dao.AICallDao
-import com.expensemanager.app.data.models.*
-import com.expensemanager.app.data.entities.TransactionEntity
-import kotlinx.coroutines.flow.first
+import com.expensemanager.app.data.models.AICallThresholds
+import com.expensemanager.app.data.models.AICallTracker
+import com.expensemanager.app.data.models.CallFrequency
+import com.expensemanager.app.data.models.ThresholdEvaluationResult
+import com.expensemanager.app.data.models.ThresholdProgress
+import com.expensemanager.app.data.models.Transaction
+import com.expensemanager.app.data.models.TriggerReason
 import com.expensemanager.app.data.repository.ExpenseRepository
+import com.expensemanager.app.utils.logging.StructuredLogger
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
-import java.util.*
+import java.util.Calendar
+import java.util.Date
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Named
@@ -30,7 +35,7 @@ class AIThresholdService @Inject constructor(
     private val userDao: com.expensemanager.app.data.dao.UserDao,
     @Named("ai_insights_prefs") private val prefs: SharedPreferences
 ) {
-
+    private val logger = StructuredLogger("AIThresholdService","AIThresholdService")
     companion object {
         private const val TAG = "AIThresholdService"
         private const val MAX_CONSECUTIVE_ERRORS = 3
@@ -45,13 +50,13 @@ class AIThresholdService @Inject constructor(
             aiCallDao.initializeTrackerIfNeeded()
             val evaluation = evaluateThresholds()
 
-            Timber.tag(TAG).d("Threshold evaluation: shouldCall=${evaluation.shouldCallAI}, " +
+            logger.debug("shouldCallAI","Threshold evaluation: shouldCall=${evaluation.shouldCallAI}, " +
                     "reason=${evaluation.triggerReason}, " +
                     "rateLimited=${evaluation.rateLimitReached}")
 
             evaluation.shouldCallAI && !evaluation.rateLimitReached
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error evaluating thresholds")
+            logger.error("shouldCallAI","Error evaluating thresholds",e)
             false
         }
     }
@@ -148,10 +153,10 @@ class AIThresholdService @Inject constructor(
         val user = userDao.getCurrentUser()
         val tier = user?.let { com.expensemanager.app.data.entities.SubscriptionTier.fromString(it.subscriptionTier) }
 
-        Timber.tag(TAG).d("✅ Updated tracking after successful call. " +
+        logger.debug("updateAfterSuccessfulCall","Updated tracking after successful call. " +
                 "Next eligible: ${Date(nextEligibleTime)}")
         if (tracker != null && tier != null) {
-            Timber.tag(TAG).d("📊 ${tier.displayName} tier usage: " +
+            logger.debug("updateAfterSuccessfulCall", "${tier.displayName} tier usage: " +
                     "daily=${tracker.dailyCallCount}/${tier.dailyAICallLimit}, " +
                     "monthly=${tracker.monthlyCallCount}/${tier.monthlyAICallLimit}")
         }
@@ -162,7 +167,7 @@ class AIThresholdService @Inject constructor(
      */
     suspend fun recordError() = withContext(Dispatchers.IO) {
         aiCallDao.recordError(System.currentTimeMillis())
-        Timber.tag(TAG).w("Recorded AI call error")
+        logger.debug("recordError", "Recorded AI call error")
     }
 
     /**
@@ -170,7 +175,7 @@ class AIThresholdService @Inject constructor(
      */
     suspend fun updateCallFrequency(frequency: CallFrequency) = withContext(Dispatchers.IO) {
         aiCallDao.updateCallFrequency(frequency.name)
-        Timber.tag(TAG).d("Updated call frequency to: ${frequency.displayName}")
+        logger.debug("updateCallFrequency", "Updated call frequency to: ${frequency.displayName}")
     }
 
     /**
@@ -245,11 +250,11 @@ class AIThresholdService @Inject constructor(
         val user = userDao.getCurrentUser()
 
         if (user == null) {
-            Timber.tag(TAG).w("🚫 No user found - rate limiting by default")
+            logger.debug("isRateLimited","No user found - rate limiting by default")
             return true // No user = rate limited
         }
 
-        Timber.tag(TAG).d("👤 Checking rate limits for user: ${user.email} (${user.subscriptionTier} tier)")
+        logger.debug("isRateLimited","Checking rate limits for user: ${user.email} (${user.subscriptionTier} tier)")
         val tier = com.expensemanager.app.data.entities.SubscriptionTier.fromString(user.subscriptionTier)
 
         // Check if we need to reset daily/monthly counters
@@ -285,7 +290,7 @@ class AIThresholdService @Inject constructor(
         val dailyCount = updatedTracker.dailyCallCount
         val monthlyCount = updatedTracker.monthlyCallCount
 
-        Timber.tag(TAG).d("📊 Current usage for ${tier.displayName} tier: " +
+        logger.debug("isRateLimited","Current usage for ${tier.displayName} tier: " +
                 "daily=$dailyCount/${tier.dailyAICallLimit}, " +
                 "monthly=$monthlyCount/${tier.monthlyAICallLimit}")
 
@@ -294,11 +299,11 @@ class AIThresholdService @Inject constructor(
         val monthlyLimitReached = monthlyCount >= tier.monthlyAICallLimit
 
         if (dailyLimitReached || monthlyLimitReached) {
-            Timber.tag(TAG).w("🚫 AI call rate limited for ${tier.displayName} tier: " +
+            logger.debug("isRateLimited","AI call rate limited for ${tier.displayName} tier: " +
                     "daily=$dailyCount/${tier.dailyAICallLimit}, " +
                     "monthly=$monthlyCount/${tier.monthlyAICallLimit}")
         } else {
-            Timber.tag(TAG).d("✅ Rate limit check passed - API call allowed")
+            logger.debug("isRateLimited","Rate limit check passed - API call allowed")
         }
 
         return dailyLimitReached || monthlyLimitReached

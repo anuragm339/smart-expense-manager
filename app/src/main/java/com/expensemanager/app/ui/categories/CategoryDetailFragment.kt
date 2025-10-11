@@ -17,9 +17,9 @@ import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.expensemanager.app.R
 import com.expensemanager.app.databinding.FragmentCategoryDetailBinding
+import com.expensemanager.app.utils.logging.StructuredLogger
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
-import timber.log.Timber
 
 @AndroidEntryPoint
 class CategoryDetailFragment : Fragment() {
@@ -31,7 +31,7 @@ class CategoryDetailFragment : Fragment() {
     private lateinit var merchantsAdapter: MerchantsInCategoryAdapter
 
     private var categoryName: String = ""
-
+    private val logger = StructuredLogger("CategoryDetailFragment", CategoryDetailFragment.javaClass.name)
     companion object {
         private const val TAG = "CategoryDetailFragment"
     }
@@ -137,7 +137,7 @@ class CategoryDetailFragment : Fragment() {
             binding.viewCategoryColor.backgroundTintList =
                 android.content.res.ColorStateList.valueOf(color)
         } catch (e: Exception) {
-            Timber.tag(TAG).w("Invalid color: %s", state.categoryColor)
+            logger.error("updateUI", String.format("Invalid color: %s", state.categoryColor),e)
         }
 
         // Merchants list

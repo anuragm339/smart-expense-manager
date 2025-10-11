@@ -4,7 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import timber.log.Timber
+import com.expensemanager.app.utils.logging.StructuredLogger
 import com.expensemanager.app.utils.logging.LogConfig
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -27,17 +27,19 @@ class DashboardViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val getDashboardDataUseCase: GetDashboardDataUseCase
 ) : ViewModel() {
-    
+
+    private val logger = StructuredLogger(LogConfig.FeatureTags.DASHBOARD, "DashboardViewModel")
+
     // Data change broadcast receiver for automatic refresh
     private val dataChangeReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == "com.expensemanager.app.DATA_CHANGED") {
-                Timber.tag(LogConfig.FeatureTags.DASHBOARD).d("[DATA_SYNC] Received data change broadcast, refreshing dashboard")
+                logger.debug("onReceive", "Data change broadcast received, refreshing dashboard")
                 refreshDashboard()
             }
         }
     }
-    
+
     companion object {
     }
     
@@ -56,9 +58,9 @@ class DashboardViewModel @Inject constructor(
             } else {
                 context.registerReceiver(dataChangeReceiver, filter)
             }
-            Timber.tag(LogConfig.FeatureTags.DASHBOARD).d("[DATA_SYNC] Registered for data change broadcasts")
+            logger.debug("init", "Registered for data change broadcasts")
         } catch (e: Exception) {
-            Timber.tag(LogConfig.FeatureTags.DASHBOARD).e(e, "[DATA_SYNC] Failed to register data change receiver")
+            logger.error("init", "Failed to register data change receiver", e)
         }
         
         loadDashboardData()
@@ -68,9 +70,9 @@ class DashboardViewModel @Inject constructor(
         super.onCleared()
         try {
             context.unregisterReceiver(dataChangeReceiver)
-            Timber.tag(LogConfig.FeatureTags.DASHBOARD).d("[DATA_SYNC] Unregistered data change receiver")
+            logger.debug("onCleared", "Unregistered data change receiver")
         } catch (e: Exception) {
-            Timber.tag(LogConfig.FeatureTags.DASHBOARD).e(e, "[DATA_SYNC] Failed to unregister data change receiver")
+            logger.error("onCleared", "Failed to unregister data change receiver", e)
         }
     }
 
@@ -148,7 +150,7 @@ class DashboardViewModel @Inject constructor(
      * Refresh dashboard data (pull-to-refresh or automatic refresh)
      */
     private fun refreshDashboard() {
-        Timber.tag(LogConfig.FeatureTags.DASHBOARD).d("[REFRESH] Starting dashboard refresh")
+        logger.debug("refreshDashboard", "Starting dashboard refresh")
         
         _uiState.value = _uiState.value.copy(
             isRefreshing = true,
@@ -162,8 +164,8 @@ class DashboardViewModel @Inject constructor(
             
             val result = getDashboardDataUseCase.execute(startDate, endDate)
             handleDashboardResult(result, isRefresh = true)
-            
-            Timber.tag(LogConfig.FeatureTags.DASHBOARD).d("[REFRESH] Dashboard refresh completed")
+
+            logger.debug("refreshDashboard", "Dashboard refresh completed")
         }
     }
     
@@ -302,7 +304,7 @@ class DashboardViewModel @Inject constructor(
                     }
                 )
             } catch (e: Exception) {
-                Timber.tag(LogConfig.FeatureTags.DASHBOARD).e(e, "Error loading custom months data")
+                logger.error("loadCustomMonthsData", "Error loading custom months data", e)
                 handleDashboardError(e)
             }
         }
@@ -332,12 +334,12 @@ class DashboardViewModel @Inject constructor(
                         )
                     },
                     onFailure = { error ->
-                        Timber.tag(LogConfig.FeatureTags.DASHBOARD).e("Error loading trend data: ${error.message}")
+                        logger.warn("updateTrendsForPeriod", "Error loading trend data: ${error.message}")
                         // Keep existing trend data if available
                     }
                 )
             } catch (e: Exception) {
-                Timber.tag(LogConfig.FeatureTags.DASHBOARD).e(e, "Error updating trends")
+                logger.error("updateTrendsForPeriod", "Error updating trends", e)
             }
         }
     }
@@ -352,8 +354,7 @@ class DashboardViewModel @Inject constructor(
     ) {
         result.fold(
             onSuccess = { dashboardData ->
-                Timber.tag(LogConfig.FeatureTags.DASHBOARD).d("[SUCCESS] Dashboard data loaded - Spent: ₹%.2f, Transactions: %d", 
-                    dashboardData.totalSpent, dashboardData.transactionCount)
+                logger.debug("handleDashboardResult", "Dashboard data loaded - Spent: ₹%.2f, Transactions: %d".format(dashboardData.totalSpent, dashboardData.transactionCount))
                 
                 _uiState.value = _uiState.value.copy(
                     isInitialLoading = false,
@@ -370,7 +371,7 @@ class DashboardViewModel @Inject constructor(
                 updateMonthlyComparison()
             },
             onFailure = { throwable ->
-                Timber.tag(LogConfig.FeatureTags.DASHBOARD).e(throwable, "Failed to load dashboard data")
+                logger.error("handleDashboardResult", "Failed to load dashboard data", throwable)
                 handleDashboardError(throwable)
             }
         )
@@ -448,11 +449,11 @@ class DashboardViewModel @Inject constructor(
                         )
                     },
                     onFailure = { error ->
-                        Timber.tag(LogConfig.FeatureTags.DASHBOARD).e("Error updating monthly comparison: ${error.message}")
+                        logger.warn("updateMonthlyComparison", "Error updating monthly comparison: ${error.message}")
                     }
                 )
             } catch (e: Exception) {
-                Timber.tag(LogConfig.FeatureTags.DASHBOARD).e(e, "Error in monthly comparison update")
+                logger.error("updateMonthlyComparison", "Error in monthly comparison update", e)
             }
         }
     }
@@ -472,7 +473,7 @@ class DashboardViewModel @Inject constructor(
      * Calculate trend data for UI display
      */
     private fun calculateTrendData(currentAmount: Double, previousAmount: Double, period: String): TrendData {
-        val change = calculatePercentageChange(currentAmount, previousAmount)
+        val change = calculatePercentageChange(.0, previousAmount)
         
         val trendText = when {
             change > 10 -> "📈 Spending increased"

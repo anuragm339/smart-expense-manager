@@ -4,10 +4,11 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.expensemanager.app.data.api.insights.HistoricalInsight
 import com.expensemanager.app.data.models.AIInsight
+import com.expensemanager.app.utils.logging.LogConfig
+import com.expensemanager.app.utils.logging.StructuredLogger
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import dagger.hilt.android.qualifiers.ApplicationContext
-import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -30,6 +31,7 @@ class InsightsHistoryManager @Inject constructor(
     }
 
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val logger = StructuredLogger(LogConfig.FeatureTags.INSIGHTS, TAG)
 
     /**
      * Save a new insight to conversation history
@@ -70,10 +72,14 @@ class InsightsHistoryManager @Inject constructor(
             val json = gson.toJson(filteredHistory)
             prefs.edit().putString(KEY_HISTORY, json).apply()
 
-            Timber.tag(TAG).d("Saved insight to history. Total history size: ${filteredHistory.size}")
+            logger.debug(
+                "saveInsight",
+                "Saved insight to history",
+                "History size: ${filteredHistory.size}"
+            )
 
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error saving insight to history")
+            logger.error("saveInsight", "Error saving insight to history", e)
         }
     }
 
@@ -100,7 +106,7 @@ class InsightsHistoryManager @Inject constructor(
             history.filter { it.timestamp >= retentionCutoff }
 
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error loading conversation history")
+            logger.error("getConversationHistory", "Error loading conversation history", e)
             emptyList()
         }
     }
@@ -136,10 +142,14 @@ class InsightsHistoryManager @Inject constructor(
             val json = gson.toJson(updatedHistory)
             prefs.edit().putString(KEY_HISTORY, json).apply()
 
-            Timber.tag(TAG).d("Marked insight as acted upon: $insightTimestamp")
+            logger.debug(
+                "markInsightActedUpon",
+                "Marked insight as acted upon",
+                "Timestamp: $insightTimestamp"
+            )
 
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error marking insight as acted upon")
+            logger.error("markInsightActedUpon", "Error marking insight as acted upon", e)
         }
     }
 
@@ -148,7 +158,7 @@ class InsightsHistoryManager @Inject constructor(
      */
     fun clearHistory() {
         prefs.edit().remove(KEY_HISTORY).apply()
-        Timber.tag(TAG).d("Cleared all conversation history")
+        logger.debug("clearHistory", "Cleared all conversation history")
     }
 
     /**
@@ -173,7 +183,7 @@ class InsightsHistoryManager @Inject constructor(
             val history = getConversationHistory()
             gson.toJson(history)
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error exporting history")
+            logger.error("exportHistoryJson", "Error exporting history", e)
             "[]"
         }
     }

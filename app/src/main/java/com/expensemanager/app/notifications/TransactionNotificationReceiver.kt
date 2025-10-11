@@ -3,8 +3,8 @@ package com.expensemanager.app.notifications
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import timber.log.Timber
 import com.expensemanager.app.utils.logging.LogConfig
+import com.expensemanager.app.utils.logging.StructuredLogger
 import android.widget.Toast
 import com.expensemanager.app.data.repository.ExpenseRepository
 import com.expensemanager.app.utils.CategoryManager
@@ -17,6 +17,8 @@ class TransactionNotificationReceiver : BroadcastReceiver() {
     companion object {
         private const val TAG = "TransactionNotificationReceiver"
     }
+
+    private val logger = StructuredLogger(LogConfig.FeatureTags.TRANSACTION, TAG)
     
     override fun onReceive(context: Context?, intent: Intent?) {
         if (context == null || intent == null) return
@@ -56,7 +58,7 @@ class TransactionNotificationReceiver : BroadcastReceiver() {
                 val repository = ExpenseRepository.getInstance(context)
                 val categoryManager = CategoryManager(context)
                 
-                Timber.tag(TAG).d("Categorizing transaction $transactionId as $category for merchant $merchant")
+                logger.debug("handleCategorizeAction", "Categorizing transaction $transactionId as $category for merchant $merchant")
                 
                 // Find transaction by SMS ID in SQLite database
                 val transaction = repository.getTransactionBySmsId(transactionId)
@@ -65,7 +67,7 @@ class TransactionNotificationReceiver : BroadcastReceiver() {
                     // Get or create the new category in SQLite
                     var newCategoryEntity = repository.getCategoryByName(category)
                     if (newCategoryEntity == null) {
-                        Timber.tag(TAG).d("Creating new category: $category")
+                        logger.debug("handleCategorizeAction", "Creating new category: $category")
                         val categoryToCreate = com.expensemanager.app.data.entities.CategoryEntity(
                             name = category,
                             emoji = getCategoryEmoji(category),
@@ -94,7 +96,7 @@ class TransactionNotificationReceiver : BroadcastReceiver() {
                         // Update legacy CategoryManager for backward compatibility
                         categoryManager.updateCategory(merchant, category)
                         
-                        Timber.tag(TAG).d("[SUCCESS] Transaction $transactionId categorized as $category in SQLite")
+                        logger.debug("handleCategorizeAction", "Transaction $transactionId categorized as $category in SQLite")
                         
                         // Send broadcast to notify UI components to refresh
                         val updateIntent = Intent("com.expensemanager.CATEGORY_UPDATED")
@@ -114,19 +116,19 @@ class TransactionNotificationReceiver : BroadcastReceiver() {
                             Toast.makeText(context, " $merchant categorized as $category", Toast.LENGTH_SHORT).show()
                         }
                     } else {
-                        Timber.tag(TAG).e("Failed to create or find category: $category")
+                        logger.error("handleCategorizeAction", "Failed to create or find category: $category")
                         CoroutineScope(Dispatchers.Main).launch {
                             Toast.makeText(context, "Failed to create category: $category", Toast.LENGTH_SHORT).show()
                         }
                     }
                 } else {
-                    Timber.tag(TAG).w("Transaction $transactionId not found in SQLite database")
+                    logger.warn("handleCategorizeAction", "Transaction $transactionId not found in SQLite database")
                     CoroutineScope(Dispatchers.Main).launch {
                         Toast.makeText(context, "Transaction not found in database", Toast.LENGTH_SHORT).show()
                     }
                 }
             } catch (e: Exception) {
-                Timber.tag(TAG).e(e, "Error categorizing transaction via notification")
+                logger.error("handleCategorizeAction", "Error categorizing transaction via notification", e)
                 CoroutineScope(Dispatchers.Main).launch {
                     Toast.makeText(context, "Failed to categorize transaction", Toast.LENGTH_SHORT).show()
                 }
@@ -166,19 +168,19 @@ class TransactionNotificationReceiver : BroadcastReceiver() {
                 val transaction = repository.getTransactionBySmsId(transactionId)
                 
                 if (transaction != null) {
-                    Timber.tag(TAG).d("Transaction $transactionId exists in database - dismissing notification")
+                    logger.debug("handleMarkProcessedAction", "Transaction $transactionId exists in database - dismissing notification")
                     
                     // Simply dismiss notification since SQLite transactions don't have "processed" field
                     // The transaction already exists in the database which means it's been processed
                     notificationManager.dismissNotification(transactionId)
                     
-                    Timber.tag(TAG).d("[SUCCESS] Transaction $transactionId notification dismissed")
+                    logger.debug("handleMarkProcessedAction", "Transaction $transactionId notification dismissed")
                     
                     CoroutineScope(Dispatchers.Main).launch {
                         Toast.makeText(context, "Transaction acknowledged", Toast.LENGTH_SHORT).show()
                     }
                 } else {
-                    Timber.tag(TAG).w("Transaction $transactionId not found in SQLite database")
+                    logger.warn("handleMarkProcessedAction", "Transaction $transactionId not found in SQLite database")
                     
                     // Dismiss notification anyway since transaction might not exist
                     notificationManager.dismissNotification(transactionId)
@@ -188,7 +190,7 @@ class TransactionNotificationReceiver : BroadcastReceiver() {
                     }
                 }
             } catch (e: Exception) {
-                Timber.tag(TAG).e(e, "Error handling mark processed action")
+                logger.error("handleMarkProcessedAction", "Error handling mark processed action", e)
                 CoroutineScope(Dispatchers.Main).launch {
                     Toast.makeText(context, "Failed to process action", Toast.LENGTH_SHORT).show()
                 }

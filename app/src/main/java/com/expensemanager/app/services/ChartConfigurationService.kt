@@ -6,13 +6,13 @@ import androidx.core.content.ContextCompat
 import com.expensemanager.app.R
 import com.expensemanager.app.data.dao.CategorySpendingResult
 import com.expensemanager.app.services.TimeSeriesAggregationService.TimeSeriesData
+import com.expensemanager.app.utils.logging.StructuredLogger
 import com.github.mikephil.charting.charts.BarChart
 import com.github.mikephil.charting.charts.LineChart
 import com.github.mikephil.charting.charts.PieChart
 import com.github.mikephil.charting.components.XAxis
 import com.github.mikephil.charting.data.*
 import com.github.mikephil.charting.formatter.ValueFormatter
-import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -24,7 +24,7 @@ import javax.inject.Singleton
 class ChartConfigurationService @Inject constructor(
     private val context: Context
 ) {
-    
+    private val logger = StructuredLogger("ChartConfigurationService","ChartConfigurationService")
     companion object {
         private const val TAG = "ChartConfigurationService"
     }
@@ -61,10 +61,10 @@ class ChartConfigurationService @Inject constructor(
         showLabels: Boolean = true
     ): Boolean {
         try {
-            Timber.d("Setting up category pie chart with ${data.categoryData.size} categories")
+            logger.debug("setupCategoryPieChart","Setting up category pie chart with ${data.categoryData.size} categories")
             
             if (!validatePieChartData(data)) {
-                Timber.w("Invalid pie chart data provided")
+                logger.debug("setupCategoryPieChart","Invalid pie chart data provided")
                 return false
             }
             
@@ -133,12 +133,12 @@ class ChartConfigurationService @Inject constructor(
                 // Refresh chart
                 invalidate()
             }
-            
-            Timber.d("Category pie chart setup completed successfully")
+
+            logger.debug("setupCategoryPieChart","Category pie chart setup completed successfully")
             return true
             
         } catch (e: Exception) {
-            Timber.e(e, "Error setting up category pie chart")
+            logger.error("setupCategoryPieChart","Error setting up category pie chart",e)
             return false
         }
     }
@@ -152,10 +152,10 @@ class ChartConfigurationService @Inject constructor(
         title: String = "Time Series"
     ): Boolean {
         try {
-            Timber.d("Setting up time series bar chart with ${data.size} data points")
+            logger.debug("setupTimeSeriesBarChart","Setting up time series bar chart with ${data.size} data points")
             
             if (!validateTimeSeriesData(data)) {
-                Timber.w("Invalid time series data provided")
+                logger.debug("setupTimeSeriesBarChart","Invalid time series data provided")
                 return false
             }
             
@@ -184,8 +184,8 @@ class ChartConfigurationService @Inject constructor(
                         return if (value > 0) "₹${String.format("%.0f", value)}" else ""
                     }
                 }
-                
-                Timber.d("Applied ${timeSeriesColors.size} colors to ${barEntries.size} bars")
+
+                logger.debug("setupTimeSeriesBarChart","Applied ${timeSeriesColors.size} colors to ${barEntries.size} bars")
             }
             
             // Create bar data
@@ -243,12 +243,12 @@ class ChartConfigurationService @Inject constructor(
                 // Refresh chart
                 invalidate()
             }
-            
-            Timber.d("Time series bar chart setup completed successfully")
+
+            logger.debug("setupTimeSeriesBarChart","Time series bar chart setup completed successfully")
             return true
             
         } catch (e: Exception) {
-            Timber.e(e, "Error setting up time series bar chart")
+            logger.error("setupTimeSeriesBarChart","Error setting up time series bar chart",e)
             return false
         }
     }
@@ -263,10 +263,10 @@ class ChartConfigurationService @Inject constructor(
         showDataPoints: Boolean = true
     ): Boolean {
         try {
-            Timber.d("Setting up trend line chart with ${data.size} data points")
+            logger.debug("setupTrendLineChart","Setting up trend line chart with ${data.size} data points")
             
             if (!validateTimeSeriesData(data)) {
-                Timber.w("Invalid trend line data provided")
+                logger.debug("setupTrendLineChart","Invalid trend line data provided")
                 return false
             }
             
@@ -351,12 +351,12 @@ class ChartConfigurationService @Inject constructor(
                 // Refresh chart
                 invalidate()
             }
-            
-            Timber.d("Trend line chart setup completed successfully")
+
+            logger.debug("setupTrendLineChart","Trend line chart setup completed successfully")
             return true
             
         } catch (e: Exception) {
-            Timber.e(e, "Error setting up trend line chart")
+            logger.error("setupTrendLineChart","Error setting up trend line chart",e)
             return false
         }
     }
@@ -427,7 +427,7 @@ class ChartConfigurationService @Inject constructor(
                 baseColors[index % baseColors.size]
             }
         }.also {
-            Timber.d("Generated ${it.size} colors for $count data points")
+            logger.debug("getTimeSeriesColors","Generated ${it.size} colors for $count data points")
         }
     }
     
@@ -471,7 +471,7 @@ class ChartConfigurationService @Inject constructor(
     fun showChartError(chart: com.github.mikephil.charting.charts.Chart<*>, error: String) {
         chart.clear()
         chart.invalidate()
-        Timber.w("Chart error: $error")
+        logger.debug("showChartError","Chart error: $error")
         // You could add an error message here
     }
 }

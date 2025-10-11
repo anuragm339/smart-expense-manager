@@ -11,7 +11,7 @@ import com.expensemanager.app.core.DebugConfig
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import timber.log.Timber
+import com.expensemanager.app.utils.logging.StructuredLogger
 import javax.inject.Inject
 
 /**
@@ -22,9 +22,10 @@ import javax.inject.Inject
 class SplashActivity : AppCompatActivity() {
 
     companion object {
-        private const val TAG = "SplashActivity"
         private const val SPLASH_DELAY = 1000L // 1 second minimum splash display
     }
+
+    private val logger = StructuredLogger("SplashActivity", "SplashActivity")
 
     @Inject
     lateinit var authManager: AuthManager
@@ -33,14 +34,11 @@ class SplashActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_splash)
 
-        Timber.tag(TAG).d("🚀 Splash screen started")
-        Timber.tag(TAG).d("🛠️ Auth mode: ${authManager.getAuthMode()}")
+        logger.debug("onCreate", "Splash screen started")
+        logger.debug("onCreate", "Auth mode: ${authManager.getAuthMode()}")
 
-        // Log debug configuration
         if (DebugConfig.isDebugBuild) {
-            Timber.tag(TAG).d("🛠️ Debug build detected")
-            Timber.tag(TAG).d("   Mock Auth: ${DebugConfig.useMockAuth}")
-            Timber.tag(TAG).d("   Mock Subscription: ${DebugConfig.useMockSubscription}")
+            logger.debug("onCreate", "Debug build - Mock Auth: ${DebugConfig.useMockAuth}, Mock Subscription: ${DebugConfig.useMockSubscription}")
         }
 
         checkAuthenticationAndNavigate()
@@ -56,9 +54,7 @@ class SplashActivity : AppCompatActivity() {
                 val isAuthenticated = authManager.isAuthenticated()
                 val user = authManager.getCurrentUser()
 
-                Timber.tag(TAG).d("🔍 Authentication check complete")
-                Timber.tag(TAG).d("   Authenticated: $isAuthenticated")
-                Timber.tag(TAG).d("   User: ${user?.email ?: "none"}")
+                logger.debug("checkAuthenticationAndNavigate", "Auth check complete - Authenticated: $isAuthenticated, User: ${user?.email ?: "none"}")
 
                 // Ensure minimum splash display time
                 val elapsedTime = System.currentTimeMillis() - startTime
@@ -68,15 +64,15 @@ class SplashActivity : AppCompatActivity() {
 
                 // Navigate based on authentication status
                 if (isAuthenticated && user != null) {
-                    Timber.tag(TAG).i("✅ User authenticated, navigating to MainActivity")
+                    logger.info("checkAuthenticationAndNavigate", "User authenticated, navigating to MainActivity")
                     navigateToMain()
                 } else {
-                    Timber.tag(TAG).i("🔑 User not authenticated, navigating to LoginActivity")
+                    logger.info("checkAuthenticationAndNavigate", "User not authenticated, navigating to LoginActivity")
                     navigateToLogin()
                 }
 
             } catch (e: Exception) {
-                Timber.tag(TAG).e(e, "❌ Error during authentication check")
+                logger.error("checkAuthenticationAndNavigate", "Error during authentication check", e)
                 // On error, navigate to login
                 navigateToLogin()
             }

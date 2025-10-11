@@ -3,12 +3,10 @@ package com.expensemanager.app.utils
 
 import android.content.Context
 import android.database.Cursor
-import android.net.Uri
 import android.provider.Telephony
-import timber.log.Timber
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.models.HistoricalSMS
 import com.expensemanager.app.models.ParsedTransaction
+import com.expensemanager.app.utils.logging.StructuredLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.*
@@ -18,7 +16,8 @@ class SMSHistoryReader(
     private val context: Context,
     private val progressCallback: ((current: Int, total: Int, status: String) -> Unit)? = null
 ) {
-    
+    private val logger = StructuredLogger("SMSHistoryReader", "SMSHistoryReader")
+
     companion object {
         private const val TAG = "SMSHistoryReader"
         private const val MONTHS_TO_SCAN = 6 // Scan last 6 months
@@ -114,11 +113,11 @@ class SMSHistoryReader(
         var processedCount = 0
         
         try {
-            Timber.tag(TAG).d("[PROCESS] Starting SMS scan...")
+            logger.debug("scanHistoricalSMS","Starting SMS scan...")
             progressCallback?.invoke(0, 100, "Reading SMS history...")
             
             val historicalSMS = readSMSHistory()
-            Timber.tag(TAG).d("[SMS] Found ${historicalSMS.size} historical SMS messages (limited to $MAX_SMS_TO_PROCESS)")
+            logger.debug("scanHistoricalSMS","Found ${historicalSMS.size} historical SMS messages (limited to $MAX_SMS_TO_PROCESS)")
             
             val totalSMS = historicalSMS.size
             progressCallback?.invoke(0, totalSMS, "Found $totalSMS messages, analyzing...")
@@ -150,15 +149,15 @@ class SMSHistoryReader(
             
             // Final progress update
             progressCallback?.invoke(totalSMS, totalSMS, "Scan complete! Found $acceptedCount transactions")
-            
-            Timber.tag(TAG).d("SMS Processing Summary:")
-            Timber.tag(TAG).d("Total SMS scanned: $totalSMS")
-            Timber.tag(TAG).d("Accepted transactions: $acceptedCount")
-            Timber.tag(TAG).d("Rejected SMS: $rejectedCount")
-            Timber.tag(TAG).d("Final parsed transactions: ${transactions.size}")
+
+            logger.info("scanHistoricalSMS","SMS Processing Summary:")
+            logger.info("scanHistoricalSMS","Total SMS scanned: $totalSMS")
+            logger.info("scanHistoricalSMS","Accepted transactions: $acceptedCount")
+            logger.info("scanHistoricalSMS","Rejected SMS: $rejectedCount")
+            logger.info("scanHistoricalSMS","Final parsed transactions: ${transactions.size}")
             
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error scanning historical SMS")
+            logger.error("scanHistoricalSMS","Error scanning historical SMS",e)
             progressCallback?.invoke(0, 100, "Error: ${e.message}")
         }
         
@@ -191,7 +190,7 @@ class SMSHistoryReader(
         
         var cursor: Cursor? = null
         try {
-            Timber.tag(TAG).d("[SMS] Querying SMS from last $MONTHS_TO_SCAN months (max $MAX_SMS_TO_PROCESS messages)")
+            logger.debug("scanHistoricalSMS","Querying SMS from last $MONTHS_TO_SCAN months (max $MAX_SMS_TO_PROCESS messages)")
             cursor = context.contentResolver.query(
                 uri, projection, selection, selectionArgs, sortOrder
             )
@@ -215,7 +214,7 @@ class SMSHistoryReader(
                 }
             }
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error reading SMS history")
+            logger.error("scanHistoricalSMS","Error reading SMS history",e)
         } finally {
             cursor?.close()
         }
@@ -344,7 +343,7 @@ class SMSHistoryReader(
                 null
             }
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error parsing transaction: ${sms.body}")
+            logger.error("scanHistoricalSMS","Error parsing transaction: ${sms.body}",e)
             null
         }
     }

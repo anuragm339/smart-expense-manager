@@ -4,8 +4,8 @@ import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import timber.log.Timber
 import com.expensemanager.app.utils.logging.LogConfig
+import com.expensemanager.app.utils.logging.StructuredLogger
 
 /**
  * Base ViewModel class that eliminates ~150 lines of duplicated state management logic
@@ -18,7 +18,7 @@ abstract class BaseViewModel<T : BaseUIState>(
 
     protected val _uiState = MutableStateFlow(initialState)
     val uiState: StateFlow<T> = _uiState.asStateFlow()
-
+    private val logger = StructuredLogger("BaseViewModel", "BaseViewModel")
     /**
      * Update UI state with loading state
      */
@@ -32,7 +32,7 @@ abstract class BaseViewModel<T : BaseUIState>(
      */
     @Suppress("UNCHECKED_CAST")
     protected fun setError(error: String?, hasError: Boolean = true) {
-        Timber.tag(tag).e("ViewModel error: $error")
+        logger.error("setError","ViewModel error: $error",null)
         _uiState.value = _uiState.value.copyWithError(error, hasError) as T
     }
 
@@ -72,7 +72,7 @@ abstract class BaseViewModel<T : BaseUIState>(
             if (showLoading) setLoading(false)
             
         } catch (e: Exception) {
-            Timber.tag(tag).e(e, "Operation failed")
+            logger.error("executeWithErrorHandling", "Operation failed",e)
             if (showLoading) setLoading(false)
             onError(e)
         }

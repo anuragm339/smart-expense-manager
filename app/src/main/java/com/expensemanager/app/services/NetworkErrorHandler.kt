@@ -5,8 +5,8 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
-import timber.log.Timber
 import com.expensemanager.app.utils.logging.LogConfig
+import com.expensemanager.app.utils.logging.StructuredLogger
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -34,6 +34,8 @@ class NetworkErrorHandler @Inject constructor(
         private const val RETRY_DELAY_MS = 2000L
         private const val EXPONENTIAL_BACKOFF_MULTIPLIER = 2
     }
+
+    private val logger = StructuredLogger(LogConfig.FeatureTags.NETWORK, TAG)
 
     /**
      * Error types for different network scenarios
@@ -174,19 +176,19 @@ class NetworkErrorHandler @Inject constructor(
 
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
-                Timber.tag(TAG).d("Network available")
+                logger.debug("networkConnectivityFlow", "Network available")
                 trySend(true)
             }
 
             override fun onLost(network: Network) {
-                Timber.tag(TAG).d("Network lost")
+                logger.debug("networkConnectivityFlow", "Network lost")
                 trySend(false)
             }
 
             override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) {
                 val hasInternet = networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
                         networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
-                Timber.tag(TAG).d("Network capabilities changed - hasInternet: $hasInternet")
+                logger.debug("networkConnectivityFlow", "Network capabilities changed", "Has internet: $hasInternet")
                 trySend(hasInternet)
             }
         }
@@ -226,15 +228,15 @@ class NetworkErrorHandler @Inject constructor(
     fun logError(error: NetworkError, throwable: Throwable, context: String) {
         when (error) {
             is NetworkError.NoInternet,
-            is NetworkError.Timeout -> Timber.tag(TAG).w("$context: ${error.message}", throwable)
+            is NetworkError.Timeout -> logger.warnWithThrowable("logError", "$context: ${error.message}", throwable)
 
             is NetworkError.ServerError,
-            is NetworkError.RateLimited -> Timber.tag(TAG).e(throwable, "$context: ${error.message}")
+            is NetworkError.RateLimited -> logger.error("logError", "$context: ${error.message}", throwable)
 
             is NetworkError.ClientError,
-            is NetworkError.Generic -> Timber.tag(TAG).e(throwable, "$context: ${error.message}")
+            is NetworkError.Generic -> logger.error("logError", "$context: ${error.message}", throwable)
 
-            is NetworkError.UnknownHost -> Timber.tag(TAG).w("$context: ${error.message}", throwable)
+            is NetworkError.UnknownHost -> logger.warnWithThrowable("logError", "$context: ${error.message}", throwable)
         }
     }
 }

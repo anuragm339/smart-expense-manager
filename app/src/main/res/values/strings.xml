@@ -96,4 +96,7 @@
     <string name="error_bad_request">Bad request. Please check your input.</string>
     <string name="error_not_found">Requested resource not found.</string>
     <string name="error_network">Network error occurred. Please try again.</string>
+    <string name="error_sign_in_network">Cannot reach Google right now. Check your internet connection and make sure your device date and time are correct, then try again.</string>
+    <string name="error_sign_in_cancelled">Sign-in was canceled. Please try again.</string>
+    <string name="error_sign_in_generic">Sign-in failed (%1$d). Please try again.</string>
 </resources>

@@ -23,18 +23,25 @@ data class MessagesUIState(
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
     val isSyncingSMS: Boolean = false,
-    
+    val isLoadingMore: Boolean = false,
+
     // Data
     val allMessages: List<MessageItem> = emptyList(),
     val filteredMessages: List<MessageItem> = emptyList(),
     val groupedMessages: List<MerchantGroup> = emptyList(),
-    
+
+    // Pagination
+    val currentPage: Int = 0,
+    val pageSize: Int = 50,
+    val hasMoreData: Boolean = true,
+    val totalCount: Int = 0,
+
     // Search and filters
     val searchQuery: String = "",
     val currentSortOption: SortOption = SortOption("Date (Newest First)", "date", false),
     val currentFilterOptions: FilterOptions = FilterOptions(),
     val currentFilterTab: TransactionFilterTab = TransactionFilterTab.ALL,
-    
+
     // State flags
     val isEmpty: Boolean = false,
     val hasError: Boolean = false,
@@ -96,10 +103,11 @@ data class MessageItem(
     val category: String,
     val categoryColor: String,
     val confidence: Int,
-    val dateTime: String,
+    val dateTime: String, // Human-readable date string ("2 hours ago", "Yesterday", etc.)
     val rawSMS: String,
     val isDebit: Boolean = true,
-    val rawMerchant: String = merchant // Original merchant name before alias processing
+    val rawMerchant: String = merchant, // Original merchant name before alias processing
+    val actualDate: java.util.Date = java.util.Date() // 🔧 BUG FIX: Actual date object for filtering
 )
 
 /**
@@ -181,26 +189,27 @@ data class FilterOptions(
  */
 sealed class MessagesUIEvent {
     object LoadMessages : MessagesUIEvent()
+    object LoadMoreMessages : MessagesUIEvent()
     object RefreshMessages : MessagesUIEvent()
     object ResyncSMS : MessagesUIEvent()
     object TestSMSScanning : MessagesUIEvent()
     object ResetFilters : MessagesUIEvent()
     object ClearError : MessagesUIEvent()
-    
+
     data class Search(val query: String) : MessagesUIEvent()
     data class ApplySort(val sortOption: SortOption) : MessagesUIEvent()
     data class ApplyFilter(val filterOptions: FilterOptions) : MessagesUIEvent()
     data class ApplyFilterTab(val filterTab: TransactionFilterTab) : MessagesUIEvent()
     data class ToggleGroupInclusion(val merchantName: String, val isIncluded: Boolean) : MessagesUIEvent()
-    
+
     data class UpdateMerchantGroup(
         val merchantName: String,
         val newDisplayName: String,
         val newCategory: String
     ) : MessagesUIEvent()
-    
+
     data class ResetMerchantGroup(val merchantName: String) : MessagesUIEvent()
-    
+
     data class UpdateCategoryForMerchant(
         val merchantName: String,
         val newCategory: String

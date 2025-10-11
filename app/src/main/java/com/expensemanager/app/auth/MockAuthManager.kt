@@ -6,9 +6,10 @@ import com.expensemanager.app.R
 import com.expensemanager.app.core.DebugConfig
 import com.expensemanager.app.data.dao.UserDao
 import com.expensemanager.app.data.entities.UserEntity
+import com.expensemanager.app.utils.logging.LogConfig
+import com.expensemanager.app.utils.logging.StructuredLogger
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
-import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -47,6 +48,8 @@ class MockAuthManager @Inject constructor(
         )
     }
 
+    private val logger = StructuredLogger(LogConfig.FeatureTags.APP, TAG)
+
     data class TestUser(
         val userId: String,
         val email: String,
@@ -60,13 +63,13 @@ class MockAuthManager @Inject constructor(
         val user = userDao.getCurrentUser()
         val isAuth = user != null && user.isAuthenticated
 
-        Timber.tag(TAG).d("🎭 Mock auth check: $isAuth")
+        logger.debug("isAuthenticated", "🎭 Mock auth check: $isAuth")
         return isAuth
     }
 
     override suspend fun getCurrentUser(): UserEntity? {
         val user = userDao.getCurrentUser()
-        Timber.tag(TAG).d("🎭 Getting mock user: ${user?.email}")
+        logger.debug("getCurrentUser", "🎭 Getting mock user: ${user?.email}")
         return user
     }
 
@@ -79,7 +82,7 @@ class MockAuthManager @Inject constructor(
         onError: (Exception) -> Unit
     ) {
         DebugConfig.logMockUsage("Authentication", "Starting mock sign-in with ${testUser.tier} user")
-        Timber.tag(TAG).d("🎭 Mock sign-in started for: ${testUser.email}")
+        logger.debug("signInWithTestUser", "🎭 Mock sign-in started for: ${testUser.email}")
 
         GlobalScope.launch(Dispatchers.Main) {
             try {
@@ -88,11 +91,11 @@ class MockAuthManager @Inject constructor(
                 val userEntity = createTestUserEntity(testUser)
                 userDao.insertUser(userEntity)
 
-                Timber.tag(TAG).i("🎭 Mock sign-in successful: ${testUser.email} (${testUser.tier})")
+                logger.info("signInWithTestUser", "🎭 Mock sign-in successful: ${testUser.email} (${testUser.tier})")
                 onSuccess(userEntity)
 
             } catch (e: Exception) {
-                Timber.tag(TAG).e(e, "🎭 Mock sign-in failed")
+                logger.error("signInWithTestUser", "🎭 Mock sign-in failed", e)
                 onError(e)
             }
         }
@@ -105,15 +108,15 @@ class MockAuthManager @Inject constructor(
     ) {
         // This will be called from LoginActivity which will show user selection
         DebugConfig.logMockUsage("Authentication", "Mock sign-in - use signInWithTestUser instead")
-        Timber.tag(TAG).w("🎭 signIn() called - should use signInWithTestUser() for test users")
+        logger.warn("signIn", "🎭 signIn() called - should use signInWithTestUser() for test users")
     }
 
     override suspend fun signOut() {
         DebugConfig.logMockUsage("Authentication", "Signing out mock user")
-        Timber.tag(TAG).d("🎭 Mock sign-out")
+        logger.debug("signOut", "🎭 Mock sign-out")
 
         userDao.deleteAllUsers()
-        Timber.tag(TAG).i("🎭 Mock user signed out successfully")
+        logger.info("signOut", "🎭 Mock user signed out successfully")
     }
 
     override suspend fun handleSignInResult(data: android.content.Intent?): Result<UserEntity> {
@@ -125,10 +128,10 @@ class MockAuthManager @Inject constructor(
             val debugUser = createTestUserEntity(TEST_USERS[0]) // Default to Free user
             userDao.insertUser(debugUser)
 
-            Timber.tag(TAG).i("🎭 Mock sign-in result handled successfully")
+            logger.info("handleSignInResult", "🎭 Mock sign-in result handled successfully")
             Result.success(debugUser)
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "🎭 Mock sign-in result handling failed")
+            logger.error("handleSignInResult", "🎭 Mock sign-in result handling failed", e)
             Result.failure(e)
         }
     }

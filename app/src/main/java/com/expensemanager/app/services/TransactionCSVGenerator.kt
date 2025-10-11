@@ -2,7 +2,8 @@ package com.expensemanager.app.services
 
 import com.expensemanager.app.data.entities.TransactionEntity
 import com.expensemanager.app.data.repository.ExpenseRepository
-import timber.log.Timber
+import com.expensemanager.app.utils.logging.LogConfig
+import com.expensemanager.app.utils.logging.StructuredLogger
 import java.text.SimpleDateFormat
 import java.util.*
 import javax.inject.Inject
@@ -24,6 +25,8 @@ class TransactionCSVGenerator @Inject constructor(
         private val DATE_FORMAT = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
     }
 
+    private val logger = StructuredLogger(LogConfig.FeatureTags.INSIGHTS, TAG)
+
     /**
      * Generate CSV string from transactions with enriched metadata
      * @param transactions List of all transactions (will be filtered and limited)
@@ -41,7 +44,7 @@ class TransactionCSVGenerator @Inject constructor(
             .sortedByDescending { it.transactionDate }
             .take(MAX_TRANSACTIONS)
 
-        Timber.tag(TAG).d("Generating CSV for ${selectedTransactions.size} transactions")
+        logger.debug("generateCSV", "Generating CSV for ${selectedTransactions.size} transactions")
 
         // Generate CSV rows (optimized: removed day/time columns - AI extracts from timestamp)
         selectedTransactions.forEach { transaction ->
@@ -56,7 +59,7 @@ class TransactionCSVGenerator @Inject constructor(
         }
 
         val csv = csvBuilder.toString()
-        Timber.tag(TAG).d("CSV generated: ${csv.length} bytes, ${selectedTransactions.size} rows")
+        logger.debug("generateCSV", "CSV generated: ${csv.length} bytes, ${selectedTransactions.size} rows")
 
         return csv
     }
@@ -69,40 +72,8 @@ class TransactionCSVGenerator @Inject constructor(
             val merchantWithCategory = repository.getMerchantWithCategory(normalizedMerchant)
             escapeCsvValue(merchantWithCategory?.category_name ?: "Other")
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error getting category for merchant: $normalizedMerchant")
+            logger.error("getCategory", "Error getting category for merchant: $normalizedMerchant", e)
             "Other"
-        }
-    }
-
-    /**
-     * Get day of week from date
-     */
-    private fun getDayOfWeek(date: Date): String {
-        val calendar = Calendar.getInstance().apply { time = date }
-        return when (calendar.get(Calendar.DAY_OF_WEEK)) {
-            Calendar.SUNDAY -> "Sunday"
-            Calendar.MONDAY -> "Monday"
-            Calendar.TUESDAY -> "Tuesday"
-            Calendar.WEDNESDAY -> "Wednesday"
-            Calendar.THURSDAY -> "Thursday"
-            Calendar.FRIDAY -> "Friday"
-            Calendar.SATURDAY -> "Saturday"
-            else -> "Unknown"
-        }
-    }
-
-    /**
-     * Get time of day category from date
-     */
-    private fun getTimeOfDay(date: Date): String {
-        val calendar = Calendar.getInstance().apply { time = date }
-        val hour = calendar.get(Calendar.HOUR_OF_DAY)
-
-        return when (hour) {
-            in 5..11 -> "Morning"
-            in 12..16 -> "Afternoon"
-            in 17..20 -> "Evening"
-            else -> "Night"
         }
     }
 

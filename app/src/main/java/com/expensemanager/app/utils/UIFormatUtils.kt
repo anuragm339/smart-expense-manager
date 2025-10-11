@@ -2,11 +2,10 @@ package com.expensemanager.app.utils
 
 import android.graphics.Color
 import android.view.View
-import androidx.core.content.ContextCompat
-import com.expensemanager.app.R
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Date
+import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 

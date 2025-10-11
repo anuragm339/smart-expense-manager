@@ -1,6 +1,5 @@
 package com.expensemanager.app.ui.insights
 
-import timber.log.Timber
 import com.expensemanager.app.utils.logging.LogConfig
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -8,6 +7,7 @@ import com.expensemanager.app.data.models.AIInsight
 import com.expensemanager.app.data.models.InsightType
 import com.expensemanager.app.data.repository.OfflineException
 import com.expensemanager.app.domain.insights.GetAIInsightsUseCase
+import com.expensemanager.app.utils.logging.StructuredLogger
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -35,9 +35,11 @@ class InsightsViewModel @Inject constructor(
 
     // Deduplication flag to prevent concurrent API calls
     private val isApiCallInProgress = AtomicBoolean(false)
+
+    private val logger = StructuredLogger("InsightsViewModel", "InsightsViewModel")
     
     init {
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("ViewModel initialized, loading insights smartly (cache-first)...")
+        logger.debug("init","ViewModel initialized, loading insights smartly (cache-first)...")
         loadInsightsSmartly() // Use cache-first loading to avoid unnecessary API calls
     }
 
@@ -48,11 +50,11 @@ class InsightsViewModel @Inject constructor(
     private fun loadInsightsSmartly() {
         // Check if API call already in progress
         if (!isApiCallInProgress.compareAndSet(false, true)) {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("⚠️ API call already in progress, skipping duplicate loadInsightsSmartly()")
+            logger.debug("loadInsightsSmartly","API call already in progress, skipping duplicate loadInsightsSmartly()")
             return
         }
 
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Starting smart load (cache-first)...")
+        logger.debug("loadInsightsSmartly","Starting smart load (cache-first)...")
 
         _uiState.value = _uiState.value.copy(
             isInitialLoading = true,
@@ -67,7 +69,7 @@ class InsightsViewModel @Inject constructor(
             } finally {
                 // Reset flag when done (success or failure)
                 isApiCallInProgress.set(false)
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("✅ Smart load completed, flag reset")
+                logger.debug("loadInsightsSmartly","Smart load completed, flag reset")
             }
         }
     }
@@ -76,7 +78,7 @@ class InsightsViewModel @Inject constructor(
      * Handle UI events from the Fragment
      */
     fun handleEvent(event: InsightsUIEvent) {
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Handling event: $event")
+        logger.debug("handleEvent","Handling event: $event")
         
         when (event) {
             is InsightsUIEvent.Refresh -> refreshInsights()
@@ -96,11 +98,11 @@ class InsightsViewModel @Inject constructor(
     private fun refreshInsights() {
         // Check if API call already in progress
         if (!isApiCallInProgress.compareAndSet(false, true)) {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("⚠️ Refresh already in progress, skipping duplicate refreshInsights()")
+            logger.debug("refreshInsights", "Refresh already in progress, skipping duplicate refreshInsights()")
             return
         }
 
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Refreshing insights...")
+        logger.debug("refreshInsights", "Refreshing insights...")
 
         _uiState.value = _uiState.value.copy(
             isRefreshing = true,
@@ -115,7 +117,7 @@ class InsightsViewModel @Inject constructor(
             } finally {
                 // Reset flag when done (success or failure)
                 isApiCallInProgress.set(false)
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("✅ Refresh completed, flag reset")
+                logger.debug("refreshInsights", "Refresh completed, flag reset")
             }
         }
     }
@@ -127,11 +129,11 @@ class InsightsViewModel @Inject constructor(
     private fun retryLoadingInsights() {
         // Check if API call already in progress
         if (!isApiCallInProgress.compareAndSet(false, true)) {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("⚠️ API call already in progress, skipping duplicate retry")
+            logger.debug("retryLoadingInsights", "API call already in progress, skipping duplicate retry")
             return
         }
 
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Retrying to load insights...")
+        logger.debug("retryLoadingInsights", "Retrying to load insights...")
 
         _uiState.value = _uiState.value.copy(
             isRetrying = true,
@@ -146,7 +148,7 @@ class InsightsViewModel @Inject constructor(
             } finally {
                 // Reset flag when done (success or failure)
                 isApiCallInProgress.set(false)
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("✅ Retry completed, flag reset")
+                logger.debug("retryLoadingInsights", "Retry completed, flag reset")
             }
         }
     }
@@ -162,22 +164,22 @@ class InsightsViewModel @Inject constructor(
     ) {
         result.fold(
             onSuccess = { insights ->
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("✅ Insights loaded successfully: ${insights.size} insights")
+                logger.debug("handleInsightsResult", "Insights loaded successfully: ${insights.size} insights")
 
                 // Log all insights with their details
                 insights.forEachIndexed { index, insight ->
-                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("  Insight #${index + 1}:")
-                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("    - ID: ${insight.id}")
-                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("    - Type: ${insight.type}")
-                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("    - Title: ${insight.title}")
-                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("    - Impact Amount: ₹${insight.impactAmount}")
-                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("    - Priority: ${insight.priority}")
+//                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("  Insight #${index + 1}:")
+//                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("    - ID: ${insight.id}")
+//                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("    - Type: ${insight.type}")
+//                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("    - Title: ${insight.title}")
+//                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("    - Impact Amount: ₹${insight.impactAmount}")
+//                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("    - Priority: ${insight.priority}")
                 }
 
                 val groupedInsights = insights.groupBy { it.type }
                 val isSampleData = insights.any { it.id.startsWith("forecast_") || it.id.startsWith("pattern_") || it.id.startsWith("offline_") }
 
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("📊 Is sample/offline data: $isSampleData")
+                logger.debug("handleInsightsResult", "Is sample/offline data: $isSampleData")
 
                 _uiState.value = _uiState.value.copy(
                     isInitialLoading = false,
@@ -195,15 +197,15 @@ class InsightsViewModel @Inject constructor(
 
                 // Log insight summary
                 val summary = groupedInsights.mapValues { it.value.size }
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("📈 Loaded insights by type: $summary")
+                logger.debug("handleInsightsResult", "Loaded insights by type: $summary")
                 
                 // If this was sample data due to offline mode, show appropriate message
                 if (isSampleData && (isRefresh || isRetry)) {
-                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Loaded sample data due to connectivity issues")
+                    logger.debug("handleInsightsResult", "Loaded sample data due to connectivity issues")
                 }
             },
             onFailure = { throwable ->
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(throwable, "Failed to load insights")
+                logger.error("handleInsightsResult","Failed to load insights",throwable)
                 
                 val (errorMessage, isOffline) = when (throwable) {
                     is OfflineException -> {
@@ -234,7 +236,7 @@ class InsightsViewModel @Inject constructor(
                 
                 // If we have existing insights, just show a message instead of error state
                 if (hasExistingInsights) {
-                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Keeping existing insights, error: $errorMessage")
+                    logger.debug("handleInsightsResult", "Keeping existing insights, error: $errorMessage")
                 }
             }
         )
@@ -258,7 +260,7 @@ class InsightsViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(
             expandedCards = currentExpanded + insightId
         )
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Expanded card: $insightId")
+        logger.debug("expandCard", "Expanded card: $insightId")
     }
     
     /**
@@ -269,14 +271,14 @@ class InsightsViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(
             expandedCards = currentExpanded - insightId
         )
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Collapsed card: $insightId")
+        logger.debug("collapseCard", "Collapsed card: $insightId")
     }
     
     /**
      * Handle insight card click
      */
     private fun handleInsightClick(insight: AIInsight) {
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Insight clicked: ${insight.title}")
+        logger.debug("handleInsightClick","Insight clicked: ${insight.title}")
         
         // Toggle card expansion
         if (_uiState.value.isCardExpanded(insight.id)) {
@@ -290,25 +292,25 @@ class InsightsViewModel @Inject constructor(
      * Handle action button clicks (e.g., "Create Savings Plan")
      */
     private fun handleActionClick(insight: AIInsight, action: String) {
-        Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Action clicked: $action for insight: ${insight.title}")
+        logger.debug("handleActionClick","Action clicked: $action for insight: ${insight.title}")
         
         // Handle different action types
         when (action.lowercase()) {
             "create savings plan" -> {
                 // Navigate to budget goals or create a savings plan
                 // This would typically trigger a navigation event
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Creating savings plan for ${insight.impactAmount}")
+                logger.debug("handleActionClick","Creating savings plan for ${insight.impactAmount}")
             }
             "view breakdown" -> {
                 // Navigate to categories screen
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Viewing breakdown for ${insight.type}")
+                logger.debug("handleActionClick","Viewing breakdown for ${insight.type}")
             }
             "set reminder" -> {
                 // Create a spending reminder
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Setting reminder for ${insight.title}")
+                logger.debug("handleActionClick","Setting reminder for ${insight.title}")
             }
             else -> {
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Unhandled action: $action")
+                logger.debug("handleActionClick","Unhandled action: $action")
             }
         }
     }
@@ -327,11 +329,11 @@ class InsightsViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 getAIInsightsUseCase.clearCache()
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Cache cleared")
+                logger.debug("clearCache","Cache cleared")
                 // Reload insights after clearing cache
                 refreshInsights()
             } catch (e: Exception) {
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "Error clearing cache")
+                logger.error("clearCache", "Error clearing cache",e)
             }
         }
     }
@@ -378,25 +380,25 @@ class InsightsViewModel @Inject constructor(
         .map { state ->
             val savingsInsights = state.getInsightsByType(InsightType.SAVINGS_OPPORTUNITY)
 
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("🔍 Calculating savings opportunities:")
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("  - Total insights: ${state.insights.size}")
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("  - Savings insights: ${savingsInsights.size}")
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("  - Is offline mode: ${state.isOfflineMode}")
+            logger.debug("savingsOpportunities","Calculating savings opportunities:")
+            logger.debug("savingsOpportunities","  - Total insights: ${state.insights.size}")
+            logger.debug("savingsOpportunities","  - Savings insights: ${savingsInsights.size}")
+            logger.debug("savingsOpportunities","  - Is offline mode: ${state.isOfflineMode}")
 
             if (savingsInsights.isNotEmpty()) {
                 // Log each savings insight
                 savingsInsights.forEachIndexed { index, insight ->
-                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("  - Savings #${index + 1}: id=${insight.id}, title=${insight.title}, impactAmount=₹${insight.impactAmount}")
+                    logger.debug("savingsOpportunities","  - Savings #${index + 1}: id=${insight.id}, title=${insight.title}, impactAmount=₹${insight.impactAmount}")
                 }
 
                 val totalMonthly = savingsInsights.sumOf { it.impactAmount }
                 val yearlyImpact = totalMonthly * 12
                 val confidence = if (state.isOfflineMode) 0.70f else 0.85f // Lower confidence for offline data
 
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("💰 SAVINGS CALCULATION:")
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("  - Monthly Total: ₹$totalMonthly")
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("  - Yearly Total: ₹$yearlyImpact")
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("  - Confidence: $confidence")
+                logger.debug("savingsOpportunities","SAVINGS CALCULATION:")
+                logger.debug("savingsOpportunities","  - Monthly Total: ₹$totalMonthly")
+                logger.debug("savingsOpportunities","  - Yearly Total: ₹$yearlyImpact")
+                logger.debug("savingsOpportunities","  - Confidence: $confidence")
 
                 SavingsOpportunityUIData(
                     monthlyPotential = totalMonthly,
@@ -408,7 +410,7 @@ class InsightsViewModel @Inject constructor(
                     confidence = confidence
                 )
             } else {
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("⚠️ No savings insights available")
+                logger.debug("savingsOpportunities","No savings insights available")
                 SavingsOpportunityUIData()
             }
         }
@@ -440,9 +442,9 @@ class InsightsViewModel @Inject constructor(
             // This would call repository to get cache status
             // For now, just log the current state
             val state = _uiState.value
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Current cache status - Offline: ${state.isOfflineMode}, Sample data: ${state.showingSampleData}")
+            logger.debug("getCacheStatus","Current cache status - Offline: ${state.isOfflineMode}, Sample data: ${state.showingSampleData}")
         } catch (e: Exception) {
-            Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "Error checking cache status")
+            logger.error("getCacheStatus","Error checking cache status",e)
         }
     }
     
@@ -453,10 +455,10 @@ class InsightsViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 // This would call repository to toggle offline mode
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("Toggling offline mode")
+                logger.debug("getCacheStatus","Toggling offline mode")
                 refreshInsights()
             } catch (e: Exception) {
-                Timber.tag(LogConfig.FeatureTags.INSIGHTS).e(e, "Error toggling offline mode")
+                logger.error("getCacheStatus","Error toggling offline mode",e)
             }
         }
     }

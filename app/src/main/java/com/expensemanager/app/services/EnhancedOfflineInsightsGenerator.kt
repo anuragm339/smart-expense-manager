@@ -2,8 +2,8 @@ package com.expensemanager.app.services
 
 import com.expensemanager.app.data.models.*
 import com.expensemanager.app.data.entities.TransactionEntity
-import timber.log.Timber
 import com.expensemanager.app.utils.logging.LogConfig
+import com.expensemanager.app.utils.logging.StructuredLogger
 import java.util.*
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -20,6 +20,8 @@ class EnhancedOfflineInsightsGenerator {
         private const val UNUSUAL_TRANSACTION_MULTIPLIER = 3.0 // 3x average
         private const val FREQUENT_MERCHANT_THRESHOLD = 3 // 3+ transactions
     }
+
+    private val logger = StructuredLogger(LogConfig.FeatureTags.INSIGHTS, TAG)
 
     /**
      * Generate comprehensive offline insights
@@ -46,7 +48,7 @@ class EnhancedOfflineInsightsGenerator {
                 .take(6) // Limit to 6 insights for better UX
 
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error generating offline insights")
+            logger.error("generateAdvancedInsights", "Error generating offline insights", e)
             return listOf(createErrorFallbackInsight())
         }
     }

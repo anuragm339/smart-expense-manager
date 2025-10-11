@@ -12,9 +12,9 @@ import com.expensemanager.app.auth.AuthManager
 import com.expensemanager.app.auth.GoogleAuthManager
 import com.expensemanager.app.core.DebugConfig
 import com.expensemanager.app.databinding.ActivityLoginBinding
+import com.expensemanager.app.utils.logging.StructuredLogger
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
-import timber.log.Timber
 import javax.inject.Inject
 
 /**
@@ -32,14 +32,15 @@ class LoginActivity : AppCompatActivity() {
     lateinit var authManager: AuthManager
 
     private lateinit var binding: ActivityLoginBinding
+    private val logger = StructuredLogger("LoginActivity", "LoginActivity")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityLoginBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        Timber.tag(TAG).d("🔑 Login screen started")
-        Timber.tag(TAG).d("🛠️ Auth mode: ${authManager.getAuthMode()}")
+        logger.debug("onCreate","Login screen started")
+        logger.debug("onCreate","Auth mode: ${authManager.getAuthMode()}")
 
         setupUI()
         setupGoogleSignIn()
@@ -50,7 +51,7 @@ class LoginActivity : AppCompatActivity() {
         if (DebugConfig.isDebugBuild && DebugConfig.useMockAuth) {
             binding.tvDebugBanner.visibility = View.VISIBLE
             binding.tvDebugBanner.text = getString(R.string.debug_banner)
-            Timber.tag(TAG).d("🛠️ Debug banner shown")
+            //Timber.tag(TAG).d("🛠️ Debug banner shown")
         } else {
             binding.tvDebugBanner.visibility = View.GONE
         }
@@ -58,7 +59,7 @@ class LoginActivity : AppCompatActivity() {
 
     private fun setupGoogleSignIn() {
         binding.btnGoogleSignIn.setOnClickListener {
-            Timber.tag(TAG).d("🔑 Sign-in button clicked")
+            logger.debug("setupGoogleSignIn","Sign-in button clicked")
 
             // In mock mode, show user selection dialog
             if (DebugConfig.useMockAuth) {
@@ -69,12 +70,12 @@ class LoginActivity : AppCompatActivity() {
                 authManager.signIn(
                     activity = this,
                     onSuccess = { user ->
-                        Timber.tag(TAG).i("✅ Sign-in successful: ${user.email}")
+                        logger.debug("setupGoogleSignIn","Sign-in successful: ${user.email}")
                         showLoading(false)
                         navigateToMain()
                     },
                     onError = { exception ->
-                        Timber.tag(TAG).e(exception, "❌ Sign-in failed")
+                        logger.error("setupGoogleSignIn","Sign-in failed",exception)
                         showLoading(false)
                         Toast.makeText(
                             this,
@@ -111,18 +112,18 @@ class LoginActivity : AppCompatActivity() {
         mockAuthManager: com.expensemanager.app.auth.MockAuthManager,
         testUser: com.expensemanager.app.auth.MockAuthManager.TestUser
     ) {
-        Timber.tag(TAG).d("🔑 Selected test user: ${testUser.email}")
+        logger.debug( "signInWithTestUser","Selected test user: ${testUser.email}")
         showLoading(true)
 
         mockAuthManager.signInWithTestUser(
             testUser = testUser,
             onSuccess = { user ->
-                Timber.tag(TAG).i("✅ Test user sign-in successful: ${user.email}")
+                logger.debug( "signInWithTestUser","Test user sign-in successful: ${user.email}")
                 showLoading(false)
                 navigateToMain()
             },
             onError = { exception ->
-                Timber.tag(TAG).e(exception, "❌ Test user sign-in failed")
+                logger.error( "signInWithTestUser","Test user sign-in failed",exception)
                 showLoading(false)
                 Toast.makeText(
                     this,
@@ -137,17 +138,17 @@ class LoginActivity : AppCompatActivity() {
         super.onActivityResult(requestCode, resultCode, data)
 
         if (requestCode == GoogleAuthManager.RC_SIGN_IN) {
-            Timber.tag(TAG).d("🔑 Google Sign-In result received")
+            logger.debug("onActivityResult","Google Sign-In result received")
 
             lifecycleScope.launch {
                 val result = authManager.handleSignInResult(data)
 
                 result.onSuccess { user ->
-                    Timber.tag(TAG).i("✅ Sign-in successful: ${user.email}")
+                    logger.debug("onActivityResult","Sign-in successful: ${user.email}")
                     showLoading(false)
                     navigateToMain()
                 }.onFailure { exception ->
-                    Timber.tag(TAG).e(exception, "❌ Sign-in failed")
+                    logger.debug("onActivityResult","Sign-in failed")
                     showLoading(false)
                     Toast.makeText(
                         this@LoginActivity,

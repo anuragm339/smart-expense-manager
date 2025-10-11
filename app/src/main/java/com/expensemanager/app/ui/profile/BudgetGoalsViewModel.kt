@@ -2,8 +2,6 @@ package com.expensemanager.app.ui.profile
 
 import android.content.Context
 import android.content.SharedPreferences
-import timber.log.Timber
-import com.expensemanager.app.utils.logging.LogConfig
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -15,6 +13,7 @@ import kotlinx.coroutines.launch
 import com.expensemanager.app.data.repository.ExpenseRepository
 import com.expensemanager.app.utils.CategoryManager
 import com.expensemanager.app.utils.MerchantAliasManager
+import com.expensemanager.app.utils.logging.StructuredLogger
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.*
@@ -33,7 +32,7 @@ class BudgetGoalsViewModel @Inject constructor(
     private val prefs: SharedPreferences = context.getSharedPreferences("budget_settings", Context.MODE_PRIVATE)
     private val categoryManager = CategoryManager(context)
     private val merchantAliasManager = MerchantAliasManager(context)
-
+    private val logger = StructuredLogger("BudgetGoalsViewModel", "BudgetGoalsViewModel")
     // UI State
     private val _uiState = MutableStateFlow(BudgetGoalsUiState())
     val uiState: StateFlow<BudgetGoalsUiState> = _uiState.asStateFlow()
@@ -88,7 +87,7 @@ class BudgetGoalsViewModel @Inject constructor(
                 }
                 
             } catch (e: Exception) {
-                Timber.tag(TAG).e(e, "Error loading budget data")
+                logger.error("loadBudgetData","Error loading budget data",e)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     error = "Error loading budget data: ${e.message}"
@@ -141,7 +140,7 @@ class BudgetGoalsViewModel @Inject constructor(
                     )
                 }
             } catch (e: Exception) {
-                Timber.tag(TAG).e(e, "Error parsing category budgets")
+                logger.error("loadCategoryBudgets","Error parsing category budgets",e)
                 loadDefaultCategoryBudgetsWithRealSpending(categoryBudgets, categorySpendingMap)
             }
         } else {
