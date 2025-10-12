@@ -183,6 +183,7 @@ class MessagesFragment : Fragment() {
         groupedMessagesAdapter = viewBinder.groupedAdapter
 
         observeViewModelState()
+        messagesViewModel.startInitialLoad()
         checkPermissionsAndSetupUI()
     }
 
@@ -312,14 +313,16 @@ class MessagesFragment : Fragment() {
             requireContext(),
             Manifest.permission.READ_SMS
         ) == PackageManager.PERMISSION_GRANTED
-        
+
         val hasReceiveSmsPermission = ContextCompat.checkSelfPermission(
             requireContext(),
             Manifest.permission.RECEIVE_SMS
         ) == PackageManager.PERMISSION_GRANTED
-        
+
         if (hasReadSmsPermission && hasReceiveSmsPermission) {
-            viewBinder.showLoadingState()
+            // Don't show loading state here - ViewModel state controls UI
+            // viewBinder.showLoadingState() is handled by updateUI() based on state.isAnyLoading
+            logger.debug("MessagesFragment", "SMS permissions granted, ViewModel will control loading state")
         } else {
             viewBinder.showPermissionState()
         }

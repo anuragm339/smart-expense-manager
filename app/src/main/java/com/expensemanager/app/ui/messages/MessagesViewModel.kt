@@ -56,24 +56,38 @@ class MessagesViewModel @Inject constructor(
     init {
         logger.info("init","============ ViewModel initialized ============")
 
-        // Apply default "This Month" filter
+        // Set default "This Month" filter but DON'T trigger load yet
+        // Fragment will call startInitialLoad() when ready to observe state
+        val startOfMonth = getStartOfMonthDate()
+
+        _uiState.value = _uiState.value.copy(
+            currentFilterOptions = FilterOptions(
+                dateFrom = startOfMonth
+            )
+        )
+
+        logger.info("init","Default filter set to 'This Month' from: $startOfMonth. Waiting for Fragment to trigger load.")
+    }
+
+    /**
+     * Get start of month date in yyyy-MM-dd format
+     */
+    private fun getStartOfMonthDate(): String {
         val calendar = Calendar.getInstance()
         calendar.set(Calendar.DAY_OF_MONTH, 1)
         calendar.set(Calendar.HOUR_OF_DAY, 0)
         calendar.set(Calendar.MINUTE, 0)
         calendar.set(Calendar.SECOND, 0)
         calendar.set(Calendar.MILLISECOND, 0)
+        return SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(calendar.time)
+    }
 
-        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-        val startOfMonth = dateFormat.format(calendar.time)
-
-        logger.info("init","Applying default 'This Month' filter from: $startOfMonth")
-
-        applyFilterOptions(
-            FilterOptions(
-                dateFrom = startOfMonth
-            )
-        )
+    /**
+     * Start initial data load - called by Fragment when ready to observe
+     */
+    fun startInitialLoad() {
+        logger.info("startInitialLoad", "Fragment ready, starting initial data load")
+        loadMessages()
     }
     
     /**
@@ -747,8 +761,19 @@ class MessagesViewModel @Inject constructor(
             logger.warn("groupTransactionsByMerchant","Filtered out ${transactions.size - validTransactions.size} transactions with empty merchant names")
         }
 
+        // DEBUG: Log merchant names to detect duplicates
+        val merchantNames = validTransactions.map { it.merchant }.distinct()
+        logger.debug("groupTransactionsByMerchant", "Unique merchant names: ${merchantNames.size}")
+
+        // DEBUG: Check for suspected duplicates (case-insensitive, whitespace-trimmed)
+        val suspectedDuplicates = merchantNames.groupBy { it.trim().uppercase() }
+            .filter { it.value.size > 1 }
+        if (suspectedDuplicates.isNotEmpty()) {
+            logger.warn("groupTransactionsByMerchant", "SUSPECTED DUPLICATES: $suspectedDuplicates")
+        }
+
         val groups = validTransactions
-            .groupBy { it.merchant }
+            .groupBy { it.merchant.trim() }
             .map { (displayName, merchantTransactions) ->
                 val sortedTransactions = merchantTransactions.sortedByDescending { transaction ->
                     getDateSortOrderReverse(transaction.dateTime)

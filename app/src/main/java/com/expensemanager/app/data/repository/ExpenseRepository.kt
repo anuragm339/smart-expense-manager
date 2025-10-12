@@ -524,12 +524,11 @@ class ExpenseRepository @Inject constructor(
     // =======================
     // DATABASE MAINTENANCE
     // =======================
-    
+
     override suspend fun cleanupDuplicateTransactions(): Int =
         databaseMaintenanceOperations.cleanupDuplicateTransactions()
 
-    override suspend fun removeObviousTestData(): Int =
-        databaseMaintenanceOperations.removeObviousTestData()
+    // removeObviousTestData() has been removed - not needed for production with real data
 
     // =======================
     // CATEGORY DETAIL METHODS

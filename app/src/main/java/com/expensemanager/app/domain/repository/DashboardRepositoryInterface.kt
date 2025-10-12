@@ -34,9 +34,6 @@ interface DashboardRepositoryInterface {
      * Cleanup duplicate transactions
      */
     suspend fun cleanupDuplicateTransactions(): Int
-    
-    /**
-     * Remove obvious test data
-     */
-    suspend fun removeObviousTestData(): Int
+
+    // removeObviousTestData() has been removed - not needed for production with real data
 }

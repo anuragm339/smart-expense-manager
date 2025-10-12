@@ -74,49 +74,5 @@ internal class DatabaseMaintenanceOperations(
         }
     }
 
-    suspend fun removeObviousTestData(): Int = withContext(Dispatchers.IO) {
-        try {
-            logger.debug(
-                where = "removeObviousTestData",
-                what = "Starting test data cleanup"
-            )
-
-            val testMerchants = listOf(
-                "test", "example", "demo", "sample", "dummy",
-                "PRAGATHI HARDWARE AND ELECTRICALS",
-                "AMAZON PAY", "SWIGGY", "ZOMATO"
-            )
-
-            var removedCount = 0
-
-            for (merchant in testMerchants) {
-                val transactions = transactionDao.getTransactionsByMerchantAndAmount(
-                    merchant.lowercase(),
-                    10000.0
-                )
-
-                for (transaction in transactions) {
-                    transactionDao.deleteTransaction(transaction)
-                    removedCount++
-                    logger.debug(
-                        where = "removeObviousTestData",
-                        what = "Removing test transaction: ${transaction.rawMerchant} - ${"₹%.2f".format(transaction.amount)}"
-                    )
-                }
-            }
-
-            logger.debug(
-                where = "removeObviousTestData",
-                what = "Test data cleanup completed - Removed $removedCount transactions"
-            )
-            removedCount
-        } catch (e: Exception) {
-            logger.error(
-                where = "removeObviousTestData",
-                what = "[ERROR] Test data cleanup failed",
-                throwable = e
-            )
-            0
-        }
-    }
+    // removeObviousTestData() has been removed - not needed for production with real data
 }

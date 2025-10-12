@@ -63,7 +63,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="Budget: ₹15,000"
+                        android:text=""
                         android:textSize="16sp"
                         android:textColor="@color/text_primary" />
 
@@ -71,7 +71,7 @@
                         android:id="@+id/tv_spent_amount"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Spent: ₹12,540"
+                        android:text=""
                         android:textSize="16sp"
                         android:textColor="@color/primary" />
 
@@ -103,7 +103,7 @@
                         android:id="@+id/tv_remaining"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="₹2,460 remaining"
+                        android:text=""
                         android:textSize="14sp"
                         android:textColor="@color/success" />
 

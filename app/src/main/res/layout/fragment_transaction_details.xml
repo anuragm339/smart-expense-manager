@@ -67,7 +67,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
-                    android:text="₹1,250"
+                    android:text=""
                     android:textColor="@color/text_on_primary"
                     android:textSize="32sp"
                     android:textStyle="bold" />
@@ -129,7 +129,7 @@
                             android:id="@+id/tv_merchant_name"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Swiggy"
+                            android:text=""
                             android:textSize="18sp"
                             android:textStyle="bold"
                             android:textColor="@color/text_primary" />
@@ -139,7 +139,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="4dp"
-                            android:text="HDFC Bank"
+                            android:text=""
                             android:textSize="14sp"
                             android:textColor="@color/text_secondary" />
 
@@ -205,7 +205,7 @@
                         android:id="@+id/tv_category"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Food &amp; Dining"
+                        android:text=""
                         android:textSize="16sp"
                         android:textColor="@color/text_primary" />
 
@@ -253,7 +253,7 @@
                         android:id="@+id/tv_date_time"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="2 hours ago"
+                        android:text=""
                         android:textSize="14sp"
                         android:textColor="@color/text_primary" />
 
@@ -283,7 +283,7 @@
                             android:id="@+id/tv_confidence_score"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="92%"
+                            android:text=""
                             android:textSize="14sp"
                             android:textColor="@color/text_primary"
                             android:layout_marginEnd="8dp" />
@@ -292,7 +292,7 @@
                             android:id="@+id/tv_confidence_label"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="High Confidence"
+                            android:text=""
                             android:textSize="12sp"
                             android:textColor="@color/success" />
 
@@ -355,7 +355,7 @@
                         android:id="@+id/tv_similar_count"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="2 similar transactions found"
+                        android:text=""
                         android:textSize="12sp"
                         android:textColor="@color/warning_dark" />
 
@@ -397,7 +397,7 @@
                     android:id="@+id/tv_raw_sms"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Dear Customer, Rs 1,250.00 debited from A/C No. XXXX1234 on 15-Dec-23 via UPI to Swiggy. Available balance: Rs 42,750.00. Call 18002586161 for support."
+                    android:text=""
                     android:textSize="14sp"
                     android:textColor="@color/text_primary"
                     android:background="@color/background"

@@ -39,9 +39,10 @@ class MerchantAliasManager(private val context: Context) {
     fun getDisplayName(originalMerchantName: String): String {
         val normalizedName = normalizeMerchantName(originalMerchantName)
         val alias = getAlias(normalizedName)
-        
-        // Use explicit alias display name if exists, otherwise use enhanced normalized name for better grouping
-        val displayName = alias?.displayName ?: normalizedName
+
+        // Use explicit alias display name if exists, otherwise use ORIGINAL name to prevent duplicates
+        // Using original name ensures transactions without aliases group together consistently
+        val displayName = alias?.displayName ?: originalMerchantName
 
         logger.debug("getDisplayName","'$originalMerchantName' -> '$displayName' (normalized: '$normalizedName', hasAlias: ${alias != null})")
         return displayName
