@@ -21,6 +21,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import java.util.Date
+import java.util.concurrent.TimeUnit
 
 internal class TransactionDataRepository(
     private val context: Context,
@@ -239,14 +240,7 @@ internal class TransactionDataRepository(
                 val entity = convertToTransactionEntity(parsed)
                 val existing = transactionDao.getTransactionBySmsId(entity.smsId)
 
-                val similar = findSimilarTransaction(
-                    TransactionEntity.generateDeduplicationKey(
-                        merchant = parsed.merchant,
-                        amount = parsed.amount,
-                        date = parsed.date,
-                        bankName = parsed.bankName
-                    )
-                )
+                val similar = findSimilarTransaction(entity)
 
                 if (existing == null && similar == null) {
                     if (transactionDao.insertTransaction(entity) > 0) {
@@ -332,16 +326,24 @@ internal class TransactionDataRepository(
         )
     }
 
-    suspend fun findSimilarTransaction(deduplicationKey: String): TransactionEntity? {
-        val parts = deduplicationKey.split("_")
-        if (parts.size < 4) return null
+    suspend fun findSimilarTransaction(entity: TransactionEntity): TransactionEntity? {
+        val amountTolerance = 1.0 // ₹1 cushion to account for rounding differences
+        val timeWindowMillis = TimeUnit.MINUTES.toMillis(10)
 
-        val merchant = parts[0]
-        val amount = parts[1].toDoubleOrNull() ?: return null
-        val dateStr = parts[2]
-        val bankName = parts.drop(3).joinToString("_")
+        val minAmount = (entity.amount - amountTolerance).coerceAtLeast(0.0)
+        val maxAmount = entity.amount + amountTolerance
 
-        return transactionDao.findSimilarTransaction(merchant, amount, dateStr, bankName)
+        val startDate = Date(entity.transactionDate.time - timeWindowMillis)
+        val endDate = Date(entity.transactionDate.time + timeWindowMillis)
+
+        return transactionDao.findSimilarTransaction(
+            normalizedMerchant = entity.normalizedMerchant,
+            minAmount = minAmount,
+            maxAmount = maxAmount,
+            startDate = startDate,
+            endDate = endDate,
+            bankName = entity.bankName
+        )
     }
 
     private suspend fun ensureMerchantExists(normalizedName: String, displayName: String) {

@@ -2,6 +2,7 @@
 <LinearLayout 
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginVertical="8dp"
@@ -61,11 +62,11 @@
                 android:id="@+id/tv_merchant_name"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Swiggy"
                 android:textSize="16sp"
                 android:textStyle="bold"
                 android:textColor="@color/text_primary"
-                android:layout_marginBottom="4dp" />
+                android:layout_marginBottom="4dp"
+                tools:text="Swiggy" />
 
             <LinearLayout
                 android:layout_width="wrap_content"
@@ -84,9 +85,9 @@
                     android:id="@+id/tv_transaction_count"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="5 transactions"
                     android:textSize="12sp"
-                    android:textColor="@color/text_secondary" />
+                    android:textColor="@color/text_secondary"
+                    tools:text="5 transactions" />
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -99,9 +100,9 @@
                     android:id="@+id/tv_category"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Food &amp; Dining"
                     android:textSize="12sp"
-                    android:textColor="@color/text_secondary" />
+                    android:textColor="@color/text_secondary"
+                    tools:text="Food &amp; Dining" />
 
             </LinearLayout>
 
@@ -133,10 +134,10 @@
                     android:id="@+id/tv_amount"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="₹3,250"
                     android:textSize="16sp"
                     android:textStyle="bold"
-                    android:textColor="@color/primary" />
+                    android:textColor="@color/primary"
+                    tools:text="₹3,250" />
 
             </LinearLayout>
 
@@ -160,10 +161,10 @@
                     android:id="@+id/tv_percentage"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="25.4%"
                     android:textSize="11sp"
                     android:textStyle="bold"
-                    android:textColor="@color/success" />
+                    android:textColor="@color/success"
+                    tools:text="25.4%" />
 
             </LinearLayout>
 

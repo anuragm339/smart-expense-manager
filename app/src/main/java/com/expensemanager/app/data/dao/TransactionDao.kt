@@ -114,16 +114,18 @@ interface TransactionDao {
     
     @Query("""
         SELECT * FROM transactions 
-        WHERE normalized_merchant LIKE '%' || :merchant || '%' 
-        AND ABS(amount - :amount) < 0.01 
-        AND DATE(transaction_date) = :dateStr 
-        AND bank_name = :bankName
+        WHERE normalized_merchant = :normalizedMerchant 
+          AND amount BETWEEN :minAmount AND :maxAmount 
+          AND transaction_date BETWEEN :startDate AND :endDate 
+          AND bank_name = :bankName
         LIMIT 1
     """)
     suspend fun findSimilarTransaction(
-        merchant: String, 
-        amount: Double, 
-        dateStr: String, 
+        normalizedMerchant: String,
+        minAmount: Double,
+        maxAmount: Double,
+        startDate: Date,
+        endDate: Date,
         bankName: String
     ): TransactionEntity?
     

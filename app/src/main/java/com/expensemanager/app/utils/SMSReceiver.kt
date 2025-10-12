@@ -105,14 +105,7 @@ class SMSReceiver : BroadcastReceiver() {
                             repository.getTransactionBySmsId(transactionEntity.smsId)
 
                         // Additional check for transaction similarity (in case SMS ID generation changed)
-                        val deduplicationKey =
-                            com.expensemanager.app.data.entities.TransactionEntity.generateDeduplicationKey(
-                                merchant = parsedTransaction.merchant,
-                                amount = parsedTransaction.amount,
-                                date = parsedTransaction.date,
-                                bankName = parsedTransaction.bankName
-                            )
-                        val similarTransaction = repository.findSimilarTransaction(deduplicationKey)
+                        val similarTransaction = repository.findSimilarTransaction(transactionEntity)
 
                         if (existingTransaction == null && similarTransaction == null) {
                             val insertedId = repository.insertTransaction(transactionEntity)

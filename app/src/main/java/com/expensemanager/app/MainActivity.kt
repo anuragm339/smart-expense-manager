@@ -19,7 +19,7 @@ import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
 import com.expensemanager.app.databinding.ActivityMainBinding
 import com.expensemanager.app.notifications.TransactionNotificationManager
-import com.expensemanager.app.utils.SMSHistoryReader
+import com.expensemanager.app.services.SMSParsingService
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.launch
 import dagger.hilt.android.AndroidEntryPoint
@@ -38,6 +38,9 @@ class MainActivity : AppCompatActivity() {
 
     @Inject
     lateinit var dataMigrationManager: com.expensemanager.app.data.migration.DataMigrationManager
+
+    @Inject
+    lateinit var smsParsingService: SMSParsingService
 
     private lateinit var binding: ActivityMainBinding
     private val logger = StructuredLogger("MainActivity","MainActivity")
@@ -351,9 +354,11 @@ class MainActivity : AppCompatActivity() {
                 
                 // Create SMS reader with progress callback for repository sync
                 val syncResult = withTimeoutOrNull(timeoutMillis) {
-                    // Create a progress-enabled SMS reader for repository sync
-                    val smsReader = SMSHistoryReader(this@MainActivity) { current, total, status ->
-                        // Update progress on main thread
+                    val initialCount = repository.getTransactionCount()
+                    val lastSyncTimestamp = repository.getLastSyncTimestamp() ?: Date(0)
+
+                    // Scan SMS history using unified parsing service with progress updates
+                    val transactions = smsParsingService.scanHistoricalSMS { current, total, status ->
                         runOnUiThread {
                             val percentage = if (total > 0) ((current * 100) / total) else 0
                             progressView?.progress = percentage
@@ -363,20 +368,25 @@ class MainActivity : AppCompatActivity() {
                             logger.debug("scanHistoricalSMS", "Progress: $percentage% ($current/$total) - $status")
                         }
                     }
-                    
-                    // Scan and store transactions through repository
-                    val transactions = smsReader.scanHistoricalSMS()
-                    
-                    // Now sync transactions through repository (repository handles conversion internally)
+
+                    val newTransactionsFromScan = transactions.count { sms -> sms.date.after(lastSyncTimestamp) }
+
+                    // Sync transactions through repository (handles deduplication internally)
                     val insertedCount = repository.syncNewSMS()
 
                     logger.debug("scanHistoricalSMS", "Inserted $insertedCount new transactions into database")
                     
                     // Update sync state
                     repository.updateSyncState(Date())
-                    
-                    // Return both scan results and insert count
-                    Pair(transactions, insertedCount)
+                    val totalDatabaseCount = repository.getTransactionCount()
+
+                    ScanResult(
+                        totalParsed = transactions.size,
+                        newlyDiscovered = newTransactionsFromScan,
+                        inserted = insertedCount,
+                        totalInDatabase = totalDatabaseCount,
+                        initialCount = initialCount
+                    )
                 }
                 
                 val scanDuration = System.currentTimeMillis() - startTime
@@ -396,13 +406,51 @@ class MainActivity : AppCompatActivity() {
                     return@launch
                 }
                 
-                val (transactions, insertedCount) = syncResult
-                
+                val (totalParsed, newlyDiscovered, insertedCount, totalDatabaseCount, initialCount) = syncResult
+
+                val duplicatesSkipped = if (newlyDiscovered > 0) {
+                    (newlyDiscovered - insertedCount).coerceAtLeast(0)
+                } else 0
+                val previousCount = initialCount
+                val netChange = totalDatabaseCount - previousCount
+
                 // Show results
-                if (transactions.isNotEmpty()) {
+                if (totalParsed > 0) {
+                    val messageBuilder = StringBuilder().apply {
+                        append("Analyzed $totalParsed SMS transactions from the last 6 months.\n\n")
+                        when {
+                            insertedCount > 0 -> {
+                                append("Added $insertedCount new transaction")
+                                if (insertedCount != 1) append("s")
+                                append(" to your expense database")
+                                if (duplicatesSkipped > 0) {
+                                    append(" (skipped $duplicatesSkipped duplicate entries)")
+                                }
+                                append(".\n\n")
+                            }
+                            newlyDiscovered == 0 -> {
+                                append("No new SMS since your last import, so nothing was added.\n\n")
+                            }
+                            else -> {
+                                append("All $newlyDiscovered SMS already exist in your database, so nothing new was added")
+                                if (duplicatesSkipped > 0) {
+                                    append(" (skipped $duplicatesSkipped duplicate entries)")
+                                }
+                                append(".\n\n")
+                            }
+                        }
+
+                        append("You now have $totalDatabaseCount transactions tracked")
+                        when {
+                            netChange > 0 -> append(" (previously $previousCount).")
+                            netChange == 0 -> append(" (unchanged).")
+                            else -> append(".")
+                        }
+                    }
+
                     MaterialAlertDialogBuilder(this@MainActivity)
                         .setTitle("SMS Scan Complete! 🎉")
-                        .setMessage("Found ${transactions.size} transactions from your SMS history.\n\nSaved $insertedCount new transactions to your expense database.\n\nYour dashboard will now show your spending data!")
+                        .setMessage(messageBuilder.toString())
                         .setPositiveButton("View Dashboard") { _, _ ->
                             // Navigate back to dashboard to see the updated data
                             binding.bottomNavigation.selectedItemId = R.id.navigation_dashboard
@@ -440,3 +488,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 }
+
+private data class ScanResult(
+    val totalParsed: Int,
+    val newlyDiscovered: Int,
+    val inserted: Int,
+    val totalInDatabase: Int,
+    val initialCount: Int
+)

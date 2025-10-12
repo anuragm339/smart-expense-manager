@@ -26,7 +26,7 @@ internal class DatabaseMaintenanceOperations(
             val allTransactions = transactionDao.getAllTransactionsSync()
             val duplicateGroups = allTransactions.groupBy { transaction ->
                 TransactionEntity.generateDeduplicationKey(
-                    merchant = transaction.rawMerchant,
+                    merchant = transaction.normalizedMerchant,
                     amount = transaction.amount,
                     date = transaction.transactionDate,
                     bankName = transaction.bankName

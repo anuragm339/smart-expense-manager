@@ -21,6 +21,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import androidx.navigation.fragment.findNavController
 import com.expensemanager.app.databinding.FragmentMessagesBinding
@@ -57,7 +58,7 @@ import com.expensemanager.app.utils.logging.StructuredLogger
 
 @AndroidEntryPoint
 class MessagesFragment : Fragment() {
-    
+
     private var _binding: FragmentMessagesBinding? = null
     private val binding get() = _binding!!
     private lateinit var viewBinder: MessagesViewBinder
@@ -80,6 +81,10 @@ class MessagesFragment : Fragment() {
     private lateinit var categoryManager: CategoryManager
     private lateinit var merchantAliasManager: MerchantAliasManager
     
+    companion object {
+        private const val CATEGORY_BROADCAST_DELAY_MS = 100L
+    }
+
     // Legacy data management (kept for parallel approach during migration)
     private var allMessageItems = listOf<MessageItem>()
     private var filteredMessageItems = listOf<MessageItem>()
@@ -1121,7 +1126,7 @@ class MessagesFragment : Fragment() {
             merchantName = messageItem.merchant
         ) { selectedCategory ->
             // Remove emoji from selected category to get the actual name
-            val actualCategory = selectedCategory.replace(Regex("^[\\p{So}\\p{Cn}]\\s+"), "")
+            val actualCategory = parseCategoryName(selectedCategory)
             if (actualCategory != messageItem.category) {
                 updateCategoryForMerchant(messageItem, actualCategory)
             }
@@ -1147,32 +1152,63 @@ class MessagesFragment : Fragment() {
             else -> "📂"
         }
     }
+
+    /**
+     * Extract clean category name from display text by removing emoji prefix
+     * Example: "🛍️ Shopping" -> "Shopping"
+     */
+    private fun parseCategoryName(displayText: String): String {
+        val firstLetterIndex = displayText.indexOfFirst { it.isLetter() }
+        return if (firstLetterIndex > 0) {
+            displayText.substring(firstLetterIndex).trim()
+        } else {
+            displayText.trim()
+        }
+    }
     
     private fun updateCategoryForMerchant(messageItem: MessageItem, newCategory: String) {
         lifecycleScope.launch {
             try {
-                // Update category using CategoryManager
+                logger.debug("MessagesFragment", "Updating category for ${messageItem.merchant} to $newCategory")
+
+                // Step 1: Update SharedPreferences (for runtime categorization)
                 categoryManager.updateCategory(messageItem.merchant, newCategory)
-                
-                // Find similar transactions
-                val similarTransactions = categoryManager.getAllSimilarTransactions(messageItem.merchant)
-                
+
+                // Step 2: Update database (for persistent storage and queries)
+                val repository = com.expensemanager.app.data.repository.ExpenseRepository.getInstance(requireContext())
+                val normalizedName = merchantAliasManager.normalizeMerchantName(messageItem.rawMerchant)
+
+                logger.debug("MessagesFragment", "Updating database for normalized merchant: $normalizedName")
+
+                val databaseUpdateSuccess = repository.updateMerchantAliasInDatabase(
+                    listOf(messageItem.rawMerchant),
+                    messageItem.merchant, // Keep existing display name
+                    newCategory
+                )
+
+                if (!databaseUpdateSuccess) {
+                    logger.error("MessagesFragment", "Database update failed for category change")
+                    throw Exception("Database update failed")
+                }
+
+                logger.info("MessagesFragment", "Successfully updated merchant category in database")
+
                 // Invalidate ViewModel's cache to ensure it gets fresh alias data
                 try {
-                    logger.debug("MessagesFragment", "[CACHE_SYNC] Invalidating ViewModel cache for category update")
                     messagesViewModel.invalidateMerchantAliasCache()
                 } catch (e: Exception) {
                     logger.warnWithThrowable("MessagesFragment", "Could not invalidate ViewModel cache for category update", e)
                 }
-                
+
                 // Trigger ViewModel update to reflect category changes
                 try {
-                    logger.debug("MessagesFragment", "[UI_FIX] Using ONLY ViewModel refresh for category update")
                     messagesViewModel.handleEvent(MessagesUIEvent.LoadMessages)
                 } catch (e: Exception) {
                     logger.warnWithThrowable("MessagesFragment", "Could not trigger ViewModel refresh for category update", e)
                 }
-                
+
+                notifyCategoryUpdate(messageItem, newCategory)
+
                 // Show feedback
                 MaterialAlertDialogBuilder(requireContext())
                     .setTitle("Category Updated!")
@@ -1181,8 +1217,9 @@ class MessagesFragment : Fragment() {
                         dialog.dismiss()
                     }
                     .show()
-                
+
             } catch (e: Exception) {
+                logger.error("MessagesFragment", "Failed to update category", e)
                 MaterialAlertDialogBuilder(requireContext())
                     .setTitle("Error")
                     .setMessage("Failed to update category: ${e.message}")
@@ -1191,6 +1228,37 @@ class MessagesFragment : Fragment() {
                     }
                     .show()
             }
+        }
+    }
+
+    private suspend fun notifyCategoryUpdate(messageItem: MessageItem, newCategory: String) {
+        try {
+            delay(CATEGORY_BROADCAST_DELAY_MS)
+
+            val categoryIntent = Intent("com.expensemanager.CATEGORY_UPDATED").apply {
+                putExtra("merchant", messageItem.merchant)
+                putExtra("category", newCategory)
+            }
+            requireContext().sendBroadcast(categoryIntent)
+
+            val merchantIntent = Intent("com.expensemanager.MERCHANT_CATEGORY_CHANGED").apply {
+                putExtra("merchant_name", messageItem.rawMerchant)
+                putExtra("display_name", messageItem.merchant)
+                putExtra("new_category", newCategory)
+            }
+            requireContext().sendBroadcast(merchantIntent)
+
+            logger.debug(
+                "MessagesFragment",
+                "[BROADCAST] Sent category update for ${messageItem.merchant} -> $newCategory"
+            )
+
+        } catch (e: Exception) {
+            logger.warnWithThrowable(
+                "MessagesFragment",
+                "Failed to dispatch category update broadcast for ${messageItem.merchant}",
+                e
+            )
         }
     }
     
@@ -1560,7 +1628,7 @@ class MessagesFragment : Fragment() {
             merchantName = "merchant group"
         ) { selectedCategory ->
             // Remove emoji from selected category to get the actual name
-            val actualCategory = selectedCategory.replace(Regex("^[\\p{So}\\p{Cn}]\\s+"), "")
+            val actualCategory = parseCategoryName(selectedCategory)
             onCategorySelected(actualCategory)
         }
         
@@ -1750,73 +1818,42 @@ class MessagesFragment : Fragment() {
                 
                 // Find all transactions in this group to get their original merchant names
                 val originalMerchantNames = mutableSetOf<String>()
-                
-                // Enhanced original merchant name detection
-                
-                // METHOD 1: Check if this group already has aliases
-                val existingOriginalNames = merchantAliasManager.getMerchantsByDisplayName(group.merchantName)
-                logger.debug("MessagesFragment", "[LIST] Existing original names from aliases: $existingOriginalNames")
-                
-                if (existingOriginalNames.isNotEmpty()) {
-                    originalMerchantNames.addAll(existingOriginalNames)
-                } else {
-                    
-                    // METHOD 2: Extract from raw SMS data in transactions
-                    var extractedCount = 0
-                    group.transactions.forEach { transaction ->
-                        val extractedName = extractOriginalMerchantFromRawSMS(transaction.rawSMS)
-                        if (extractedName.isNotEmpty() && extractedName.length >= 3) { // Minimum length check
-                            originalMerchantNames.add(extractedName)
-                            extractedCount++
-                            logger.debug("MessagesFragment", "Extracted: $extractedName from SMS: ${transaction.rawSMS.take(50)}...")
-                        }
+
+                // FIXED: Always use rawMerchant from actual transactions (not normalized names from SharedPreferences)
+                // This ensures database UPDATE uses the correct merchant names that match what's in the database
+                logger.debug("MessagesFragment", "[FIX] Extracting original merchant names from ${group.transactions.size} transactions")
+
+                group.transactions.forEach { transaction ->
+                    if (transaction.rawMerchant.isNotBlank()) {
+                        originalMerchantNames.add(transaction.rawMerchant)
+                        logger.debug("MessagesFragment", "[FIX] Added rawMerchant: ${transaction.rawMerchant}")
                     }
-                    
-                    logger.debug("MessagesFragment", "[ANALYTICS] Extracted $extractedCount original names from ${group.transactions.size} transactions")
-                    
-                    // METHOD 3: Fallback to current display name if no extraction worked
-                    if (originalMerchantNames.isEmpty()) {
-                        originalMerchantNames.add(group.merchantName)
-                        logger.warn("MessagesFragment", "Using display name as original: ${group.merchantName}")
-                    }
-                    
-                    // METHOD 4: Try alternative extraction using transaction data
-                    if (originalMerchantNames.size == 1 && originalMerchantNames.first() == group.merchantName) {
-                        group.transactions.forEach { transaction ->
-                            // Try different patterns for merchant extraction
-                            val alternativeNames = extractAlternativeMerchantNames(transaction.rawSMS)
-                            alternativeNames.forEach { name ->
-                                if (name.isNotEmpty() && name != group.merchantName) {
-                                    originalMerchantNames.add(name)
-                                    logger.debug("MessagesFragment", "[TARGET] Alternative extraction: $name")
-                                }
-                            }
-                        }
-                    }
+                }
+
+                // Fallback: If rawMerchant was blank for all transactions, use display name
+                if (originalMerchantNames.isEmpty()) {
+                    originalMerchantNames.add(group.merchantName)
+                    logger.warn("MessagesFragment", "[FIX] No rawMerchant found, using display name: ${group.merchantName}")
                 }
                 
                 logger.debug("MessagesFragment", "Final original merchant names to update: $originalMerchantNames")
-                
-                // Enhanced category validation and creation
+
+                // Parse clean category name without emoji
+                val cleanCategoryName = parseCategoryName(newCategory)
+                logger.debug("MessagesFragment", "Parsed category: '$newCategory' -> '$cleanCategoryName'")
+
+                // Validate category exists - don't create new categories during merchant update
                 val allCategories = categoryManager.getAllCategories()
                 logger.debug("MessagesFragment", "Available categories: $allCategories")
-                
-                if (!allCategories.contains(newCategory)) {
-                    logger.info(
-                        where = "showMerchantGroupEditDialog",
-                        what = "Creating new category: $newCategory"
-                    )
-                    try {
-                        categoryManager.addCustomCategory(newCategory)
-                    } catch (e: Exception) {
-                        logger.error("MessagesFragment", "Failed to add category: $newCategory", e)
-                        Toast.makeText(
-                            requireContext(),
-                            "Unable to create category '$newCategory': ${e.message ?: "Please try again"}",
-                            Toast.LENGTH_LONG
-                        ).show()
-                        return@launch
-                    }
+
+                if (!allCategories.contains(cleanCategoryName)) {
+                    logger.warn("MessagesFragment", "Category '$cleanCategoryName' not found in existing categories")
+                    Toast.makeText(
+                        requireContext(),
+                        "Category '$cleanCategoryName' not found. Please select from existing categories.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    return@launch
                 }
                 
                 // STEP 1: Update SharedPreferences (MerchantAliasManager)
@@ -1829,18 +1866,18 @@ class MessagesFragment : Fragment() {
                 
                 try {
                     originalMerchantNames.forEachIndexed { index, originalName ->
-                        logger.debug("MessagesFragment", "Setting alias ${index + 1}/${originalMerchantNames.size}: $originalName -> $newDisplayName ($newCategory)")
-                        
-                        val aliasSetSuccess = merchantAliasManager.setMerchantAlias(originalName, newDisplayName, newCategory)
-                        
+                        logger.debug("MessagesFragment", "Setting alias ${index + 1}/${originalMerchantNames.size}: $originalName -> $newDisplayName ($cleanCategoryName)")
+
+                        val aliasSetSuccess = merchantAliasManager.setMerchantAlias(originalName, newDisplayName, cleanCategoryName)
+
                         if (aliasSetSuccess) {
                             aliasSetCount++
-                            
+
                             // Verify the alias was set correctly
                             val verifyDisplayName = merchantAliasManager.getDisplayName(originalName)
                             val verifyCategory = merchantAliasManager.getMerchantCategory(originalName)
-                            
-                            if (verifyDisplayName != newDisplayName || verifyCategory != newCategory) {
+
+                            if (verifyDisplayName != newDisplayName || verifyCategory != cleanCategoryName) {
                                 logger.warn("MessagesFragment", "Alias verification failed for $originalName")
                             }
                         } else {
@@ -1878,7 +1915,7 @@ class MessagesFragment : Fragment() {
                         databaseUpdateSuccess = repository.updateMerchantAliasInDatabase(
                             originalMerchantNames.toList(),
                             newDisplayName,
-                            newCategory
+                            cleanCategoryName
                         )
                         
                         if (databaseUpdateSuccess) {
@@ -2574,24 +2611,21 @@ class MessagesFragment : Fragment() {
                 
                 // Continue with the normal update flow but skip conflict checking
                 val originalMerchantNames = mutableSetOf<String>()
-                
-                // Check if this group already has aliases
-                val existingOriginalNames = merchantAliasManager.getMerchantsByDisplayName(group.merchantName)
-                
-                if (existingOriginalNames.isNotEmpty()) {
-                    originalMerchantNames.addAll(existingOriginalNames)
-                } else {
-                    // Extract from raw SMS data in transactions
-                    group.transactions.forEach { transaction ->
-                        if (transaction.rawMerchant.isNotBlank()) {
-                            originalMerchantNames.add(transaction.rawMerchant)
-                        }
+
+                // FIXED: Always use rawMerchant from actual transactions (not normalized names from SharedPreferences)
+                logger.debug("MessagesFragment", "[DIRECT_FIX] Extracting original merchant names from ${group.transactions.size} transactions")
+
+                group.transactions.forEach { transaction ->
+                    if (transaction.rawMerchant.isNotBlank()) {
+                        originalMerchantNames.add(transaction.rawMerchant)
+                        logger.debug("MessagesFragment", "[DIRECT_FIX] Added rawMerchant: ${transaction.rawMerchant}")
                     }
-                    
-                    // If still empty, use the current group merchant name
-                    if (originalMerchantNames.isEmpty()) {
-                        originalMerchantNames.add(group.merchantName)
-                    }
+                }
+
+                // Fallback: If rawMerchant was blank for all transactions, use display name
+                if (originalMerchantNames.isEmpty()) {
+                    originalMerchantNames.add(group.merchantName)
+                    logger.warn("MessagesFragment", "[DIRECT_FIX] No rawMerchant found, using display name: ${group.merchantName}")
                 }
                 
                 // Create category if it doesn't exist

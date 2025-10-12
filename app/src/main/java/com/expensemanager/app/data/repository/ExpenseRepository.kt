@@ -169,8 +169,8 @@ class ExpenseRepository @Inject constructor(
     override suspend fun getTransactionBySmsId(smsId: String): TransactionEntity? =
         transactionRepository.transactionBySmsId(smsId)
 
-    suspend fun findSimilarTransaction(deduplicationKey: String): TransactionEntity? =
-        transactionRepository.findSimilarTransaction(deduplicationKey)
+    suspend fun findSimilarTransaction(entity: TransactionEntity): TransactionEntity? =
+        transactionRepository.findSimilarTransaction(entity)
 
     override suspend fun updateSyncState(lastSyncDate: Date) {
         transactionRepository.updateSyncState(lastSyncDate)

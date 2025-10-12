@@ -63,14 +63,22 @@ data class TransactionEntity(
          * Generate a deduplication key for transaction matching
          */
         fun generateDeduplicationKey(
-            merchant: String, 
-            amount: Double, 
-            date: Date, 
-            bankName: String
+            merchant: String,
+            amount: Double,
+            date: Date,
+            bankName: String,
+            windowMinutes: Long = 10
         ): String {
-            // Create key for detecting duplicate transactions from different SMS
-            val dayPrecisionDate = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(date)
-            return "${merchant.lowercase()}_${amount}_${dayPrecisionDate}_${bankName.lowercase()}"
+            val windowMillis = java.util.concurrent.TimeUnit.MINUTES.toMillis(windowMinutes)
+            val bucket = if (windowMillis > 0) date.time / windowMillis else date.time
+            val roundedAmount = String.format(java.util.Locale.US, "%.2f", amount)
+
+            return listOf(
+                merchant.lowercase(),
+                roundedAmount,
+                bucket.toString(),
+                bankName.lowercase()
+            ).joinToString(separator = "_")
         }
     }
 }
