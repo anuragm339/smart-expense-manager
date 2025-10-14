@@ -48,7 +48,7 @@ class DashboardViewBinder(
     }
 
     fun showEmpty() {
-        binding.tvTotalBalance.text = "₹0"
+        binding.tvTotalBalance.text = "0%"
         binding.tvTotalSpent.text = "₹0"
         binding.tvTransactionCount.text = "0"
         topMerchantsSection.render(emptyList())
@@ -58,13 +58,15 @@ class DashboardViewBinder(
 
     fun showContent(state: DashboardUIState) {
         val data = state.dashboardData ?: return
-        val balance = if (state.dashboardPeriod == "This Month" && state.hasSalaryData) {
-            state.monthlyBalance
+        val budgetReached = if (state.dashboardPeriod == "This Month" && state.monthlyBudget > 0) {
+            // Calculate percentage of budget reached
+            (state.totalSpent / state.monthlyBudget * 100)
         } else {
-            state.totalBalance
+            // For other periods, show amount spent
+            state.totalSpent
         }
 
-        renderSummary(state.totalSpent, balance, state.transactionCount)
+        renderSummary(state.totalSpent, budgetReached, state.transactionCount, state.monthlyBudget > 0)
         renderCategories(data.topCategories.map { category ->
             CategorySpending(
                 categoryName = category.category_name,
@@ -82,9 +84,15 @@ class DashboardViewBinder(
     }
 
 
-    fun renderSummary(totalSpent: Double, balance: Double, transactionCount: Int) {
+    fun renderSummary(totalSpent: Double, budgetReached: Double, transactionCount: Int, hasBudget: Boolean) {
         binding.tvTotalSpent.text = "₹${totalSpent.formatAsMoney()}"
-        binding.tvTotalBalance.text = balance.toMoneyString()
+        binding.tvTotalBalance.text = if (hasBudget) {
+            // Show percentage when budget exists
+            "${budgetReached.toInt()}%"
+        } else {
+            // Show "No Budget Found" when no budget is set
+            "No Budget Found"
+        }
         binding.tvTransactionCount.text = transactionCount.toString()
     }
 

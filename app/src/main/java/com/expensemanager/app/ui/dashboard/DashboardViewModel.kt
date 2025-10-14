@@ -25,7 +25,8 @@ import javax.inject.Inject
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val getDashboardDataUseCase: GetDashboardDataUseCase
+    private val getDashboardDataUseCase: GetDashboardDataUseCase,
+    private val repository: com.expensemanager.app.data.repository.ExpenseRepository
 ) : ViewModel() {
 
     private val logger = StructuredLogger(LogConfig.FeatureTags.DASHBOARD, "DashboardViewModel")
@@ -348,27 +349,36 @@ class DashboardViewModel @Inject constructor(
      * Handle dashboard data result
      */
     private fun handleDashboardResult(
-        result: Result<DashboardData>, 
+        result: Result<DashboardData>,
         isInitialLoad: Boolean = false,
         isRefresh: Boolean = false
     ) {
         result.fold(
             onSuccess = { dashboardData ->
                 logger.debug("handleDashboardResult", "Dashboard data loaded - Spent: ₹%.2f, Transactions: %d".format(dashboardData.totalSpent, dashboardData.transactionCount))
-                
-                _uiState.value = _uiState.value.copy(
-                    isInitialLoading = false,
-                    isRefreshing = false,
-                    isLoading = false,
-                    dashboardData = dashboardData,
-                    hasError = false,
-                    error = null,
-                    isEmpty = dashboardData.transactionCount == 0,
-                    lastRefreshTime = System.currentTimeMillis()
-                )
-                
-                // Update monthly comparison
-                updateMonthlyComparison()
+
+                viewModelScope.launch {
+                    // Load monthly budget from database
+                    val budgetEntity = repository.getMonthlyBudget()
+                    val monthlyBudget = budgetEntity?.budgetAmount ?: 0.0
+
+                    logger.debug("handleDashboardResult", "Monthly budget loaded: ₹$monthlyBudget")
+
+                    _uiState.value = _uiState.value.copy(
+                        isInitialLoading = false,
+                        isRefreshing = false,
+                        isLoading = false,
+                        dashboardData = dashboardData,
+                        monthlyBudget = monthlyBudget,
+                        hasError = false,
+                        error = null,
+                        isEmpty = dashboardData.transactionCount == 0,
+                        lastRefreshTime = System.currentTimeMillis()
+                    )
+
+                    // Update monthly comparison
+                    updateMonthlyComparison()
+                }
             },
             onFailure = { throwable ->
                 logger.error("handleDashboardResult", "Failed to load dashboard data", throwable)

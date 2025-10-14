@@ -30,12 +30,13 @@ class ExpenseRepository @Inject constructor(
     private val categoryDao: CategoryDao,
     private val merchantDao: MerchantDao,
     private val syncStateDao: SyncStateDao,
+    private val budgetDao: BudgetDao,
     private val smsParsingService: SMSParsingService,
     private val transactionFilterService: TransactionFilterService? = null,
     private val logConfig: LogConfig
-) : TransactionRepositoryInterface, 
-    CategoryRepositoryInterface, 
-    MerchantRepositoryInterface, 
+) : TransactionRepositoryInterface,
+    CategoryRepositoryInterface,
+    MerchantRepositoryInterface,
     DashboardRepositoryInterface {
 
     companion object {
@@ -54,6 +55,7 @@ class ExpenseRepository @Inject constructor(
                     database.categoryDao(),
                     database.merchantDao(),
                     database.syncStateDao(),
+                    database.budgetDao(),
                     smsParsingService,
                     null, // transactionFilterService (optional)
                     logConfig
@@ -564,6 +566,92 @@ class ExpenseRepository @Inject constructor(
     suspend fun isSystemCategory(categoryName: String): Boolean {
         return com.expensemanager.app.constants.Categories.isSystemCategory(categoryName)
     }
+
+    // =======================
+    // BUDGET OPERATIONS
+    // =======================
+
+    /**
+     * Get the current monthly budget from database
+     */
+    suspend fun getMonthlyBudget(): BudgetEntity? = withContext(Dispatchers.IO) {
+        try {
+            budgetDao.getMonthlyBudget()
+        } catch (e: Exception) {
+            logger.error("getMonthlyBudget", "Error fetching monthly budget", e)
+            null
+        }
+    }
+
+    /**
+     * Get monthly budget as Flow for reactive updates
+     */
+    fun getMonthlyBudgetFlow(): Flow<BudgetEntity?> = budgetDao.getMonthlyBudgetFlow()
+
+    /**
+     * Save or update the monthly budget
+     */
+    suspend fun saveMonthlyBudget(amount: Double) = withContext(Dispatchers.IO) {
+        try {
+            logger.debug("saveMonthlyBudget", "Saving monthly budget: ₹$amount")
+
+            // Deactivate all existing monthly budgets
+            budgetDao.deactivateAllMonthlyBudgets()
+
+            // Create date range for current month
+            val calendar = Calendar.getInstance()
+
+            val startOfMonth = calendar.apply {
+                set(Calendar.DAY_OF_MONTH, 1)
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }.time
+
+            val endOfMonth = calendar.apply {
+                set(Calendar.DAY_OF_MONTH, getActualMaximum(Calendar.DAY_OF_MONTH))
+                set(Calendar.HOUR_OF_DAY, 23)
+                set(Calendar.MINUTE, 59)
+                set(Calendar.SECOND, 59)
+                set(Calendar.MILLISECOND, 999)
+            }.time
+
+            // Insert new active budget (categoryId = null means overall budget)
+            val budgetEntity = BudgetEntity(
+                categoryId = null,
+                budgetAmount = amount,
+                periodType = "MONTHLY",
+                startDate = startOfMonth,
+                endDate = endOfMonth,
+                isActive = true,
+                createdAt = Date()
+            )
+
+            budgetDao.insertBudget(budgetEntity)
+            logger.info("saveMonthlyBudget", "Successfully saved monthly budget: ₹$amount")
+
+        } catch (e: Exception) {
+            logger.error("saveMonthlyBudget", "Error saving monthly budget", e)
+            throw e
+        }
+    }
+
+    /**
+     * Get budget for a specific category
+     */
+    suspend fun getCategoryBudget(categoryId: Long): BudgetEntity? =
+        withContext(Dispatchers.IO) {
+            budgetDao.getCategoryBudget(categoryId)
+        }
+
+    /**
+     * Get all active category budgets
+     */
+    suspend fun getAllCategoryBudgets(): List<BudgetEntity> =
+        withContext(Dispatchers.IO) {
+            budgetDao.getAllActiveCategoryBudgets()
+        }
 }
 
 // Data classes for repository responses

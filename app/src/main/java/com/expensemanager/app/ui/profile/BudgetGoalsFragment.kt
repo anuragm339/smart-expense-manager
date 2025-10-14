@@ -124,6 +124,7 @@ class BudgetGoalsFragment : Fragment() {
         binding.tvRemaining.text = "₹${String.format("%.0f", state.monthlyBudget - state.currentSpent)} remaining"
         binding.progressBudget.progress = state.budgetProgress
         binding.tvBudgetAmount.text = "Budget: ₹${String.format("%.0f", state.monthlyBudget)}"
+        binding.tvBudgetPercentage.text = "${state.budgetProgress}% of budget used"
         
         // Update insights
         binding.tvBudgetStatus.text = state.insights.statusText

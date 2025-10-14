@@ -390,8 +390,9 @@ class DashboardFragment : Fragment() {
         logger.debug("updateDashboardWithRepositoryData",
             "Updating dashboard: spent=₹$totalSpent, balance=₹$balance, count=$transactionCount")
 
-        // Update summary
-        viewBinder.renderSummary(totalSpent, balance, transactionCount)
+        // Update summary - check if budget exists
+        val hasBudget = viewModel.uiState.value.monthlyBudget > 0
+        viewBinder.renderSummary(totalSpent, balance, transactionCount, hasBudget)
 
         // Update categories
         val categorySpending = dashboardData.topCategories.map { category ->
@@ -409,17 +410,19 @@ class DashboardFragment : Fragment() {
     }
 
     /**
-     * Calculate balance from dashboard data
+     * Calculate budget percentage from dashboard data
      */
     private fun calculateBalance(dashboardData: DashboardData): Double {
-        // Check if we're in "This Month" period and have salary data
+        // Check if we're in "This Month" period and have monthly budget
         if (currentDashboardPeriod == "This Month") {
-            val salary = dashboardData.monthlyBalance.lastSalaryAmount
-            if (salary > 0) {
-                return salary - dashboardData.totalSpent
+            val monthlyBudget = viewModel.uiState.value.monthlyBudget
+            if (monthlyBudget > 0) {
+                // Return budget percentage
+                return (dashboardData.totalSpent / monthlyBudget) * 100
             }
         }
-        return -dashboardData.totalSpent
+        // No budget set - return spent amount
+        return dashboardData.totalSpent
     }
 
     /**

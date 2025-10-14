@@ -9,22 +9,14 @@ import java.util.Date
 
 @Entity(
     tableName = "budgets",
-    foreignKeys = [
-        ForeignKey(
-            entity = CategoryEntity::class,
-            parentColumns = ["id"],
-            childColumns = ["category_id"],
-            onDelete = ForeignKey.CASCADE
-        )
-    ],
     indices = [Index(value = ["category_id"])]
 )
 data class BudgetEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
-    
+
     @ColumnInfo(name = "category_id")
-    val categoryId: Long,
+    val categoryId: Long? = null,  // NULL for overall budget, specific ID for category budgets
     
     @ColumnInfo(name = "budget_amount")
     val budgetAmount: Double,

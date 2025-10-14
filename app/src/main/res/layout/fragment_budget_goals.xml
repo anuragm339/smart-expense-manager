@@ -81,7 +81,7 @@
                     android:id="@+id/progress_budget"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:progress="84"
+                    android:progress="0"
                     app:indicatorColor="@color/primary"
                     app:trackColor="@color/background_light"
                     android:layout_marginBottom="8dp" />
@@ -92,10 +92,11 @@
                     android:orientation="horizontal">
 
                     <TextView
+                        android:id="@+id/tv_budget_percentage"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="83.6% of budget used"
+                        android:text=""
                         android:textSize="14sp"
                         android:textColor="@color/text_secondary" />
 
@@ -175,7 +176,7 @@
                     android:id="@+id/tv_budget_status"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="📊 You're 83% through your monthly budget with 10 days remaining."
+                    android:text=""
                     android:textSize="14sp"
                     android:textColor="@color/text_primary"
                     android:layout_marginBottom="8dp" />
@@ -184,7 +185,7 @@
                     android:id="@+id/tv_budget_tip"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="💡 Tip: Consider reducing Food &amp; Dining expenses to stay within budget."
+                    android:text=""
                     android:textSize="14sp"
                     android:textColor="@color/text_secondary" />
 
