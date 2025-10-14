@@ -2,7 +2,6 @@ package com.expensemanager.app.services
 
 import com.expensemanager.app.data.entities.TransactionEntity
 import com.expensemanager.app.services.DateRangeService.Companion.TimeAggregation
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.utils.logging.StructuredLogger
 import java.text.SimpleDateFormat
 import java.util.*
@@ -22,7 +21,7 @@ class TimeSeriesAggregationService @Inject constructor(
         private const val TAG = "TimeSeriesAggregationService"
     }
 
-    private val logger = StructuredLogger(LogConfig.FeatureTags.DASHBOARD, TAG)
+    private val logger = StructuredLogger("DASHBOARD", TAG)
     
     /**
      * Data class for time series data points

@@ -2,7 +2,6 @@ package com.expensemanager.app.ui.categories
 
 import android.app.Dialog
 import android.os.Bundle
-import com.expensemanager.app.utils.logging.LogConfig
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup

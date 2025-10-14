@@ -29,16 +29,12 @@ import com.expensemanager.app.utils.CategoryManager
 import com.expensemanager.app.utils.MerchantAliasManager
 import com.expensemanager.app.services.TransactionParsingService
 import com.expensemanager.app.services.TransactionFilterService
-import com.expensemanager.app.ui.dashboard.CategorySpending
-import com.expensemanager.app.ui.dashboard.MerchantSpending
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.expensemanager.app.utils.logging.LogConfig
 import dagger.hilt.android.AndroidEntryPoint
 import com.expensemanager.app.domain.usecase.transaction.AddTransactionUseCase
 import com.expensemanager.app.utils.logging.StructuredLogger
 import javax.inject.Inject
 import java.util.*
-import com.expensemanager.app.ui.dashboard.MonthlyComparison
 
 /**
  * Dashboard Fragment - Main entry point for expense tracking overview
@@ -70,7 +66,7 @@ class DashboardFragment : Fragment() {
     @Inject lateinit var transactionParsingService: TransactionParsingService
     @Inject lateinit var transactionFilterService: TransactionFilterService
 
-    private val logger = StructuredLogger(LogConfig.FeatureTags.DASHBOARD, DashboardFragment::class.java.simpleName)
+    private val logger = StructuredLogger("DASHBOARD", DashboardFragment::class.java.simpleName)
 
     // Core dependencies
     private lateinit var repository: ExpenseRepository

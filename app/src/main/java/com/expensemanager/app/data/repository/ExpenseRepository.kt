@@ -9,7 +9,6 @@ import com.expensemanager.app.domain.repository.*
 import com.expensemanager.app.models.ParsedTransaction
 import com.expensemanager.app.services.SMSParsingService
 import com.expensemanager.app.services.TransactionFilterService
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.utils.logging.StructuredLogger
 import com.expensemanager.app.data.repository.internal.DatabaseMaintenanceOperations
 import com.expensemanager.app.data.repository.internal.MerchantCategoryOperations
@@ -32,8 +31,7 @@ class ExpenseRepository @Inject constructor(
     private val syncStateDao: SyncStateDao,
     private val budgetDao: BudgetDao,
     private val smsParsingService: SMSParsingService,
-    private val transactionFilterService: TransactionFilterService? = null,
-    private val logConfig: LogConfig
+    private val transactionFilterService: TransactionFilterService? = null
 ) : TransactionRepositoryInterface,
     CategoryRepositoryInterface,
     MerchantRepositoryInterface,
@@ -42,13 +40,12 @@ class ExpenseRepository @Inject constructor(
     companion object {
         @Volatile
         private var INSTANCE: ExpenseRepository? = null
-        
+
         // Temporary getInstance method for compatibility - TODO: Remove after migration to Hilt
         fun getInstance(context: Context): ExpenseRepository {
             return INSTANCE ?: synchronized(this) {
                 val database = ExpenseDatabase.getDatabase(context)
                 val smsParsingService = SMSParsingService(context.applicationContext)
-                val logConfig = LogConfig(context.applicationContext)
                 val instance = ExpenseRepository(
                     context.applicationContext,
                     database.transactionDao(),
@@ -57,8 +54,7 @@ class ExpenseRepository @Inject constructor(
                     database.syncStateDao(),
                     database.budgetDao(),
                     smsParsingService,
-                    null, // transactionFilterService (optional)
-                    logConfig
+                    null // transactionFilterService (optional)
                 )
                 INSTANCE = instance
                 instance
@@ -66,7 +62,7 @@ class ExpenseRepository @Inject constructor(
         }
     }
     private val logger = StructuredLogger(
-        featureTag = LogConfig.FeatureTags.DATABASE,
+        featureTag = "DATABASE",
         className = "ExpenseRepository"
     )
     private val transactionRepository = TransactionDataRepository(
@@ -76,8 +72,7 @@ class ExpenseRepository @Inject constructor(
         merchantDao = merchantDao,
         syncStateDao = syncStateDao,
         smsParsingService = smsParsingService,
-        transactionFilterService = transactionFilterService,
-        logConfig = logConfig
+        transactionFilterService = transactionFilterService
     )
     private val merchantCategoryOperations = MerchantCategoryOperations(
         context = context,

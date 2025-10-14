@@ -74,7 +74,10 @@ class BudgetGoalsViewModel @Inject constructor(
                 
                 // Get transaction data from repository (with exclusions already applied)
                 val currentSpent = repository.getTotalSpent(startDate, endDate).toFloat()
-                
+
+                // DEBUG: Log date range and spent amount
+                logger.debug("loadBudgetData", "Budget calculation - Start: $startDate, End: $endDate, Spent: ₹$currentSpent")
+
                 val budgetProgress = if (monthlyBudget > 0) ((currentSpent / monthlyBudget) * 100).toInt() else 0
                 
                 // Calculate insights

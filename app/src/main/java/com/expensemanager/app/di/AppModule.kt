@@ -6,7 +6,6 @@ import com.expensemanager.app.data.repository.ExpenseRepository
 import com.expensemanager.app.services.SMSParsingService
 import com.expensemanager.app.ui.categories.CategoryDisplayProvider
 import com.expensemanager.app.ui.categories.DefaultCategoryDisplayProvider
-import com.expensemanager.app.utils.AppLogger
 import com.expensemanager.app.utils.MerchantAliasManager
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
@@ -114,18 +113,6 @@ object AppModule {
         @ApplicationContext context: Context
     ): SMSParsingService {
         return SMSParsingService(context)
-    }
-    
-    /**
-     * Provides centralized application logger using Logback
-     * Used for professional logging throughout the application
-     */
-    @Provides
-    @Singleton
-    fun provideAppLogger(
-        @ApplicationContext context: Context
-    ): AppLogger {
-        return AppLogger(context)
     }
     
     /**

@@ -6,8 +6,6 @@ import com.expensemanager.app.data.dao.MerchantDao
 import com.expensemanager.app.data.dao.TransactionDao
 import com.expensemanager.app.data.entities.CategoryEntity
 import com.expensemanager.app.data.entities.MerchantEntity
-import com.expensemanager.app.data.repository.internal.TransactionDataRepository
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.utils.logging.StructuredLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -22,7 +20,7 @@ internal class MerchantCategoryOperations(
 ) {
 
     private val logger = StructuredLogger(
-        featureTag = LogConfig.FeatureTags.DATABASE,
+        featureTag = "DATABASE",
         className = "MerchantCategoryOperations"
     )
 

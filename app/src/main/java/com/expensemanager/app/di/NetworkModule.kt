@@ -1,7 +1,6 @@
 package com.expensemanager.app.di
 
 import timber.log.Timber
-import com.expensemanager.app.utils.logging.LogConfig
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn

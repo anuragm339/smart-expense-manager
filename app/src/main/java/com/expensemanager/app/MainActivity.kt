@@ -8,7 +8,6 @@ import android.os.Bundle
 import android.widget.ProgressBar
 import android.widget.TextView
 
-import com.expensemanager.app.utils.logging.LogConfig
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity

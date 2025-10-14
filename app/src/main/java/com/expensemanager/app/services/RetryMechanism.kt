@@ -1,11 +1,9 @@
 package com.expensemanager.app.services
 
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.utils.logging.StructuredLogger
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.retry
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.pow
@@ -21,7 +19,7 @@ class RetryMechanism @Inject constructor(
 ) {
 
     private val logger = StructuredLogger(
-        featureTag = LogConfig.FeatureTags.NETWORK,
+        featureTag = "NETWORK",
         className = "RetryMechanism"
     )
 
@@ -179,7 +177,7 @@ class RetryMechanism @Inject constructor(
         private val recoveryTimeMs: Long = 60000L // 1 minute
     ) {
         private val logger = StructuredLogger(
-            featureTag = LogConfig.FeatureTags.NETWORK,
+            featureTag = "NETWORK",
             className = "RetryMechanism.CircuitBreaker"
         )
         private var failureCount = 0

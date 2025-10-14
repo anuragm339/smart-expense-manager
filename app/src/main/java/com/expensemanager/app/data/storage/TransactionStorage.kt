@@ -3,7 +3,6 @@ package com.expensemanager.app.data.storage
 import android.content.Context
 import android.content.SharedPreferences
 import timber.log.Timber
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.data.models.Transaction
 import com.expensemanager.app.data.models.TransactionType
 import com.expensemanager.app.models.ParsedTransaction

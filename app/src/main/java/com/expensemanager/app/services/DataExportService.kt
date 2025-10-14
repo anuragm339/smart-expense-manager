@@ -4,7 +4,6 @@ import android.content.Context
 import android.net.Uri
 import android.os.Build
 import com.expensemanager.app.data.repository.ExpenseRepository
-import com.expensemanager.app.utils.AppLogger
 import com.expensemanager.app.utils.logging.StructuredLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -22,7 +21,7 @@ import javax.inject.Singleton
 @Singleton
 class DataExportService @Inject constructor(
     private val repository: ExpenseRepository,
-    private val appLogger: AppLogger
+    
 ) {
     private val logger = StructuredLogger("DataExportService","DataExportService")
     companion object {

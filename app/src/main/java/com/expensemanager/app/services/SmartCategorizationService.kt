@@ -2,7 +2,6 @@ package com.expensemanager.app.services
 
 import android.content.Context
 import com.expensemanager.app.data.repository.ExpenseRepository
-import com.expensemanager.app.utils.AppLogger
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -17,7 +16,7 @@ import javax.inject.Singleton
 class SmartCategorizationService @Inject constructor(
     @ApplicationContext private val context: Context,
     private val repository: ExpenseRepository,
-    private val appLogger: AppLogger
+    
 ) {
     
     companion object {
@@ -69,7 +68,7 @@ class SmartCategorizationService @Inject constructor(
             suggestions.sortedByDescending { it.confidence }.take(3)
             
         } catch (e: Exception) {
-            appLogger.error(TAG, "Error getting category suggestions for $merchantName", e)
+            // Logging removed
             getDefaultSuggestions()
         }
     }
@@ -126,7 +125,7 @@ class SmartCategorizationService @Inject constructor(
             }
             
         } catch (e: Exception) {
-            appLogger.warn(TAG, "Error getting learning-based suggestions", e)
+            // Logging removed
             emptyList()
         }
     }
@@ -162,7 +161,7 @@ class SmartCategorizationService @Inject constructor(
             }
             
         } catch (e: Exception) {
-            appLogger.warn(TAG, "Error getting similar merchant suggestions", e)
+            // Logging removed
             emptyList()
         }
     }

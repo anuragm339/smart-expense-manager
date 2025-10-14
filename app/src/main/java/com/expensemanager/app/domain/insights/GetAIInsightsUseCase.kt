@@ -1,7 +1,6 @@
 package com.expensemanager.app.domain.insights
 
 import timber.log.Timber
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.data.models.AIInsight
 import com.expensemanager.app.data.models.InsightType
 import com.expensemanager.app.data.models.InsightPriority

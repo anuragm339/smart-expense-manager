@@ -7,7 +7,6 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.expensemanager.app.R
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.utils.logging.StructuredLogger
 
 data class CategorySpending(
@@ -22,7 +21,7 @@ class TopCategoriesAdapter(
 ) : RecyclerView.Adapter<TopCategoriesAdapter.CategoryViewHolder>() {
     
     private var categories = listOf<CategorySpending>()
-    private val logger = StructuredLogger(LogConfig.FeatureTags.TOPCATEGORIESADAPTER, "TopCategoriesAdapter")
+    private val logger = StructuredLogger("TOPCATEGORIESADAPTER", "TopCategoriesAdapter")
     fun submitList(newCategories: List<CategorySpending>) {
         logger.debug("submitList","submitList called with ${newCategories.size} categories")
         categories = newCategories

@@ -11,11 +11,9 @@ import com.expensemanager.app.data.dao.UserDao
 import com.expensemanager.app.data.models.AIInsight
 import com.expensemanager.app.data.models.MonthlySummary
 import com.expensemanager.app.data.models.Transaction
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.utils.logging.StructuredLogger
 import com.expensemanager.app.data.repository.internal.AIInsightsCacheManager
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
@@ -81,7 +79,7 @@ class AIInsightsRepository @Inject constructor(
     // Mutex to prevent concurrent API calls
     private val apiCallMutex = Mutex()
     private val logger = StructuredLogger(
-        featureTag = LogConfig.FeatureTags.INSIGHTS,
+        featureTag = "INSIGHTS",
         className = "AIInsightsRepository"
     )
     private val cacheManager = AIInsightsCacheManager(

@@ -3,7 +3,6 @@ package com.expensemanager.app.notifications
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.utils.logging.StructuredLogger
 import android.widget.Toast
 import com.expensemanager.app.data.repository.ExpenseRepository
@@ -18,7 +17,7 @@ class TransactionNotificationReceiver : BroadcastReceiver() {
         private const val TAG = "TransactionNotificationReceiver"
     }
 
-    private val logger = StructuredLogger(LogConfig.FeatureTags.TRANSACTION, TAG)
+    private val logger = StructuredLogger("TRANSACTION", TAG)
     
     override fun onReceive(context: Context?, intent: Intent?) {
         if (context == null || intent == null) return

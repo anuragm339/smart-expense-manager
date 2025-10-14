@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.expensemanager.app.data.api.insights.HistoricalInsight
 import com.expensemanager.app.data.models.AIInsight
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.utils.logging.StructuredLogger
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -31,7 +30,7 @@ class InsightsHistoryManager @Inject constructor(
     }
 
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-    private val logger = StructuredLogger(LogConfig.FeatureTags.INSIGHTS, TAG)
+    private val logger = StructuredLogger("INSIGHTS", TAG)
 
     /**
      * Save a new insight to conversation history

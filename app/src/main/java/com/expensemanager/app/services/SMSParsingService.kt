@@ -2,10 +2,8 @@ package com.expensemanager.app.services
 
 import android.content.Context
 import android.database.Cursor
-import android.net.Uri
 import android.provider.Telephony
 import com.expensemanager.app.models.HistoricalSMS
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.utils.logging.StructuredLogger
 import com.expensemanager.app.models.ParsedTransaction
 import com.expensemanager.app.models.RejectedSMS
@@ -29,7 +27,7 @@ class SMSParsingService @Inject constructor(
     private val context: Context
 ) {
     private val logger = StructuredLogger(
-        featureTag = LogConfig.FeatureTags.SMS,
+        featureTag = "SMS",
         className = "SMSParsingService"
     )
     companion object {

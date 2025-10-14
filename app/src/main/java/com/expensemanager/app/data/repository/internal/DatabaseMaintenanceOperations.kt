@@ -2,7 +2,6 @@ package com.expensemanager.app.data.repository.internal
 
 import com.expensemanager.app.data.dao.TransactionDao
 import com.expensemanager.app.data.entities.TransactionEntity
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.utils.logging.StructuredLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -12,7 +11,7 @@ internal class DatabaseMaintenanceOperations(
 ) {
 
     private val logger = StructuredLogger(
-        featureTag = LogConfig.FeatureTags.DATABASE,
+        featureTag = "DATABASE",
         className = "DatabaseMaintenanceOperations"
     )
 

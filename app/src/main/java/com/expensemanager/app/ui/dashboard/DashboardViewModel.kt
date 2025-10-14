@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import com.expensemanager.app.utils.logging.StructuredLogger
-import com.expensemanager.app.utils.logging.LogConfig
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.expensemanager.app.data.repository.DashboardData
@@ -29,7 +28,7 @@ class DashboardViewModel @Inject constructor(
     private val repository: com.expensemanager.app.data.repository.ExpenseRepository
 ) : ViewModel() {
 
-    private val logger = StructuredLogger(LogConfig.FeatureTags.DASHBOARD, "DashboardViewModel")
+    private val logger = StructuredLogger("DASHBOARD", "DashboardViewModel")
 
     // Data change broadcast receiver for automatic refresh
     private val dataChangeReceiver = object : BroadcastReceiver() {
@@ -506,7 +505,7 @@ class DashboardViewModel @Inject constructor(
     private fun getDateRangeForPeriod(period: String): Pair<Date, Date> {
         val calendar = Calendar.getInstance()
         val endDate = calendar.time
-        
+
         when (period) {
             "This Month" -> {
                 calendar.set(Calendar.DAY_OF_MONTH, 1)
@@ -514,7 +513,9 @@ class DashboardViewModel @Inject constructor(
                 calendar.set(Calendar.MINUTE, 0)
                 calendar.set(Calendar.SECOND, 0)
                 calendar.set(Calendar.MILLISECOND, 0)
-                return Pair(calendar.time, endDate)
+                val startDate = calendar.time
+                logger.debug("getDateRangeForPeriod", "Dashboard This Month - Start: $startDate, End: $endDate")
+                return Pair(startDate, endDate)
             }
             "Last Month" -> {
                 calendar.set(Calendar.DAY_OF_MONTH, 1)

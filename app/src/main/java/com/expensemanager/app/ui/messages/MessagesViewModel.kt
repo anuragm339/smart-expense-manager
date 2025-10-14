@@ -2,7 +2,6 @@ package com.expensemanager.app.ui.messages
 
 import android.content.Context
 
-import com.expensemanager.app.utils.logging.LogConfig
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.expensemanager.app.data.repository.ExpenseRepository
@@ -41,7 +40,7 @@ class MessagesViewModel @Inject constructor(
     private val merchantAliasManager by lazy { MerchantAliasManager(context) }
     // SMS parsing is now handled by the injected SMSParsingService
     private val logger = StructuredLogger(
-        featureTag = LogConfig.FeatureTags.UI,
+        featureTag = "UI",
         className = "MessagesViewModel"
     )
     // Private mutable state

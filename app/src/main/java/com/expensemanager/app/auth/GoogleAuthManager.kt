@@ -7,7 +7,6 @@ import com.expensemanager.app.R
 import com.expensemanager.app.core.DebugConfig
 import com.expensemanager.app.data.dao.UserDao
 import com.expensemanager.app.data.entities.UserEntity
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.utils.logging.StructuredLogger
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
@@ -35,7 +34,7 @@ class GoogleAuthManager @Inject constructor(
         const val RC_SIGN_IN = 9001 // Request code for sign-in intent
     }
 
-    private val logger = StructuredLogger(LogConfig.FeatureTags.AUTH, TAG)
+    private val logger = StructuredLogger("AUTH", TAG)
 
     private val googleSignInClient: GoogleSignInClient by lazy {
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)

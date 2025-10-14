@@ -12,7 +12,6 @@ import com.expensemanager.app.MainActivity
 import com.expensemanager.app.R
 import com.expensemanager.app.data.models.Transaction
 import androidx.core.content.ContextCompat
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.utils.logging.StructuredLogger
 
 class TransactionNotificationManager(private val context: Context) {
@@ -37,7 +36,7 @@ class TransactionNotificationManager(private val context: Context) {
     }
 
     private val notificationManager = NotificationManagerCompat.from(context)
-    private val logger = StructuredLogger(LogConfig.FeatureTags.UI, LOGGER_TAG)
+    private val logger = StructuredLogger("UI", LOGGER_TAG)
     
     init {
         createNotificationChannel()

@@ -15,7 +15,6 @@ import com.expensemanager.app.data.entities.TransactionEntity
 import com.expensemanager.app.models.ParsedTransaction
 import com.expensemanager.app.services.SMSParsingService
 import com.expensemanager.app.services.TransactionFilterService
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.utils.logging.StructuredLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -31,11 +30,11 @@ internal class TransactionDataRepository(
     private val syncStateDao: SyncStateDao,
     private val smsParsingService: SMSParsingService,
     private val transactionFilterService: TransactionFilterService?,
-    private val logConfig: LogConfig
+    
 ) {
 
     private val logger = StructuredLogger(
-        featureTag = LogConfig.FeatureTags.DATABASE,
+        featureTag = "DATABASE",
         className = "TransactionDataRepository"
     )
 

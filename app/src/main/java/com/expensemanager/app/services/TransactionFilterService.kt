@@ -3,7 +3,6 @@ package com.expensemanager.app.services
 import android.content.Context
 import android.content.SharedPreferences
 import com.expensemanager.app.data.dao.MerchantDao
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.utils.logging.StructuredLogger
 import com.expensemanager.app.data.entities.MerchantEntity
 import com.expensemanager.app.data.entities.TransactionEntity
@@ -11,7 +10,6 @@ import com.expensemanager.app.models.ParsedTransaction
 import com.expensemanager.app.ui.messages.MessageItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.json.JSONObject
 import java.util.*
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -42,7 +40,7 @@ class TransactionFilterService @Inject constructor(
         context.getSharedPreferences(SHARED_PREFS_NAME, Context.MODE_PRIVATE)
     }
     private val logger = StructuredLogger(
-        featureTag = LogConfig.FeatureTags.TRANSACTION,
+        featureTag = "TRANSACTION",
         className = "TransactionFilterService"
     )
     

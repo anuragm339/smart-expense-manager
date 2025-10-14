@@ -28,7 +28,6 @@ import com.expensemanager.app.utils.CategoryManager
 import kotlinx.coroutines.launch
 import java.util.*
 import android.content.Context
-import com.expensemanager.app.utils.logging.LogConfig
 import androidx.core.widget.addTextChangedListener
 import com.expensemanager.app.utils.logging.StructuredLogger
 import com.google.android.material.tabs.TabLayout
@@ -37,7 +36,7 @@ import com.google.android.material.tabs.TabLayout
 class CategoriesFragment : Fragment() {
 
     private val logger =
-        StructuredLogger(LogConfig.FeatureTags.CATEGORIESFRAGMENT, "CategoriesFragment")
+        StructuredLogger("CATEGORIESFRAGMENT", "CategoriesFragment")
     private var _binding: FragmentCategoriesBinding? = null
     private val binding get() = _binding!!
 

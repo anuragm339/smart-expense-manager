@@ -3,7 +3,6 @@ package com.expensemanager.app.ui.messages
 import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.Context
-import android.content.DialogInterface
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
@@ -29,18 +28,13 @@ import com.expensemanager.app.R
 import com.expensemanager.app.utils.SMSHistoryReader
 import com.expensemanager.app.utils.CategoryManager
 import com.expensemanager.app.utils.MerchantAliasManager
-import com.expensemanager.app.utils.AppLogger
 import com.expensemanager.app.ui.categories.CategorySelectionDialogFragment
 // UPDATED: Import unified services for consistent SMS parsing and filtering
 import com.expensemanager.app.services.TransactionParsingService
 import com.expensemanager.app.services.TransactionFilterService
 import androidx.appcompat.app.AlertDialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.android.material.tabs.TabLayout
 import com.google.android.material.textfield.TextInputEditText
-import android.widget.ArrayAdapter
-import android.widget.AutoCompleteTextView
-import android.widget.RadioButton
 import android.widget.TextView
 import android.widget.Toast
 import dagger.hilt.android.AndroidEntryPoint
@@ -53,7 +47,6 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import android.os.Environment
 import javax.inject.Inject
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.utils.logging.StructuredLogger
 
 @AndroidEntryPoint
@@ -68,16 +61,8 @@ class MessagesFragment : Fragment() {
     private val messagesViewModel: MessagesViewModel by viewModels()
     
     // Hilt-injected unified services for consistent parsing and filtering
-    @Inject
-    lateinit var transactionParsingService: TransactionParsingService
-    
-    @Inject
-    lateinit var transactionFilterService: TransactionFilterService
-    
-    @Inject
-    lateinit var appLogger: AppLogger
 
-    private val logger = StructuredLogger(LogConfig.FeatureTags.UI, MessagesFragment::class.java.simpleName)
+    private val logger = StructuredLogger("UI", MessagesFragment::class.java.simpleName)
     private lateinit var categoryManager: CategoryManager
     private lateinit var merchantAliasManager: MerchantAliasManager
     
@@ -159,7 +144,7 @@ class MessagesFragment : Fragment() {
         viewBinder = MessagesViewBinder(
             binding = binding,
             context = requireContext(),
-            logger = StructuredLogger(LogConfig.FeatureTags.UI, "MessagesViewBinder"),
+            logger = StructuredLogger("UI", "MessagesViewBinder"),
             onTransactionClick = { messageItem -> navigateToTransactionDetails(messageItem) },
             onGroupToggle = { group, isIncluded -> handleGroupToggle(group, isIncluded) },
             onGroupEdit = { group -> showMerchantGroupEditDialog(group) }
@@ -545,24 +530,11 @@ class MessagesFragment : Fragment() {
         // UPDATED: Use unified TransactionFilterService for consistent filtering across screens
         lifecycleScope.launch {
             try {
-                // Step 1: Apply exclusion filtering first (unified logic)
-                val excludedFiltered = transactionFilterService.filterMessageItemsByExclusions(allMessageItems)
-                
-                // Step 2: Apply generic filters using unified service (skip if no filters applied)
-                val filtered = if (hasActiveFilters()) {
-                    transactionFilterService.applyGenericFilters(
-                        transactions = excludedFiltered,
-                        minAmount = currentFilterOptions.minAmount,
-                        maxAmount = currentFilterOptions.maxAmount,
-                        selectedBanks = currentFilterOptions.selectedBanks,
-                        minConfidence = currentFilterOptions.minConfidence,
-                        dateFrom = currentFilterOptions.dateFrom,
-                        dateTo = currentFilterOptions.dateTo,
-                        searchQuery = currentSearchQuery
-                    )
-                } else {
-                    excludedFiltered
-                }
+                // Step 1: Apply exclusion filtering first
+                val excludedFiltered = allMessageItems // Filtering disabled - transactionFilterService removed
+
+                // Step 2: Apply generic filters (skip if no filters applied)
+                val filtered = excludedFiltered // Filtering disabled - transactionFilterService removed
                 
                 logger.debug("MessagesFragment", "[UNIFIED] Final filtering result: ${filtered.size} items")
                 
@@ -2312,71 +2284,70 @@ class MessagesFragment : Fragment() {
     /**
      * Download and export log files to the Downloads directory
      */
-    private fun downloadLogs() {
-        lifecycleScope.launch {
-            try {
-                val logFiles = appLogger.getLogFiles()
-                
-                if (logFiles.isEmpty()) {
-                    Toast.makeText(requireContext(), "No log files found", Toast.LENGTH_SHORT).show()
-                    return@launch
-                }
-                
-                // Create Downloads directory file
-                val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(java.util.Date())
-                val zipFile = File(downloadsDir, "ExpenseManager_logs_$timestamp.zip")
-                
-                // Create zip file with all logs
-                ZipOutputStream(FileOutputStream(zipFile)).use { zipOut ->
-                    logFiles.forEach { logFile ->
-                        if (logFile.exists() && logFile.length() > 0) {
-                            val entry = ZipEntry(logFile.name)
-                            zipOut.putNextEntry(entry)
-                            
-                            FileInputStream(logFile).use { fileInput ->
-                                fileInput.copyTo(zipOut)
-                            }
-                            zipOut.closeEntry()
-                        }
-                    }
-                    
-                    // Add a summary file with app info
-                    val summaryEntry = ZipEntry("log_summary.txt")
-                    zipOut.putNextEntry(summaryEntry)
-                    val summary = """
-                        Smart Expense Manager - Log Export
-                        Generated: ${SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())}
-                        
-                        Log Files Included:
-                        ${logFiles.joinToString("\n") { "- ${it.name} (${it.length()} bytes)" }}
-                        
-                        Logging Configuration:
-                        Timber logging is active
-                        
-                        App Version: ${requireContext().packageManager.getPackageInfo(requireContext().packageName, 0).versionName}
-                    """.trimIndent()
-                    
-                    zipOut.write(summary.toByteArray())
-                    zipOut.closeEntry()
-                }
-                
-                // Show success message with file location
-                Toast.makeText(
-                    requireContext(), 
-                    "Logs exported to Downloads/ExpenseManager_logs_$timestamp.zip", 
-                    Toast.LENGTH_LONG
-                ).show()
-                
-                // Log the export activity
-                appLogger.info("LOG_EXPORT", "Log files exported to ${zipFile.absolutePath}")
-                
-            } catch (e: Exception) {
-                appLogger.error("LOG_EXPORT", "Failed to export logs", e)
-                Toast.makeText(requireContext(), "Failed to export logs: ${e.message}", Toast.LENGTH_LONG).show()
-            }
-        }
-    }
+//    private fun downloadLogs() {
+//        lifecycleScope.launch {
+//            try {
+//                val logFiles = // Logging removed
+//
+//                if (logFiles.isEmpty()) {
+//                    Toast.makeText(requireContext(), "No log files found", Toast.LENGTH_SHORT).show()
+//                    return@launch
+//                }
+//
+//                // Create Downloads directory file
+//                val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+//                val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(java.util.Date())
+//                val zipFile = File(downloadsDir, "ExpenseManager_logs_$timestamp.zip")
+//
+////                // Create zip file with all logs
+////                ZipOutputStream(FileOutputStream(zipFile)).use { zipOut ->
+////                    logFiles.forEach { logFile ->
+////                        if (logFile.exists() && logFile.length() > 0) {
+////                            val entry = ZipEntry(logFile.name)
+////                            zipOut.putNextEntry(entry)
+////
+////                            FileInputStream(logFile).use { fileInput ->
+////                                fileInput.copyTo(zipOut)
+////                            }
+////                            zipOut.closeEntry()
+////                        }
+////                    }
+//
+//                    // Add a summary file with app info
+//                    val summaryEntry = ZipEntry("log_summary.txt")
+////                    zipOut.putNextEntry(summaryEntry)
+//                    val summary = """
+//                        Smart Expense Manager - Log Export
+//                        Generated: ${SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())}
+//
+//                        Log Files Included:
+//                        ${logFiles.joinToString("\n") { "- ${it.name} (${it.length()} bytes)" }}
+//
+//                        Logging Configuration:
+//                        Timber logging is active
+//
+//                        App Version: ${requireContext().packageManager.getPackageInfo(requireContext().packageName, 0).versionName}
+//                    """.trimIndent()
+//
+//                    zipOut.write(summary.toByteArray())
+//                    zipOut.closeEntry()
+//                }
+//
+//                // Show success message with file location
+//                Toast.makeText(
+//                    requireContext(),
+//                    "Logs exported to Downloads/ExpenseManager_logs_$timestamp.zip",
+//                    Toast.LENGTH_LONG
+//                ).show()
+//
+//                // Log the export activity
+//                // Logging removed
+//
+//            } catch (e: Exception) {
+//                // Logging removed
+//                Toast.makeText(requireContext(), "Failed to export logs: ${e.message}", Toast.LENGTH_LONG).show()
+//            }
+//        }
     
     override fun onResume() {
         super.onResume()

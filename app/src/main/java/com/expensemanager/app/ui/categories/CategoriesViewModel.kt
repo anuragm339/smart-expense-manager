@@ -1,7 +1,6 @@
 package com.expensemanager.app.ui.categories
 
 import android.content.Context
-import com.expensemanager.app.utils.logging.LogConfig
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.expensemanager.app.data.repository.ExpenseRepository
@@ -37,7 +36,7 @@ class CategoriesViewModel @Inject constructor(
     
     // Manager instances
     private val categoryManager = CategoryManager(context)
-    private val logger = StructuredLogger(LogConfig.FeatureTags.CATEGORIES, "CategoriesViewModel")
+    private val logger = StructuredLogger("CATEGORIES", "CategoriesViewModel")
     private val merchantAliasManager = MerchantAliasManager(context)
     
     init {

@@ -2,6 +2,7 @@ package com.expensemanager.app.utils.logging
 
 import android.content.Context
 import android.os.Environment
+import dagger.hilt.android.qualifiers.ApplicationContext
 import timber.log.Timber
 import java.io.File
 import java.io.FileWriter
@@ -19,8 +20,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class TimberFileTree @Inject constructor(
-    private val context: Context,
-    private val logConfig: LogConfig
+    @ApplicationContext private val context: Context
 ) : Timber.Tree() {
 
     companion object {
@@ -32,6 +32,10 @@ class TimberFileTree @Inject constructor(
 
     private val logExecutor = Executors.newSingleThreadExecutor { r ->
         Thread(r, "TimberFileLogger").apply { isDaemon = true }
+    }
+
+    private val cleanupExecutor = Executors.newSingleThreadScheduledExecutor { r ->
+        Thread(r, "TimberFileCleanup").apply { isDaemon = true }
     }
     
     private val dateFormatter = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault())
@@ -45,57 +49,64 @@ class TimberFileTree @Inject constructor(
         scheduleLogCleanup()
     }
 
+    override fun isLoggable(tag: String?, priority: Int): Boolean {
+        // Log everything (VERBOSE and above)
+        return true
+    }
+
     override fun log(priority: Int, tag: String?, message: String, t: Throwable?) {
-        // Skip if global logging is disabled
-        if (!logConfig.isGlobalLoggingEnabled || !logConfig.isFileLoggingEnabled) {
-            return
-        }
+        android.util.Log.v(TAG, "log() called with priority=$priority, tag=$tag")
 
         val featureTag = extractFeatureTag(tag)
-        
-        // Check if this feature's logging is enabled
-        if (!logConfig.shouldLog(priority, featureTag)) {
-            return
-        }
 
         // Format log message
         val formattedMessage = formatLogMessage(priority, tag, message, t)
-        
+
         // Write to file asynchronously
-        logExecutor.execute {
-            writeToLogFile(formattedMessage, featureTag)
+        try {
+            logExecutor.execute {
+                try {
+                    android.util.Log.v(TAG, "Executor running, about to write to file...")
+                    writeToLogFile(formattedMessage, featureTag)
+                    android.util.Log.v(TAG, "File write completed")
+                } catch (e: Exception) {
+                    android.util.Log.e(TAG, "Error in executor task: ${e.message}", e)
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "Error submitting to executor: ${e.message}", e)
         }
     }
 
     private fun extractFeatureTag(tag: String?): String {
-        if (tag == null) return LogConfig.FeatureTags.APP
+        if (tag == null) return "APP"
         
         // Extract feature tag from various tag formats
         return when {
-            tag.contains("Dashboard", true) -> LogConfig.FeatureTags.DASHBOARD
-            tag.contains("SMS", true) || tag.contains("Message", true) -> LogConfig.FeatureTags.SMS
-            tag.contains("Transaction", true) -> LogConfig.FeatureTags.TRANSACTION
-            tag.contains("Categor", true) -> LogConfig.FeatureTags.CATEGORIES
-            tag.contains("Database", true) || tag.contains("Dao", true) || tag.contains("DB", true) -> LogConfig.FeatureTags.DATABASE
-            tag.contains("Network", true) || tag.contains("Api", true) || tag.contains("Http", true) -> LogConfig.FeatureTags.NETWORK
-            tag.contains("UI", true) || tag.contains("Fragment", true) || tag.contains("Adapter", true) -> LogConfig.FeatureTags.UI
-            tag.contains("Merchant", true) -> LogConfig.FeatureTags.MERCHANT
-            tag.contains("Insight", true) || tag.contains("AI", true) -> LogConfig.FeatureTags.INSIGHTS
-            tag.contains("Migration", true) -> LogConfig.FeatureTags.MIGRATION
+            tag.contains("Dashboard", true) -> "DASHBOARD"
+            tag.contains("SMS", true) || tag.contains("Message", true) -> "SMS"
+            tag.contains("Transaction", true) -> "TRANSACTION"
+            tag.contains("Categor", true) -> "CATEGORIES"
+            tag.contains("Database", true) || tag.contains("Dao", true) || tag.contains("DB", true) -> "DATABASE"
+            tag.contains("Network", true) || tag.contains("Api", true) || tag.contains("Http", true) -> "NETWORK"
+            tag.contains("UI", true) || tag.contains("Fragment", true) || tag.contains("Adapter", true) -> "UI"
+            tag.contains("Merchant", true) -> "MERCHANT"
+            tag.contains("Insight", true) || tag.contains("AI", true) -> "INSIGHTS"
+            tag.contains("Migration", true) -> "MIGRATION"
             else -> {
                 // Check for exact feature tag matches
                 when (tag.uppercase()) {
-                    LogConfig.FeatureTags.DASHBOARD -> LogConfig.FeatureTags.DASHBOARD
-                    LogConfig.FeatureTags.SMS -> LogConfig.FeatureTags.SMS
-                    LogConfig.FeatureTags.TRANSACTION -> LogConfig.FeatureTags.TRANSACTION
-                    LogConfig.FeatureTags.CATEGORIES -> LogConfig.FeatureTags.CATEGORIES
-                    LogConfig.FeatureTags.DATABASE -> LogConfig.FeatureTags.DATABASE
-                    LogConfig.FeatureTags.NETWORK -> LogConfig.FeatureTags.NETWORK
-                    LogConfig.FeatureTags.UI -> LogConfig.FeatureTags.UI
-                    LogConfig.FeatureTags.MERCHANT -> LogConfig.FeatureTags.MERCHANT
-                    LogConfig.FeatureTags.INSIGHTS -> LogConfig.FeatureTags.INSIGHTS
-                    LogConfig.FeatureTags.MIGRATION -> LogConfig.FeatureTags.MIGRATION
-                    else -> LogConfig.FeatureTags.APP
+                    "DASHBOARD" -> "DASHBOARD"
+                    "SMS" -> "SMS"
+                    "TRANSACTION" -> "TRANSACTION"
+                    "CATEGORIES" -> "CATEGORIES"
+                    "DATABASE" -> "DATABASE"
+                    "NETWORK" -> "NETWORK"
+                    "UI" -> "UI"
+                    "MERCHANT" -> "MERCHANT"
+                    "INSIGHTS" -> "INSIGHTS"
+                    "MIGRATION" -> "MIGRATION"
+                    else -> "APP"
                 }
             }
         }
@@ -120,12 +131,12 @@ class TimberFileTree @Inject constructor(
 
     private fun getPriorityString(priority: Int): String {
         return when (priority) {
-            LogConfig.VERBOSE -> "V"
-            LogConfig.DEBUG -> "D"
-            LogConfig.INFO -> "I"
-            LogConfig.WARN -> "W"
-            LogConfig.ERROR -> "E"
-            LogConfig.ASSERT -> "A"
+            android.util.Log.VERBOSE -> "V"
+            android.util.Log.DEBUG -> "D"
+            android.util.Log.INFO -> "I"
+            android.util.Log.WARN -> "W"
+            android.util.Log.ERROR -> "E"
+            android.util.Log.ASSERT -> "A"
             else -> "U"
         }
     }
@@ -134,20 +145,21 @@ class TimberFileTree @Inject constructor(
         try {
             // Write to main log file (all logs)
             val mainLogFile = getOrCreateLogFile("all")
+            android.util.Log.v(TAG, "Writing to log file: ${mainLogFile.absolutePath}")
             appendToFile(mainLogFile, message)
-            
+
             // Write to feature-specific log file if feature logging is detailed
             if (shouldCreateFeatureSpecificLog(featureTag)) {
                 val featureLogFile = getOrCreateLogFile(featureTag.lowercase())
                 appendToFile(featureLogFile, message)
             }
-            
+
             // Write to external log if enabled
-            if (logConfig.isExternalLoggingEnabled && isExternalStorageWritable()) {
+            if (isExternalStorageWritable()) {
                 val externalLogFile = getOrCreateExternalLogFile("all")
                 appendToFile(externalLogFile, message)
             }
-            
+
         } catch (e: Exception) {
             // Fallback to system error for critical errors
             System.err.println("$TAG: Failed to write to log file: ${e.message}")
@@ -158,10 +170,10 @@ class TimberFileTree @Inject constructor(
     private fun shouldCreateFeatureSpecificLog(featureTag: String): Boolean {
         // Only create feature-specific logs for major features to avoid file proliferation
         return featureTag in listOf(
-            LogConfig.FeatureTags.DASHBOARD,
-            LogConfig.FeatureTags.SMS,
-            LogConfig.FeatureTags.TRANSACTION,
-            LogConfig.FeatureTags.DATABASE
+            "DASHBOARD",
+            "SMS",
+            "TRANSACTION",
+            "DATABASE"
         )
     }
 
@@ -236,29 +248,30 @@ class TimberFileTree @Inject constructor(
         try {
             // Internal log directory
             val internalLogDir = File(context.cacheDir, "logs")
-            // Removed log: "Checking internal log directory: ${internalLogDir.absolutePath}")
+            android.util.Log.d(TAG, "Checking internal log directory: ${internalLogDir.absolutePath}")
             if (!internalLogDir.exists()) {
                 val created = internalLogDir.mkdirs()
-                // Removed log: "Created internal log directory: $created at ${internalLogDir.absolutePath}")
+                android.util.Log.d(TAG, "Created internal log directory: $created at ${internalLogDir.absolutePath}")
             } else {
-                // Removed log: "Internal log directory already exists: ${internalLogDir.absolutePath}")
+                android.util.Log.d(TAG, "Internal log directory already exists: ${internalLogDir.absolutePath}")
             }
-            
+
             // External log directory (if available)
-            if (logConfig.isExternalLoggingEnabled && isExternalStorageWritable()) {
+            if (isExternalStorageWritable()) {
                 val externalLogDir = File(context.getExternalFilesDir(null), "logs")
-                // Removed log: "Checking external log directory: ${externalLogDir.absolutePath}")
+                android.util.Log.d(TAG, "Checking external log directory: ${externalLogDir.absolutePath}")
                 if (!externalLogDir.exists()) {
                     val created = externalLogDir.mkdirs()
-                    // Removed log: "Created external log directory: $created at ${externalLogDir.absolutePath}")
+                    android.util.Log.d(TAG, "Created external log directory: $created at ${externalLogDir.absolutePath}")
                 } else {
-                    // Removed log: "External log directory already exists: ${externalLogDir.absolutePath}")
+                    android.util.Log.d(TAG, "External log directory already exists: ${externalLogDir.absolutePath}")
                 }
             } else {
-                // Removed log: "External logging disabled: enabled=${logConfig.isExternalLoggingEnabled}, writable=${isExternalStorageWritable()}")
+                android.util.Log.d(TAG, "External storage not writable, skipping external logging")
             }
         } catch (e: Exception) {
             System.err.println("$TAG: Failed to create log directories: ${e.message}")
+            e.printStackTrace()
         }
     }
 
@@ -267,17 +280,13 @@ class TimberFileTree @Inject constructor(
     }
 
     private fun scheduleLogCleanup() {
-        // Schedule periodic cleanup every hour
-        logExecutor.execute {
-            try {
-                while (!Thread.currentThread().isInterrupted) {
-                    Thread.sleep(TimeUnit.HOURS.toMillis(1))
-                    performPeriodicCleanup()
-                }
-            } catch (e: InterruptedException) {
-                Thread.currentThread().interrupt()
-            }
-        }
+        // Schedule periodic cleanup every hour using separate executor
+        (cleanupExecutor as java.util.concurrent.ScheduledExecutorService).scheduleAtFixedRate(
+            { performPeriodicCleanup() },
+            1, // Initial delay
+            1, // Period
+            TimeUnit.HOURS
+        )
     }
 
     private fun performPeriodicCleanup() {
@@ -285,7 +294,7 @@ class TimberFileTree @Inject constructor(
             val internalLogDir = File(context.cacheDir, "logs")
             cleanupDirectory(internalLogDir)
             
-            if (logConfig.isExternalLoggingEnabled && isExternalStorageWritable()) {
+            if (isExternalStorageWritable()) {
                 val externalLogDir = File(context.getExternalFilesDir(null), "logs")
                 cleanupDirectory(externalLogDir)
             }
@@ -321,7 +330,7 @@ class TimberFileTree @Inject constructor(
         }?.let { logFiles.addAll(it) }
         
         // External log files
-        if (logConfig.isExternalLoggingEnabled && isExternalStorageWritable()) {
+        if (isExternalStorageWritable()) {
             val externalLogDir = File(context.getExternalFilesDir(null), "logs")
             externalLogDir.listFiles { file ->
                 file.isFile && file.name.endsWith(".log")

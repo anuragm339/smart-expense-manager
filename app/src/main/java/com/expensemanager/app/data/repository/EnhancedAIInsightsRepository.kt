@@ -2,14 +2,10 @@ package com.expensemanager.app.data.repository
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.utils.logging.StructuredLogger
 import com.expensemanager.app.data.api.insights.*
 import com.expensemanager.app.data.dao.AICallDao
 import com.expensemanager.app.data.models.*
-import com.expensemanager.app.data.entities.TransactionEntity
 import kotlinx.coroutines.flow.first
 import com.expensemanager.app.services.*
 import com.google.gson.Gson
@@ -57,7 +53,7 @@ class EnhancedAIInsightsRepository @Inject constructor(
     private val circuitBreaker = RetryMechanism.CircuitBreaker()
     private val enhancedOfflineGenerator = EnhancedOfflineInsightsGenerator()
     private val logger = StructuredLogger(
-        featureTag = LogConfig.FeatureTags.INSIGHTS,
+        featureTag = "INSIGHTS",
         className = "EnhancedAIInsightsRepository"
     )
 

@@ -17,9 +17,6 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.expensemanager.app.R
 import com.expensemanager.app.databinding.FragmentLoggingSettingsBinding
-import com.expensemanager.app.utils.AppLogger
-import com.expensemanager.app.utils.logging.LogConfig
-import timber.log.Timber
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -45,8 +42,6 @@ class LoggingSettingsFragment : Fragment() {
     private var _binding: FragmentLoggingSettingsBinding? = null
     private val binding get() = _binding!!
 
-    @Inject
-    lateinit var appLogger: AppLogger
 
     companion object {
         private const val TAG = "LoggingSettings"
@@ -68,7 +63,7 @@ class LoggingSettingsFragment : Fragment() {
         setupUI()
         loadCurrentSettings()
         
-        appLogger.info(TAG, "Logging settings screen opened")
+        // Logging removed
     }
 
     private fun setupUI() {
@@ -76,15 +71,15 @@ class LoggingSettingsFragment : Fragment() {
         binding.spinnerLogLevel.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 val logLevel = when (position) {
-                    0 -> LogConfig.ERROR
-                    1 -> LogConfig.WARN
-                    2 -> LogConfig.INFO
-                    3 -> LogConfig.DEBUG
-                    4 -> LogConfig.VERBOSE
-                    else -> LogConfig.INFO
+                    0 -> // LogConfig removed
+                    1 -> // LogConfig removed
+                    2 -> // LogConfig removed
+                    3 -> // LogConfig removed
+                    4 -> // LogConfig removed
+                    else -> // LogConfig removed
                 }
-                appLogger.setLogLevel(logLevel)
-                appLogger.info(TAG, "Log level changed to: $position")
+                // Logging removed
+                // Logging removed
             }
             
             override fun onNothingSelected(parent: AdapterView<*>?) {
@@ -94,9 +89,9 @@ class LoggingSettingsFragment : Fragment() {
 
         // File Logging Toggle
         binding.switchFileLogging.setOnCheckedChangeListener { _, isChecked ->
-            appLogger.setFileLoggingEnabled(isChecked)
+            // Logging removed
             updateUI()
-            appLogger.info(TAG, "File logging ${if (isChecked) "enabled" else "disabled"}")
+            // Logging removed
         }
 
         // External Storage Logging Toggle
@@ -105,8 +100,8 @@ class LoggingSettingsFragment : Fragment() {
                 requestStoragePermission()
                 binding.switchExternalLogging.isChecked = false
             } else {
-                appLogger.setExternalLoggingEnabled(isChecked)
-                appLogger.info(TAG, "External logging ${if (isChecked) "enabled" else "disabled"}")
+                // Logging removed
+                // Logging removed
             }
         }
 
@@ -132,20 +127,20 @@ class LoggingSettingsFragment : Fragment() {
 
     private fun loadCurrentSettings() {
         // Load current log level
-        val currentLevel = appLogger.getLogLevel()
+        val currentLevel = // Logging removed
         val spinnerPosition = when (currentLevel) {
-            LogConfig.ERROR -> 0
-            LogConfig.WARN -> 1
-            LogConfig.INFO -> 2
-            LogConfig.DEBUG -> 3
-            LogConfig.VERBOSE -> 4
+            // LogConfig removed
+            // LogConfig removed
+            // LogConfig removed
+            // LogConfig removed
+            // LogConfig removed
             else -> 2
         }
         binding.spinnerLogLevel.setSelection(spinnerPosition)
 
         // Load current settings
-        binding.switchFileLogging.isChecked = appLogger.isFileLoggingEnabled()
-        binding.switchExternalLogging.isChecked = appLogger.isExternalLoggingEnabled()
+        binding.switchFileLogging.isChecked = // Logging removed
+        binding.switchExternalLogging.isChecked = // Logging removed
 
         updateUI()
         updateLogFileInfo()
@@ -161,7 +156,7 @@ class LoggingSettingsFragment : Fragment() {
     private fun updateLogFileInfo() {
         lifecycleScope.launch {
             try {
-                val logFiles = appLogger.getLogFiles()
+                val logFiles = // Logging removed
                 val totalSize = logFiles.sumOf { it.length() }
                 val fileCount = logFiles.size
 
@@ -173,10 +168,10 @@ class LoggingSettingsFragment : Fragment() {
                     )
                 }
 
-                appLogger.debug(TAG, "Log file info updated - Files: $fileCount, Size: ${formatFileSize(totalSize)}")
+                // Logging removed
 
             } catch (e: Exception) {
-                appLogger.error(TAG, "Error updating log file info", e)
+                // Logging removed
                 withContext(Dispatchers.Main) {
                     binding.textLogFileInfo.text = "Error reading log files"
                 }
@@ -202,14 +197,14 @@ class LoggingSettingsFragment : Fragment() {
                             "Log files exported successfully", 
                             Toast.LENGTH_SHORT
                         ).show()
-                        appLogger.info(TAG, "Log files exported: ${zipFile.name}")
+                        // Logging removed
                     } else {
                         Toast.makeText(
                             context, 
                             "Failed to export log files", 
                             Toast.LENGTH_SHORT
                         ).show()
-                        appLogger.warn(TAG, "Failed to export log files")
+                        // Logging removed
                     }
                     
                     binding.progressBar.visibility = View.GONE
@@ -217,7 +212,7 @@ class LoggingSettingsFragment : Fragment() {
                 }
 
             } catch (e: Exception) {
-                appLogger.error(TAG, "Error exporting log files", e)
+                // Logging removed
                 withContext(Dispatchers.Main) {
                     Toast.makeText(
                         context, 
@@ -234,7 +229,7 @@ class LoggingSettingsFragment : Fragment() {
     private suspend fun createLogZipFile(): File? {
         return withContext(Dispatchers.IO) {
             try {
-                val logFiles = appLogger.getLogFiles()
+                val logFiles = // Logging removed
                 if (logFiles.isEmpty()) return@withContext null
 
                 val dateFormatter = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.getDefault())
@@ -260,7 +255,7 @@ class LoggingSettingsFragment : Fragment() {
                 zipFile
 
             } catch (e: IOException) {
-                appLogger.error(TAG, "Error creating zip file", e)
+                // Logging removed
                 null
             }
         }
@@ -285,7 +280,7 @@ class LoggingSettingsFragment : Fragment() {
             startActivity(Intent.createChooser(intent, "Share Log Files"))
 
         } catch (e: Exception) {
-            appLogger.error(TAG, "Error sharing log file", e)
+            // Logging removed
             Toast.makeText(context, "Error sharing log file", Toast.LENGTH_SHORT).show()
         }
     }
@@ -293,7 +288,7 @@ class LoggingSettingsFragment : Fragment() {
     private fun clearLogFiles() {
         lifecycleScope.launch {
             try {
-                appLogger.clearLogFiles()
+                // Logging removed
                 
                 withContext(Dispatchers.Main) {
                     updateLogFileInfo()
@@ -304,10 +299,10 @@ class LoggingSettingsFragment : Fragment() {
                     ).show()
                 }
                 
-                appLogger.info(TAG, "Log files cleared by user")
+                // Logging removed
 
             } catch (e: Exception) {
-                appLogger.error(TAG, "Error clearing log files", e)
+                // Logging removed
                 withContext(Dispatchers.Main) {
                     Toast.makeText(
                         context, 
@@ -345,15 +340,15 @@ class LoggingSettingsFragment : Fragment() {
         if (requestCode == STORAGE_PERMISSION_REQUEST) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 binding.switchExternalLogging.isChecked = true
-                appLogger.setExternalLoggingEnabled(true)
-                appLogger.info(TAG, "Storage permission granted, external logging enabled")
+                // Logging removed
+                // Logging removed
             } else {
                 Toast.makeText(
                     context, 
                     "Storage permission is required for external logging", 
                     Toast.LENGTH_LONG
                 ).show()
-                appLogger.warn(TAG, "Storage permission denied")
+                // Logging removed
             }
         }
     }

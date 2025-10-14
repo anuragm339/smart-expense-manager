@@ -2,7 +2,6 @@ package com.expensemanager.app.utils
 
 import android.content.Context
 import android.content.SharedPreferences
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.utils.logging.StructuredLogger
 import org.json.JSONObject
 import org.json.JSONException

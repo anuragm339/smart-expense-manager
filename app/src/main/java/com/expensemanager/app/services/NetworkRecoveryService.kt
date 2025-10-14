@@ -1,6 +1,5 @@
 package com.expensemanager.app.services
 
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.utils.logging.StructuredLogger
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
@@ -21,7 +20,7 @@ class NetworkRecoveryService @Inject constructor(
         private const val RECOVERY_DELAY_MS = 5000L // 5 seconds after network recovery
     }
 
-    private val logger = StructuredLogger(LogConfig.FeatureTags.NETWORK, TAG)
+    private val logger = StructuredLogger("NETWORK", TAG)
 
     private val _networkState = MutableStateFlow(false)
     val networkState: StateFlow<Boolean> = _networkState.asStateFlow()

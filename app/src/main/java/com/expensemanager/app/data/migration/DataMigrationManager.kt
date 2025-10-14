@@ -3,15 +3,10 @@ package com.expensemanager.app.data.migration
 import android.content.Context
 import android.content.SharedPreferences
 import timber.log.Timber
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.data.entities.*
 import com.expensemanager.app.domain.repository.*
 import com.expensemanager.app.utils.CategoryManager
-import com.expensemanager.app.utils.MerchantAliasManager
-import com.expensemanager.app.utils.SMSHistoryReader
 import com.expensemanager.app.models.ParsedTransaction
-import com.expensemanager.app.data.storage.TransactionStorage
-import com.expensemanager.app.data.models.Transaction
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject

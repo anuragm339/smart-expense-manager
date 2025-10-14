@@ -1,7 +1,6 @@
 package com.expensemanager.app.domain.usecase.dashboard
 
 import timber.log.Timber
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.domain.repository.TransactionRepositoryInterface
 import java.util.Date
 import java.util.Calendar

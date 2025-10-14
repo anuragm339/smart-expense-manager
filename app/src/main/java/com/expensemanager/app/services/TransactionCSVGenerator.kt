@@ -2,7 +2,6 @@ package com.expensemanager.app.services
 
 import com.expensemanager.app.data.entities.TransactionEntity
 import com.expensemanager.app.data.repository.ExpenseRepository
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.utils.logging.StructuredLogger
 import java.text.SimpleDateFormat
 import java.util.*
@@ -25,7 +24,7 @@ class TransactionCSVGenerator @Inject constructor(
         private val DATE_FORMAT = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
     }
 
-    private val logger = StructuredLogger(LogConfig.FeatureTags.INSIGHTS, TAG)
+    private val logger = StructuredLogger("INSIGHTS", TAG)
 
     /**
      * Generate CSV string from transactions with enriched metadata
