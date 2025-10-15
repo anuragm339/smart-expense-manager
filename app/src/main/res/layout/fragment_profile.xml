@@ -40,6 +40,7 @@
                     android:layout_marginEnd="16dp">
 
                     <ImageView
+                        android:id="@+id/iv_profile_picture"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
                         android:src="@drawable/ic_profile"
@@ -58,6 +59,7 @@
                     android:orientation="vertical">
 
                     <TextView
+                        android:id="@+id/tv_profile_name"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="John Doe"
@@ -66,6 +68,7 @@
                         android:textStyle="bold" />
 
                     <TextView
+                        android:id="@+id/tv_profile_email"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
@@ -75,6 +78,7 @@
                         android:alpha="0.8" />
 
                     <TextView
+                        android:id="@+id/tv_member_since"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
@@ -102,82 +106,66 @@
 
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Quick Stats -->
-        <LinearLayout
+        <!-- Monthly Budget -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/card_monthly_budget"
+            style="@style/CardStyle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="16dp">
+            android:layout_marginBottom="16dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?android:attr/selectableItemBackground">
 
-            <com.google.android.material.card.MaterialCardView
-                style="@style/CardStyle"
-                android:layout_width="0dp"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginEnd="8dp">
+                android:orientation="horizontal"
+                android:padding="20dp"
+                android:gravity="center_vertical">
 
                 <LinearLayout
-                    android:layout_width="match_parent"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp"
-                    android:gravity="center">
+                    android:layout_weight="1"
+                    android:orientation="vertical">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Total Savings"
-                        android:textSize="12sp"
+                        android:text="Monthly Budget"
+                        android:textSize="14sp"
                         android:textColor="@color/text_secondary" />
 
                     <TextView
+                        android:id="@+id/tv_monthly_budget"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
                         android:text="₹0"
-                        android:textSize="18sp"
-                        android:textStyle="bold"
-                        android:textColor="@color/success" />
-
-                </LinearLayout>
-
-            </com.google.android.material.card.MaterialCardView>
-
-            <com.google.android.material.card.MaterialCardView
-                style="@style/CardStyle"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="8dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp"
-                    android:gravity="center">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Budget Goal"
-                        android:textSize="12sp"
-                        android:textColor="@color/text_secondary" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="₹0"
-                        android:textSize="18sp"
+                        android:textSize="24sp"
                         android:textStyle="bold"
                         android:textColor="@color/primary" />
 
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Tap to edit"
+                        android:textSize="12sp"
+                        android:textColor="@color/text_hint" />
+
                 </LinearLayout>
 
-            </com.google.android.material.card.MaterialCardView>
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_settings"
+                    app:tint="@color/primary" />
 
-        </LinearLayout>
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
 
         <!-- Settings Options -->
         <com.google.android.material.card.MaterialCardView
