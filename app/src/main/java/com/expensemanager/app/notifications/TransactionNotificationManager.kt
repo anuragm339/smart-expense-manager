@@ -27,6 +27,7 @@ class TransactionNotificationManager(private val context: Context) {
         const val ACTION_CATEGORIZE = "ACTION_CATEGORIZE"
         const val ACTION_MARK_PROCESSED = "ACTION_MARK_PROCESSED"
         const val ACTION_CREATE_CATEGORY = "ACTION_CREATE_CATEGORY"
+        const val ACTION_RENAME_MERCHANT = "ACTION_RENAME_MERCHANT"
         
         // Intent extras
         const val EXTRA_TRANSACTION_ID = "transaction_id"
@@ -76,12 +77,9 @@ class TransactionNotificationManager(private val context: Context) {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         
-        // Create quick category actions
-        val foodAction = createCategoryAction("Food & Dining", transaction, notificationId + 1)
-        val shoppingAction = createCategoryAction("Shopping", transaction, notificationId + 2)
-        val transportAction = createCategoryAction("Transportation", transaction, notificationId + 3)
-        val createCategoryAction = createCustomCategoryAction(transaction, notificationId + 4)
-        
+        // Create rename merchant action
+        val renameMerchantAction = createRenameMerchantAction(transaction, notificationId + 1)
+
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_money)
             .setContentTitle("New Transaction Detected")
@@ -89,14 +87,11 @@ class TransactionNotificationManager(private val context: Context) {
             .setStyle(NotificationCompat.BigTextStyle()
                 .bigText("₹${String.format("%.0f", transaction.amount)} spent at ${transaction.merchant}\n" +
                         "Bank: ${transaction.bankName}\n" +
-                        "Tap to categorize this transaction"))
+                        "Tap to rename merchant"))
             .setContentIntent(mainPendingIntent)
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .addAction(foodAction)
-            .addAction(shoppingAction)
-            .addAction(transportAction)
-            .addAction(createCategoryAction)
+            .addAction(renameMerchantAction)
             .build()
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
@@ -134,6 +129,28 @@ class TransactionNotificationManager(private val context: Context) {
         ).build()
     }
     
+    private fun createRenameMerchantAction(transaction: Transaction, requestCode: Int): NotificationCompat.Action {
+        val intent = Intent(context, TransactionNotificationReceiver::class.java).apply {
+            action = ACTION_RENAME_MERCHANT
+            putExtra(EXTRA_TRANSACTION_ID, transaction.id)
+            putExtra(EXTRA_TRANSACTION_MERCHANT, transaction.merchant)
+            putExtra(EXTRA_TRANSACTION_AMOUNT, transaction.amount)
+        }
+
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            requestCode,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        return NotificationCompat.Action.Builder(
+            R.drawable.ic_settings,
+            "Rename Merchant",
+            pendingIntent
+        ).build()
+    }
+
     private fun createCustomCategoryAction(transaction: Transaction, requestCode: Int): NotificationCompat.Action {
         val intent = Intent(context, TransactionNotificationReceiver::class.java).apply {
             action = ACTION_CREATE_CATEGORY
@@ -141,14 +158,14 @@ class TransactionNotificationManager(private val context: Context) {
             putExtra(EXTRA_TRANSACTION_AMOUNT, transaction.amount)
             putExtra(EXTRA_TRANSACTION_MERCHANT, transaction.merchant)
         }
-        
+
         val pendingIntent = PendingIntent.getBroadcast(
             context,
             requestCode,
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        
+
         return NotificationCompat.Action.Builder(
             R.drawable.ic_add,
             "Add Category",

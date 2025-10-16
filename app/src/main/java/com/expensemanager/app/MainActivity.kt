@@ -90,11 +90,21 @@ class MainActivity : AppCompatActivity() {
             if (intent != null) {
                 val action = intent.getStringExtra("action")
                 when (action) {
+                    "rename_merchant" -> {
+                        val transactionId = intent.getStringExtra(TransactionNotificationManager.EXTRA_TRANSACTION_ID)
+                        val merchant = intent.getStringExtra(TransactionNotificationManager.EXTRA_TRANSACTION_MERCHANT)
+                        val amount = intent.getDoubleExtra(TransactionNotificationManager.EXTRA_TRANSACTION_AMOUNT, 0.0)
+
+                        if (merchant != null) {
+                            showRenameMerchantDialog(merchant, transactionId, amount)
+                        }
+                    }
+
                     "create_category_for_transaction" -> {
                         val transactionId = intent.getStringExtra(TransactionNotificationManager.EXTRA_TRANSACTION_ID)
                         val amount = intent.getDoubleExtra(TransactionNotificationManager.EXTRA_TRANSACTION_AMOUNT, 0.0)
                         val merchant = intent.getStringExtra(TransactionNotificationManager.EXTRA_TRANSACTION_MERCHANT)
-                        
+
                         if (transactionId != null) {
                             // Navigate to categories tab
                             binding.bottomNavigation.selectedItemId = R.id.navigation_categories
@@ -481,6 +491,92 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(
                     this@MainActivity,
                     errorMessage,
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+
+    private fun showRenameMerchantDialog(merchant: String, transactionId: String?, amount: Double) {
+        val input = android.widget.EditText(this).apply {
+            setText(merchant)
+            hint = "Enter merchant display name"
+            setPadding(50, 30, 50, 30)
+        }
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Rename Merchant")
+            .setMessage("Original: $merchant")
+            .setView(input)
+            .setPositiveButton("Save") { _, _ ->
+                val newName = input.text.toString().trim()
+                if (newName.isNotEmpty() && newName != merchant) {
+                    renameMerchant(merchant, newName, transactionId)
+                } else if (newName.isEmpty()) {
+                    Toast.makeText(this, "Please enter a merchant name", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun renameMerchant(originalMerchant: String, newDisplayName: String, transactionId: String?) {
+        lifecycleScope.launch {
+            try {
+                logger.debug("renameMerchant", "Renaming '$originalMerchant' to '$newDisplayName'")
+
+                // Get ExpenseRepository instance to access updateMerchantAliasInDatabase
+                val repository = com.expensemanager.app.data.repository.ExpenseRepository.getInstance(this@MainActivity)
+
+                // Get current category for merchant
+                val transaction = if (transactionId != null) {
+                    repository.getTransactionBySmsId(transactionId)
+                } else null
+
+                // Get merchant and its category
+                val merchant = if (transaction != null) {
+                    repository.getMerchantByNormalizedName(transaction.normalizedMerchant)
+                } else null
+
+                val categoryName = if (merchant != null) {
+                    repository.getCategoryById(merchant.categoryId)?.name ?: "Uncategorized"
+                } else {
+                    "Uncategorized"
+                }
+
+                logger.debug("renameMerchant", "Using category: $categoryName")
+
+                // Call existing business logic
+                val success = repository.updateMerchantAliasInDatabase(
+                    originalMerchantNames = listOf(originalMerchant),
+                    newDisplayName = newDisplayName,
+                    newCategoryName = categoryName
+                )
+
+                if (success) {
+                    logger.info("renameMerchant", "Successfully renamed merchant to '$newDisplayName'")
+
+                    // Broadcast update to refresh UI
+                    sendBroadcast(Intent("com.expensemanager.app.DATA_CHANGED"))
+
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Merchant renamed to $newDisplayName",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                } else {
+                    logger.error("renameMerchant", "Failed to rename merchant", null)
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Failed to rename merchant",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            } catch (e: Exception) {
+                logger.error("renameMerchant", "Error renaming merchant", e)
+                Toast.makeText(
+                    this@MainActivity,
+                    "Error: ${e.message}",
                     Toast.LENGTH_LONG
                 ).show()
             }

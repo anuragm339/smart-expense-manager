@@ -33,11 +33,15 @@ class TransactionNotificationReceiver : BroadcastReceiver() {
                 val category = intent.getStringExtra(TransactionNotificationManager.EXTRA_CATEGORY) ?: return
                 handleCategorizeAction(context, transactionId, category, transactionAmount, transactionMerchant, notificationManager)
             }
-            
+
+            TransactionNotificationManager.ACTION_RENAME_MERCHANT -> {
+                handleRenameMerchantAction(context, transactionId, transactionMerchant, transactionAmount, notificationManager)
+            }
+
             TransactionNotificationManager.ACTION_CREATE_CATEGORY -> {
                 handleCreateCategoryAction(context, transactionId, transactionAmount, transactionMerchant)
             }
-            
+
             TransactionNotificationManager.ACTION_MARK_PROCESSED -> {
                 handleMarkProcessedAction(context, transactionId, notificationManager)
             }
@@ -135,6 +139,31 @@ class TransactionNotificationReceiver : BroadcastReceiver() {
         }
     }
     
+    private fun handleRenameMerchantAction(
+        context: Context,
+        transactionId: String,
+        merchant: String,
+        amount: Double,
+        notificationManager: TransactionNotificationManager
+    ) {
+        logger.debug("handleRenameMerchantAction", "Opening app to rename merchant: $merchant")
+
+        // Open MainActivity with rename intent
+        val intent = Intent(context, com.expensemanager.app.MainActivity::class.java).apply {
+            putExtra("action", "rename_merchant")
+            putExtra(TransactionNotificationManager.EXTRA_TRANSACTION_ID, transactionId)
+            putExtra(TransactionNotificationManager.EXTRA_TRANSACTION_MERCHANT, merchant)
+            putExtra(TransactionNotificationManager.EXTRA_TRANSACTION_AMOUNT, amount)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        context.startActivity(intent)
+
+        // Dismiss notification since user is taking action
+        notificationManager.dismissNotification(transactionId)
+
+        Toast.makeText(context, "Opening app to rename merchant", Toast.LENGTH_SHORT).show()
+    }
+
     private fun handleCreateCategoryAction(
         context: Context,
         transactionId: String,
@@ -150,7 +179,7 @@ class TransactionNotificationReceiver : BroadcastReceiver() {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         context.startActivity(intent)
-        
+
         Toast.makeText(context, "Opening app to create category", Toast.LENGTH_SHORT).show()
     }
     
