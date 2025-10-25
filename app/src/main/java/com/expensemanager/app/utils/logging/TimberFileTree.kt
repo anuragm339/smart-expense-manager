@@ -55,7 +55,7 @@ class TimberFileTree @Inject constructor(
     }
 
     override fun log(priority: Int, tag: String?, message: String, t: Throwable?) {
-        android.util.Log.v(TAG, "log() called with priority=$priority, tag=$tag")
+        //android.util.Log.v(TAG, "log() called with priority=$priority, tag=$tag")
 
         val featureTag = extractFeatureTag(tag)
 
@@ -66,11 +66,11 @@ class TimberFileTree @Inject constructor(
         try {
             logExecutor.execute {
                 try {
-                    android.util.Log.v(TAG, "Executor running, about to write to file...")
+                  //  android.util.Log.v(TAG, "Executor running, about to write to file...")
                     writeToLogFile(formattedMessage, featureTag)
-                    android.util.Log.v(TAG, "File write completed")
+                   // android.util.Log.v(TAG, "File write completed")
                 } catch (e: Exception) {
-                    android.util.Log.e(TAG, "Error in executor task: ${e.message}", e)
+                   // android.util.Log.e(TAG, "Error in executor task: ${e.message}", e)
                 }
             }
         } catch (e: Exception) {
@@ -145,7 +145,7 @@ class TimberFileTree @Inject constructor(
         try {
             // Write to main log file (all logs)
             val mainLogFile = getOrCreateLogFile("all")
-            android.util.Log.v(TAG, "Writing to log file: ${mainLogFile.absolutePath}")
+           // android.util.Log.v(TAG, "Writing to log file: ${mainLogFile.absolutePath}")
             appendToFile(mainLogFile, message)
 
             // Write to feature-specific log file if feature logging is detailed
@@ -248,26 +248,26 @@ class TimberFileTree @Inject constructor(
         try {
             // Internal log directory
             val internalLogDir = File(context.cacheDir, "logs")
-            android.util.Log.d(TAG, "Checking internal log directory: ${internalLogDir.absolutePath}")
+           // android.util.Log.d(TAG, "Checking internal log directory: ${internalLogDir.absolutePath}")
             if (!internalLogDir.exists()) {
                 val created = internalLogDir.mkdirs()
-                android.util.Log.d(TAG, "Created internal log directory: $created at ${internalLogDir.absolutePath}")
+              //  android.util.Log.d(TAG, "Created internal log directory: $created at ${internalLogDir.absolutePath}")
             } else {
-                android.util.Log.d(TAG, "Internal log directory already exists: ${internalLogDir.absolutePath}")
+               // android.util.Log.d(TAG, "Internal log directory already exists: ${internalLogDir.absolutePath}")
             }
 
             // External log directory (if available)
             if (isExternalStorageWritable()) {
                 val externalLogDir = File(context.getExternalFilesDir(null), "logs")
-                android.util.Log.d(TAG, "Checking external log directory: ${externalLogDir.absolutePath}")
+               // android.util.Log.d(TAG, "Checking external log directory: ${externalLogDir.absolutePath}")
                 if (!externalLogDir.exists()) {
                     val created = externalLogDir.mkdirs()
-                    android.util.Log.d(TAG, "Created external log directory: $created at ${externalLogDir.absolutePath}")
+                 //   android.util.Log.d(TAG, "Created external log directory: $created at ${externalLogDir.absolutePath}")
                 } else {
-                    android.util.Log.d(TAG, "External log directory already exists: ${externalLogDir.absolutePath}")
+                   // android.util.Log.d(TAG, "External log directory already exists: ${externalLogDir.absolutePath}")
                 }
             } else {
-                android.util.Log.d(TAG, "External storage not writable, skipping external logging")
+               // android.util.Log.d(TAG, "External storage not writable, skipping external logging")
             }
         } catch (e: Exception) {
             System.err.println("$TAG: Failed to create log directories: ${e.message}")

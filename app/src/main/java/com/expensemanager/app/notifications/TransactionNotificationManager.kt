@@ -8,6 +8,7 @@ import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.app.RemoteInput
 import com.expensemanager.app.MainActivity
 import com.expensemanager.app.R
 import com.expensemanager.app.data.models.Transaction
@@ -34,6 +35,9 @@ class TransactionNotificationManager(private val context: Context) {
         const val EXTRA_TRANSACTION_AMOUNT = "transaction_amount"
         const val EXTRA_TRANSACTION_MERCHANT = "transaction_merchant"
         const val EXTRA_CATEGORY = "category"
+
+        // RemoteInput key for inline reply
+        const val KEY_TEXT_REPLY = "key_text_reply"
     }
 
     private val notificationManager = NotificationManagerCompat.from(context)
@@ -130,6 +134,11 @@ class TransactionNotificationManager(private val context: Context) {
     }
     
     private fun createRenameMerchantAction(transaction: Transaction, requestCode: Int): NotificationCompat.Action {
+        // Create RemoteInput for inline text reply
+        val remoteInput = RemoteInput.Builder(KEY_TEXT_REPLY)
+            .setLabel("New merchant name")
+            .build()
+
         val intent = Intent(context, TransactionNotificationReceiver::class.java).apply {
             action = ACTION_RENAME_MERCHANT
             putExtra(EXTRA_TRANSACTION_ID, transaction.id)
@@ -141,14 +150,16 @@ class TransactionNotificationManager(private val context: Context) {
             context,
             requestCode,
             intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE // Must be MUTABLE for RemoteInput
         )
 
         return NotificationCompat.Action.Builder(
             R.drawable.ic_settings,
-            "Rename Merchant",
+            "Rename",
             pendingIntent
-        ).build()
+        )
+        .addRemoteInput(remoteInput)
+        .build()
     }
 
     private fun createCustomCategoryAction(transaction: Transaction, requestCode: Int): NotificationCompat.Action {
