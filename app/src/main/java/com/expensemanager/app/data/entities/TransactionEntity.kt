@@ -35,40 +35,61 @@ data class TransactionEntity(
     
     @ColumnInfo(name = "raw_sms_body")
     val rawSmsBody: String,
-    
+
     @ColumnInfo(name = "confidence_score")
     val confidenceScore: Float,
-    
+
     @ColumnInfo(name = "is_debit")
     val isDebit: Boolean = true,
-    
+
+    @ColumnInfo(name = "reference_number")
+    val referenceNumber: String? = null,
+
     @ColumnInfo(name = "created_at")
     val createdAt: Date,
-    
+
     @ColumnInfo(name = "updated_at")
     val updatedAt: Date
 ) {
     companion object {
         /**
          * Generate a consistent SMS ID from SMS content to prevent duplicates
+         * Priority: reference_number > (sender + body + timestamp)
          */
-        fun generateSmsId(address: String, body: String, timestamp: Long): String {
-            // Create a unique identifier based on sender, body hash, and timestamp
-            // This ensures same SMS won't create multiple records
+        fun generateSmsId(
+            address: String,
+            body: String,
+            timestamp: Long,
+            referenceNumber: String? = null
+        ): String {
+            // If reference number exists, use it for deduplication (more reliable)
+            if (!referenceNumber.isNullOrBlank()) {
+                return "ref_${referenceNumber}_${address}"
+            }
+
+            // Fallback to body hash method
             val bodyHash = body.hashCode().toString()
             return "${address}_${bodyHash}_${timestamp}"
         }
-        
+
         /**
          * Generate a deduplication key for transaction matching
+         * Enhanced with reference number support
          */
         fun generateDeduplicationKey(
             merchant: String,
             amount: Double,
             date: Date,
             bankName: String,
+            referenceNumber: String? = null,
             windowMinutes: Long = 10
         ): String {
+            // If reference number exists, it's the most reliable dedup key
+            if (!referenceNumber.isNullOrBlank()) {
+                return "ref_${referenceNumber}_${bankName.lowercase()}"
+            }
+
+            // Fallback to time-window based deduplication
             val windowMillis = java.util.concurrent.TimeUnit.MINUTES.toMillis(windowMinutes)
             val bucket = if (windowMillis > 0) date.time / windowMillis else date.time
             val roundedAmount = String.format(java.util.Locale.US, "%.2f", amount)

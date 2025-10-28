@@ -104,15 +104,48 @@ object AppModule {
     }
     
     /**
+     * Provides rule loader for SMS parsing
+     */
+    @Provides
+    @Singleton
+    fun provideRuleLoader(
+        @ApplicationContext context: Context
+    ): com.expensemanager.app.parsing.engine.RuleLoader {
+        return com.expensemanager.app.parsing.engine.RuleLoader(context)
+    }
+
+    /**
+     * Provides confidence calculator for SMS parsing
+     */
+    @Provides
+    @Singleton
+    fun provideConfidenceCalculator(): com.expensemanager.app.parsing.engine.ConfidenceCalculator {
+        return com.expensemanager.app.parsing.engine.ConfidenceCalculator()
+    }
+
+    /**
+     * Provides unified SMS parser
+     */
+    @Provides
+    @Singleton
+    fun provideUnifiedSMSParser(
+        ruleLoader: com.expensemanager.app.parsing.engine.RuleLoader,
+        confidenceCalculator: com.expensemanager.app.parsing.engine.ConfidenceCalculator
+    ): com.expensemanager.app.parsing.engine.UnifiedSMSParser {
+        return com.expensemanager.app.parsing.engine.UnifiedSMSParser(ruleLoader, confidenceCalculator)
+    }
+
+    /**
      * Provides unified SMS parsing service
      * Used for consistent SMS parsing across Dashboard and Messages screens
      */
     @Provides
     @Singleton
     fun provideSMSParsingService(
-        @ApplicationContext context: Context
+        @ApplicationContext context: Context,
+        unifiedParser: com.expensemanager.app.parsing.engine.UnifiedSMSParser
     ): SMSParsingService {
-        return SMSParsingService(context)
+        return SMSParsingService(context, unifiedParser)
     }
     
     /**

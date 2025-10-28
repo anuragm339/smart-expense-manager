@@ -23,7 +23,7 @@ import com.expensemanager.app.data.dao.*
         com.expensemanager.app.data.models.AICallTracker::class,
         UserEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 @TypeConverters(DateConverter::class)
@@ -170,6 +170,15 @@ abstract class ExpenseDatabase : RoomDatabase() {
 
                 // 5. Rename new table to budgets
                 database.execSQL("ALTER TABLE budgets_new RENAME TO budgets")
+            }
+        }
+
+        // Migration from version 7 to 8: Add reference_number column to transactions table
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("""
+                    ALTER TABLE transactions ADD COLUMN reference_number TEXT DEFAULT NULL
+                """)
             }
         }
     }

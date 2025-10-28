@@ -45,7 +45,11 @@ class ExpenseRepository @Inject constructor(
         fun getInstance(context: Context): ExpenseRepository {
             return INSTANCE ?: synchronized(this) {
                 val database = ExpenseDatabase.getDatabase(context)
-                val smsParsingService = SMSParsingService(context.applicationContext)
+                // Create dependencies for SMSParsingService
+                val ruleLoader = com.expensemanager.app.parsing.engine.RuleLoader(context.applicationContext)
+                val confidenceCalculator = com.expensemanager.app.parsing.engine.ConfidenceCalculator()
+                val unifiedParser = com.expensemanager.app.parsing.engine.UnifiedSMSParser(ruleLoader, confidenceCalculator)
+                val smsParsingService = SMSParsingService(context.applicationContext, unifiedParser)
                 val instance = ExpenseRepository(
                     context.applicationContext,
                     database.transactionDao(),
