@@ -1085,16 +1085,102 @@ class MessagesFragment : Fragment() {
     }
     
     private fun showCategoryEditDialog(messageItem: MessageItem) {
+        lifecycleScope.launch {
+            try {
+                // Fetch categories from database to get custom emojis
+                val repository = com.expensemanager.app.data.repository.ExpenseRepository.getInstance(requireContext())
+                val categoryEntities = repository.getAllCategoriesSync()
+
+                // Get categories from CategoryManager (includes legacy SharedPreferences categories)
+                val categoryManagerCategories = categoryManager.getAllCategories()
+
+                // Migrate any SharedPreferences categories that aren't in database yet
+                val dbCategoryNames = categoryEntities.map { it.name }.toSet()
+                val missingCategories = categoryManagerCategories.filter { it !in dbCategoryNames }
+
+                if (missingCategories.isNotEmpty()) {
+                    logger.debug("MessagesFragment", "[MIGRATION] Found ${missingCategories.size} categories in SharedPreferences not in DB: ${missingCategories.joinToString()}")
+                    missingCategories.forEach { categoryName ->
+                        try {
+                            val categoryEntity = com.expensemanager.app.data.entities.CategoryEntity(
+                                name = categoryName,
+                                emoji = "📂", // Default emoji for migrated categories
+                                color = getRandomCategoryColor(),
+                                isSystem = false,
+                                displayOrder = 999,
+                                createdAt = java.util.Date()
+                            )
+                            repository.insertCategory(categoryEntity)
+                            logger.debug("MessagesFragment", "[MIGRATION] Migrated category '$categoryName' to database")
+                        } catch (e: Exception) {
+                            logger.warn("MessagesFragment", "[MIGRATION] Failed to migrate category '$categoryName': ${e.message}")
+                        }
+                    }
+                    // Reload categories from database after migration
+                    val updatedCategoryEntities = repository.getAllCategoriesSync()
+                    val categoryEmojiMap = updatedCategoryEntities.associate { it.name to it.emoji }
+
+                    logger.debug("MessagesFragment", "[EMOJI DEBUG] After migration - Category entities from DB: ${updatedCategoryEntities.size}")
+                } else {
+                    logger.debug("MessagesFragment", "[MIGRATION] All categories already in database")
+                }
+
+                // Create a map of category names to emojis from database
+                val categoryEmojiMap = repository.getAllCategoriesSync().associate { it.name to it.emoji }
+
+                // Log for debugging
+                logger.debug("MessagesFragment", "[EMOJI DEBUG] Category entities from DB: ${categoryEmojiMap.size}")
+                categoryEmojiMap.forEach { (name, emoji) ->
+                    logger.debug("MessagesFragment", "[EMOJI DEBUG] DB Category: name='$name', emoji='$emoji'")
+                }
+
+                // Get all category names (including legacy ones from CategoryManager)
+                val allCategoryNames = (categoryEmojiMap.keys + categoryManagerCategories).distinct()
+                val currentCategoryIndex = allCategoryNames.indexOf(messageItem.category)
+
+                logger.debug("MessagesFragment", "[EMOJI DEBUG] All categories: ${allCategoryNames.joinToString()}")
+
+                // Create enhanced categories with emojis (prefer database emoji over hardcoded)
+                val enhancedCategories = allCategoryNames.map { category ->
+                    val emoji = categoryEmojiMap[category] ?: getCategoryEmoji(category)
+                    logger.debug("MessagesFragment", "[EMOJI DEBUG] Category '$category' -> emoji='$emoji' (from DB: ${categoryEmojiMap.containsKey(category)})")
+                    "$emoji $category"
+                }.toTypedArray()
+
+                logger.debug("MessagesFragment", "[TARGET] Showing custom category dialog for ${messageItem.merchant}")
+
+                val dialog = CategorySelectionDialogFragment.newInstance(
+                    categories = enhancedCategories,
+                    currentIndex = currentCategoryIndex,
+                    merchantName = messageItem.merchant
+                ) { selectedCategory ->
+                    // Remove emoji from selected category to get the actual name
+                    val actualCategory = parseCategoryName(selectedCategory)
+                    if (actualCategory != messageItem.category) {
+                        updateCategoryForMerchant(messageItem, actualCategory)
+                    }
+                }
+
+                dialog.show(parentFragmentManager, "CategoryEditDialog")
+            } catch (e: Exception) {
+                logger.error("MessagesFragment", "Failed to show category dialog", e)
+                // Fallback to old behavior if database access fails
+                showCategoryEditDialogFallback(messageItem)
+            }
+        }
+    }
+
+    private fun showCategoryEditDialogFallback(messageItem: MessageItem) {
         val categories = categoryManager.getAllCategories()
         val currentCategoryIndex = categories.indexOf(messageItem.category)
-        
+
         // Create enhanced categories with emojis
         val enhancedCategories = categories.map { category ->
             "${getCategoryEmoji(category)} $category"
         }.toTypedArray()
-        
-        logger.debug("MessagesFragment", "[TARGET] Showing custom category dialog for ${messageItem.merchant}")
-        
+
+        logger.debug("MessagesFragment", "[TARGET] Showing custom category dialog for ${messageItem.merchant} (fallback)")
+
         val dialog = CategorySelectionDialogFragment.newInstance(
             categories = enhancedCategories,
             currentIndex = currentCategoryIndex,
@@ -1106,7 +1192,7 @@ class MessagesFragment : Fragment() {
                 updateCategoryForMerchant(messageItem, actualCategory)
             }
         }
-        
+
         dialog.show(parentFragmentManager, "CategoryEditDialog")
     }
     
@@ -1119,13 +1205,23 @@ class MessagesFragment : Fragment() {
             "entertainment" -> "🎬"
             "shopping" -> "🛍️"
             "utilities" -> "⚡"
-            "money", "finance" -> "[FINANCIAL]"
+            "money", "finance" -> "💰"
             "education" -> "📚"
             "travel" -> "✈️"
             "bills" -> "💳"
             "insurance" -> "🛡️"
             else -> "📂"
         }
+    }
+
+    private fun getRandomCategoryColor(): String {
+        val colorList = listOf(
+            "#795548", "#e91e63", "#9c27b0", "#673ab7", "#3f51b5",
+            "#2196f3", "#03a9f4", "#00bcd4", "#009688", "#4caf50",
+            "#8bc34a", "#cddc39", "#ffeb3b", "#ffc107", "#ff9800",
+            "#ff5722", "#f44336"
+        )
+        return colorList.random()
     }
 
     /**
@@ -1588,26 +1684,58 @@ class MessagesFragment : Fragment() {
     }
     
     private fun showCategorySelectionDialog(categories: List<String>, currentSelection: String, onCategorySelected: (String) -> Unit) {
-        val currentIndex = categories.indexOf(currentSelection).takeIf { it >= 0 } ?: 0
-        
-        // Create enhanced categories with emojis
-        val enhancedCategories = categories.map { category ->
-            "${getCategoryEmoji(category)} $category"
-        }.toTypedArray()
-        
-        logger.debug("MessagesFragment", "[TARGET] Showing custom category selection dialog, current: $currentSelection")
-        
-        val dialog = CategorySelectionDialogFragment.newInstance(
-            categories = enhancedCategories,
-            currentIndex = currentIndex,
-            merchantName = "merchant group"
-        ) { selectedCategory ->
-            // Remove emoji from selected category to get the actual name
-            val actualCategory = parseCategoryName(selectedCategory)
-            onCategorySelected(actualCategory)
+        lifecycleScope.launch {
+            try {
+                // Fetch categories from database to get custom emojis
+                val repository = com.expensemanager.app.data.repository.ExpenseRepository.getInstance(requireContext())
+                val categoryEntities = repository.getAllCategoriesSync()
+
+                // Create emoji map from database
+                val categoryEmojiMap = categoryEntities.associate { it.name to it.emoji }
+
+                logger.debug("MessagesFragment", "[EMOJI] Loaded ${categoryEmojiMap.size} categories from DB for selection dialog")
+
+                val currentIndex = categories.indexOf(currentSelection).takeIf { it >= 0 } ?: 0
+
+                // Create enhanced categories with emojis (prefer database emoji over hardcoded)
+                val enhancedCategories = categories.map { category ->
+                    val emoji = categoryEmojiMap[category] ?: getCategoryEmoji(category)
+                    logger.debug("MessagesFragment", "[EMOJI] Category '$category' -> emoji='$emoji' (from DB: ${categoryEmojiMap.containsKey(category)})")
+                    "$emoji $category"
+                }.toTypedArray()
+
+                logger.debug("MessagesFragment", "[TARGET] Showing custom category selection dialog, current: $currentSelection")
+
+                val dialog = CategorySelectionDialogFragment.newInstance(
+                    categories = enhancedCategories,
+                    currentIndex = currentIndex,
+                    merchantName = "merchant group"
+                ) { selectedCategory ->
+                    // Remove emoji from selected category to get the actual name
+                    val actualCategory = parseCategoryName(selectedCategory)
+                    onCategorySelected(actualCategory)
+                }
+
+                dialog.show(parentFragmentManager, "CategorySelectionDialog")
+            } catch (e: Exception) {
+                logger.error("MessagesFragment", "Failed to load category emojis", e)
+                // Fallback to hardcoded emojis
+                val currentIndex = categories.indexOf(currentSelection).takeIf { it >= 0 } ?: 0
+                val enhancedCategories = categories.map { category ->
+                    "${getCategoryEmoji(category)} $category"
+                }.toTypedArray()
+
+                val dialog = CategorySelectionDialogFragment.newInstance(
+                    categories = enhancedCategories,
+                    currentIndex = currentIndex,
+                    merchantName = "merchant group"
+                ) { selectedCategory ->
+                    val actualCategory = parseCategoryName(selectedCategory)
+                    onCategorySelected(actualCategory)
+                }
+                dialog.show(parentFragmentManager, "CategorySelectionDialog")
+            }
         }
-        
-        dialog.show(parentFragmentManager, "CategorySelectionDialog")
     }
     
     private fun showMerchantGroupEditDialog(group: MerchantGroup) {

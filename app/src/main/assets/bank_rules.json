@@ -286,11 +286,16 @@
     ],
     "credit_keywords": [
       "credited",
+      "credited by",
+      "credit",
       "received",
       "deposited",
       "refund",
       "cashback",
-      "reversed"
+      "reversed",
+      "added to",
+      "transferred to your",
+      "transfer to your"
     ]
   }
 }

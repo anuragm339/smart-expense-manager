@@ -376,7 +376,6 @@ class DataMigrationManager @Inject constructor(
             "entertainment" -> "🎬"
             "shopping" -> "🛍️"
             "utilities" -> "⚡"
-            "money" -> "[FINANCIAL]"
             else -> "📂"
         }
     }

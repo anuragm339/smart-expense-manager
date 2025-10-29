@@ -314,7 +314,7 @@ class UnifiedSMSParser @Inject constructor(
             transactionDate = date ?: Date(timestamp),
             rawSmsBody = body,
             confidenceScore = 0.0f, // Will be set by caller
-            isDebit = transactionType?.lowercase() != "credit",
+            isDebit = transactionType?.lowercase()?.contains("credit") != true,
             referenceNumber = referenceNumber,
             createdAt = now,
             updatedAt = now
