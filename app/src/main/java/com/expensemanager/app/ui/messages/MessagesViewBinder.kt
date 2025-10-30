@@ -26,7 +26,8 @@ class MessagesViewBinder(
     private val logger: StructuredLogger,
     onTransactionClick: (MessageItem) -> Unit,
     onGroupToggle: (MerchantGroup, Boolean) -> Unit,
-    onGroupEdit: (MerchantGroup) -> Unit
+    onGroupEdit: (MerchantGroup) -> Unit,
+    private val onLoadMore: (() -> Unit)? = null
 ) {
     private val recyclerView = binding.recyclerMessages
     private val emptyLayout = binding.layoutEmpty
@@ -64,6 +65,25 @@ class MessagesViewBinder(
             drawingCacheQuality = View.DRAWING_CACHE_QUALITY_HIGH
             itemAnimator?.changeDuration = 0
             itemAnimator?.moveDuration = 0
+
+            // Add scroll listener for pagination
+            addOnScrollListener(object : androidx.recyclerview.widget.RecyclerView.OnScrollListener() {
+                override fun onScrolled(recyclerView: androidx.recyclerview.widget.RecyclerView, dx: Int, dy: Int) {
+                    super.onScrolled(recyclerView, dx, dy)
+
+                    val layoutManager = recyclerView.layoutManager as? LinearLayoutManager
+                    if (layoutManager != null) {
+                        val totalItemCount = layoutManager.itemCount
+                        val lastVisibleItem = layoutManager.findLastVisibleItemPosition()
+
+                        // Trigger load when user scrolls near bottom (5 items before end)
+                        if (totalItemCount > 0 && lastVisibleItem >= totalItemCount - 5) {
+                            logger.debug("MessagesViewBinder", "Near bottom: lastVisible=$lastVisibleItem, total=$totalItemCount - triggering load more")
+                            onLoadMore?.invoke()
+                        }
+                    }
+                }
+            })
         }
 
         groupedAdapter.submitList(emptyList())

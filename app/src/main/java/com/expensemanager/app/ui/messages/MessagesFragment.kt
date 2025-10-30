@@ -147,7 +147,10 @@ class MessagesFragment : Fragment() {
             logger = StructuredLogger("UI", "MessagesViewBinder"),
             onTransactionClick = { messageItem -> navigateToTransactionDetails(messageItem) },
             onGroupToggle = { group, isIncluded -> handleGroupToggle(group, isIncluded) },
-            onGroupEdit = { group -> showMerchantGroupEditDialog(group) }
+            onGroupEdit = { group -> showMerchantGroupEditDialog(group) },
+            onLoadMore = {
+                messagesViewModel.handleEvent(MessagesUIEvent.LoadMoreMessages)
+            }
         )
 
         viewBinder.bindSearch { query ->
