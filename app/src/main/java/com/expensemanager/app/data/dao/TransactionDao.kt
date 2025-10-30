@@ -50,7 +50,15 @@ interface TransactionDao {
     @Query("SELECT COUNT(*) FROM transactions WHERE is_debit = 1 AND transaction_date >= :startDate AND transaction_date <= :endDate")
     suspend fun getExpenseTransactionCount(startDate: Date, endDate: Date): Int
     
-    @Query("SELECT SUM(amount) FROM transactions WHERE transaction_date >= :startDate AND transaction_date <= :endDate AND is_debit = 1")
+    @Query("""
+        SELECT SUM(t.amount)
+        FROM transactions t
+        LEFT JOIN merchants m ON t.normalized_merchant = m.normalized_name
+        WHERE t.transaction_date >= :startDate
+          AND t.transaction_date <= :endDate
+          AND t.is_debit = 1
+          AND (m.is_excluded_from_expense_tracking = 0 OR m.is_excluded_from_expense_tracking IS NULL)
+    """)
     suspend fun getTotalSpentByDateRange(startDate: Date, endDate: Date): Double?
     
     // Credit transaction queries for balance calculation
@@ -87,18 +95,20 @@ interface TransactionDao {
     suspend fun getSalaryTransactions(minAmount: Double = 10000.0, limit: Int = 10): List<TransactionEntity>
     
     @Query("""
-        SELECT 
-            t.normalized_merchant, 
-            SUM(t.amount) as total_amount, 
+        SELECT
+            t.normalized_merchant,
+            SUM(t.amount) as total_amount,
             COUNT(*) as transaction_count,
             COALESCE(c.name, 'Unknown') as category_name,
             COALESCE(c.color, '#9e9e9e') as category_color
         FROM transactions t
         LEFT JOIN merchants m ON t.normalized_merchant = m.normalized_name
         LEFT JOIN categories c ON m.category_id = c.id
-        WHERE t.transaction_date >= :startDate AND t.transaction_date <= :endDate AND t.is_debit = 1
+        WHERE t.transaction_date >= :startDate AND t.transaction_date <= :endDate
+          AND t.is_debit = 1
+          AND (m.is_excluded_from_expense_tracking = 0 OR m.is_excluded_from_expense_tracking IS NULL)
         GROUP BY t.normalized_merchant, c.name, c.color
-        ORDER BY total_amount DESC 
+        ORDER BY total_amount DESC
         LIMIT :limit
     """)
     suspend fun getTopMerchantsBySpending(startDate: Date, endDate: Date, limit: Int = 10): List<MerchantSpendingWithCategory>
@@ -167,13 +177,15 @@ interface TransactionDao {
     
     // For dashboard category breakdown - joins with merchants to get categories
     @Query("""
-        SELECT m.category_id, c.name as category_name, c.color, 
+        SELECT m.category_id, c.name as category_name, c.color,
                SUM(t.amount) as total_amount, COUNT(t.id) as transaction_count,
                MAX(t.transaction_date) as last_transaction_date
         FROM transactions t
         JOIN merchants m ON t.normalized_merchant = m.normalized_name
         JOIN categories c ON m.category_id = c.id
-        WHERE t.transaction_date >= :startDate AND t.transaction_date <= :endDate AND t.is_debit = 1
+        WHERE t.transaction_date >= :startDate AND t.transaction_date <= :endDate
+          AND t.is_debit = 1
+          AND m.is_excluded_from_expense_tracking = 0
         GROUP BY m.category_id, c.name, c.color
         ORDER BY total_amount DESC
     """)

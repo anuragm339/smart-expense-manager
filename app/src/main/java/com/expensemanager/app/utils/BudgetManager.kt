@@ -6,12 +6,16 @@ import com.expensemanager.app.models.ParsedTransaction
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.*
+import javax.inject.Inject
 
 /**
  * Manages budget data, calculations, and alerts for expense management
  */
-class BudgetManager(private val context: Context) {
-    
+class BudgetManager @Inject constructor(
+    private val context: Context,
+    private val smsHistoryReader: SMSHistoryReader
+) {
+
     private val prefs: SharedPreferences = context.getSharedPreferences("budget_settings", Context.MODE_PRIVATE)
     private val categoryManager = CategoryManager(context)
     private val merchantAliasManager = MerchantAliasManager(context)
@@ -47,10 +51,9 @@ class BudgetManager(private val context: Context) {
      */
     suspend fun getCurrentMonthBudgetSummary(): BudgetSummary {
         val monthlyBudget = getMonthlyBudget()
-        
-        // Get real transaction data
-        val smsReader = SMSHistoryReader(context)
-        val transactions = smsReader.scanHistoricalSMS()
+
+        // Get real transaction data using injected SMS reader
+        val transactions = smsHistoryReader.scanHistoricalSMS()
         
         // Calculate current month spending
         val calendar = Calendar.getInstance()

@@ -100,7 +100,12 @@ class UnifiedSMSParser @Inject constructor(
                 referenceNumber = referenceNumber
             )
 
-            ParseResult.Success(transaction, confidence)
+            // 6. Update transaction with calculated confidence score
+            val transactionWithConfidence = transaction.copy(
+                confidenceScore = confidence.overall
+            )
+
+            ParseResult.Success(transactionWithConfidence, confidence)
 
         } catch (e: Exception) {
             logger.error("parseSMS", "Parse error", e)
@@ -209,7 +214,15 @@ class UnifiedSMSParser @Inject constructor(
         // Try bank-specific type patterns
         bankRule?.patterns?.transactionType?.forEach { pattern ->
             val type = tryExtractWithPattern(body, pattern)
-            if (type != null) return type.lowercase()
+            if (type != null) {
+                // Handle BOB abbreviations (Dr. -> debit, Cr. -> credit)
+                val normalized = type.lowercase().trim('.', ' ')
+                return when (normalized) {
+                    "dr" -> "debit"
+                    "cr" -> "credit"
+                    else -> normalized
+                }
+            }
         }
 
         // Check fallback keywords

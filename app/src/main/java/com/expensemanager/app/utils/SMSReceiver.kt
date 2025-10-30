@@ -7,8 +7,10 @@ import android.os.Build
 import android.provider.Telephony
 import android.telephony.SmsMessage
 import com.expensemanager.app.data.repository.ExpenseRepository
-import com.expensemanager.app.models.HistoricalSMS
 import com.expensemanager.app.notifications.TransactionNotificationManager
+import com.expensemanager.app.parsing.engine.ConfidenceCalculator
+import com.expensemanager.app.parsing.engine.RuleLoader
+import com.expensemanager.app.parsing.engine.UnifiedSMSParser
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -62,31 +64,25 @@ class SMSReceiver : BroadcastReceiver() {
             timestamp = timestamp
         )
 
-        // Create a HistoricalSMS-like object for the parser
-        val smsData = HistoricalSMS(
-            id = smsId,
-            address = sender,
-            body = messageBody,
-            date = Date(timestamp),
-            type = 1 // MESSAGE_TYPE_INBOX
-        )
+        // Use UnifiedSMSParser directly for real-time SMS parsing
+        val ruleLoader = RuleLoader(context)
+        val confidenceCalculator = ConfidenceCalculator()
+        val unifiedSMSParser = UnifiedSMSParser(ruleLoader, confidenceCalculator)
 
-        // Use the existing parsing logic from SMSHistoryReader
-        val smsHistoryReader = SMSHistoryReader(context)
-        if (smsHistoryReader.isBankTransactionSMS(smsData)) {
-            val parsedTransaction = smsHistoryReader.parseTransactionFromSMS(smsData)
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val result = unifiedSMSParser.parseSMS(sender, messageBody, timestamp)
 
-            if (parsedTransaction != null) {
-                timber.log.Timber.tag(TAG).d("PARSED_FROM_SMS: ${parsedTransaction.merchant} - ₹${parsedTransaction.amount}")
+                if (result is UnifiedSMSParser.ParseResult.Success) {
+                    val transaction = result.transaction
+                    timber.log.Timber.tag(TAG).d("PARSED_FROM_SMS: ${transaction.normalizedMerchant} - ₹${transaction.amount}")
 
-                // Save to SQLite database via ExpenseRepository  
-                CoroutineScope(Dispatchers.IO).launch {
+                    // Save to SQLite database via ExpenseRepository
                     try {
                         val repository = ExpenseRepository.getInstance(context)
 
-                        // Convert to TransactionEntity and save to SQLite
-                        val transactionEntity =
-                            repository.convertToTransactionEntity(parsedTransaction)
+                        // Transaction is already in the correct format (TransactionEntity)
+                        val transactionEntity = transaction
 
                         // FIXED: Enhanced duplicate prevention with both SMS ID and transaction similarity checks
                         val existingTransaction =
@@ -99,7 +95,7 @@ class SMSReceiver : BroadcastReceiver() {
                             val insertedId = repository.insertTransaction(transactionEntity)
 
                             if (insertedId > 0) {
-                                timber.log.Timber.tag(TAG).i("[SUCCESS] New transaction saved: ${parsedTransaction.merchant} - ₹${parsedTransaction.amount}")
+                                timber.log.Timber.tag(TAG).i("[SUCCESS] New transaction saved: ${transaction.normalizedMerchant} - ₹${transaction.amount}")
 
                                 // Show notification
                                 val notificationManager = TransactionNotificationManager(context)
@@ -137,12 +133,12 @@ class SMSReceiver : BroadcastReceiver() {
                     } catch (e: Exception) {
                         timber.log.Timber.tag(TAG).e(e, "Error saving transaction to SQLite database")
                     }
+                } else {
+                    timber.log.Timber.tag(TAG).w("Failed to parse transaction data from SMS: $sender")
                 }
-            } else {
-                timber.log.Timber.tag(TAG).w("Failed to parse transaction data from SMS: $sender")
+            } catch (e: Exception) {
+                timber.log.Timber.tag(TAG).e(e, "Error parsing SMS")
             }
-        } else {
-            timber.log.Timber.tag(TAG).d("SMS is not a valid bank transaction: $sender")
         }
     }
 }

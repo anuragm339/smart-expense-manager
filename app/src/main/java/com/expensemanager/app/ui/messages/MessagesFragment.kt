@@ -61,6 +61,8 @@ class MessagesFragment : Fragment() {
     private val messagesViewModel: MessagesViewModel by viewModels()
     
     // Hilt-injected unified services for consistent parsing and filtering
+    @Inject
+    lateinit var smsHistoryReader: SMSHistoryReader
 
     private val logger = StructuredLogger("UI", MessagesFragment::class.java.simpleName)
     private lateinit var categoryManager: CategoryManager
@@ -624,10 +626,9 @@ class MessagesFragment : Fragment() {
                 
                 // Clear current adapter to show fresh data
                 groupedMessagesAdapter.submitList(emptyList())
-                
-                // Create new SMS reader instance and scan
-                val smsReader = SMSHistoryReader(requireContext())
-                val historicalTransactions = smsReader.scanHistoricalSMS()
+
+                // Use injected SMS reader and scan
+                val historicalTransactions = smsHistoryReader.scanHistoricalSMS()
                 
                 logger.debug("MessagesFragment", "SMS resync found ${historicalTransactions.size} transactions")
                 
@@ -709,8 +710,7 @@ class MessagesFragment : Fragment() {
         lifecycleScope.launch {
             try {
                 logger.debug("MessagesFragment", "Starting SMS scanning test...")
-                val smsReader = SMSHistoryReader(requireContext())
-                val transactions = smsReader.scanHistoricalSMS()
+                val transactions = smsHistoryReader.scanHistoricalSMS()
                 
                 val message = buildString {
                     appendLine("[ANALYTICS] SMS Scanning Test Results:")
@@ -1028,8 +1028,7 @@ class MessagesFragment : Fragment() {
     private fun loadFromSMSFallback() {
         lifecycleScope.launch {
             try {
-                val smsReader = SMSHistoryReader(requireContext())
-                val historicalTransactions = smsReader.scanHistoricalSMS()
+                val historicalTransactions = smsHistoryReader.scanHistoricalSMS()
                 
                 logger.debug("MessagesFragment", "[SMS] SMS Fallback: Found ${historicalTransactions.size} transactions")
                 
