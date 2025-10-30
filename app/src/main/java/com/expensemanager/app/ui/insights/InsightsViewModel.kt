@@ -1,6 +1,5 @@
 package com.expensemanager.app.ui.insights
 
-import com.expensemanager.app.utils.logging.LogConfig
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.expensemanager.app.data.models.AIInsight
@@ -168,12 +167,12 @@ class InsightsViewModel @Inject constructor(
 
                 // Log all insights with their details
                 insights.forEachIndexed { index, insight ->
-//                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("  Insight #${index + 1}:")
-//                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("    - ID: ${insight.id}")
-//                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("    - Type: ${insight.type}")
-//                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("    - Title: ${insight.title}")
-//                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("    - Impact Amount: ₹${insight.impactAmount}")
-//                    Timber.tag(LogConfig.FeatureTags.INSIGHTS).d("    - Priority: ${insight.priority}")
+//                    Timber.tag("INSIGHTS").d("  Insight #${index + 1}:")
+//                    Timber.tag("INSIGHTS").d("    - ID: ${insight.id}")
+//                    Timber.tag("INSIGHTS").d("    - Type: ${insight.type}")
+//                    Timber.tag("INSIGHTS").d("    - Title: ${insight.title}")
+//                    Timber.tag("INSIGHTS").d("    - Impact Amount: ₹${insight.impactAmount}")
+//                    Timber.tag("INSIGHTS").d("    - Priority: ${insight.priority}")
                 }
 
                 val groupedInsights = insights.groupBy { it.type }

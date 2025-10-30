@@ -2,7 +2,6 @@ package com.expensemanager.app.utils
 
 
 import android.content.Context
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.data.entities.TransactionEntity
 import com.expensemanager.app.data.models.Transaction
 import com.expensemanager.app.data.repository.ExpenseRepository

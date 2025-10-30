@@ -30,7 +30,6 @@ class DashboardViewBinder(
 
     fun initialize() {
         topMerchantsSection.initialize()
-        setupCategoryRowClicks()
     }
 
     fun showLoading() {
@@ -49,7 +48,7 @@ class DashboardViewBinder(
     }
 
     fun showEmpty() {
-        binding.tvTotalBalance.text = "₹0"
+        binding.tvTotalBalance.text = "0%"
         binding.tvTotalSpent.text = "₹0"
         binding.tvTransactionCount.text = "0"
         topMerchantsSection.render(emptyList())
@@ -59,13 +58,15 @@ class DashboardViewBinder(
 
     fun showContent(state: DashboardUIState) {
         val data = state.dashboardData ?: return
-        val balance = if (state.dashboardPeriod == "This Month" && state.hasSalaryData) {
-            state.monthlyBalance
+        val budgetReached = if (state.dashboardPeriod == "This Month" && state.monthlyBudget > 0) {
+            // Calculate percentage of budget reached
+            (state.totalSpent / state.monthlyBudget * 100)
         } else {
-            state.totalBalance
+            // For other periods, show amount spent
+            state.totalSpent
         }
 
-        renderSummary(state.totalSpent, balance, state.transactionCount)
+        renderSummary(state.totalSpent, budgetReached, state.transactionCount, state.monthlyBudget > 0)
         renderCategories(data.topCategories.map { category ->
             CategorySpending(
                 categoryName = category.category_name,
@@ -83,9 +84,15 @@ class DashboardViewBinder(
     }
 
 
-    fun renderSummary(totalSpent: Double, balance: Double, transactionCount: Int) {
+    fun renderSummary(totalSpent: Double, budgetReached: Double, transactionCount: Int, hasBudget: Boolean) {
         binding.tvTotalSpent.text = "₹${totalSpent.formatAsMoney()}"
-        binding.tvTotalBalance.text = balance.toMoneyString()
+        binding.tvTotalBalance.text = if (hasBudget) {
+            // Show percentage when budget exists
+            "${budgetReached.toInt()}%"
+        } else {
+            // Show "No Budget Found" when no budget is set
+            "No Budget Found"
+        }
         binding.tvTransactionCount.text = transactionCount.toString()
     }
 
@@ -132,27 +139,35 @@ class DashboardViewBinder(
             "Other" to color(R.color.category_other)
         )
 
-        val rows = listOf(
-            CategoryRow(binding.categoryName1, binding.categoryAmount1, binding.categoryCount1, binding.categoryColor1),
-            CategoryRow(binding.categoryName2, binding.categoryAmount2, binding.categoryCount2, binding.categoryColor2),
-            CategoryRow(binding.categoryName3, binding.categoryAmount3, binding.categoryCount3, binding.categoryColor3),
-            CategoryRow(binding.categoryName4, binding.categoryAmount4, binding.categoryCount4, binding.categoryColor4)
-        )
+        // Clear existing views
+        binding.layoutTopCategoriesTable.removeAllViews()
 
-        rows.forEachIndexed { index, row ->
-            val item = items.getOrNull(index)
-            if (item == null) {
-                row.title.text = "No Data"
-                row.amount.text = "₹0"
-                row.count.text = "0 transactions"
-                row.colorIndicator.setBackgroundColor(color(R.color.category_other))
-            } else {
-                row.title.text = item.categoryName
-                row.amount.text = "₹${item.amount.formatAsMoney()}"
-                row.count.text = "${item.count} transactions"
-                row.colorIndicator.setBackgroundColor(colorMap[item.categoryName] ?: color(R.color.category_other))
-            }
+        // Add category rows dynamically
+        items.take(4).forEach { category ->
+            val categoryRow = createCategoryRow(category, colorMap)
+            binding.layoutTopCategoriesTable.addView(categoryRow)
         }
+    }
+
+    private fun createCategoryRow(category: CategorySpending, colorMap: Map<String, Int>): android.view.View {
+        val inflater = android.view.LayoutInflater.from(context)
+        val rowView = inflater.inflate(R.layout.item_category_row, binding.layoutTopCategoriesTable, false)
+
+        val colorIndicator = rowView.findViewById<android.view.View>(R.id.category_color_indicator)
+        val name = rowView.findViewById<android.widget.TextView>(R.id.tv_category_name)
+        val amount = rowView.findViewById<android.widget.TextView>(R.id.tv_category_amount)
+        val count = rowView.findViewById<android.widget.TextView>(R.id.tv_category_count)
+
+        colorIndicator.setBackgroundColor(colorMap[category.categoryName] ?: color(R.color.category_other))
+        name.text = category.categoryName
+        amount.text = "₹${category.amount.formatAsMoney()}"
+        count.text = "${category.count} transactions"
+
+        rowView.setOnClickListener {
+            onCategorySelected(category.categoryName)
+        }
+
+        return rowView
     }
 
     private fun updateMonthlyComparison(comparison: MonthlyComparison?) {
@@ -174,12 +189,6 @@ class DashboardViewBinder(
         )
     }
 
-    private fun setupCategoryRowClicks() {
-        binding.categoryRow1.setOnClickListener { onCategorySelected(binding.categoryName1.text.toString()) }
-        binding.categoryRow2.setOnClickListener { onCategorySelected(binding.categoryName2.text.toString()) }
-        binding.categoryRow3.setOnClickListener { onCategorySelected(binding.categoryName3.text.toString()) }
-        binding.categoryRow4.setOnClickListener { onCategorySelected(binding.categoryName4.text.toString()) }
-    }
 
     private fun Double.formatAsMoney(): String =
         String.format(Locale.getDefault(), "%.0f", this)
@@ -190,11 +199,4 @@ class DashboardViewBinder(
     }
 
     private fun color(resId: Int): Int = ContextCompat.getColor(context, resId)
-
-    private data class CategoryRow(
-        val title: android.widget.TextView,
-        val amount: android.widget.TextView,
-        val count: android.widget.TextView,
-        val colorIndicator: android.view.View
-    )
 }

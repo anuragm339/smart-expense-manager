@@ -3,7 +3,6 @@ package com.expensemanager.app.data.repository.internal
 import android.content.Context
 import android.content.SharedPreferences
 import com.expensemanager.app.data.models.AIInsight
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.utils.logging.StructuredLogger
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -15,7 +14,7 @@ internal class AIInsightsCacheManager(
 ) {
 
     private val logger = StructuredLogger(
-        featureTag = LogConfig.FeatureTags.INSIGHTS,
+        featureTag = "INSIGHTS",
         className = "AIInsightsCacheManager"
     )
     private val gson = Gson()

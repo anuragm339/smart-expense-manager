@@ -1,0 +1,301 @@
+{
+  "version": 1,
+  "banks": [
+    {
+      "code": "HDFCBK",
+      "display_name": "HDFC Bank",
+      "sender_patterns": ["HDFCBK", "HDFC", "VM-HDFC"],
+      "patterns": {
+        "amount": [
+          "(?:Rs\\.?|INR)\\s*([\\d,]+(?:\\.\\d{2})?)",
+          "([\\d,]+(?:\\.\\d{2})?)\\s*(?:Rs\\.?|INR)",
+          "(?:debited|spent|paid)\\s+(?:Rs\\.?|INR)?\\s*([\\d,]+(?:\\.\\d{2})?)"
+        ],
+        "merchant": [
+          "(?:at|to)\\s+([A-Z][A-Za-z0-9\\s&'-]+?)(?:\\s+on|\\.|$)",
+          "(?:spent at|paid to)\\s+([A-Z][A-Za-z0-9\\s&'-]+?)(?:\\s+on|\\.|$)",
+          "(?:transaction at|purchase at)\\s+([A-Z][A-Za-z0-9\\s&'-]+?)(?:\\s+on|\\.|$)"
+        ],
+        "date": [
+          "(\\d{2}-\\d{2}-\\d{4})",
+          "(\\d{2}/\\d{2}/\\d{4})",
+          "on\\s+(\\d{2}\\s+[A-Za-z]{3}\\s+\\d{4})"
+        ],
+        "transaction_type": [
+          "(debited|spent|paid)",
+          "(credited|received)"
+        ],
+        "reference_number": [
+          "(?:Ref|Reference|Ref No|Ref#|RefNo)\\s*[:\\-]?\\s*([A-Z0-9]{6,})",
+          "(?:TXN|Transaction|Txn ID|TXN#)\\s*[:\\-]?\\s*([A-Z0-9]{6,})",
+          "(?:UPI Ref|UPI|RRN)\\s*[:\\-]?\\s*([A-Z0-9]{6,})"
+        ]
+      },
+      "confidence_weights": {
+        "sender_match": 0.25,
+        "amount_extraction": 0.25,
+        "merchant_extraction": 0.20,
+        "date_extraction": 0.10,
+        "reference_number_extraction": 0.20
+      }
+    },
+    {
+      "code": "ICICIB",
+      "display_name": "ICICI Bank",
+      "sender_patterns": ["ICICI", "ICICIB", "iMobile"],
+      "patterns": {
+        "amount": [
+          "(?:Rs\\.?|INR)\\s*([\\d,]+(?:\\.\\d{2})?)",
+          "([\\d,]+(?:\\.\\d{2})?)\\s*(?:debited|spent)",
+          "(?:amount|amt)\\s+(?:Rs\\.?)?\\s*([\\d,]+(?:\\.\\d{2})?)"
+        ],
+        "merchant": [
+          "(?:at|to)\\s+([A-Z][A-Za-z0-9\\s&'-]+?)(?:\\s+on|\\.|$)",
+          "(?:spent on|paid to)\\s+([A-Z][A-Za-z0-9\\s&'-]+?)(?:\\s+on|\\.|$)"
+        ],
+        "date": [
+          "(\\d{2}-\\d{2}-\\d{2})",
+          "(\\d{2}/\\d{2}/\\d{2})"
+        ],
+        "transaction_type": [
+          "(debited|withdrawn)",
+          "(credited|deposited)"
+        ],
+        "reference_number": [
+          "(?:Ref|Reference|Ref No|Ref#|RefNo)\\s*[:\\-]?\\s*([A-Z0-9]{6,})",
+          "(?:TXN|Transaction|Txn ID|TXN#)\\s*[:\\-]?\\s*([A-Z0-9]{6,})",
+          "(?:UPI Ref|UPI|RRN)\\s*[:\\-]?\\s*([A-Z0-9]{6,})"
+        ]
+      },
+      "confidence_weights": {
+        "sender_match": 0.25,
+        "amount_extraction": 0.25,
+        "merchant_extraction": 0.20,
+        "date_extraction": 0.10,
+        "reference_number_extraction": 0.20
+      }
+    },
+    {
+      "code": "AXISBK",
+      "display_name": "Axis Bank",
+      "sender_patterns": ["AXISBK", "AXIS", "ATAXIS"],
+      "patterns": {
+        "amount": [
+          "(?:Rs\\.?|INR)\\s*([\\d,]+(?:\\.\\d{2})?)",
+          "([\\d,]+(?:\\.\\d{2})?)\\s*(?:debited|spent)",
+          "(?:amount|amt)\\s+(?:Rs\\.?)?\\s*([\\d,]+(?:\\.\\d{2})?)"
+        ],
+        "merchant": [
+          "(?:at|to)\\s+([A-Z][A-Za-z0-9\\s&'-]+?)(?:\\s+on|\\.|$)",
+          "(?:transaction at|purchase from)\\s+([A-Z][A-Za-z0-9\\s&'-]+?)(?:\\s+on|\\.|$)"
+        ],
+        "date": [
+          "(\\d{2}-\\d{2}-\\d{4})",
+          "(\\d{2}/\\d{2}/\\d{4})"
+        ],
+        "transaction_type": [
+          "(debited|spent)",
+          "(credited)"
+        ],
+        "reference_number": [
+          "(?:Ref|Reference|Ref No|Ref#|RefNo)\\s*[:\\-]?\\s*([A-Z0-9]{6,})",
+          "(?:TXN|Transaction|Txn ID|TXN#)\\s*[:\\-]?\\s*([A-Z0-9]{6,})",
+          "(?:UPI Ref|UPI|RRN)\\s*[:\\-]?\\s*([A-Z0-9]{6,})"
+        ]
+      },
+      "confidence_weights": {
+        "sender_match": 0.25,
+        "amount_extraction": 0.25,
+        "merchant_extraction": 0.20,
+        "date_extraction": 0.10,
+        "reference_number_extraction": 0.20
+      }
+    },
+    {
+      "code": "SBIINB",
+      "display_name": "State Bank of India",
+      "sender_patterns": ["SBIINB", "SBI", "SBIPSG", "STBANK"],
+      "patterns": {
+        "amount": [
+          "(?:Rs\\.?|INR)\\s*([\\d,]+(?:\\.\\d{2})?)",
+          "([\\d,]+(?:\\.\\d{2})?)\\s*(?:debited|spent|paid)",
+          "(?:amt|amount)\\s+(?:Rs\\.?)?\\s*([\\d,]+(?:\\.\\d{2})?)"
+        ],
+        "merchant": [
+          "(?:at|to)\\s+([A-Z][A-Za-z0-9\\s&'-]+?)(?:\\s+on|\\.|$)",
+          "(?:spent at|paid to)\\s+([A-Z][A-Za-z0-9\\s&'-]+?)(?:\\s+on|\\.|$)"
+        ],
+        "date": [
+          "(\\d{2}-\\d{2}-\\d{4})",
+          "(\\d{2}/\\d{2}/\\d{4})",
+          "(\\d{2}\\.\\d{2}\\.\\d{2})"
+        ],
+        "transaction_type": [
+          "(debited|withdrawn)",
+          "(credited|deposited)"
+        ],
+        "reference_number": [
+          "(?:Ref|Reference|Ref No|Ref#|RefNo)\\s*[:\\-]?\\s*([A-Z0-9]{6,})",
+          "(?:TXN|Transaction|Txn ID|TXN#)\\s*[:\\-]?\\s*([A-Z0-9]{6,})",
+          "(?:UPI Ref|UPI|RRN)\\s*[:\\-]?\\s*([A-Z0-9]{6,})"
+        ]
+      },
+      "confidence_weights": {
+        "sender_match": 0.25,
+        "amount_extraction": 0.25,
+        "merchant_extraction": 0.20,
+        "date_extraction": 0.10,
+        "reference_number_extraction": 0.20
+      }
+    },
+    {
+      "code": "KOTAKB",
+      "display_name": "Kotak Mahindra Bank",
+      "sender_patterns": ["KOTAKB", "KOTAK", "KMBL"],
+      "patterns": {
+        "amount": [
+          "(?:Rs\\.?|INR)\\s*([\\d,]+(?:\\.\\d{2})?)",
+          "([\\d,]+(?:\\.\\d{2})?)\\s*(?:debited|spent)",
+          "(?:amount|amt)\\s+(?:Rs\\.?)?\\s*([\\d,]+(?:\\.\\d{2})?)"
+        ],
+        "merchant": [
+          "(?:at|to)\\s+([A-Z][A-Za-z0-9\\s&'-]+?)(?:\\s+on|\\.|$)",
+          "(?:spent at|paid to)\\s+([A-Z][A-Za-z0-9\\s&'-]+?)(?:\\s+on|\\.|$)"
+        ],
+        "date": [
+          "(\\d{2}-\\d{2}-\\d{4})",
+          "(\\d{2}/\\d{2}/\\d{2})"
+        ],
+        "transaction_type": [
+          "(debited|spent)",
+          "(credited)"
+        ],
+        "reference_number": [
+          "(?:Ref|Reference|Ref No|Ref#|RefNo)\\s*[:\\-]?\\s*([A-Z0-9]{6,})",
+          "(?:TXN|Transaction|Txn ID|TXN#)\\s*[:\\-]?\\s*([A-Z0-9]{6,})",
+          "(?:UPI Ref|UPI|RRN)\\s*[:\\-]?\\s*([A-Z0-9]{6,})"
+        ]
+      },
+      "confidence_weights": {
+        "sender_match": 0.25,
+        "amount_extraction": 0.25,
+        "merchant_extraction": 0.20,
+        "date_extraction": 0.10,
+        "reference_number_extraction": 0.20
+      }
+    },
+    {
+      "code": "PNBSMS",
+      "display_name": "Punjab National Bank",
+      "sender_patterns": ["PNBSMS", "PNB", "PNBALR"],
+      "patterns": {
+        "amount": [
+          "(?:Rs\\.?|INR)\\s*([\\d,]+(?:\\.\\d{2})?)",
+          "([\\d,]+(?:\\.\\d{2})?)\\s*(?:debited|withdrawn)",
+          "(?:amt|amount)\\s+(?:Rs\\.?)?\\s*([\\d,]+(?:\\.\\d{2})?)"
+        ],
+        "merchant": [
+          "(?:at|to)\\s+([A-Z][A-Za-z0-9\\s&'-]+?)(?:\\s+on|\\.|$)",
+          "(?:paid to|spent at)\\s+([A-Z][A-Za-z0-9\\s&'-]+?)(?:\\s+on|\\.|$)"
+        ],
+        "date": [
+          "(\\d{2}-\\d{2}-\\d{4})",
+          "(\\d{2}/\\d{2}/\\d{4})"
+        ],
+        "transaction_type": [
+          "(debited|withdrawn)",
+          "(credited|deposited)"
+        ],
+        "reference_number": [
+          "(?:Ref|Reference|Ref No|Ref#|RefNo)\\s*[:\\-]?\\s*([A-Z0-9]{6,})",
+          "(?:TXN|Transaction|Txn ID|TXN#)\\s*[:\\-]?\\s*([A-Z0-9]{6,})",
+          "(?:UPI Ref|UPI|RRN)\\s*[:\\-]?\\s*([A-Z0-9]{6,})"
+        ]
+      },
+      "confidence_weights": {
+        "sender_match": 0.25,
+        "amount_extraction": 0.25,
+        "merchant_extraction": 0.20,
+        "date_extraction": 0.10,
+        "reference_number_extraction": 0.20
+      }
+    },
+    {
+      "code": "BOIIND",
+      "display_name": "Bank of India",
+      "sender_patterns": ["BOIIND", "BOI", "BANKOFI"],
+      "patterns": {
+        "amount": [
+          "(?:Rs\\.?|INR)\\s*([\\d,]+(?:\\.\\d{2})?)",
+          "([\\d,]+(?:\\.\\d{2})?)\\s*(?:debited|spent)",
+          "(?:amt|amount)\\s+(?:Rs\\.?)?\\s*([\\d,]+(?:\\.\\d{2})?)"
+        ],
+        "merchant": [
+          "(?:at|to)\\s+([A-Z][A-Za-z0-9\\s&'-]+?)(?:\\s+on|\\.|$)"
+        ],
+        "date": [
+          "(\\d{2}-\\d{2}-\\d{4})",
+          "(\\d{2}/\\d{2}/\\d{4})"
+        ],
+        "transaction_type": [
+          "(debited|withdrawn)",
+          "(credited)"
+        ],
+        "reference_number": [
+          "(?:Ref|Reference|Ref No|Ref#|RefNo)\\s*[:\\-]?\\s*([A-Z0-9]{6,})",
+          "(?:TXN|Transaction|Txn ID|TXN#)\\s*[:\\-]?\\s*([A-Z0-9]{6,})",
+          "(?:UPI Ref|UPI|RRN)\\s*[:\\-]?\\s*([A-Z0-9]{6,})"
+        ]
+      },
+      "confidence_weights": {
+        "sender_match": 0.25,
+        "amount_extraction": 0.25,
+        "merchant_extraction": 0.20,
+        "date_extraction": 0.10,
+        "reference_number_extraction": 0.20
+      }
+    }
+  ],
+  "fallback_patterns": {
+    "amount": [
+      "(?:Rs\\.?|INR)\\s*([\\d,]+(?:\\.\\d{2})?)",
+      "([\\d,]+(?:\\.\\d{2})?)\\s*(?:Rs\\.?|INR)",
+      "(?:debited|spent|paid|withdrawn)\\s+(?:Rs\\.?|INR)?\\s*([\\d,]+(?:\\.\\d{2})?)",
+      "(?:amount|amt)\\s+(?:Rs\\.?|INR)?\\s*([\\d,]+(?:\\.\\d{2})?)"
+    ],
+    "merchant": [
+      "(?:at|to|from)\\s+([A-Z][A-Za-z0-9\\s&'-]+?)(?:\\s+on|\\.|$)",
+      "(?:spent at|paid to|transaction at|purchase from)\\s+([A-Z][A-Za-z0-9\\s&'-]+?)(?:\\s+on|\\.|$)",
+      "(?:merchant|merchant name)\\s*:?\\s*([A-Z][A-Za-z0-9\\s&'-]+?)(?:\\s+on|\\.|$)"
+    ],
+    "reference_number": [
+      "(?:Ref|Reference|Ref No|Ref#|RefNo)\\s*[:\\-]?\\s*([A-Z0-9]{6,})",
+      "(?:TXN|Transaction|Txn ID|TXN#)\\s*[:\\-]?\\s*([A-Z0-9]{6,})",
+      "(?:UPI Ref|UPI|RRN)\\s*[:\\-]?\\s*([A-Z0-9]{6,})",
+      "(?:Order|Order ID)\\s*[:\\-]?\\s*([A-Z0-9]{6,})"
+    ],
+    "debit_keywords": [
+      "debited",
+      "spent",
+      "paid",
+      "withdrawn",
+      "purchase",
+      "transaction",
+      "deducted",
+      "charged"
+    ],
+    "credit_keywords": [
+      "credited",
+      "credited by",
+      "credit",
+      "received",
+      "deposited",
+      "refund",
+      "cashback",
+      "reversed",
+      "added to",
+      "transferred to your",
+      "transfer to your"
+    ]
+  }
+}

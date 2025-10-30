@@ -6,7 +6,6 @@ import com.expensemanager.app.data.repository.ExpenseRepository
 import com.expensemanager.app.services.SMSParsingService
 import com.expensemanager.app.ui.categories.CategoryDisplayProvider
 import com.expensemanager.app.ui.categories.DefaultCategoryDisplayProvider
-import com.expensemanager.app.utils.AppLogger
 import com.expensemanager.app.utils.MerchantAliasManager
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
@@ -105,27 +104,48 @@ object AppModule {
     }
     
     /**
+     * Provides rule loader for SMS parsing
+     */
+    @Provides
+    @Singleton
+    fun provideRuleLoader(
+        @ApplicationContext context: Context
+    ): com.expensemanager.app.parsing.engine.RuleLoader {
+        return com.expensemanager.app.parsing.engine.RuleLoader(context)
+    }
+
+    /**
+     * Provides confidence calculator for SMS parsing
+     */
+    @Provides
+    @Singleton
+    fun provideConfidenceCalculator(): com.expensemanager.app.parsing.engine.ConfidenceCalculator {
+        return com.expensemanager.app.parsing.engine.ConfidenceCalculator()
+    }
+
+    /**
+     * Provides unified SMS parser
+     */
+    @Provides
+    @Singleton
+    fun provideUnifiedSMSParser(
+        ruleLoader: com.expensemanager.app.parsing.engine.RuleLoader,
+        confidenceCalculator: com.expensemanager.app.parsing.engine.ConfidenceCalculator
+    ): com.expensemanager.app.parsing.engine.UnifiedSMSParser {
+        return com.expensemanager.app.parsing.engine.UnifiedSMSParser(ruleLoader, confidenceCalculator)
+    }
+
+    /**
      * Provides unified SMS parsing service
      * Used for consistent SMS parsing across Dashboard and Messages screens
      */
     @Provides
     @Singleton
     fun provideSMSParsingService(
-        @ApplicationContext context: Context
+        @ApplicationContext context: Context,
+        unifiedParser: com.expensemanager.app.parsing.engine.UnifiedSMSParser
     ): SMSParsingService {
-        return SMSParsingService(context)
-    }
-    
-    /**
-     * Provides centralized application logger using Logback
-     * Used for professional logging throughout the application
-     */
-    @Provides
-    @Singleton
-    fun provideAppLogger(
-        @ApplicationContext context: Context
-    ): AppLogger {
-        return AppLogger(context)
+        return SMSParsingService(context, unifiedParser)
     }
     
     /**
@@ -153,22 +173,4 @@ object AppModule {
         return DefaultCategoryDisplayProvider(context, repository)
     }
 
-    /**
-     * Provides AuthManager based on build configuration
-     * - Debug builds: MockAuthManager (auto-login, no Google account needed)
-     * - Release builds: GoogleAuthManager (real Google Sign-In)
-     */
-    @Provides
-    @Singleton
-    fun provideAuthManager(
-        @ApplicationContext context: Context,
-        mockAuthManager: com.expensemanager.app.auth.MockAuthManager,
-        googleAuthManager: com.expensemanager.app.auth.GoogleAuthManager
-    ): com.expensemanager.app.auth.AuthManager {
-        return if (com.expensemanager.app.core.DebugConfig.useMockAuth) {
-            mockAuthManager
-        } else {
-            googleAuthManager
-        }
-    }
 }

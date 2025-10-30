@@ -8,7 +8,6 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.expensemanager.app.databinding.ItemMerchantGroupBinding
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.utils.logging.StructuredLogger
 
 class GroupedMessagesAdapter(
@@ -24,7 +23,7 @@ class GroupedMessagesAdapter(
     private var currentFilterTab: TransactionFilterTab = TransactionFilterTab.ALL
 
     private val logger = StructuredLogger(
-        featureTag = LogConfig.FeatureTags.UI,
+        featureTag = "UI",
         className = "GroupedMessagesAdapter"
     )
     

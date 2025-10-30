@@ -1,9 +1,6 @@
 package com.expensemanager.app.ui.merchant
 
-import android.content.Context
 import android.os.Bundle
-import timber.log.Timber
-import com.expensemanager.app.utils.logging.LogConfig
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -15,11 +12,8 @@ import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.expensemanager.app.R
 import com.expensemanager.app.databinding.FragmentMerchantTransactionsBinding
-import com.expensemanager.app.data.repository.ExpenseRepository
-import com.expensemanager.app.data.entities.TransactionEntity
 import com.expensemanager.app.utils.MerchantAliasManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.android.material.switchmaterial.SwitchMaterial
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat

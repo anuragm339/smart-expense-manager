@@ -28,7 +28,6 @@ import com.expensemanager.app.utils.CategoryManager
 import kotlinx.coroutines.launch
 import java.util.*
 import android.content.Context
-import com.expensemanager.app.utils.logging.LogConfig
 import androidx.core.widget.addTextChangedListener
 import com.expensemanager.app.utils.logging.StructuredLogger
 import com.google.android.material.tabs.TabLayout
@@ -37,7 +36,7 @@ import com.google.android.material.tabs.TabLayout
 class CategoriesFragment : Fragment() {
 
     private val logger =
-        StructuredLogger(LogConfig.FeatureTags.CATEGORIESFRAGMENT, "CategoriesFragment")
+        StructuredLogger("CATEGORIESFRAGMENT", "CategoriesFragment")
     private var _binding: FragmentCategoriesBinding? = null
     private val binding get() = _binding!!
 
@@ -819,14 +818,20 @@ class CategoriesFragment : Fragment() {
         categoryNameInput.setText(categoryItem.name)
         emojiInput.setText(categoryItem.emoji)
 
+        // Update title in the layout view instead of using setTitle()
+        val titleView = dialogView.findViewById<TextView>(R.id.dialog_title)
+        titleView.text = "Rename Category"
+
         val dialog = MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Rename Category")
             .setView(dialogView)
+            .setBackgroundInsetStart(16)
+            .setBackgroundInsetEnd(16)
+            .setBackgroundInsetTop(64)
             .create()
 
         // Update button text and icon for rename operation
         val addButton = dialogView.findViewById<MaterialButton>(R.id.btn_add)
-        addButton.text = "Rename"
+        addButton.text = "Save"
         addButton.icon = null // Remove the add icon for rename operation
 
         // Set up emoji quick selection

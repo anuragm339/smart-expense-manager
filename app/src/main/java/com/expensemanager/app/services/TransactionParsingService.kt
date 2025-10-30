@@ -5,13 +5,11 @@ import android.database.Cursor
 import android.net.Uri
 import android.provider.Telephony
 import com.expensemanager.app.models.HistoricalSMS
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.utils.logging.StructuredLogger
 import com.expensemanager.app.models.ParsedTransaction
 import com.expensemanager.app.utils.MerchantAliasManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.text.SimpleDateFormat
 import java.util.*
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -34,7 +32,7 @@ class TransactionParsingService @Inject constructor(
 ) {
 
     private val logger = StructuredLogger(
-        featureTag = LogConfig.FeatureTags.TRANSACTION,
+        featureTag = "TRANSACTION",
         className = "TransactionParsingService"
     )
 

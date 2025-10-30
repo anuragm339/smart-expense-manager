@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import com.expensemanager.app.utils.logging.StructuredLogger
-import com.expensemanager.app.utils.logging.LogConfig
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.expensemanager.app.data.repository.DashboardData
@@ -25,10 +24,11 @@ import javax.inject.Inject
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val getDashboardDataUseCase: GetDashboardDataUseCase
+    private val getDashboardDataUseCase: GetDashboardDataUseCase,
+    private val repository: com.expensemanager.app.data.repository.ExpenseRepository
 ) : ViewModel() {
 
-    private val logger = StructuredLogger(LogConfig.FeatureTags.DASHBOARD, "DashboardViewModel")
+    private val logger = StructuredLogger("DASHBOARD", "DashboardViewModel")
 
     // Data change broadcast receiver for automatic refresh
     private val dataChangeReceiver = object : BroadcastReceiver() {
@@ -348,27 +348,36 @@ class DashboardViewModel @Inject constructor(
      * Handle dashboard data result
      */
     private fun handleDashboardResult(
-        result: Result<DashboardData>, 
+        result: Result<DashboardData>,
         isInitialLoad: Boolean = false,
         isRefresh: Boolean = false
     ) {
         result.fold(
             onSuccess = { dashboardData ->
                 logger.debug("handleDashboardResult", "Dashboard data loaded - Spent: ₹%.2f, Transactions: %d".format(dashboardData.totalSpent, dashboardData.transactionCount))
-                
-                _uiState.value = _uiState.value.copy(
-                    isInitialLoading = false,
-                    isRefreshing = false,
-                    isLoading = false,
-                    dashboardData = dashboardData,
-                    hasError = false,
-                    error = null,
-                    isEmpty = dashboardData.transactionCount == 0,
-                    lastRefreshTime = System.currentTimeMillis()
-                )
-                
-                // Update monthly comparison
-                updateMonthlyComparison()
+
+                viewModelScope.launch {
+                    // Load monthly budget from database
+                    val budgetEntity = repository.getMonthlyBudget()
+                    val monthlyBudget = budgetEntity?.budgetAmount ?: 0.0
+
+                    logger.debug("handleDashboardResult", "Monthly budget loaded: ₹$monthlyBudget")
+
+                    _uiState.value = _uiState.value.copy(
+                        isInitialLoading = false,
+                        isRefreshing = false,
+                        isLoading = false,
+                        dashboardData = dashboardData,
+                        monthlyBudget = monthlyBudget,
+                        hasError = false,
+                        error = null,
+                        isEmpty = dashboardData.transactionCount == 0,
+                        lastRefreshTime = System.currentTimeMillis()
+                    )
+
+                    // Update monthly comparison
+                    updateMonthlyComparison()
+                }
             },
             onFailure = { throwable ->
                 logger.error("handleDashboardResult", "Failed to load dashboard data", throwable)
@@ -496,7 +505,7 @@ class DashboardViewModel @Inject constructor(
     private fun getDateRangeForPeriod(period: String): Pair<Date, Date> {
         val calendar = Calendar.getInstance()
         val endDate = calendar.time
-        
+
         when (period) {
             "This Month" -> {
                 calendar.set(Calendar.DAY_OF_MONTH, 1)
@@ -504,7 +513,9 @@ class DashboardViewModel @Inject constructor(
                 calendar.set(Calendar.MINUTE, 0)
                 calendar.set(Calendar.SECOND, 0)
                 calendar.set(Calendar.MILLISECOND, 0)
-                return Pair(calendar.time, endDate)
+                val startDate = calendar.time
+                logger.debug("getDateRangeForPeriod", "Dashboard This Month - Start: $startDate, End: $endDate")
+                return Pair(startDate, endDate)
             }
             "Last Month" -> {
                 calendar.set(Calendar.DAY_OF_MONTH, 1)

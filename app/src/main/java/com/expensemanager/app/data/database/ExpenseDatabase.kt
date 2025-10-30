@@ -23,7 +23,7 @@ import com.expensemanager.app.data.dao.*
         com.expensemanager.app.data.models.AICallTracker::class,
         UserEntity::class
     ],
-    version = 6,
+    version = 8,
     exportSchema = false
 )
 @TypeConverters(DateConverter::class)
@@ -33,6 +33,7 @@ abstract class ExpenseDatabase : RoomDatabase() {
     abstract fun categoryDao(): CategoryDao
     abstract fun merchantDao(): MerchantDao
     abstract fun syncStateDao(): SyncStateDao
+    abstract fun budgetDao(): BudgetDao
     abstract fun aiCallDao(): AICallDao
     abstract fun userDao(): UserDao
     
@@ -48,7 +49,7 @@ abstract class ExpenseDatabase : RoomDatabase() {
                     "expense_database"
                 )
                 .addCallback(DatabaseCallback())
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                .fallbackToDestructiveMigration()  // Temporarily use destructive migration for budget changes
                 .build()
                 INSTANCE = instance
                 instance
@@ -128,6 +129,55 @@ abstract class ExpenseDatabase : RoomDatabase() {
                 """)
                 database.execSQL("""
                     ALTER TABLE ai_call_tracking ADD COLUMN lastMonthlyResetTimestamp INTEGER NOT NULL DEFAULT 0
+                """)
+            }
+        }
+
+        // Migration from version 6 to 7: Make category_id nullable in budgets table
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // SQLite doesn't support ALTER COLUMN directly, so we need to recreate the table
+
+                // 1. Create new table with nullable category_id
+                database.execSQL("""
+                    CREATE TABLE IF NOT EXISTS budgets_new (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        category_id INTEGER,
+                        budget_amount REAL NOT NULL,
+                        period_type TEXT NOT NULL DEFAULT 'MONTHLY',
+                        start_date INTEGER NOT NULL,
+                        end_date INTEGER NOT NULL,
+                        is_active INTEGER NOT NULL DEFAULT 1,
+                        created_at INTEGER NOT NULL
+                    )
+                """)
+
+                // 2. Create index on category_id
+                database.execSQL("""
+                    CREATE INDEX IF NOT EXISTS index_budgets_new_category_id ON budgets_new(category_id)
+                """)
+
+                // 3. Copy data from old table to new table (if table exists)
+                database.execSQL("""
+                    INSERT INTO budgets_new (id, category_id, budget_amount, period_type, start_date, end_date, is_active, created_at)
+                    SELECT id, category_id, budget_amount, period_type, start_date, end_date, is_active, created_at
+                    FROM budgets
+                    WHERE EXISTS (SELECT 1 FROM sqlite_master WHERE type='table' AND name='budgets')
+                """)
+
+                // 4. Drop old table (if exists)
+                database.execSQL("DROP TABLE IF EXISTS budgets")
+
+                // 5. Rename new table to budgets
+                database.execSQL("ALTER TABLE budgets_new RENAME TO budgets")
+            }
+        }
+
+        // Migration from version 7 to 8: Add reference_number column to transactions table
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("""
+                    ALTER TABLE transactions ADD COLUMN reference_number TEXT DEFAULT NULL
                 """)
             }
         }

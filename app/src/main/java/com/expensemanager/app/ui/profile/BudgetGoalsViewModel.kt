@@ -45,9 +45,19 @@ class BudgetGoalsViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-                
-                // Load monthly budget from preferences
-                val monthlyBudget = prefs.getFloat("monthly_budget", 15000f)
+
+                // Load monthly budget from database (with SharedPreferences migration)
+                val budgetEntity = repository.getMonthlyBudget()
+                val monthlyBudget = budgetEntity?.budgetAmount?.toFloat() ?: run {
+                    // Migration: If no budget in DB, check SharedPreferences
+                    val prefsBudget = prefs.getFloat("monthly_budget", 15000f)
+                    if (prefsBudget != 15000f) {
+                        // Migrate to database
+                        logger.debug("loadBudgetData", "Migrating budget from SharedPreferences to database: ₹$prefsBudget")
+                        repository.saveMonthlyBudget(prefsBudget.toDouble())
+                    }
+                    prefsBudget
+                }
                 
                 // Get current month date range
                 val calendar = Calendar.getInstance()
@@ -64,7 +74,10 @@ class BudgetGoalsViewModel @Inject constructor(
                 
                 // Get transaction data from repository (with exclusions already applied)
                 val currentSpent = repository.getTotalSpent(startDate, endDate).toFloat()
-                
+
+                // DEBUG: Log date range and spent amount
+                logger.debug("loadBudgetData", "Budget calculation - Start: $startDate, End: $endDate, Spent: ₹$currentSpent")
+
                 val budgetProgress = if (monthlyBudget > 0) ((currentSpent / monthlyBudget) * 100).toInt() else 0
                 
                 // Calculate insights
@@ -80,11 +93,8 @@ class BudgetGoalsViewModel @Inject constructor(
                 
                 // Load category budgets with real spending data
                 loadCategoryBudgets(startDate, endDate)
-                
-                // Check for budget alerts
-                if (budgetProgress >= 90) {
-                    _events.value = BudgetGoalsEvent.ShowBudgetAlert(budgetProgress, currentSpent, monthlyBudget)
-                }
+
+                // Budget alerts disabled - user can see budget status on screen
                 
             } catch (e: Exception) {
                 logger.error("loadBudgetData","Error loading budget data",e)
@@ -229,9 +239,17 @@ class BudgetGoalsViewModel @Inject constructor(
     }
 
     fun updateMonthlyBudget(newBudget: Float) {
-        prefs.edit().putFloat("monthly_budget", newBudget).apply()
-        _events.value = BudgetGoalsEvent.ShowMessage("Monthly budget updated to ₹${String.format("%.0f", newBudget)}")
-        loadBudgetData()
+        viewModelScope.launch {
+            try {
+                // Save to database instead of SharedPreferences
+                repository.saveMonthlyBudget(newBudget.toDouble())
+                _events.value = BudgetGoalsEvent.ShowMessage("Monthly budget updated to ₹${String.format("%.0f", newBudget)}")
+                loadBudgetData()
+            } catch (e: Exception) {
+                logger.error("updateMonthlyBudget", "Error updating monthly budget", e)
+                _events.value = BudgetGoalsEvent.ShowMessage("Error updating budget: ${e.message}")
+            }
+        }
     }
 
     fun addCategoryBudget(categoryName: String, budget: Float) {

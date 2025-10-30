@@ -3,7 +3,6 @@ package com.expensemanager.app.ui.messages
 import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.Context
-import android.content.DialogInterface
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
@@ -21,6 +20,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import androidx.navigation.fragment.findNavController
 import com.expensemanager.app.databinding.FragmentMessagesBinding
@@ -28,18 +28,13 @@ import com.expensemanager.app.R
 import com.expensemanager.app.utils.SMSHistoryReader
 import com.expensemanager.app.utils.CategoryManager
 import com.expensemanager.app.utils.MerchantAliasManager
-import com.expensemanager.app.utils.AppLogger
 import com.expensemanager.app.ui.categories.CategorySelectionDialogFragment
 // UPDATED: Import unified services for consistent SMS parsing and filtering
 import com.expensemanager.app.services.TransactionParsingService
 import com.expensemanager.app.services.TransactionFilterService
 import androidx.appcompat.app.AlertDialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.android.material.tabs.TabLayout
 import com.google.android.material.textfield.TextInputEditText
-import android.widget.ArrayAdapter
-import android.widget.AutoCompleteTextView
-import android.widget.RadioButton
 import android.widget.TextView
 import android.widget.Toast
 import dagger.hilt.android.AndroidEntryPoint
@@ -52,12 +47,11 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import android.os.Environment
 import javax.inject.Inject
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.utils.logging.StructuredLogger
 
 @AndroidEntryPoint
 class MessagesFragment : Fragment() {
-    
+
     private var _binding: FragmentMessagesBinding? = null
     private val binding get() = _binding!!
     private lateinit var viewBinder: MessagesViewBinder
@@ -67,19 +61,15 @@ class MessagesFragment : Fragment() {
     private val messagesViewModel: MessagesViewModel by viewModels()
     
     // Hilt-injected unified services for consistent parsing and filtering
-    @Inject
-    lateinit var transactionParsingService: TransactionParsingService
-    
-    @Inject
-    lateinit var transactionFilterService: TransactionFilterService
-    
-    @Inject
-    lateinit var appLogger: AppLogger
 
-    private val logger = StructuredLogger(LogConfig.FeatureTags.UI, MessagesFragment::class.java.simpleName)
+    private val logger = StructuredLogger("UI", MessagesFragment::class.java.simpleName)
     private lateinit var categoryManager: CategoryManager
     private lateinit var merchantAliasManager: MerchantAliasManager
     
+    companion object {
+        private const val CATEGORY_BROADCAST_DELAY_MS = 100L
+    }
+
     // Legacy data management (kept for parallel approach during migration)
     private var allMessageItems = listOf<MessageItem>()
     private var filteredMessageItems = listOf<MessageItem>()
@@ -154,10 +144,13 @@ class MessagesFragment : Fragment() {
         viewBinder = MessagesViewBinder(
             binding = binding,
             context = requireContext(),
-            logger = StructuredLogger(LogConfig.FeatureTags.UI, "MessagesViewBinder"),
+            logger = StructuredLogger("UI", "MessagesViewBinder"),
             onTransactionClick = { messageItem -> navigateToTransactionDetails(messageItem) },
             onGroupToggle = { group, isIncluded -> handleGroupToggle(group, isIncluded) },
-            onGroupEdit = { group -> showMerchantGroupEditDialog(group) }
+            onGroupEdit = { group -> showMerchantGroupEditDialog(group) },
+            onLoadMore = {
+                messagesViewModel.handleEvent(MessagesUIEvent.LoadMoreMessages)
+            }
         )
 
         viewBinder.bindSearch { query ->
@@ -178,6 +171,7 @@ class MessagesFragment : Fragment() {
         groupedMessagesAdapter = viewBinder.groupedAdapter
 
         observeViewModelState()
+        messagesViewModel.startInitialLoad()
         checkPermissionsAndSetupUI()
     }
 
@@ -307,14 +301,16 @@ class MessagesFragment : Fragment() {
             requireContext(),
             Manifest.permission.READ_SMS
         ) == PackageManager.PERMISSION_GRANTED
-        
+
         val hasReceiveSmsPermission = ContextCompat.checkSelfPermission(
             requireContext(),
             Manifest.permission.RECEIVE_SMS
         ) == PackageManager.PERMISSION_GRANTED
-        
+
         if (hasReadSmsPermission && hasReceiveSmsPermission) {
-            viewBinder.showLoadingState()
+            // Don't show loading state here - ViewModel state controls UI
+            // viewBinder.showLoadingState() is handled by updateUI() based on state.isAnyLoading
+            logger.debug("MessagesFragment", "SMS permissions granted, ViewModel will control loading state")
         } else {
             viewBinder.showPermissionState()
         }
@@ -537,24 +533,11 @@ class MessagesFragment : Fragment() {
         // UPDATED: Use unified TransactionFilterService for consistent filtering across screens
         lifecycleScope.launch {
             try {
-                // Step 1: Apply exclusion filtering first (unified logic)
-                val excludedFiltered = transactionFilterService.filterMessageItemsByExclusions(allMessageItems)
-                
-                // Step 2: Apply generic filters using unified service (skip if no filters applied)
-                val filtered = if (hasActiveFilters()) {
-                    transactionFilterService.applyGenericFilters(
-                        transactions = excludedFiltered,
-                        minAmount = currentFilterOptions.minAmount,
-                        maxAmount = currentFilterOptions.maxAmount,
-                        selectedBanks = currentFilterOptions.selectedBanks,
-                        minConfidence = currentFilterOptions.minConfidence,
-                        dateFrom = currentFilterOptions.dateFrom,
-                        dateTo = currentFilterOptions.dateTo,
-                        searchQuery = currentSearchQuery
-                    )
-                } else {
-                    excludedFiltered
-                }
+                // Step 1: Apply exclusion filtering first
+                val excludedFiltered = allMessageItems // Filtering disabled - transactionFilterService removed
+
+                // Step 2: Apply generic filters (skip if no filters applied)
+                val filtered = excludedFiltered // Filtering disabled - transactionFilterService removed
                 
                 logger.debug("MessagesFragment", "[UNIFIED] Final filtering result: ${filtered.size} items")
                 
@@ -1105,28 +1088,114 @@ class MessagesFragment : Fragment() {
     }
     
     private fun showCategoryEditDialog(messageItem: MessageItem) {
+        lifecycleScope.launch {
+            try {
+                // Fetch categories from database to get custom emojis
+                val repository = com.expensemanager.app.data.repository.ExpenseRepository.getInstance(requireContext())
+                val categoryEntities = repository.getAllCategoriesSync()
+
+                // Get categories from CategoryManager (includes legacy SharedPreferences categories)
+                val categoryManagerCategories = categoryManager.getAllCategories()
+
+                // Migrate any SharedPreferences categories that aren't in database yet
+                val dbCategoryNames = categoryEntities.map { it.name }.toSet()
+                val missingCategories = categoryManagerCategories.filter { it !in dbCategoryNames }
+
+                if (missingCategories.isNotEmpty()) {
+                    logger.debug("MessagesFragment", "[MIGRATION] Found ${missingCategories.size} categories in SharedPreferences not in DB: ${missingCategories.joinToString()}")
+                    missingCategories.forEach { categoryName ->
+                        try {
+                            val categoryEntity = com.expensemanager.app.data.entities.CategoryEntity(
+                                name = categoryName,
+                                emoji = "📂", // Default emoji for migrated categories
+                                color = getRandomCategoryColor(),
+                                isSystem = false,
+                                displayOrder = 999,
+                                createdAt = java.util.Date()
+                            )
+                            repository.insertCategory(categoryEntity)
+                            logger.debug("MessagesFragment", "[MIGRATION] Migrated category '$categoryName' to database")
+                        } catch (e: Exception) {
+                            logger.warn("MessagesFragment", "[MIGRATION] Failed to migrate category '$categoryName': ${e.message}")
+                        }
+                    }
+                    // Reload categories from database after migration
+                    val updatedCategoryEntities = repository.getAllCategoriesSync()
+                    val categoryEmojiMap = updatedCategoryEntities.associate { it.name to it.emoji }
+
+                    logger.debug("MessagesFragment", "[EMOJI DEBUG] After migration - Category entities from DB: ${updatedCategoryEntities.size}")
+                } else {
+                    logger.debug("MessagesFragment", "[MIGRATION] All categories already in database")
+                }
+
+                // Create a map of category names to emojis from database
+                val categoryEmojiMap = repository.getAllCategoriesSync().associate { it.name to it.emoji }
+
+                // Log for debugging
+                logger.debug("MessagesFragment", "[EMOJI DEBUG] Category entities from DB: ${categoryEmojiMap.size}")
+                categoryEmojiMap.forEach { (name, emoji) ->
+                    logger.debug("MessagesFragment", "[EMOJI DEBUG] DB Category: name='$name', emoji='$emoji'")
+                }
+
+                // Get all category names (including legacy ones from CategoryManager)
+                val allCategoryNames = (categoryEmojiMap.keys + categoryManagerCategories).distinct()
+                val currentCategoryIndex = allCategoryNames.indexOf(messageItem.category)
+
+                logger.debug("MessagesFragment", "[EMOJI DEBUG] All categories: ${allCategoryNames.joinToString()}")
+
+                // Create enhanced categories with emojis (prefer database emoji over hardcoded)
+                val enhancedCategories = allCategoryNames.map { category ->
+                    val emoji = categoryEmojiMap[category] ?: getCategoryEmoji(category)
+                    logger.debug("MessagesFragment", "[EMOJI DEBUG] Category '$category' -> emoji='$emoji' (from DB: ${categoryEmojiMap.containsKey(category)})")
+                    "$emoji $category"
+                }.toTypedArray()
+
+                logger.debug("MessagesFragment", "[TARGET] Showing custom category dialog for ${messageItem.merchant}")
+
+                val dialog = CategorySelectionDialogFragment.newInstance(
+                    categories = enhancedCategories,
+                    currentIndex = currentCategoryIndex,
+                    merchantName = messageItem.merchant
+                ) { selectedCategory ->
+                    // Remove emoji from selected category to get the actual name
+                    val actualCategory = parseCategoryName(selectedCategory)
+                    if (actualCategory != messageItem.category) {
+                        updateCategoryForMerchant(messageItem, actualCategory)
+                    }
+                }
+
+                dialog.show(parentFragmentManager, "CategoryEditDialog")
+            } catch (e: Exception) {
+                logger.error("MessagesFragment", "Failed to show category dialog", e)
+                // Fallback to old behavior if database access fails
+                showCategoryEditDialogFallback(messageItem)
+            }
+        }
+    }
+
+    private fun showCategoryEditDialogFallback(messageItem: MessageItem) {
         val categories = categoryManager.getAllCategories()
         val currentCategoryIndex = categories.indexOf(messageItem.category)
-        
+
         // Create enhanced categories with emojis
         val enhancedCategories = categories.map { category ->
             "${getCategoryEmoji(category)} $category"
         }.toTypedArray()
-        
-        logger.debug("MessagesFragment", "[TARGET] Showing custom category dialog for ${messageItem.merchant}")
-        
+
+        logger.debug("MessagesFragment", "[TARGET] Showing custom category dialog for ${messageItem.merchant} (fallback)")
+
         val dialog = CategorySelectionDialogFragment.newInstance(
             categories = enhancedCategories,
             currentIndex = currentCategoryIndex,
             merchantName = messageItem.merchant
         ) { selectedCategory ->
             // Remove emoji from selected category to get the actual name
-            val actualCategory = selectedCategory.replace(Regex("^[\\p{So}\\p{Cn}]\\s+"), "")
+            val actualCategory = parseCategoryName(selectedCategory)
             if (actualCategory != messageItem.category) {
                 updateCategoryForMerchant(messageItem, actualCategory)
             }
         }
-        
+
         dialog.show(parentFragmentManager, "CategoryEditDialog")
     }
     
@@ -1139,7 +1208,7 @@ class MessagesFragment : Fragment() {
             "entertainment" -> "🎬"
             "shopping" -> "🛍️"
             "utilities" -> "⚡"
-            "money", "finance" -> "[FINANCIAL]"
+            "money", "finance" -> "💰"
             "education" -> "📚"
             "travel" -> "✈️"
             "bills" -> "💳"
@@ -1147,32 +1216,73 @@ class MessagesFragment : Fragment() {
             else -> "📂"
         }
     }
+
+    private fun getRandomCategoryColor(): String {
+        val colorList = listOf(
+            "#795548", "#e91e63", "#9c27b0", "#673ab7", "#3f51b5",
+            "#2196f3", "#03a9f4", "#00bcd4", "#009688", "#4caf50",
+            "#8bc34a", "#cddc39", "#ffeb3b", "#ffc107", "#ff9800",
+            "#ff5722", "#f44336"
+        )
+        return colorList.random()
+    }
+
+    /**
+     * Extract clean category name from display text by removing emoji prefix
+     * Example: "🛍️ Shopping" -> "Shopping"
+     */
+    private fun parseCategoryName(displayText: String): String {
+        val firstLetterIndex = displayText.indexOfFirst { it.isLetter() }
+        return if (firstLetterIndex > 0) {
+            displayText.substring(firstLetterIndex).trim()
+        } else {
+            displayText.trim()
+        }
+    }
     
     private fun updateCategoryForMerchant(messageItem: MessageItem, newCategory: String) {
         lifecycleScope.launch {
             try {
-                // Update category using CategoryManager
+                logger.debug("MessagesFragment", "Updating category for ${messageItem.merchant} to $newCategory")
+
+                // Step 1: Update SharedPreferences (for runtime categorization)
                 categoryManager.updateCategory(messageItem.merchant, newCategory)
-                
-                // Find similar transactions
-                val similarTransactions = categoryManager.getAllSimilarTransactions(messageItem.merchant)
-                
+
+                // Step 2: Update database (for persistent storage and queries)
+                val repository = com.expensemanager.app.data.repository.ExpenseRepository.getInstance(requireContext())
+                val normalizedName = merchantAliasManager.normalizeMerchantName(messageItem.rawMerchant)
+
+                logger.debug("MessagesFragment", "Updating database for normalized merchant: $normalizedName")
+
+                val databaseUpdateSuccess = repository.updateMerchantAliasInDatabase(
+                    listOf(messageItem.rawMerchant),
+                    messageItem.merchant, // Keep existing display name
+                    newCategory
+                )
+
+                if (!databaseUpdateSuccess) {
+                    logger.error("MessagesFragment", "Database update failed for category change")
+                    throw Exception("Database update failed")
+                }
+
+                logger.info("MessagesFragment", "Successfully updated merchant category in database")
+
                 // Invalidate ViewModel's cache to ensure it gets fresh alias data
                 try {
-                    logger.debug("MessagesFragment", "[CACHE_SYNC] Invalidating ViewModel cache for category update")
                     messagesViewModel.invalidateMerchantAliasCache()
                 } catch (e: Exception) {
                     logger.warnWithThrowable("MessagesFragment", "Could not invalidate ViewModel cache for category update", e)
                 }
-                
+
                 // Trigger ViewModel update to reflect category changes
                 try {
-                    logger.debug("MessagesFragment", "[UI_FIX] Using ONLY ViewModel refresh for category update")
                     messagesViewModel.handleEvent(MessagesUIEvent.LoadMessages)
                 } catch (e: Exception) {
                     logger.warnWithThrowable("MessagesFragment", "Could not trigger ViewModel refresh for category update", e)
                 }
-                
+
+                notifyCategoryUpdate(messageItem, newCategory)
+
                 // Show feedback
                 MaterialAlertDialogBuilder(requireContext())
                     .setTitle("Category Updated!")
@@ -1181,8 +1291,9 @@ class MessagesFragment : Fragment() {
                         dialog.dismiss()
                     }
                     .show()
-                
+
             } catch (e: Exception) {
+                logger.error("MessagesFragment", "Failed to update category", e)
                 MaterialAlertDialogBuilder(requireContext())
                     .setTitle("Error")
                     .setMessage("Failed to update category: ${e.message}")
@@ -1191,6 +1302,37 @@ class MessagesFragment : Fragment() {
                     }
                     .show()
             }
+        }
+    }
+
+    private suspend fun notifyCategoryUpdate(messageItem: MessageItem, newCategory: String) {
+        try {
+            delay(CATEGORY_BROADCAST_DELAY_MS)
+
+            val categoryIntent = Intent("com.expensemanager.CATEGORY_UPDATED").apply {
+                putExtra("merchant", messageItem.merchant)
+                putExtra("category", newCategory)
+            }
+            requireContext().sendBroadcast(categoryIntent)
+
+            val merchantIntent = Intent("com.expensemanager.MERCHANT_CATEGORY_CHANGED").apply {
+                putExtra("merchant_name", messageItem.rawMerchant)
+                putExtra("display_name", messageItem.merchant)
+                putExtra("new_category", newCategory)
+            }
+            requireContext().sendBroadcast(merchantIntent)
+
+            logger.debug(
+                "MessagesFragment",
+                "[BROADCAST] Sent category update for ${messageItem.merchant} -> $newCategory"
+            )
+
+        } catch (e: Exception) {
+            logger.warnWithThrowable(
+                "MessagesFragment",
+                "Failed to dispatch category update broadcast for ${messageItem.merchant}",
+                e
+            )
         }
     }
     
@@ -1545,26 +1687,58 @@ class MessagesFragment : Fragment() {
     }
     
     private fun showCategorySelectionDialog(categories: List<String>, currentSelection: String, onCategorySelected: (String) -> Unit) {
-        val currentIndex = categories.indexOf(currentSelection).takeIf { it >= 0 } ?: 0
-        
-        // Create enhanced categories with emojis
-        val enhancedCategories = categories.map { category ->
-            "${getCategoryEmoji(category)} $category"
-        }.toTypedArray()
-        
-        logger.debug("MessagesFragment", "[TARGET] Showing custom category selection dialog, current: $currentSelection")
-        
-        val dialog = CategorySelectionDialogFragment.newInstance(
-            categories = enhancedCategories,
-            currentIndex = currentIndex,
-            merchantName = "merchant group"
-        ) { selectedCategory ->
-            // Remove emoji from selected category to get the actual name
-            val actualCategory = selectedCategory.replace(Regex("^[\\p{So}\\p{Cn}]\\s+"), "")
-            onCategorySelected(actualCategory)
+        lifecycleScope.launch {
+            try {
+                // Fetch categories from database to get custom emojis
+                val repository = com.expensemanager.app.data.repository.ExpenseRepository.getInstance(requireContext())
+                val categoryEntities = repository.getAllCategoriesSync()
+
+                // Create emoji map from database
+                val categoryEmojiMap = categoryEntities.associate { it.name to it.emoji }
+
+                logger.debug("MessagesFragment", "[EMOJI] Loaded ${categoryEmojiMap.size} categories from DB for selection dialog")
+
+                val currentIndex = categories.indexOf(currentSelection).takeIf { it >= 0 } ?: 0
+
+                // Create enhanced categories with emojis (prefer database emoji over hardcoded)
+                val enhancedCategories = categories.map { category ->
+                    val emoji = categoryEmojiMap[category] ?: getCategoryEmoji(category)
+                    logger.debug("MessagesFragment", "[EMOJI] Category '$category' -> emoji='$emoji' (from DB: ${categoryEmojiMap.containsKey(category)})")
+                    "$emoji $category"
+                }.toTypedArray()
+
+                logger.debug("MessagesFragment", "[TARGET] Showing custom category selection dialog, current: $currentSelection")
+
+                val dialog = CategorySelectionDialogFragment.newInstance(
+                    categories = enhancedCategories,
+                    currentIndex = currentIndex,
+                    merchantName = "merchant group"
+                ) { selectedCategory ->
+                    // Remove emoji from selected category to get the actual name
+                    val actualCategory = parseCategoryName(selectedCategory)
+                    onCategorySelected(actualCategory)
+                }
+
+                dialog.show(parentFragmentManager, "CategorySelectionDialog")
+            } catch (e: Exception) {
+                logger.error("MessagesFragment", "Failed to load category emojis", e)
+                // Fallback to hardcoded emojis
+                val currentIndex = categories.indexOf(currentSelection).takeIf { it >= 0 } ?: 0
+                val enhancedCategories = categories.map { category ->
+                    "${getCategoryEmoji(category)} $category"
+                }.toTypedArray()
+
+                val dialog = CategorySelectionDialogFragment.newInstance(
+                    categories = enhancedCategories,
+                    currentIndex = currentIndex,
+                    merchantName = "merchant group"
+                ) { selectedCategory ->
+                    val actualCategory = parseCategoryName(selectedCategory)
+                    onCategorySelected(actualCategory)
+                }
+                dialog.show(parentFragmentManager, "CategorySelectionDialog")
+            }
         }
-        
-        dialog.show(parentFragmentManager, "CategorySelectionDialog")
     }
     
     private fun showMerchantGroupEditDialog(group: MerchantGroup) {
@@ -1750,73 +1924,42 @@ class MessagesFragment : Fragment() {
                 
                 // Find all transactions in this group to get their original merchant names
                 val originalMerchantNames = mutableSetOf<String>()
-                
-                // Enhanced original merchant name detection
-                
-                // METHOD 1: Check if this group already has aliases
-                val existingOriginalNames = merchantAliasManager.getMerchantsByDisplayName(group.merchantName)
-                logger.debug("MessagesFragment", "[LIST] Existing original names from aliases: $existingOriginalNames")
-                
-                if (existingOriginalNames.isNotEmpty()) {
-                    originalMerchantNames.addAll(existingOriginalNames)
-                } else {
-                    
-                    // METHOD 2: Extract from raw SMS data in transactions
-                    var extractedCount = 0
-                    group.transactions.forEach { transaction ->
-                        val extractedName = extractOriginalMerchantFromRawSMS(transaction.rawSMS)
-                        if (extractedName.isNotEmpty() && extractedName.length >= 3) { // Minimum length check
-                            originalMerchantNames.add(extractedName)
-                            extractedCount++
-                            logger.debug("MessagesFragment", "Extracted: $extractedName from SMS: ${transaction.rawSMS.take(50)}...")
-                        }
+
+                // FIXED: Always use rawMerchant from actual transactions (not normalized names from SharedPreferences)
+                // This ensures database UPDATE uses the correct merchant names that match what's in the database
+                logger.debug("MessagesFragment", "[FIX] Extracting original merchant names from ${group.transactions.size} transactions")
+
+                group.transactions.forEach { transaction ->
+                    if (transaction.rawMerchant.isNotBlank()) {
+                        originalMerchantNames.add(transaction.rawMerchant)
+                        logger.debug("MessagesFragment", "[FIX] Added rawMerchant: ${transaction.rawMerchant}")
                     }
-                    
-                    logger.debug("MessagesFragment", "[ANALYTICS] Extracted $extractedCount original names from ${group.transactions.size} transactions")
-                    
-                    // METHOD 3: Fallback to current display name if no extraction worked
-                    if (originalMerchantNames.isEmpty()) {
-                        originalMerchantNames.add(group.merchantName)
-                        logger.warn("MessagesFragment", "Using display name as original: ${group.merchantName}")
-                    }
-                    
-                    // METHOD 4: Try alternative extraction using transaction data
-                    if (originalMerchantNames.size == 1 && originalMerchantNames.first() == group.merchantName) {
-                        group.transactions.forEach { transaction ->
-                            // Try different patterns for merchant extraction
-                            val alternativeNames = extractAlternativeMerchantNames(transaction.rawSMS)
-                            alternativeNames.forEach { name ->
-                                if (name.isNotEmpty() && name != group.merchantName) {
-                                    originalMerchantNames.add(name)
-                                    logger.debug("MessagesFragment", "[TARGET] Alternative extraction: $name")
-                                }
-                            }
-                        }
-                    }
+                }
+
+                // Fallback: If rawMerchant was blank for all transactions, use display name
+                if (originalMerchantNames.isEmpty()) {
+                    originalMerchantNames.add(group.merchantName)
+                    logger.warn("MessagesFragment", "[FIX] No rawMerchant found, using display name: ${group.merchantName}")
                 }
                 
                 logger.debug("MessagesFragment", "Final original merchant names to update: $originalMerchantNames")
-                
-                // Enhanced category validation and creation
+
+                // Parse clean category name without emoji
+                val cleanCategoryName = parseCategoryName(newCategory)
+                logger.debug("MessagesFragment", "Parsed category: '$newCategory' -> '$cleanCategoryName'")
+
+                // Validate category exists - don't create new categories during merchant update
                 val allCategories = categoryManager.getAllCategories()
                 logger.debug("MessagesFragment", "Available categories: $allCategories")
-                
-                if (!allCategories.contains(newCategory)) {
-                    logger.info(
-                        where = "showMerchantGroupEditDialog",
-                        what = "Creating new category: $newCategory"
-                    )
-                    try {
-                        categoryManager.addCustomCategory(newCategory)
-                    } catch (e: Exception) {
-                        logger.error("MessagesFragment", "Failed to add category: $newCategory", e)
-                        Toast.makeText(
-                            requireContext(),
-                            "Unable to create category '$newCategory': ${e.message ?: "Please try again"}",
-                            Toast.LENGTH_LONG
-                        ).show()
-                        return@launch
-                    }
+
+                if (!allCategories.contains(cleanCategoryName)) {
+                    logger.warn("MessagesFragment", "Category '$cleanCategoryName' not found in existing categories")
+                    Toast.makeText(
+                        requireContext(),
+                        "Category '$cleanCategoryName' not found. Please select from existing categories.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    return@launch
                 }
                 
                 // STEP 1: Update SharedPreferences (MerchantAliasManager)
@@ -1829,18 +1972,18 @@ class MessagesFragment : Fragment() {
                 
                 try {
                     originalMerchantNames.forEachIndexed { index, originalName ->
-                        logger.debug("MessagesFragment", "Setting alias ${index + 1}/${originalMerchantNames.size}: $originalName -> $newDisplayName ($newCategory)")
-                        
-                        val aliasSetSuccess = merchantAliasManager.setMerchantAlias(originalName, newDisplayName, newCategory)
-                        
+                        logger.debug("MessagesFragment", "Setting alias ${index + 1}/${originalMerchantNames.size}: $originalName -> $newDisplayName ($cleanCategoryName)")
+
+                        val aliasSetSuccess = merchantAliasManager.setMerchantAlias(originalName, newDisplayName, cleanCategoryName)
+
                         if (aliasSetSuccess) {
                             aliasSetCount++
-                            
+
                             // Verify the alias was set correctly
                             val verifyDisplayName = merchantAliasManager.getDisplayName(originalName)
                             val verifyCategory = merchantAliasManager.getMerchantCategory(originalName)
-                            
-                            if (verifyDisplayName != newDisplayName || verifyCategory != newCategory) {
+
+                            if (verifyDisplayName != newDisplayName || verifyCategory != cleanCategoryName) {
                                 logger.warn("MessagesFragment", "Alias verification failed for $originalName")
                             }
                         } else {
@@ -1878,7 +2021,7 @@ class MessagesFragment : Fragment() {
                         databaseUpdateSuccess = repository.updateMerchantAliasInDatabase(
                             originalMerchantNames.toList(),
                             newDisplayName,
-                            newCategory
+                            cleanCategoryName
                         )
                         
                         if (databaseUpdateSuccess) {
@@ -2272,71 +2415,70 @@ class MessagesFragment : Fragment() {
     /**
      * Download and export log files to the Downloads directory
      */
-    private fun downloadLogs() {
-        lifecycleScope.launch {
-            try {
-                val logFiles = appLogger.getLogFiles()
-                
-                if (logFiles.isEmpty()) {
-                    Toast.makeText(requireContext(), "No log files found", Toast.LENGTH_SHORT).show()
-                    return@launch
-                }
-                
-                // Create Downloads directory file
-                val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(java.util.Date())
-                val zipFile = File(downloadsDir, "ExpenseManager_logs_$timestamp.zip")
-                
-                // Create zip file with all logs
-                ZipOutputStream(FileOutputStream(zipFile)).use { zipOut ->
-                    logFiles.forEach { logFile ->
-                        if (logFile.exists() && logFile.length() > 0) {
-                            val entry = ZipEntry(logFile.name)
-                            zipOut.putNextEntry(entry)
-                            
-                            FileInputStream(logFile).use { fileInput ->
-                                fileInput.copyTo(zipOut)
-                            }
-                            zipOut.closeEntry()
-                        }
-                    }
-                    
-                    // Add a summary file with app info
-                    val summaryEntry = ZipEntry("log_summary.txt")
-                    zipOut.putNextEntry(summaryEntry)
-                    val summary = """
-                        Smart Expense Manager - Log Export
-                        Generated: ${SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())}
-                        
-                        Log Files Included:
-                        ${logFiles.joinToString("\n") { "- ${it.name} (${it.length()} bytes)" }}
-                        
-                        Logging Configuration:
-                        Timber logging is active
-                        
-                        App Version: ${requireContext().packageManager.getPackageInfo(requireContext().packageName, 0).versionName}
-                    """.trimIndent()
-                    
-                    zipOut.write(summary.toByteArray())
-                    zipOut.closeEntry()
-                }
-                
-                // Show success message with file location
-                Toast.makeText(
-                    requireContext(), 
-                    "Logs exported to Downloads/ExpenseManager_logs_$timestamp.zip", 
-                    Toast.LENGTH_LONG
-                ).show()
-                
-                // Log the export activity
-                appLogger.info("LOG_EXPORT", "Log files exported to ${zipFile.absolutePath}")
-                
-            } catch (e: Exception) {
-                appLogger.error("LOG_EXPORT", "Failed to export logs", e)
-                Toast.makeText(requireContext(), "Failed to export logs: ${e.message}", Toast.LENGTH_LONG).show()
-            }
-        }
-    }
+//    private fun downloadLogs() {
+//        lifecycleScope.launch {
+//            try {
+//                val logFiles = // Logging removed
+//
+//                if (logFiles.isEmpty()) {
+//                    Toast.makeText(requireContext(), "No log files found", Toast.LENGTH_SHORT).show()
+//                    return@launch
+//                }
+//
+//                // Create Downloads directory file
+//                val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+//                val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(java.util.Date())
+//                val zipFile = File(downloadsDir, "ExpenseManager_logs_$timestamp.zip")
+//
+////                // Create zip file with all logs
+////                ZipOutputStream(FileOutputStream(zipFile)).use { zipOut ->
+////                    logFiles.forEach { logFile ->
+////                        if (logFile.exists() && logFile.length() > 0) {
+////                            val entry = ZipEntry(logFile.name)
+////                            zipOut.putNextEntry(entry)
+////
+////                            FileInputStream(logFile).use { fileInput ->
+////                                fileInput.copyTo(zipOut)
+////                            }
+////                            zipOut.closeEntry()
+////                        }
+////                    }
+//
+//                    // Add a summary file with app info
+//                    val summaryEntry = ZipEntry("log_summary.txt")
+////                    zipOut.putNextEntry(summaryEntry)
+//                    val summary = """
+//                        Smart Expense Manager - Log Export
+//                        Generated: ${SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())}
+//
+//                        Log Files Included:
+//                        ${logFiles.joinToString("\n") { "- ${it.name} (${it.length()} bytes)" }}
+//
+//                        Logging Configuration:
+//                        Timber logging is active
+//
+//                        App Version: ${requireContext().packageManager.getPackageInfo(requireContext().packageName, 0).versionName}
+//                    """.trimIndent()
+//
+//                    zipOut.write(summary.toByteArray())
+//                    zipOut.closeEntry()
+//                }
+//
+//                // Show success message with file location
+//                Toast.makeText(
+//                    requireContext(),
+//                    "Logs exported to Downloads/ExpenseManager_logs_$timestamp.zip",
+//                    Toast.LENGTH_LONG
+//                ).show()
+//
+//                // Log the export activity
+//                // Logging removed
+//
+//            } catch (e: Exception) {
+//                // Logging removed
+//                Toast.makeText(requireContext(), "Failed to export logs: ${e.message}", Toast.LENGTH_LONG).show()
+//            }
+//        }
     
     override fun onResume() {
         super.onResume()
@@ -2574,24 +2716,21 @@ class MessagesFragment : Fragment() {
                 
                 // Continue with the normal update flow but skip conflict checking
                 val originalMerchantNames = mutableSetOf<String>()
-                
-                // Check if this group already has aliases
-                val existingOriginalNames = merchantAliasManager.getMerchantsByDisplayName(group.merchantName)
-                
-                if (existingOriginalNames.isNotEmpty()) {
-                    originalMerchantNames.addAll(existingOriginalNames)
-                } else {
-                    // Extract from raw SMS data in transactions
-                    group.transactions.forEach { transaction ->
-                        if (transaction.rawMerchant.isNotBlank()) {
-                            originalMerchantNames.add(transaction.rawMerchant)
-                        }
+
+                // FIXED: Always use rawMerchant from actual transactions (not normalized names from SharedPreferences)
+                logger.debug("MessagesFragment", "[DIRECT_FIX] Extracting original merchant names from ${group.transactions.size} transactions")
+
+                group.transactions.forEach { transaction ->
+                    if (transaction.rawMerchant.isNotBlank()) {
+                        originalMerchantNames.add(transaction.rawMerchant)
+                        logger.debug("MessagesFragment", "[DIRECT_FIX] Added rawMerchant: ${transaction.rawMerchant}")
                     }
-                    
-                    // If still empty, use the current group merchant name
-                    if (originalMerchantNames.isEmpty()) {
-                        originalMerchantNames.add(group.merchantName)
-                    }
+                }
+
+                // Fallback: If rawMerchant was blank for all transactions, use display name
+                if (originalMerchantNames.isEmpty()) {
+                    originalMerchantNames.add(group.merchantName)
+                    logger.warn("MessagesFragment", "[DIRECT_FIX] No rawMerchant found, using display name: ${group.merchantName}")
                 }
                 
                 // Create category if it doesn't exist

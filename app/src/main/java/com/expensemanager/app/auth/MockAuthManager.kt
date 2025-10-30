@@ -2,11 +2,9 @@ package com.expensemanager.app.auth
 
 import android.app.Activity
 import android.content.Context
-import com.expensemanager.app.R
 import com.expensemanager.app.core.DebugConfig
 import com.expensemanager.app.data.dao.UserDao
 import com.expensemanager.app.data.entities.UserEntity
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.utils.logging.StructuredLogger
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
@@ -48,7 +46,7 @@ class MockAuthManager @Inject constructor(
         )
     }
 
-    private val logger = StructuredLogger(LogConfig.FeatureTags.APP, TAG)
+    private val logger = StructuredLogger("APP", TAG)
 
     data class TestUser(
         val userId: String,

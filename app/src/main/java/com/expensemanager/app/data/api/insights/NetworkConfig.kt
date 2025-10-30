@@ -1,7 +1,6 @@
 package com.expensemanager.app.data.api.insights
 
 import timber.log.Timber
-import com.expensemanager.app.utils.logging.LogConfig
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit

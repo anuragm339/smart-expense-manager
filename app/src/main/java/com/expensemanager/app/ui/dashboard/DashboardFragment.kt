@@ -16,27 +16,25 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import com.expensemanager.app.R
-import com.expensemanager.app.MainActivity
 import com.expensemanager.app.databinding.FragmentDashboardBinding
 import com.expensemanager.app.data.repository.ExpenseRepository
 import com.expensemanager.app.data.repository.DashboardData
 import com.expensemanager.app.utils.CategoryManager
 import com.expensemanager.app.utils.MerchantAliasManager
-import com.expensemanager.app.models.ParsedTransaction
 import com.expensemanager.app.services.TransactionParsingService
 import com.expensemanager.app.services.TransactionFilterService
-import com.expensemanager.app.ui.dashboard.CategorySpending
-import com.expensemanager.app.ui.dashboard.MerchantSpending
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.expensemanager.app.utils.logging.LogConfig
 import dagger.hilt.android.AndroidEntryPoint
 import com.expensemanager.app.domain.usecase.transaction.AddTransactionUseCase
 import com.expensemanager.app.utils.logging.StructuredLogger
 import javax.inject.Inject
 import java.util.*
-import com.expensemanager.app.ui.dashboard.MonthlyComparison
 
 /**
  * Dashboard Fragment - Main entry point for expense tracking overview
@@ -68,7 +66,7 @@ class DashboardFragment : Fragment() {
     @Inject lateinit var transactionParsingService: TransactionParsingService
     @Inject lateinit var transactionFilterService: TransactionFilterService
 
-    private val logger = StructuredLogger(LogConfig.FeatureTags.DASHBOARD, DashboardFragment::class.java.simpleName)
+    private val logger = StructuredLogger("DASHBOARD", DashboardFragment::class.java.simpleName)
 
     // Core dependencies
     private lateinit var repository: ExpenseRepository
@@ -80,6 +78,11 @@ class DashboardFragment : Fragment() {
     private lateinit var trendBinder: DashboardTrendBinder
     private lateinit var actionHandler: DashboardActionHandler
     private lateinit var dataOrchestrator: DashboardDataOrchestrator
+
+    private val dashboardRefreshRequests = MutableSharedFlow<DashboardRefreshRequest>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
 
     private var currentDashboardPeriod = "This Month"
 
@@ -96,18 +99,16 @@ class DashboardFragment : Fragment() {
                     val amount = intent.getDoubleExtra("amount", 0.0)
                     logger.debug("onReceive","New transaction broadcast: $merchant - ₹${String.format("%.0f", amount)}")
 
-                    lifecycleScope.launch {
-                        try {
-                            loadDashboardData()
+                    requestDashboardRefresh(
+                        reason = "broadcast_new_transaction",
+                        onComplete = {
                             Toast.makeText(
                                 requireContext(),
                                 "New transaction added - Dashboard updated",
                                 Toast.LENGTH_SHORT
                             ).show()
-                        } catch (e: Exception) {
-                            logger.error("onReceive","Error refreshing dashboard after new transaction",e)
                         }
-                    }
+                    )
                 }
 
                 "com.expensemanager.CATEGORY_UPDATED" -> {
@@ -115,14 +116,7 @@ class DashboardFragment : Fragment() {
                     val category = intent.getStringExtra("category") ?: "Unknown"
                     logger.debug("onReceive","Category update broadcast: $merchant → $category")
 
-                    lifecycleScope.launch {
-                        try {
-                            logger.debug("onReceive","Refreshing dashboard due to category update")
-                            loadDashboardData()
-                        } catch (e: Exception) {
-                            logger.error("onReceive","Error refreshing dashboard after category update",e)
-                        }
-                    }
+                    requestDashboardRefresh(reason = "broadcast_category_update")
                 }
 
                 "com.expensemanager.INCLUSION_STATE_CHANGED" -> {
@@ -130,13 +124,7 @@ class DashboardFragment : Fragment() {
                     val totalAmount = intent.getDoubleExtra("total_amount", 0.0)
                     logger.debug("onReceive","Inclusion state change: $includedCount transactions, ₹${String.format("%.0f", totalAmount)} total")
 
-                    lifecycleScope.launch {
-                        try {
-                            loadDashboardData()
-                        } catch (e: Exception) {
-                            logger.error("onReceive","Error refreshing dashboard after inclusion state change",e)
-                        }
-                    }
+                    requestDashboardRefresh(reason = "broadcast_inclusion_update")
                 }
 
                 "com.expensemanager.MERCHANT_CATEGORY_CHANGED" -> {
@@ -145,21 +133,29 @@ class DashboardFragment : Fragment() {
                     val newCategory = intent.getStringExtra("new_category") ?: "Unknown"
                     logger.debug("onReceive","Merchant category change: '$merchantName' -> '$newCategory'")
 
-                    lifecycleScope.launch {
-                        try {
-                            loadDashboardData()
+                    requestDashboardRefresh(
+                        reason = "broadcast_merchant_category_change",
+                        onComplete = {
                             Toast.makeText(
                                 requireContext(),
                                 "Category updated for '$displayName' - Dashboard refreshed",
                                 Toast.LENGTH_SHORT
                             ).show()
-                        } catch (e: Exception) {
-                            logger.error("onReceive","Error refreshing dashboard after merchant category change",e)
                         }
-                    }
+                    )
                 }
             }
         }
+    }
+
+    private data class DashboardRefreshRequest(
+        val reason: String,
+        val refreshViewModel: Boolean = false,
+        val postRefreshAction: (() -> Unit)? = null
+    )
+
+    companion object {
+        private const val DASHBOARD_REFRESH_DEBOUNCE_MS = 300L
     }
 
     override fun onCreateView(
@@ -178,6 +174,8 @@ class DashboardFragment : Fragment() {
         val lightGrayColor = ContextCompat.getColor(requireContext(), R.color.background_light)
         view.setBackgroundColor(lightGrayColor)
         binding.root.setBackgroundColor(lightGrayColor)
+
+        setupDebouncedRefreshPipeline()
 
         // Initialize core dependencies
         repository = ExpenseRepository.getInstance(requireContext())
@@ -203,8 +201,10 @@ class DashboardFragment : Fragment() {
         actionHandler = DashboardActionHandler(
             this, binding, viewModel, addTransactionUseCase, logger,
             onDataRefreshNeeded = {
-                loadDashboardData()
-                viewModel.handleEvent(DashboardUIEvent.LoadData)
+                requestDashboardRefresh(
+                    reason = "action_handler_refresh",
+                    refreshViewModel = true
+                )
             }
         )
         actionHandler.setupClickListeners()
@@ -215,6 +215,50 @@ class DashboardFragment : Fragment() {
 
         setupDashboardPeriodFilter()
         observeUIState()
+
+        requestDashboardRefresh(reason = "initial_load", refreshViewModel = true)
+    }
+
+    private fun setupDebouncedRefreshPipeline() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                dashboardRefreshRequests
+                    .onEach { request ->
+                        logger.debug(
+                            "setupDebouncedRefreshPipeline",
+                            "Queued dashboard refresh (reason=${request.reason}, refreshViewModel=${request.refreshViewModel})"
+                        )
+                    }
+                    .debounce(DASHBOARD_REFRESH_DEBOUNCE_MS)
+                    .collect { request ->
+                        logger.debug(
+                            "setupDebouncedRefreshPipeline",
+                            "Executing debounced dashboard refresh (reason=${request.reason})"
+                        )
+
+                        performDashboardReload()
+
+                        if (request.refreshViewModel) {
+                            viewModel.handleEvent(DashboardUIEvent.LoadData)
+                        }
+
+                        request.postRefreshAction?.invoke()
+                    }
+            }
+        }
+    }
+
+    private fun requestDashboardRefresh(
+        reason: String,
+        refreshViewModel: Boolean = false,
+        onComplete: (() -> Unit)? = null
+    ) {
+        val request = DashboardRefreshRequest(reason, refreshViewModel, onComplete)
+        if (!dashboardRefreshRequests.tryEmit(request)) {
+            viewLifecycleOwner.lifecycleScope.launch {
+                dashboardRefreshRequests.emit(request)
+            }
+        }
     }
 
     /**
@@ -305,29 +349,27 @@ class DashboardFragment : Fragment() {
     /**
      * Load dashboard data for the current period - coordination method
      */
-    private fun loadDashboardData() {
-        lifecycleScope.launch {
-            try {
-                val (startDate, endDate) = dataOrchestrator.getDateRangeForPeriod(currentDashboardPeriod)
+    private suspend fun performDashboardReload() {
+        try {
+            val (startDate, endDate) = dataOrchestrator.getDateRangeForPeriod(currentDashboardPeriod)
 
-                logger.debug("loadDashboardData", "Loading dashboard for period: $currentDashboardPeriod")
+            logger.debug("performDashboardReload", "Loading dashboard for period: $currentDashboardPeriod")
 
-                // Fetch dashboard data from repository
-                val dashboardData = repository.getDashboardData(startDate, endDate)
+            // Fetch dashboard data from repository
+            val dashboardData = repository.getDashboardData(startDate, endDate)
 
-                // Update dashboard UI with fetched data
-                updateDashboardWithRepositoryData(dashboardData, startDate, endDate)
+            // Update dashboard UI with fetched data
+            updateDashboardWithRepositoryData(dashboardData, startDate, endDate)
 
-                // Update monthly comparison
-                updateMonthlyComparisonFromRepository(startDate, endDate, currentDashboardPeriod)
+            // Update monthly comparison
+            updateMonthlyComparisonFromRepository(startDate, endDate, currentDashboardPeriod)
 
-                // Update weekly trend chart
-                trendBinder.updateTrend(startDate, endDate)
+            // Update weekly trend chart
+            trendBinder.updateTrend(startDate, endDate)
 
-            } catch (e: Exception) {
-                logger.error("loadDashboardData", "Error loading dashboard data", e)
-                viewBinder.showError("Failed to load dashboard data")
-            }
+        } catch (e: Exception) {
+            logger.error("performDashboardReload", "Error loading dashboard data", e)
+            viewBinder.showError("Failed to load dashboard data")
         }
     }
 
@@ -344,8 +386,9 @@ class DashboardFragment : Fragment() {
         logger.debug("updateDashboardWithRepositoryData",
             "Updating dashboard: spent=₹$totalSpent, balance=₹$balance, count=$transactionCount")
 
-        // Update summary
-        viewBinder.renderSummary(totalSpent, balance, transactionCount)
+        // Update summary - check if budget exists
+        val hasBudget = viewModel.uiState.value.monthlyBudget > 0
+        viewBinder.renderSummary(totalSpent, balance, transactionCount, hasBudget)
 
         // Update categories
         val categorySpending = dashboardData.topCategories.map { category ->
@@ -363,17 +406,19 @@ class DashboardFragment : Fragment() {
     }
 
     /**
-     * Calculate balance from dashboard data
+     * Calculate budget percentage from dashboard data
      */
     private fun calculateBalance(dashboardData: DashboardData): Double {
-        // Check if we're in "This Month" period and have salary data
+        // Check if we're in "This Month" period and have monthly budget
         if (currentDashboardPeriod == "This Month") {
-            val salary = dashboardData.monthlyBalance.lastSalaryAmount
-            if (salary > 0) {
-                return salary - dashboardData.totalSpent
+            val monthlyBudget = viewModel.uiState.value.monthlyBudget
+            if (monthlyBudget > 0) {
+                // Return budget percentage
+                return (dashboardData.totalSpent / monthlyBudget) * 100
             }
         }
-        return -dashboardData.totalSpent
+        // No budget set - return spent amount
+        return dashboardData.totalSpent
     }
 
     /**
@@ -420,8 +465,13 @@ class DashboardFragment : Fragment() {
         lifecycleScope.launch {
             try {
                 logger.debug("performSMSSync", "Starting SMS sync")
-                performRepositoryBasedSync()
-                loadDashboardData()
+                val syncedCount = performRepositoryBasedSync()
+                if (syncedCount > 0) {
+                    requestDashboardRefresh(
+                        reason = "sms_repository_sync",
+                        refreshViewModel = true
+                    )
+                }
             } catch (e: Exception) {
                 logger.error("performSMSSync", "Error during SMS sync", e)
                 Toast.makeText(requireContext(), "Failed to sync SMS: ${e.message}", Toast.LENGTH_LONG).show()
@@ -432,46 +482,45 @@ class DashboardFragment : Fragment() {
     /**
      * Perform repository-based SMS sync
      */
-    private fun performRepositoryBasedSync() {
-        lifecycleScope.launch {
-            try {
-                logger.debug("performRepositoryBasedSync", "Attempting SMS sync through repository...")
+    private suspend fun performRepositoryBasedSync(): Int {
+        return try {
+            logger.debug("performRepositoryBasedSync", "Attempting SMS sync through repository...")
 
-                // Use repository's syncNewSMS method
-                val syncedCount = repository.syncNewSMS()
-                logger.debug("performRepositoryBasedSync", "Repository sync completed: $syncedCount new transactions")
+            val syncedCount = repository.syncNewSMS()
+            logger.debug("performRepositoryBasedSync", "Repository sync completed: $syncedCount new transactions")
 
-                if (syncedCount > 0) {
-                    Toast.makeText(
-                        requireContext(),
-                        "Synced $syncedCount new transactions from SMS!",
-                        Toast.LENGTH_LONG
-                    ).show()
-                    loadDashboardData()
-                } else {
-                    logger.debug("performRepositoryBasedSync", "No new transactions found during sync")
-                    Toast.makeText(
-                        requireContext(),
-                        "No new transactions to sync",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-
-            } catch (e: SecurityException) {
-                logger.error("performRepositoryBasedSync", "Permission denied for SMS access", e)
+            if (syncedCount > 0) {
                 Toast.makeText(
                     requireContext(),
-                    "SMS permission required. Please grant permission in settings.",
+                    "Synced $syncedCount new transactions from SMS!",
                     Toast.LENGTH_LONG
                 ).show()
-            } catch (e: Exception) {
-                logger.error("performRepositoryBasedSync", "Error during repository-based sync", e)
+            } else {
+                logger.debug("performRepositoryBasedSync", "No new transactions found during sync")
                 Toast.makeText(
                     requireContext(),
-                    "Sync failed: ${e.message}",
-                    Toast.LENGTH_LONG
+                    "No new transactions to sync",
+                    Toast.LENGTH_SHORT
                 ).show()
             }
+
+            syncedCount
+        } catch (e: SecurityException) {
+            logger.error("performRepositoryBasedSync", "Permission denied for SMS access", e)
+            Toast.makeText(
+                requireContext(),
+                "SMS permission required. Please grant permission in settings.",
+                Toast.LENGTH_LONG
+            ).show()
+            throw e
+        } catch (e: Exception) {
+            logger.error("performRepositoryBasedSync", "Error during repository-based sync", e)
+            Toast.makeText(
+                requireContext(),
+                "Sync failed: ${e.message}",
+                Toast.LENGTH_LONG
+            ).show()
+            throw e
         }
     }
 
@@ -493,6 +542,10 @@ class DashboardFragment : Fragment() {
         } catch (e: Exception) {
             logger.error("onResume", "Failed to register broadcast receivers", e)
         }
+
+        // Refresh dashboard data when returning to this screen
+        // This ensures we pick up any changes made in other tabs (like Messages)
+        requestDashboardRefresh(reason = "onResume")
     }
 
     override fun onPause() {

@@ -2,13 +2,19 @@
 *.apk
 *.ap_
 *.aab
-
+app/google-services.json
+.DS_Store
 # Files for the ART/Dalvik VM
 *.dex
-
+.idea/deploymentTargetDropDown.xml
+app/src/main/res/.DS_Store
+.idea/androidTestResultsUserPreferences.xml
 # Java class files
+*.md
 *.class
-
+code-flow
+test-cases
+app/src/main/res/.DS_Store
 # Generated files
 bin/
 gen/

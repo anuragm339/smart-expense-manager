@@ -1,5 +1,10 @@
 package com.expensemanager.app.ui.dashboard
 
+import android.view.LayoutInflater
+import android.view.View
+import android.widget.LinearLayout
+import android.widget.TextView
+import com.expensemanager.app.R
 import com.expensemanager.app.databinding.FragmentDashboardBinding
 import com.expensemanager.app.utils.logging.StructuredLogger
 import java.util.Locale
@@ -14,10 +19,7 @@ class TopMerchantsSection(
 ) {
 
     fun initialize() {
-        binding.rowMerchant1.setOnClickListener { handleMerchantClick(binding.tvMerchant1Name.text.toString()) }
-        binding.rowMerchant2.setOnClickListener { handleMerchantClick(binding.tvMerchant2Name.text.toString()) }
-        binding.rowMerchant3.setOnClickListener { handleMerchantClick(binding.tvMerchant3Name.text.toString()) }
-        binding.rowMerchant4.setOnClickListener { handleMerchantClick(binding.tvMerchant4Name.text.toString()) }
+        // Nothing to initialize for dynamic views
     }
 
     fun render(merchants: List<MerchantSpending>, minimumCount: Int = DEFAULT_MINIMUM_COUNT) {
@@ -28,64 +30,42 @@ class TopMerchantsSection(
             "Visible=${visibleMerchants.size}, Source=${merchants.size}"
         )
 
-        val merchantViews = listOf(
-            MerchantRowViews(
-                binding.tvMerchant1Emoji,
-                binding.tvMerchant1Name,
-                binding.tvMerchant1Category,
-                binding.tvMerchant1Amount,
-                binding.tvMerchant1Count,
-                binding.rowMerchant1
-            ),
-            MerchantRowViews(
-                binding.tvMerchant2Emoji,
-                binding.tvMerchant2Name,
-                binding.tvMerchant2Category,
-                binding.tvMerchant2Amount,
-                binding.tvMerchant2Count,
-                binding.rowMerchant2
-            ),
-            MerchantRowViews(
-                binding.tvMerchant3Emoji,
-                binding.tvMerchant3Name,
-                binding.tvMerchant3Category,
-                binding.tvMerchant3Amount,
-                binding.tvMerchant3Count,
-                binding.rowMerchant3
-            ),
-            MerchantRowViews(
-                binding.tvMerchant4Emoji,
-                binding.tvMerchant4Name,
-                binding.tvMerchant4Category,
-                binding.tvMerchant4Amount,
-                binding.tvMerchant4Count,
-                binding.rowMerchant4
-            )
-        )
+        // Clear existing views
+        binding.layoutTopMerchantsTable.removeAllViews()
 
-        merchantViews.forEachIndexed { index, views ->
-            val merchant = visibleMerchants.getOrNull(index)
-            views.bind(merchant)
+        // Add merchant rows dynamically
+        visibleMerchants.forEach { merchant ->
+            val merchantRow = createMerchantRow(merchant)
+            binding.layoutTopMerchantsTable.addView(merchantRow)
         }
     }
 
-    private fun handleMerchantClick(merchantName: String) {
-        if (merchantName.isBlank()) return
-        onMerchantSelected(merchantName)
-    }
+    private fun createMerchantRow(merchant: MerchantSpending): View {
+        val inflater = LayoutInflater.from(binding.root.context)
+        val rowView = inflater.inflate(R.layout.item_merchant_row, binding.layoutTopMerchantsTable, false)
 
-    private fun MerchantRowViews.bind(merchant: MerchantSpending?) {
-        if (merchant == null) {
-            container.visibility = android.view.View.GONE
-            return
-        }
+        val emoji = rowView.findViewById<TextView>(R.id.tv_merchant_emoji)
+        val name = rowView.findViewById<TextView>(R.id.tv_merchant_name)
+        val category = rowView.findViewById<TextView>(R.id.tv_merchant_category)
+        val amount = rowView.findViewById<TextView>(R.id.tv_merchant_amount)
+        val count = rowView.findViewById<TextView>(R.id.tv_merchant_count)
 
-        container.visibility = android.view.View.VISIBLE
         emoji.text = merchant.categoryEmoji()
         name.text = merchant.merchantName
         category.text = merchant.category
         amount.text = "₹${String.format(Locale.getDefault(), "%.0f", merchant.totalAmount)}"
         count.text = "${merchant.transactionCount} tx"
+
+        rowView.setOnClickListener {
+            handleMerchantClick(merchant.merchantName)
+        }
+
+        return rowView
+    }
+
+    private fun handleMerchantClick(merchantName: String) {
+        if (merchantName.isBlank()) return
+        onMerchantSelected(merchantName)
     }
 
     private fun MerchantSpending.categoryEmoji(): String {
@@ -105,15 +85,6 @@ class TopMerchantsSection(
             else -> "📂"
         }
     }
-
-    private data class MerchantRowViews(
-        val emoji: android.widget.TextView,
-        val name: android.widget.TextView,
-        val category: android.widget.TextView,
-        val amount: android.widget.TextView,
-        val count: android.widget.TextView,
-        val container: android.view.View
-    )
 
     companion object {
         private const val DEFAULT_MINIMUM_COUNT = 3

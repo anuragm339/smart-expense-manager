@@ -2,7 +2,6 @@ package com.expensemanager.app.data.repository.internal
 
 import com.expensemanager.app.data.dao.TransactionDao
 import com.expensemanager.app.data.entities.TransactionEntity
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.utils.logging.StructuredLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -12,7 +11,7 @@ internal class DatabaseMaintenanceOperations(
 ) {
 
     private val logger = StructuredLogger(
-        featureTag = LogConfig.FeatureTags.DATABASE,
+        featureTag = "DATABASE",
         className = "DatabaseMaintenanceOperations"
     )
 
@@ -26,7 +25,7 @@ internal class DatabaseMaintenanceOperations(
             val allTransactions = transactionDao.getAllTransactionsSync()
             val duplicateGroups = allTransactions.groupBy { transaction ->
                 TransactionEntity.generateDeduplicationKey(
-                    merchant = transaction.rawMerchant,
+                    merchant = transaction.normalizedMerchant,
                     amount = transaction.amount,
                     date = transaction.transactionDate,
                     bankName = transaction.bankName
@@ -74,49 +73,5 @@ internal class DatabaseMaintenanceOperations(
         }
     }
 
-    suspend fun removeObviousTestData(): Int = withContext(Dispatchers.IO) {
-        try {
-            logger.debug(
-                where = "removeObviousTestData",
-                what = "Starting test data cleanup"
-            )
-
-            val testMerchants = listOf(
-                "test", "example", "demo", "sample", "dummy",
-                "PRAGATHI HARDWARE AND ELECTRICALS",
-                "AMAZON PAY", "SWIGGY", "ZOMATO"
-            )
-
-            var removedCount = 0
-
-            for (merchant in testMerchants) {
-                val transactions = transactionDao.getTransactionsByMerchantAndAmount(
-                    merchant.lowercase(),
-                    10000.0
-                )
-
-                for (transaction in transactions) {
-                    transactionDao.deleteTransaction(transaction)
-                    removedCount++
-                    logger.debug(
-                        where = "removeObviousTestData",
-                        what = "Removing test transaction: ${transaction.rawMerchant} - ${"₹%.2f".format(transaction.amount)}"
-                    )
-                }
-            }
-
-            logger.debug(
-                where = "removeObviousTestData",
-                what = "Test data cleanup completed - Removed $removedCount transactions"
-            )
-            removedCount
-        } catch (e: Exception) {
-            logger.error(
-                where = "removeObviousTestData",
-                what = "[ERROR] Test data cleanup failed",
-                throwable = e
-            )
-            0
-        }
-    }
+    // removeObviousTestData() has been removed - not needed for production with real data
 }

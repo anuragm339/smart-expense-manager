@@ -1,0 +1,335 @@
+package com.expensemanager.app.parsing.engine
+
+import com.expensemanager.app.data.entities.TransactionEntity
+import com.expensemanager.app.parsing.models.BankRule
+import com.expensemanager.app.parsing.models.BankRulesSchema
+import com.expensemanager.app.parsing.models.ConfidenceScore
+import com.expensemanager.app.utils.logging.StructuredLogger
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.*
+import javax.inject.Inject
+import javax.inject.Singleton
+
+/**
+ * Unified SMS parser using rule-based engine
+ * Replaces hardcoded parsing logic with data-driven approach
+ */
+@Singleton
+class UnifiedSMSParser @Inject constructor(
+    private val ruleLoader: RuleLoader,
+    private val confidenceCalculator: ConfidenceCalculator
+) {
+    private val logger = StructuredLogger("SMS_PARSING", "UnifiedSMSParser")
+
+    companion object {
+        private val DATE_FORMATS = listOf(
+            SimpleDateFormat("dd-MM-yyyy", Locale.ENGLISH),
+            SimpleDateFormat("dd/MM/yyyy", Locale.ENGLISH),
+            SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH),
+            SimpleDateFormat("dd-MM-yy", Locale.ENGLISH),
+            SimpleDateFormat("dd/MM/yy", Locale.ENGLISH),
+            SimpleDateFormat("dd.MM.yy", Locale.ENGLISH)
+        )
+    }
+
+    /**
+     * Parse SMS message into transaction with confidence score
+     */
+    suspend fun parseSMS(
+        sender: String,
+        body: String,
+        timestamp: Long
+    ): ParseResult = withContext(Dispatchers.IO) {
+        try {
+            // Load rules
+            val rulesResult = ruleLoader.loadRules()
+            if (rulesResult.isFailure) {
+                logger.error("parseSMS", "Failed to load rules", rulesResult.exceptionOrNull())
+                return@withContext ParseResult.Failed("Rule loading failed")
+            }
+
+            val rules = rulesResult.getOrNull()!!
+
+            // 1. Try to match sender to a bank
+            val bankRule = findMatchingBank(sender, rules)
+            val senderMatched = bankRule != null
+
+            // 2. Extract transaction fields
+            val amount = extractAmount(body, bankRule, rules)
+            val merchant = extractMerchant(body, bankRule, rules)
+            val date = extractDate(body, bankRule, timestamp)
+            val transactionType = extractTransactionType(body, bankRule, rules)
+            val referenceNumber = extractReferenceNumber(body, bankRule, rules)
+
+            // 3. Validate required fields (HARD REQUIREMENTS)
+            if (amount == null) {
+                logger.warn("parseSMS", "No amount found in SMS: ${body.take(50)}...")
+                return@withContext ParseResult.Failed("Amount not found")
+            }
+
+            // CRITICAL: Reference number is MANDATORY for transaction SMS
+            if (referenceNumber == null) {
+                logger.warn("parseSMS", "No reference number found - likely promotional SMS: ${body.take(50)}...")
+                return@withContext ParseResult.Failed("Reference number not found (required for transaction SMS)")
+            }
+
+            // 4. Calculate confidence score
+            val confidence = confidenceCalculator.calculate(
+                senderMatched = senderMatched,
+                bankRule = bankRule,
+                extractedAmount = amount,
+                extractedMerchant = merchant,
+                extractedDate = date?.toString(),
+                extractedType = transactionType,
+                extractedReferenceNumber = referenceNumber,
+                smsBody = body
+            )
+
+            // 5. Create transaction entity
+            val transaction = createTransactionEntity(
+                sender = sender,
+                body = body,
+                timestamp = timestamp,
+                amount = amount,
+                merchant = merchant,
+                date = date,
+                transactionType = transactionType,
+                bankName = bankRule?.displayName,
+                referenceNumber = referenceNumber
+            )
+
+            ParseResult.Success(transaction, confidence)
+
+        } catch (e: Exception) {
+            logger.error("parseSMS", "Parse error", e)
+            ParseResult.Failed("Parse exception: ${e.message}")
+        }
+    }
+
+    /**
+     * Find matching bank rule for sender
+     */
+    private fun findMatchingBank(sender: String, rules: BankRulesSchema): BankRule? {
+        return rules.banks.firstOrNull { bank ->
+            bank.senderPatterns.any { pattern ->
+                try {
+                    val regex = ruleLoader.getCompiledRegex(pattern)
+                    regex.containsMatchIn(sender)
+                } catch (e: Exception) {
+                    logger.warn("findMatchingBank", "Invalid sender pattern: $pattern")
+                    false
+                }
+            }
+        }
+    }
+
+    /**
+     * Extract amount from SMS body
+     */
+    private fun extractAmount(
+        body: String,
+        bankRule: BankRule?,
+        rules: BankRulesSchema
+    ): String? {
+        // Try bank-specific patterns first
+        bankRule?.patterns?.amount?.forEach { pattern ->
+            val amount = tryExtractWithPattern(body, pattern)
+            if (amount != null) return amount
+        }
+
+        // Fall back to generic patterns
+        rules.fallbackPatterns.amount.forEach { pattern ->
+            val amount = tryExtractWithPattern(body, pattern)
+            if (amount != null) return amount
+        }
+
+        return null
+    }
+
+    /**
+     * Extract merchant from SMS body
+     */
+    private fun extractMerchant(
+        body: String,
+        bankRule: BankRule?,
+        rules: BankRulesSchema
+    ): String? {
+        // Try bank-specific patterns first
+        bankRule?.patterns?.merchant?.forEach { pattern ->
+            val merchant = tryExtractWithPattern(body, pattern)
+            if (merchant != null) {
+                return cleanMerchantName(merchant)
+            }
+        }
+
+        // Fall back to generic patterns
+        rules.fallbackPatterns.merchant.forEach { pattern ->
+            val merchant = tryExtractWithPattern(body, pattern)
+            if (merchant != null) {
+                return cleanMerchantName(merchant)
+            }
+        }
+
+        return null
+    }
+
+    /**
+     * Extract date from SMS body
+     */
+    private fun extractDate(
+        body: String,
+        bankRule: BankRule?,
+        defaultTimestamp: Long
+    ): Date {
+        // Try bank-specific date patterns
+        bankRule?.patterns?.date?.forEach { pattern ->
+            val dateStr = tryExtractWithPattern(body, pattern)
+            if (dateStr != null) {
+                val parsedDate = tryParseDate(dateStr)
+                if (parsedDate != null) return parsedDate
+            }
+        }
+
+        // Default to SMS timestamp
+        return Date(defaultTimestamp)
+    }
+
+    /**
+     * Extract transaction type (debit/credit)
+     */
+    private fun extractTransactionType(
+        body: String,
+        bankRule: BankRule?,
+        rules: BankRulesSchema
+    ): String? {
+        val bodyLower = body.lowercase()
+
+        // Try bank-specific type patterns
+        bankRule?.patterns?.transactionType?.forEach { pattern ->
+            val type = tryExtractWithPattern(body, pattern)
+            if (type != null) return type.lowercase()
+        }
+
+        // Check fallback keywords
+        if (rules.fallbackPatterns.debitKeywords.any { bodyLower.contains(it) }) {
+            return "debit"
+        }
+        if (rules.fallbackPatterns.creditKeywords.any { bodyLower.contains(it) }) {
+            return "credit"
+        }
+
+        return "debit" // Default to debit if unclear
+    }
+
+    /**
+     * Extract reference number from SMS body
+     */
+    private fun extractReferenceNumber(
+        body: String,
+        bankRule: BankRule?,
+        rules: BankRulesSchema
+    ): String? {
+        // Try bank-specific patterns first
+        bankRule?.patterns?.referenceNumber?.forEach { pattern ->
+            val refNum = tryExtractWithPattern(body, pattern)
+            if (refNum != null) return refNum
+        }
+
+        // Fall back to generic patterns
+        rules.fallbackPatterns.referenceNumber?.forEach { pattern ->
+            val refNum = tryExtractWithPattern(body, pattern)
+            if (refNum != null) return refNum
+        }
+
+        return null
+    }
+
+    /**
+     * Try to extract value using a regex pattern
+     */
+    private fun tryExtractWithPattern(body: String, pattern: String): String? {
+        return try {
+            val regex = ruleLoader.getCompiledRegex(pattern)
+            regex.find(body)?.groupValues?.get(1)?.trim()
+        } catch (e: Exception) {
+            logger.warn("tryExtractWithPattern", "Pattern match failed: $pattern")
+            null
+        }
+    }
+
+    /**
+     * Clean merchant name (remove extra spaces, special chars)
+     */
+    private fun cleanMerchantName(merchant: String): String {
+        return merchant
+            .trim()
+            .replace(Regex("\\s+"), " ")
+            .replace(Regex("[^A-Za-z0-9\\s&'-]"), "")
+            .trim()
+    }
+
+    /**
+     * Try to parse date string with multiple formats
+     */
+    private fun tryParseDate(dateStr: String): Date? {
+        DATE_FORMATS.forEach { format ->
+            try {
+                format.isLenient = false
+                return format.parse(dateStr)
+            } catch (e: Exception) {
+                // Try next format
+            }
+        }
+        return null
+    }
+
+    /**
+     * Create TransactionEntity from parsed data
+     */
+    private fun createTransactionEntity(
+        sender: String,
+        body: String,
+        timestamp: Long,
+        amount: String,
+        merchant: String?,
+        date: Date?,
+        transactionType: String?,
+        bankName: String?,
+        referenceNumber: String?
+    ): TransactionEntity {
+        val cleanAmount = amount.replace(",", "").toDoubleOrNull() ?: 0.0
+        val merchantName = merchant ?: "Unknown Merchant"
+        val normalizedMerchant = merchantName.uppercase().replace(Regex("\\s+"), "_")
+        val now = Date()
+
+        return TransactionEntity(
+            id = 0, // Will be auto-generated
+            smsId = TransactionEntity.generateSmsId(sender, body, timestamp, referenceNumber),
+            amount = cleanAmount,
+            rawMerchant = merchantName,
+            normalizedMerchant = normalizedMerchant,
+            bankName = bankName ?: "Unknown Bank",
+            transactionDate = date ?: Date(timestamp),
+            rawSmsBody = body,
+            confidenceScore = 0.0f, // Will be set by caller
+            isDebit = transactionType?.lowercase()?.contains("credit") != true,
+            referenceNumber = referenceNumber,
+            createdAt = now,
+            updatedAt = now
+        )
+    }
+
+    /**
+     * Result of SMS parsing
+     */
+    sealed class ParseResult {
+        data class Success(
+            val transaction: TransactionEntity,
+            val confidence: ConfidenceScore
+        ) : ParseResult()
+
+        data class Failed(val reason: String) : ParseResult()
+    }
+}

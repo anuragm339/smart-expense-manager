@@ -1,7 +1,6 @@
 package com.expensemanager.app.domain.usecase.merchant
 
 import timber.log.Timber
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.data.entities.MerchantEntity
 import com.expensemanager.app.data.dao.MerchantWithCategory
 import com.expensemanager.app.domain.repository.MerchantRepositoryInterface

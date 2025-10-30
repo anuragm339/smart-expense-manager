@@ -1,6 +1,5 @@
 package com.expensemanager.app.services
 
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.utils.logging.StructuredLogger
 import com.expensemanager.app.data.api.insights.*
 import com.expensemanager.app.data.models.Transaction
@@ -10,7 +9,6 @@ import java.text.SimpleDateFormat
 import java.util.*
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.math.abs
 
 /**
  * Service to process and anonymize financial data before sending to AI
@@ -25,7 +23,7 @@ class FinancialDataProcessor @Inject constructor() {
         private const val MIN_AMOUNT_FOR_MERCHANT = 100.0 // Minimum spending to include merchant
     }
 
-    private val logger = StructuredLogger(LogConfig.FeatureTags.INSIGHTS, TAG)
+    private val logger = StructuredLogger("INSIGHTS", TAG)
 
     /**
      * Main method to create anonymized financial data from transactions

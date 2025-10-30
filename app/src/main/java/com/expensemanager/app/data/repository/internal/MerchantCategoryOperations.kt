@@ -6,8 +6,6 @@ import com.expensemanager.app.data.dao.MerchantDao
 import com.expensemanager.app.data.dao.TransactionDao
 import com.expensemanager.app.data.entities.CategoryEntity
 import com.expensemanager.app.data.entities.MerchantEntity
-import com.expensemanager.app.data.repository.internal.TransactionDataRepository
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.utils.logging.StructuredLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -22,7 +20,7 @@ internal class MerchantCategoryOperations(
 ) {
 
     private val logger = StructuredLogger(
-        featureTag = LogConfig.FeatureTags.DATABASE,
+        featureTag = "DATABASE",
         className = "MerchantCategoryOperations"
     )
 
@@ -80,14 +78,31 @@ internal class MerchantCategoryOperations(
             for (originalName in originalMerchantNames) {
                 try {
                     val normalizedName = transactionRepository.normalizeMerchantName(originalName)
+                    logger.debug(
+                        where = "updateMerchantAliasInDatabase",
+                        what = "[DB_UPDATE] originalName='$originalName' -> normalizedName='$normalizedName'"
+                    )
+
                     val merchantExistsCount = merchantDao.merchantExists(normalizedName)
                     val merchantExists = merchantExistsCount > 0
+                    logger.debug(
+                        where = "updateMerchantAliasInDatabase",
+                        what = "[DB_UPDATE] merchantExists=$merchantExists (count=$merchantExistsCount) for '$normalizedName'"
+                    )
 
                     if (merchantExists) {
-                        merchantDao.updateMerchantDisplayNameAndCategory(
+                        logger.debug(
+                            where = "updateMerchantAliasInDatabase",
+                            what = "[DB_UPDATE] Attempting UPDATE: normalizedName='$normalizedName', displayName='$newDisplayName', categoryId=${category.id}"
+                        )
+                        val rowsUpdated = merchantDao.updateMerchantDisplayNameAndCategory(
                             normalizedName = normalizedName,
                             displayName = newDisplayName,
                             categoryId = category.id
+                        )
+                        logger.info(
+                            where = "updateMerchantAliasInDatabase",
+                            what = "[DB_UPDATE] UPDATE affected $rowsUpdated rows for '$normalizedName'"
                         )
                         updatedCount++
                     } else {
@@ -317,22 +332,11 @@ internal class MerchantCategoryOperations(
             return category
         }
 
-        return try {
-            val newCategory = CategoryEntity(
-                name = categoryName,
-                color = "#4CAF50",
-                isSystem = false,
-                createdAt = Date()
-            )
-            val newCategoryId = categoryDao.insertCategory(newCategory)
-            newCategory.copy(id = newCategoryId)
-        } catch (e: Exception) {
-            logger.error(
-                where = "ensureCategoryExists",
-                what = "Failed to create category: $categoryName",
-                throwable = e
-            )
-            null
-        }
+        // Don't auto-create categories - return null to prevent duplicates
+        logger.error(
+            where = "ensureCategoryExists",
+            what = "Category not found in database: $categoryName"
+        )
+        return null
     }
 }

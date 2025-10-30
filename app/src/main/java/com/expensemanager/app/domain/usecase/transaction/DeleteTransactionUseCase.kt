@@ -1,7 +1,6 @@
 package com.expensemanager.app.domain.usecase.transaction
 
 import timber.log.Timber
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.data.entities.TransactionEntity
 import com.expensemanager.app.domain.repository.TransactionRepositoryInterface
 import javax.inject.Inject

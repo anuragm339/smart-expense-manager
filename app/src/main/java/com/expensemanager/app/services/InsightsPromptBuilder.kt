@@ -1,7 +1,6 @@
 package com.expensemanager.app.services
 
 import android.content.Context
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.utils.logging.StructuredLogger
 import com.expensemanager.app.data.api.insights.AnonymizedFinancialData
 import com.expensemanager.app.data.models.InsightType
@@ -24,7 +23,7 @@ class InsightsPromptBuilder @Inject constructor(
         private const val MAX_PROMPT_LENGTH = 2000 // Keep prompts concise for API efficiency
     }
 
-    private val logger = StructuredLogger(LogConfig.FeatureTags.INSIGHTS, TAG)
+    private val logger = StructuredLogger("INSIGHTS", TAG)
 
     /**
      * Build appropriate prompt based on insight type and financial data

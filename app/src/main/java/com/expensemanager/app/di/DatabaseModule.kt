@@ -95,4 +95,15 @@ object DatabaseModule {
     ): UserDao {
         return database.userDao()
     }
+
+    /**
+     * Provides BudgetDao for budget-related database operations
+     */
+    @Provides
+    @Singleton
+    fun provideBudgetDao(
+        database: ExpenseDatabase
+    ): BudgetDao {
+        return database.budgetDao()
+    }
 }

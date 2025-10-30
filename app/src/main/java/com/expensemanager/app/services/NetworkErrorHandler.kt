@@ -5,7 +5,6 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.utils.logging.StructuredLogger
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.awaitClose
@@ -35,7 +34,7 @@ class NetworkErrorHandler @Inject constructor(
         private const val EXPONENTIAL_BACKOFF_MULTIPLIER = 2
     }
 
-    private val logger = StructuredLogger(LogConfig.FeatureTags.NETWORK, TAG)
+    private val logger = StructuredLogger("NETWORK", TAG)
 
     /**
      * Error types for different network scenarios

@@ -2,13 +2,12 @@ package com.expensemanager.app.services
 
 import android.content.Context
 import android.database.Cursor
-import android.net.Uri
 import android.provider.Telephony
 import com.expensemanager.app.models.HistoricalSMS
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.utils.logging.StructuredLogger
 import com.expensemanager.app.models.ParsedTransaction
 import com.expensemanager.app.models.RejectedSMS
+import com.expensemanager.app.parsing.engine.UnifiedSMSParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -26,10 +25,11 @@ import javax.inject.Singleton
  */
 @Singleton
 class SMSParsingService @Inject constructor(
-    private val context: Context
+    private val context: Context,
+    private val unifiedParser: UnifiedSMSParser
 ) {
     private val logger = StructuredLogger(
-        featureTag = LogConfig.FeatureTags.SMS,
+        featureTag = "SMS",
         className = "SMSParsingService"
     )
     companion object {
@@ -129,39 +129,81 @@ class SMSParsingService @Inject constructor(
             
             for (sms in historicalSMS) {
                 processedCount++
-                
+
                 // Update progress callback every 100 messages for performance
                 if (processedCount % 100 == 0) {
                     val status = "Processed $processedCount/$totalSMS messages • Found $acceptedCount transactions"
                     progressCallback?.invoke(processedCount, totalSMS, status)
                 }
-                
-                if (isBankTransaction(sms)) {
-                    val transaction = parseTransaction(sms)
-                    if (transaction != null) {
-                        transactions.add(transaction)
-                        acceptedCount++
-                    } else {
-                        // SMS passed bank validation but failed transaction parsing
-                        rejectedSMSList.add(RejectedSMS(
-                            sender = sms.address,
-                            body = sms.body.replace(Regex("\\s+"), " ").trim(),
-                            date = sms.date,
-                            reason = "Failed transaction parsing"
-                        ))
-                        rejectedCount++
+
+                // Use new unified parser
+                val parseResult = unifiedParser.parseSMS(
+                    sender = sms.address,
+                    body = sms.body,
+                    timestamp = sms.date.time
+                )
+
+                when (parseResult) {
+                    is UnifiedSMSParser.ParseResult.Success -> {
+                        // CRITICAL: Double-check reference number exists (additional safety)
+                        if (parseResult.transaction.referenceNumber.isNullOrBlank()) {
+                            logger.warn(
+                                where = "scanHistoricalSMS",
+                                what = "[REJECTED] Transaction has no reference number (conf=${String.format("%.2f", parseResult.confidence.overall)}) - likely promotional: ${sms.body.take(50)}..."
+                            )
+                            rejectedSMSList.add(RejectedSMS(
+                                sender = sms.address,
+                                body = sms.body.replace(Regex("\\s+"), " ").trim(),
+                                date = sms.date,
+                                reason = "No reference number (required for transaction SMS)"
+                            ))
+                            rejectedCount++
+                            continue
+                        }
+
+                        // Convert TransactionEntity to ParsedTransaction
+                        val transaction = ParsedTransaction(
+                            id = "hist_${sms.id}",
+                            amount = parseResult.transaction.amount,
+                            merchant = parseResult.transaction.rawMerchant,
+                            bankName = parseResult.transaction.bankName,
+                            date = parseResult.transaction.transactionDate,
+                            rawSMS = parseResult.transaction.rawSmsBody,
+                            confidence = parseResult.confidence.overall,
+                            isDebit = parseResult.transaction.isDebit
+                        )
+
+                        // Only accept if confidence is reasonable
+                        // Threshold: 0.65 minimum confidence score
+                        if (parseResult.confidence.overall >= 0.65f) {
+                            transactions.add(transaction)
+                            acceptedCount++
+                        } else {
+                            rejectedSMSList.add(RejectedSMS(
+                                sender = sms.address,
+                                body = sms.body.replace(Regex("\\s+"), " ").trim(),
+                                date = sms.date,
+                                reason = "Low confidence (${String.format("%.2f", parseResult.confidence.overall)})"
+                            ))
+                            rejectedCount++
+                        }
                     }
-                } else {
-                    // SMS failed bank validation
-                    rejectedSMSList.add(RejectedSMS(
-                        sender = sms.address,
-                        body = sms.body.replace(Regex("\\s+"), " ").trim(),
-                        date = sms.date,
-                        reason = "Failed bank validation"
-                    ))
-                    rejectedCount++
+                    is UnifiedSMSParser.ParseResult.Failed -> {
+                        // Failed parsing - could be non-bank SMS or parsing error
+                        if (isBankTransaction(sms)) {
+                            // It looked like a bank SMS but parsing failed
+                            rejectedSMSList.add(RejectedSMS(
+                                sender = sms.address,
+                                body = sms.body.replace(Regex("\\s+"), " ").trim(),
+                                date = sms.date,
+                                reason = "Parse failed: ${parseResult.reason}"
+                            ))
+                            rejectedCount++
+                        }
+                        // Otherwise, skip silently (not a bank SMS)
+                    }
                 }
-                
+
                 // Yield occasionally to prevent ANR
                 if (processedCount % 100 == 0) {
                     kotlinx.coroutines.yield()

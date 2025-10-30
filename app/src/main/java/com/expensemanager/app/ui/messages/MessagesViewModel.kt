@@ -2,7 +2,6 @@ package com.expensemanager.app.ui.messages
 
 import android.content.Context
 
-import com.expensemanager.app.utils.logging.LogConfig
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.expensemanager.app.data.repository.ExpenseRepository
@@ -41,7 +40,7 @@ class MessagesViewModel @Inject constructor(
     private val merchantAliasManager by lazy { MerchantAliasManager(context) }
     // SMS parsing is now handled by the injected SMSParsingService
     private val logger = StructuredLogger(
-        featureTag = LogConfig.FeatureTags.UI,
+        featureTag = "UI",
         className = "MessagesViewModel"
     )
     // Private mutable state
@@ -56,24 +55,38 @@ class MessagesViewModel @Inject constructor(
     init {
         logger.info("init","============ ViewModel initialized ============")
 
-        // Apply default "This Month" filter
+        // Set default "This Month" filter but DON'T trigger load yet
+        // Fragment will call startInitialLoad() when ready to observe state
+        val startOfMonth = getStartOfMonthDate()
+
+        _uiState.value = _uiState.value.copy(
+            currentFilterOptions = FilterOptions(
+                dateFrom = startOfMonth
+            )
+        )
+
+        logger.info("init","Default filter set to 'This Month' from: $startOfMonth. Waiting for Fragment to trigger load.")
+    }
+
+    /**
+     * Get start of month date in yyyy-MM-dd format
+     */
+    private fun getStartOfMonthDate(): String {
         val calendar = Calendar.getInstance()
         calendar.set(Calendar.DAY_OF_MONTH, 1)
         calendar.set(Calendar.HOUR_OF_DAY, 0)
         calendar.set(Calendar.MINUTE, 0)
         calendar.set(Calendar.SECOND, 0)
         calendar.set(Calendar.MILLISECOND, 0)
+        return SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(calendar.time)
+    }
 
-        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-        val startOfMonth = dateFormat.format(calendar.time)
-
-        logger.info("init","Applying default 'This Month' filter from: $startOfMonth")
-
-        applyFilterOptions(
-            FilterOptions(
-                dateFrom = startOfMonth
-            )
-        )
+    /**
+     * Start initial data load - called by Fragment when ready to observe
+     */
+    fun startInitialLoad() {
+        logger.info("startInitialLoad", "Fragment ready, starting initial data load")
+        loadMessages()
     }
     
     /**
@@ -747,8 +760,19 @@ class MessagesViewModel @Inject constructor(
             logger.warn("groupTransactionsByMerchant","Filtered out ${transactions.size - validTransactions.size} transactions with empty merchant names")
         }
 
+        // DEBUG: Log merchant names to detect duplicates
+        val merchantNames = validTransactions.map { it.merchant }.distinct()
+        logger.debug("groupTransactionsByMerchant", "Unique merchant names: ${merchantNames.size}")
+
+        // DEBUG: Check for suspected duplicates (case-insensitive, whitespace-trimmed)
+        val suspectedDuplicates = merchantNames.groupBy { it.trim().uppercase() }
+            .filter { it.value.size > 1 }
+        if (suspectedDuplicates.isNotEmpty()) {
+            logger.warn("groupTransactionsByMerchant", "SUSPECTED DUPLICATES: $suspectedDuplicates")
+        }
+
         val groups = validTransactions
-            .groupBy { it.merchant }
+            .groupBy { it.merchant.trim() }
             .map { (displayName, merchantTransactions) ->
                 val sortedTransactions = merchantTransactions.sortedByDescending { transaction ->
                     getDateSortOrderReverse(transaction.dateTime)
@@ -786,44 +810,47 @@ class MessagesViewModel @Inject constructor(
                 )
             }
         
+        // Load saved inclusion states from SharedPreferences
+        val groupsWithInclusionStates = loadGroupInclusionStates(groups)
+
         // Sort groups based on current sort option
         return when (sortOption.field) {
             "date" -> {
                 if (sortOption.ascending) {
-                    groups.sortedBy { it.latestTransactionDate }
+                    groupsWithInclusionStates.sortedBy { it.latestTransactionDate }
                 } else {
-                    groups.sortedByDescending { it.latestTransactionDate }
+                    groupsWithInclusionStates.sortedByDescending { it.latestTransactionDate }
                 }
             }
             "amount" -> {
                 if (sortOption.ascending) {
-                    groups.sortedBy { it.totalAmount }
+                    groupsWithInclusionStates.sortedBy { it.totalAmount }
                 } else {
-                    groups.sortedByDescending { it.totalAmount }
+                    groupsWithInclusionStates.sortedByDescending { it.totalAmount }
                 }
             }
             "merchant" -> {
                 if (sortOption.ascending) {
-                    groups.sortedBy { it.merchantName.lowercase() }
+                    groupsWithInclusionStates.sortedBy { it.merchantName.lowercase() }
                 } else {
-                    groups.sortedByDescending { it.merchantName.lowercase() }
+                    groupsWithInclusionStates.sortedByDescending { it.merchantName.lowercase() }
                 }
             }
             "bank" -> {
                 if (sortOption.ascending) {
-                    groups.sortedBy { it.primaryBankName.lowercase() }
+                    groupsWithInclusionStates.sortedBy { it.primaryBankName.lowercase() }
                 } else {
-                    groups.sortedByDescending { it.primaryBankName.lowercase() }
+                    groupsWithInclusionStates.sortedByDescending { it.primaryBankName.lowercase() }
                 }
             }
             "confidence" -> {
                 if (sortOption.ascending) {
-                    groups.sortedBy { it.averageConfidence }
+                    groupsWithInclusionStates.sortedBy { it.averageConfidence }
                 } else {
-                    groups.sortedByDescending { it.averageConfidence }
+                    groupsWithInclusionStates.sortedByDescending { it.averageConfidence }
                 }
             }
-            else -> groups.sortedByDescending { it.latestTransactionDate }
+            else -> groupsWithInclusionStates.sortedByDescending { it.latestTransactionDate }
         }
     }
     
@@ -1120,16 +1147,63 @@ class MessagesViewModel @Inject constructor(
         return ""
     }
     
+    private fun loadGroupInclusionStates(groups: List<MerchantGroup>): List<MerchantGroup> {
+        try {
+            logger.debug("loadGroupInclusionStates", "Loading inclusion states for ${groups.size} groups")
+
+            val prefs = context.getSharedPreferences("expense_calculations", Context.MODE_PRIVATE)
+            val inclusionStatesJson = prefs.getString("group_inclusion_states", null)
+
+            if (inclusionStatesJson != null && inclusionStatesJson.isNotBlank()) {
+                try {
+                    val inclusionStates = org.json.JSONObject(inclusionStatesJson)
+                    var loadedCount = 0
+
+                    val updatedGroups = groups.map { group ->
+                        val isIncluded = try {
+                            if (inclusionStates.has(group.merchantName)) {
+                                loadedCount++
+                                inclusionStates.getBoolean(group.merchantName)
+                            } else {
+                                true // Default to included if not found
+                            }
+                        } catch (e: Exception) {
+                            logger.warn("loadGroupInclusionStates", "Error loading inclusion state for '${group.merchantName}': ${e.message}")
+                            true // Default to included on error
+                        }
+                        group.copy(isIncludedInCalculations = isIncluded)
+                    }
+
+                    logger.debug("loadGroupInclusionStates", "Successfully loaded $loadedCount inclusion states")
+                    return updatedGroups
+
+                } catch (e: Exception) {
+                    logger.warn("loadGroupInclusionStates", "Error parsing inclusion states JSON: ${e.message}")
+                }
+            } else {
+                logger.debug("loadGroupInclusionStates", "No inclusion states found, using defaults")
+            }
+
+            // Return original groups with default inclusion states
+            return groups
+
+        } catch (e: Exception) {
+            logger.error("loadGroupInclusionStates", "Critical error loading inclusion states", e)
+            // Return original groups on critical error
+            return groups
+        }
+    }
+
     private fun saveGroupInclusionStates(groups: List<MerchantGroup>) {
         try {
             logger.debug("saveGroupInclusionStates","Saving inclusion states for ${groups.size} groups")
-            
+
             val prefs = context.getSharedPreferences("expense_calculations", Context.MODE_PRIVATE)
             val editor = prefs.edit()
-            
+
             val inclusionStates = org.json.JSONObject()
             var savedCount = 0
-            
+
             groups.forEach { group ->
                 try {
                     inclusionStates.put(group.merchantName, group.isIncludedInCalculations)
@@ -1138,17 +1212,17 @@ class MessagesViewModel @Inject constructor(
                     logger.debug("saveGroupInclusionStates","Failed to save inclusion state for '${group.merchantName}'")
                 }
             }
-            
+
             editor.putString("group_inclusion_states", inclusionStates.toString())
             val success = editor.commit()
-            
+
             if (success) {
                 logger.debug("saveGroupInclusionStates","Successfully saved $savedCount inclusion states")
             } else {
                 logger.debug("saveGroupInclusionStates","Failed to commit inclusion states to SharedPreferences")
                 throw Exception("SharedPreferences commit failed")
             }
-            
+
         } catch (e: Exception) {
             logger.error("saveGroupInclusionStates","Error saving group inclusion states",e)
             // Don't show error to user for this - it's not critical

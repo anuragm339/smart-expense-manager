@@ -2,8 +2,6 @@ package com.expensemanager.app
 
 import android.app.Application
 import com.expensemanager.app.data.migration.DataMigrationManager
-import com.expensemanager.app.utils.logging.LogConfig
-import com.expensemanager.app.utils.logging.LoggingMode
 import com.expensemanager.app.utils.logging.StructuredLogger
 import com.expensemanager.app.utils.logging.TimberFileTree
 import dagger.hilt.android.HiltAndroidApp
@@ -21,32 +19,20 @@ class ExpenseManagerApplication : Application() {
     lateinit var dataMigrationManager: DataMigrationManager
 
     @Inject
-    lateinit var logConfig: LogConfig
-
-    @Inject
     lateinit var timberFileTree: TimberFileTree
-
-    @Inject
-    lateinit var bugFixLoggingConfig: com.expensemanager.app.utils.logging.BugFixLoggingConfig
 
     // Application-wide coroutine scope
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    private val logger = StructuredLogger(LogConfig.FeatureTags.APP, ExpenseManagerApplication::class.java.simpleName)
+    private val logger = StructuredLogger("APP", ExpenseManagerApplication::class.java.simpleName)
     
     override fun onCreate() {
         super.onCreate()
 
-        // Initialize enhanced Timber logging system
+        // Initialize Timber logging system
         initializeTimber()
 
-        logger.debug("onCreate","Application onCreate() starting with enhanced Timber logging...")
-        logger.debug("onCreate","Enhanced Timber logging system initialized successfully")
-
-        // 🔧 Configure focused logging based on LoggingMode
-        configureFocusedLogging()
-
-        // Log current configuration for debugging
-        logger.debug("onCreate","Current logging configuration:\n${logConfig.getCurrentConfig()}")
+        logger.debug("onCreate","Application onCreate() starting with Timber logging...")
+        logger.debug("onCreate","Timber logging system initialized successfully")
 
         // Perform data migration in background
         applicationScope.launch {
@@ -71,26 +57,7 @@ class ExpenseManagerApplication : Application() {
     }
 
     /**
-     * 🔧 Configure focused logging based on LoggingMode.kt setting
-     */
-    private fun configureFocusedLogging() {
-        val mode = LoggingMode.CURRENT_MODE
-        logger.debug("configureFocusedLogging","Configuring logging: ${LoggingMode.getDescription()}")
-
-        when (mode) {
-            LoggingMode.Mode.BUG_1 -> bugFixLoggingConfig.enableBug1Logs()
-            LoggingMode.Mode.BUG_2 -> bugFixLoggingConfig.enableBug2Logs()
-            LoggingMode.Mode.BUG_3 -> bugFixLoggingConfig.enableBug3Logs()
-            LoggingMode.Mode.ALL_BUGS -> bugFixLoggingConfig.enableAllBugLogs()
-            LoggingMode.Mode.NORMAL -> bugFixLoggingConfig.restoreNormalLogging()
-            LoggingMode.Mode.MINIMAL -> bugFixLoggingConfig.enableMinimalLogging()
-        }
-
-        bugFixLoggingConfig.printCurrentStatus()
-    }
-    
-    /**
-     * Initialize enhanced Timber logging system with feature-specific control
+     * Initialize Timber logging system
      */
     private fun initializeTimber() {
         Timber.uprootAll()
@@ -104,24 +71,13 @@ class ExpenseManagerApplication : Application() {
             })
         }
 
-        // Plant enhanced file tree for feature-based filtering and persistence.
+        // Plant file tree to write logs to files for debugging
         Timber.plant(timberFileTree)
 
-        logger.info(
-            "initializeTimber",
-            "Timber logging system initialized",
-            "Trees planted: ${Timber.treeCount}"
-        )
-        logger.debug(
-            "initializeTimber",
-            "File logging enabled state",
-            "Value: ${logConfig.isFileLoggingEnabled}"
-        )
-        logger.debug(
-            "initializeTimber",
-            "External logging enabled state",
-            "Value: ${logConfig.isExternalLoggingEnabled}"
-        )
+        // Test log to verify file logging works
+        Timber.tag("APP").i("TimberFileTree planted successfully - file logging enabled")
+
+        logger.info("initializeTimber", "Timber logging system initialized with file logging")
     }
 
 }

@@ -1,44 +1,30 @@
 package com.expensemanager.app.ui.profile
 
-import android.content.Context
-import android.content.SharedPreferences
-import android.graphics.Color
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
-import com.expensemanager.app.utils.logging.LogConfig
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import com.expensemanager.app.R
 import com.expensemanager.app.MainActivity
 import com.expensemanager.app.databinding.FragmentBudgetGoalsBinding
-import com.expensemanager.app.databinding.ItemCategoryBudgetBinding
-import com.expensemanager.app.data.repository.ExpenseRepository
-import com.expensemanager.app.utils.CategoryManager
-import com.expensemanager.app.utils.MerchantAliasManager
 import com.expensemanager.app.utils.logging.StructuredLogger
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
-import org.json.JSONArray
-import org.json.JSONObject
-import java.util.*
 
 @AndroidEntryPoint
 class BudgetGoalsFragment : Fragment() {
     
     private var _binding: FragmentBudgetGoalsBinding? = null
     private val binding get() = _binding!!
-    
+
     private val viewModel: BudgetGoalsViewModel by viewModels()
-    private lateinit var categoryBudgetsAdapter: CategoryBudgetsAdapter
     private val logger = StructuredLogger("BudgetGoalsFragment", "BudgetGoalsFragment")
 
     override fun onCreateView(
@@ -52,32 +38,17 @@ class BudgetGoalsFragment : Fragment() {
     
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        
-        setupRecyclerView()
+
         setupClickListeners()
         setupObservers()
-        
+
         // Load data
         viewModel.loadBudgetData()
-    }
-    
-    private fun setupRecyclerView() {
-        categoryBudgetsAdapter = CategoryBudgetsAdapter { budgetItem ->
-            showEditCategoryBudgetDialog(budgetItem)
-        }
-        binding.recyclerCategoryBudgets.apply {
-            adapter = categoryBudgetsAdapter
-            layoutManager = LinearLayoutManager(requireContext())
-        }
     }
     
     private fun setupClickListeners() {
         binding.btnEditBudget.setOnClickListener {
             showEditMonthlyBudgetDialog()
-        }
-        
-        binding.btnAddCategoryBudget.setOnClickListener {
-            showAddCategoryBudgetDialog()
         }
         
         // Debug: Long press on budget status to force test alerts
@@ -124,13 +95,11 @@ class BudgetGoalsFragment : Fragment() {
         binding.tvRemaining.text = "₹${String.format("%.0f", state.monthlyBudget - state.currentSpent)} remaining"
         binding.progressBudget.progress = state.budgetProgress
         binding.tvBudgetAmount.text = "Budget: ₹${String.format("%.0f", state.monthlyBudget)}"
+        binding.tvBudgetPercentage.text = "${state.budgetProgress}% of budget used"
         
         // Update insights
         binding.tvBudgetStatus.text = state.insights.statusText
         binding.tvBudgetTip.text = state.insights.tipText
-        
-        // Update category budgets
-        categoryBudgetsAdapter.submitList(state.categoryBudgets)
     }
     
     private fun handleEvent(event: BudgetGoalsEvent) {
@@ -273,69 +242,7 @@ class BudgetGoalsFragment : Fragment() {
             }
             .show()
     }
-    
-    private fun showAddCategoryBudgetDialog() {
-        val categories = arrayOf("Food & Dining", "Transportation", "Groceries", "Healthcare", "Shopping", "Entertainment", "Utilities", "Other")
-        
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Select Category")
-            .setItems(categories) { _, which ->
-                val category = categories[which]
-                showSetCategoryBudgetDialog(category)
-            }
-            .show()
-    }
-    
-    private fun showSetCategoryBudgetDialog(categoryName: String) {
-        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_edit_budget, null)
-        val budgetInput = dialogView.findViewById<TextInputEditText>(R.id.et_budget_amount)
-        
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Set Budget for $categoryName")
-            .setView(dialogView)
-            .setPositiveButton("Save") { _, _ ->
-                val budget = budgetInput.text.toString().toFloatOrNull()
-                if (budget != null && budget > 0) {
-                    viewModel.addCategoryBudget(categoryName, budget)
-                } else {
-                    Toast.makeText(requireContext(), "Please enter a valid budget amount", Toast.LENGTH_SHORT).show()
-                }
-            }
-            .setNegativeButton("Cancel") { dialog, _ ->
-                dialog.dismiss()
-            }
-            .show()
-    }
-    
-    private fun showEditCategoryBudgetDialog(budgetItem: CategoryBudgetItem) {
-        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_edit_budget, null)
-        val budgetInput = dialogView.findViewById<TextInputEditText>(R.id.et_budget_amount)
-        
-        budgetInput.setText(budgetItem.budgetAmount.toInt().toString())
-        
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Edit Budget for ${budgetItem.categoryName}")
-            .setView(dialogView)
-            .setPositiveButton("Save") { _, _ ->
-                val newBudget = budgetInput.text.toString().toFloatOrNull()
-                if (newBudget != null && newBudget > 0) {
-                    viewModel.updateCategoryBudget(budgetItem.categoryName, newBudget)
-                } else {
-                    Toast.makeText(requireContext(), "Please enter a valid budget amount", Toast.LENGTH_SHORT).show()
-                }
-            }
-            .setNegativeButton("Cancel") { dialog, _ ->
-                dialog.dismiss()
-            }
-            .show()
-    }
-    
-    // Removed: addCategoryBudget() - now handled by ViewModel
-    
-    // Removed: updateCategoryBudget() - now handled by ViewModel
-    
-    // Removed: getCategoryColor() - now handled by ViewModel
-    
+
     /**
      * Helper method to navigate to bottom navigation tabs properly
      */
@@ -372,62 +279,10 @@ class BudgetGoalsFragment : Fragment() {
     }
 }
 
+// Data class kept for ViewModel compatibility (not used in UI anymore)
 data class CategoryBudgetItem(
     val categoryName: String,
     val budgetAmount: Float,
     val spentAmount: Float,
     val categoryColor: String
 )
-
-class CategoryBudgetsAdapter(
-    private val onEditClick: (CategoryBudgetItem) -> Unit
-) : RecyclerView.Adapter<CategoryBudgetsAdapter.ViewHolder>() {
-    
-    private var items = listOf<CategoryBudgetItem>()
-    
-    fun submitList(newItems: List<CategoryBudgetItem>) {
-        items = newItems
-        notifyDataSetChanged()
-    }
-    
-    val currentList: List<CategoryBudgetItem> get() = items
-    
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val binding = ItemCategoryBudgetBinding.inflate(
-            LayoutInflater.from(parent.context), parent, false
-        )
-        return ViewHolder(binding)
-    }
-    
-    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.bind(items[position], onEditClick)
-    }
-    
-    override fun getItemCount() = items.size
-    
-    class ViewHolder(private val binding: ItemCategoryBudgetBinding) : RecyclerView.ViewHolder(binding.root) {
-        
-        fun bind(item: CategoryBudgetItem, onEditClick: (CategoryBudgetItem) -> Unit) {
-            binding.tvCategoryName.text = item.categoryName
-            binding.tvBudgetAmount.text = "Budget: ₹${String.format("%.0f", item.budgetAmount)}"
-            binding.tvSpentAmount.text = "Spent: ₹${String.format("%.0f", item.spentAmount)}"
-            
-            val percentage = if (item.budgetAmount > 0) ((item.spentAmount / item.budgetAmount) * 100).toInt() else 0
-            binding.progressCategoryBudget.progress = percentage
-            binding.tvBudgetPercentage.text = "$percentage% used"
-            
-            val remaining = item.budgetAmount - item.spentAmount
-            binding.tvRemainingAmount.text = if (remaining >= 0) "₹${String.format("%.0f", remaining)} left" else "₹${String.format("%.0f", -remaining)} over"
-            
-            try {
-                binding.viewCategoryColor.setBackgroundColor(Color.parseColor(item.categoryColor))
-            } catch (e: Exception) {
-                // Fallback color
-            }
-            
-            binding.btnEditCategoryBudget.setOnClickListener {
-                onEditClick(item)
-            }
-        }
-    }
-}

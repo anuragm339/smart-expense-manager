@@ -1,8 +1,6 @@
 package com.expensemanager.app.services
 
 import com.expensemanager.app.data.models.*
-import com.expensemanager.app.data.entities.TransactionEntity
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.utils.logging.StructuredLogger
 import java.util.*
 import kotlin.math.abs
@@ -21,7 +19,7 @@ class EnhancedOfflineInsightsGenerator {
         private const val FREQUENT_MERCHANT_THRESHOLD = 3 // 3+ transactions
     }
 
-    private val logger = StructuredLogger(LogConfig.FeatureTags.INSIGHTS, TAG)
+    private val logger = StructuredLogger("INSIGHTS", TAG)
 
     /**
      * Generate comprehensive offline insights

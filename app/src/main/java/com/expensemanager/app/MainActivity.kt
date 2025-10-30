@@ -8,7 +8,6 @@ import android.os.Bundle
 import android.widget.ProgressBar
 import android.widget.TextView
 
-import com.expensemanager.app.utils.logging.LogConfig
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -19,7 +18,7 @@ import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
 import com.expensemanager.app.databinding.ActivityMainBinding
 import com.expensemanager.app.notifications.TransactionNotificationManager
-import com.expensemanager.app.utils.SMSHistoryReader
+import com.expensemanager.app.services.SMSParsingService
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.launch
 import dagger.hilt.android.AndroidEntryPoint
@@ -38,6 +37,9 @@ class MainActivity : AppCompatActivity() {
 
     @Inject
     lateinit var dataMigrationManager: com.expensemanager.app.data.migration.DataMigrationManager
+
+    @Inject
+    lateinit var smsParsingService: SMSParsingService
 
     private lateinit var binding: ActivityMainBinding
     private val logger = StructuredLogger("MainActivity","MainActivity")
@@ -88,11 +90,21 @@ class MainActivity : AppCompatActivity() {
             if (intent != null) {
                 val action = intent.getStringExtra("action")
                 when (action) {
+                    "rename_merchant" -> {
+                        val transactionId = intent.getStringExtra(TransactionNotificationManager.EXTRA_TRANSACTION_ID)
+                        val merchant = intent.getStringExtra(TransactionNotificationManager.EXTRA_TRANSACTION_MERCHANT)
+                        val amount = intent.getDoubleExtra(TransactionNotificationManager.EXTRA_TRANSACTION_AMOUNT, 0.0)
+
+                        if (merchant != null) {
+                            showRenameMerchantDialog(merchant, transactionId, amount)
+                        }
+                    }
+
                     "create_category_for_transaction" -> {
                         val transactionId = intent.getStringExtra(TransactionNotificationManager.EXTRA_TRANSACTION_ID)
                         val amount = intent.getDoubleExtra(TransactionNotificationManager.EXTRA_TRANSACTION_AMOUNT, 0.0)
                         val merchant = intent.getStringExtra(TransactionNotificationManager.EXTRA_TRANSACTION_MERCHANT)
-                        
+
                         if (transactionId != null) {
                             // Navigate to categories tab
                             binding.bottomNavigation.selectedItemId = R.id.navigation_categories
@@ -351,9 +363,11 @@ class MainActivity : AppCompatActivity() {
                 
                 // Create SMS reader with progress callback for repository sync
                 val syncResult = withTimeoutOrNull(timeoutMillis) {
-                    // Create a progress-enabled SMS reader for repository sync
-                    val smsReader = SMSHistoryReader(this@MainActivity) { current, total, status ->
-                        // Update progress on main thread
+                    val initialCount = repository.getTransactionCount()
+                    val lastSyncTimestamp = repository.getLastSyncTimestamp() ?: Date(0)
+
+                    // Scan SMS history using unified parsing service with progress updates
+                    val transactions = smsParsingService.scanHistoricalSMS { current, total, status ->
                         runOnUiThread {
                             val percentage = if (total > 0) ((current * 100) / total) else 0
                             progressView?.progress = percentage
@@ -363,20 +377,25 @@ class MainActivity : AppCompatActivity() {
                             logger.debug("scanHistoricalSMS", "Progress: $percentage% ($current/$total) - $status")
                         }
                     }
-                    
-                    // Scan and store transactions through repository
-                    val transactions = smsReader.scanHistoricalSMS()
-                    
-                    // Now sync transactions through repository (repository handles conversion internally)
+
+                    val newTransactionsFromScan = transactions.count { sms -> sms.date.after(lastSyncTimestamp) }
+
+                    // Sync transactions through repository (handles deduplication internally)
                     val insertedCount = repository.syncNewSMS()
 
                     logger.debug("scanHistoricalSMS", "Inserted $insertedCount new transactions into database")
                     
                     // Update sync state
                     repository.updateSyncState(Date())
-                    
-                    // Return both scan results and insert count
-                    Pair(transactions, insertedCount)
+                    val totalDatabaseCount = repository.getTransactionCount()
+
+                    ScanResult(
+                        totalParsed = transactions.size,
+                        newlyDiscovered = newTransactionsFromScan,
+                        inserted = insertedCount,
+                        totalInDatabase = totalDatabaseCount,
+                        initialCount = initialCount
+                    )
                 }
                 
                 val scanDuration = System.currentTimeMillis() - startTime
@@ -396,13 +415,51 @@ class MainActivity : AppCompatActivity() {
                     return@launch
                 }
                 
-                val (transactions, insertedCount) = syncResult
-                
+                val (totalParsed, newlyDiscovered, insertedCount, totalDatabaseCount, initialCount) = syncResult
+
+                val duplicatesSkipped = if (newlyDiscovered > 0) {
+                    (newlyDiscovered - insertedCount).coerceAtLeast(0)
+                } else 0
+                val previousCount = initialCount
+                val netChange = totalDatabaseCount - previousCount
+
                 // Show results
-                if (transactions.isNotEmpty()) {
+                if (totalParsed > 0) {
+                    val messageBuilder = StringBuilder().apply {
+                        append("Analyzed $totalParsed SMS transactions from the last 6 months.\n\n")
+                        when {
+                            insertedCount > 0 -> {
+                                append("Added $insertedCount new transaction")
+                                if (insertedCount != 1) append("s")
+                                append(" to your expense database")
+                                if (duplicatesSkipped > 0) {
+                                    append(" (skipped $duplicatesSkipped duplicate entries)")
+                                }
+                                append(".\n\n")
+                            }
+                            newlyDiscovered == 0 -> {
+                                append("No new SMS since your last import, so nothing was added.\n\n")
+                            }
+                            else -> {
+                                append("All $newlyDiscovered SMS already exist in your database, so nothing new was added")
+                                if (duplicatesSkipped > 0) {
+                                    append(" (skipped $duplicatesSkipped duplicate entries)")
+                                }
+                                append(".\n\n")
+                            }
+                        }
+
+                        append("You now have $totalDatabaseCount transactions tracked")
+                        when {
+                            netChange > 0 -> append(" (previously $previousCount).")
+                            netChange == 0 -> append(" (unchanged).")
+                            else -> append(".")
+                        }
+                    }
+
                     MaterialAlertDialogBuilder(this@MainActivity)
                         .setTitle("SMS Scan Complete! 🎉")
-                        .setMessage("Found ${transactions.size} transactions from your SMS history.\n\nSaved $insertedCount new transactions to your expense database.\n\nYour dashboard will now show your spending data!")
+                        .setMessage(messageBuilder.toString())
                         .setPositiveButton("View Dashboard") { _, _ ->
                             // Navigate back to dashboard to see the updated data
                             binding.bottomNavigation.selectedItemId = R.id.navigation_dashboard
@@ -439,4 +496,98 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+
+    private fun showRenameMerchantDialog(merchant: String, transactionId: String?, amount: Double) {
+        val input = android.widget.EditText(this).apply {
+            setText(merchant)
+            hint = "Enter merchant display name"
+            setPadding(50, 30, 50, 30)
+        }
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Rename Merchant")
+            .setMessage("Original: $merchant")
+            .setView(input)
+            .setPositiveButton("Save") { _, _ ->
+                val newName = input.text.toString().trim()
+                if (newName.isNotEmpty() && newName != merchant) {
+                    renameMerchant(merchant, newName, transactionId)
+                } else if (newName.isEmpty()) {
+                    Toast.makeText(this, "Please enter a merchant name", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun renameMerchant(originalMerchant: String, newDisplayName: String, transactionId: String?) {
+        lifecycleScope.launch {
+            try {
+                logger.debug("renameMerchant", "Renaming '$originalMerchant' to '$newDisplayName'")
+
+                // Get ExpenseRepository instance to access updateMerchantAliasInDatabase
+                val repository = com.expensemanager.app.data.repository.ExpenseRepository.getInstance(this@MainActivity)
+
+                // Get current category for merchant
+                val transaction = if (transactionId != null) {
+                    repository.getTransactionBySmsId(transactionId)
+                } else null
+
+                // Get merchant and its category
+                val merchant = if (transaction != null) {
+                    repository.getMerchantByNormalizedName(transaction.normalizedMerchant)
+                } else null
+
+                val categoryName = if (merchant != null) {
+                    repository.getCategoryById(merchant.categoryId)?.name ?: "Uncategorized"
+                } else {
+                    "Uncategorized"
+                }
+
+                logger.debug("renameMerchant", "Using category: $categoryName")
+
+                // Call existing business logic
+                val success = repository.updateMerchantAliasInDatabase(
+                    originalMerchantNames = listOf(originalMerchant),
+                    newDisplayName = newDisplayName,
+                    newCategoryName = categoryName
+                )
+
+                if (success) {
+                    logger.info("renameMerchant", "Successfully renamed merchant to '$newDisplayName'")
+
+                    // Broadcast update to refresh UI
+                    sendBroadcast(Intent("com.expensemanager.app.DATA_CHANGED"))
+
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Merchant renamed to $newDisplayName",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                } else {
+                    logger.error("renameMerchant", "Failed to rename merchant", null)
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Failed to rename merchant",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            } catch (e: Exception) {
+                logger.error("renameMerchant", "Error renaming merchant", e)
+                Toast.makeText(
+                    this@MainActivity,
+                    "Error: ${e.message}",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
 }
+
+private data class ScanResult(
+    val totalParsed: Int,
+    val newlyDiscovered: Int,
+    val inserted: Int,
+    val totalInDatabase: Int,
+    val initialCount: Int
+)

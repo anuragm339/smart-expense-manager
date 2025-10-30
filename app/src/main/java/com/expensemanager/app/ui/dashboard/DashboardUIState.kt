@@ -17,6 +17,7 @@ data class DashboardUIState(
     val monthlyComparison: MonthlyComparison? = null,
     val trendData: TrendData? = null,
     val customMonthComparison: CustomMonthComparison? = null,
+    val monthlyBudget: Double = 0.0,
     
     // Period selection
     val dashboardPeriod: String = "This Month",

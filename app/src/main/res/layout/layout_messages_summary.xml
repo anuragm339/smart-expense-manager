@@ -40,7 +40,7 @@
                         android:id="@+id/tv_total_messages"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="127"
+                        android:text="0"
                         android:textSize="16sp"
                         android:textStyle="bold"
                         android:textColor="@color/primary" />
@@ -73,7 +73,7 @@
                         android:id="@+id/tv_auto_categorized"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="124"
+                        android:text="0"
                         android:textSize="16sp"
                         android:textStyle="bold"
                         android:textColor="@color/success" />
@@ -106,7 +106,7 @@
                         android:id="@+id/tv_avg_confidence"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="97.6%"
+                        android:text="0"
                         android:textSize="16sp"
                         android:textStyle="bold"
                         android:textColor="@color/success" />
@@ -148,7 +148,7 @@
                         android:id="@+id/tv_unique_merchants"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="15"
+                        android:text="0"
                         android:textSize="12sp"
                         android:textStyle="bold"
                         android:textColor="@color/text_primary"
@@ -182,7 +182,7 @@
                         android:id="@+id/tv_unique_banks"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="3"
+                        android:text="0"
                         android:textSize="12sp"
                         android:textStyle="bold"
                         android:textColor="@color/text_primary"
@@ -216,7 +216,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="+12 this week"
+                        android:text=""
                         android:textSize="9sp"
                         android:textColor="@color/success"
                         android:textStyle="bold" />

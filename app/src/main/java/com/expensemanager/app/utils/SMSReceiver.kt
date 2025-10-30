@@ -52,15 +52,8 @@ class SMSReceiver : BroadcastReceiver() {
     ) {
         if (messageBody == null || sender == null) return
 
-        // Use AppLogger instance - will be injected once this class is converted to injectable
-        // For now, create instance directly (TODO: Convert to injectable class)
-        val logger = AppLogger(context)
-        logger.logSMSProcessing(
-            sender = sender,
-            message = messageBody,
-            success = true,
-            details = "Processing incoming SMS for transaction parsing"
-        )
+        // Log SMS processing using Timber
+        timber.log.Timber.tag("SMS").d("Processing SMS from $sender")
 
         // FIXED: Generate consistent SMS ID to prevent duplicates
         val smsId = com.expensemanager.app.data.entities.TransactionEntity.generateSmsId(
@@ -84,12 +77,7 @@ class SMSReceiver : BroadcastReceiver() {
             val parsedTransaction = smsHistoryReader.parseTransactionFromSMS(smsData)
 
             if (parsedTransaction != null) {
-                logger.logTransaction(
-                    action = "PARSED_FROM_SMS",
-                    transactionId = parsedTransaction.id,
-                    amount = parsedTransaction.amount,
-                    merchant = parsedTransaction.merchant
-                )
+                timber.log.Timber.tag(TAG).d("PARSED_FROM_SMS: ${parsedTransaction.merchant} - ₹${parsedTransaction.amount}")
 
                 // Save to SQLite database via ExpenseRepository  
                 CoroutineScope(Dispatchers.IO).launch {
@@ -105,29 +93,13 @@ class SMSReceiver : BroadcastReceiver() {
                             repository.getTransactionBySmsId(transactionEntity.smsId)
 
                         // Additional check for transaction similarity (in case SMS ID generation changed)
-                        val deduplicationKey =
-                            com.expensemanager.app.data.entities.TransactionEntity.generateDeduplicationKey(
-                                merchant = parsedTransaction.merchant,
-                                amount = parsedTransaction.amount,
-                                date = parsedTransaction.date,
-                                bankName = parsedTransaction.bankName
-                            )
-                        val similarTransaction = repository.findSimilarTransaction(deduplicationKey)
+                        val similarTransaction = repository.findSimilarTransaction(transactionEntity)
 
                         if (existingTransaction == null && similarTransaction == null) {
                             val insertedId = repository.insertTransaction(transactionEntity)
 
                             if (insertedId > 0) {
-                                logger.logDatabaseOperation(
-                                    operation = "INSERT_TRANSACTION",
-                                    table = "transactions",
-                                    success = true,
-                                    recordsAffected = 1
-                                )
-                                logger.info(
-                                    TAG,
-                                    "[SUCCESS] New transaction saved: ${parsedTransaction.merchant} - ₹${parsedTransaction.amount}"
-                                )
+                                timber.log.Timber.tag(TAG).i("[SUCCESS] New transaction saved: ${parsedTransaction.merchant} - ₹${parsedTransaction.amount}")
 
                                 // Show notification
                                 val notificationManager = TransactionNotificationManager(context)
@@ -152,36 +124,25 @@ class SMSReceiver : BroadcastReceiver() {
                                 updateIntent.putExtra("merchant", transactionEntity.rawMerchant)
                                 context.sendBroadcast(updateIntent)
 
-                                logger.debug(
-                                    TAG,
-                                    "[BROADCAST] Broadcast sent for new transaction: ${transactionEntity.smsId}"
-                                )
+                                timber.log.Timber.tag(TAG).d("[BROADCAST] Broadcast sent for new transaction: ${transactionEntity.smsId}")
                             } else {
-                                logger.warn(TAG, "Failed to insert transaction into database")
+                                timber.log.Timber.tag(TAG).w("Failed to insert transaction into database")
                             }
                         } else {
                             val reason =
                                 if (existingTransaction != null) "SMS ID already exists" else "Similar transaction found"
-                            logger.debug(
-                                TAG,
-                                "Duplicate transaction detected ($reason), skipping: ${transactionEntity.smsId}"
-                            )
+                            timber.log.Timber.tag(TAG).d("Duplicate transaction detected ($reason), skipping: ${transactionEntity.smsId}")
                         }
 
                     } catch (e: Exception) {
-                        logger.error(TAG, "Error saving transaction to SQLite database", e)
+                        timber.log.Timber.tag(TAG).e(e, "Error saving transaction to SQLite database")
                     }
                 }
             } else {
-                logger.logSMSProcessing(
-                    sender = sender,
-                    message = messageBody,
-                    success = false,
-                    details = "Failed to parse transaction data from SMS content"
-                )
+                timber.log.Timber.tag(TAG).w("Failed to parse transaction data from SMS: $sender")
             }
         } else {
-            logger.debug(TAG, "SMS is not a valid bank transaction: $sender")
+            timber.log.Timber.tag(TAG).d("SMS is not a valid bank transaction: $sender")
         }
     }
 }

@@ -2,11 +2,9 @@ package com.expensemanager.app.ui.categories
 
 import android.content.Context
 import android.content.Intent
-import com.expensemanager.app.utils.logging.LogConfig
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.expensemanager.app.data.repository.ExpenseRepository
-import com.expensemanager.app.ui.categories.CategoryDisplayProvider
 import com.expensemanager.app.ui.messages.MessageItem
 import com.expensemanager.app.utils.CategoryManager
 import com.expensemanager.app.utils.MerchantAliasManager

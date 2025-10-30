@@ -10,7 +10,7 @@
     <string name="nav_profile">Profile</string>
     
     <!-- Dashboard -->
-    <string name="total_balance">Total Balance</string>
+    <string name="total_balance">Budget Reached</string>
     <string name="this_month">This Month</string>
     <string name="total_spent">Total Spent</string>
     <string name="transactions">Transactions</string>

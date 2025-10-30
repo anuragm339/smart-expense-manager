@@ -3,9 +3,9 @@ package com.expensemanager.app.notifications
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import com.expensemanager.app.utils.logging.LogConfig
 import com.expensemanager.app.utils.logging.StructuredLogger
 import android.widget.Toast
+import androidx.core.app.RemoteInput
 import com.expensemanager.app.data.repository.ExpenseRepository
 import com.expensemanager.app.utils.CategoryManager
 import kotlinx.coroutines.CoroutineScope
@@ -13,34 +13,42 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class TransactionNotificationReceiver : BroadcastReceiver() {
-    
+
     companion object {
         private const val TAG = "TransactionNotificationReceiver"
     }
 
-    private val logger = StructuredLogger(LogConfig.FeatureTags.TRANSACTION, TAG)
-    
+    private val logger = StructuredLogger("TRANSACTION", TAG)
+
     override fun onReceive(context: Context?, intent: Intent?) {
         if (context == null || intent == null) return
-        
+
         val transactionId = intent.getStringExtra(TransactionNotificationManager.EXTRA_TRANSACTION_ID) ?: return
         val transactionAmount = intent.getDoubleExtra(TransactionNotificationManager.EXTRA_TRANSACTION_AMOUNT, 0.0)
         val transactionMerchant = intent.getStringExtra(TransactionNotificationManager.EXTRA_TRANSACTION_MERCHANT) ?: ""
-        
+
         val notificationManager = TransactionNotificationManager(context)
-        
+
+        // Use goAsync() to extend the receiver's lifetime for background work
+        val pendingResult = goAsync()
+
         when (intent.action) {
             TransactionNotificationManager.ACTION_CATEGORIZE -> {
                 val category = intent.getStringExtra(TransactionNotificationManager.EXTRA_CATEGORY) ?: return
-                handleCategorizeAction(context, transactionId, category, transactionAmount, transactionMerchant, notificationManager)
+                handleCategorizeAction(context, transactionId, category, transactionAmount, transactionMerchant, notificationManager, pendingResult)
             }
-            
+
+            TransactionNotificationManager.ACTION_RENAME_MERCHANT -> {
+                handleRenameMerchantAction(context, intent, transactionId, transactionMerchant, transactionAmount, notificationManager, pendingResult)
+            }
+
             TransactionNotificationManager.ACTION_CREATE_CATEGORY -> {
                 handleCreateCategoryAction(context, transactionId, transactionAmount, transactionMerchant)
+                pendingResult.finish()
             }
-            
+
             TransactionNotificationManager.ACTION_MARK_PROCESSED -> {
-                handleMarkProcessedAction(context, transactionId, notificationManager)
+                handleMarkProcessedAction(context, transactionId, notificationManager, pendingResult)
             }
         }
     }
@@ -51,7 +59,8 @@ class TransactionNotificationReceiver : BroadcastReceiver() {
         category: String,
         amount: Double,
         merchant: String,
-        notificationManager: TransactionNotificationManager
+        notificationManager: TransactionNotificationManager,
+        pendingResult: PendingResult
     ) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
@@ -132,10 +141,100 @@ class TransactionNotificationReceiver : BroadcastReceiver() {
                 CoroutineScope(Dispatchers.Main).launch {
                     Toast.makeText(context, "Failed to categorize transaction", Toast.LENGTH_SHORT).show()
                 }
+            } finally {
+                pendingResult.finish()
             }
         }
     }
     
+    private fun handleRenameMerchantAction(
+        context: Context,
+        intent: Intent,
+        transactionId: String,
+        merchant: String,
+        amount: Double,
+        notificationManager: TransactionNotificationManager,
+        pendingResult: PendingResult
+    ) {
+        // Get text from RemoteInput (inline reply)
+        val remoteInput = RemoteInput.getResultsFromIntent(intent)
+        val newMerchantName = remoteInput?.getCharSequence(TransactionNotificationManager.KEY_TEXT_REPLY)?.toString()
+
+        if (newMerchantName.isNullOrBlank()) {
+            logger.warn("handleRenameMerchantAction", "No merchant name provided in inline reply")
+            CoroutineScope(Dispatchers.Main).launch {
+                Toast.makeText(context, "Please enter a merchant name", Toast.LENGTH_SHORT).show()
+            }
+            pendingResult.finish()
+            return
+        }
+
+        logger.debug("handleRenameMerchantAction", "Renaming '$merchant' to '$newMerchantName'")
+
+        // Process rename in background
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val repository = ExpenseRepository.getInstance(context)
+
+                // Get transaction to find merchant and category
+                val transaction = repository.getTransactionBySmsId(transactionId)
+
+                if (transaction != null) {
+                    // Get merchant and its category
+                    val merchantEntity = repository.getMerchantByNormalizedName(transaction.normalizedMerchant)
+                    val categoryName = if (merchantEntity != null) {
+                        repository.getCategoryById(merchantEntity.categoryId)?.name ?: "Uncategorized"
+                    } else {
+                        "Uncategorized"
+                    }
+
+                    logger.debug("handleRenameMerchantAction", "Using category: $categoryName")
+
+                    // Call existing business logic
+                    val success = repository.updateMerchantAliasInDatabase(
+                        originalMerchantNames = listOf(merchant),
+                        newDisplayName = newMerchantName,
+                        newCategoryName = categoryName
+                    )
+
+                    if (success) {
+                        logger.info("handleRenameMerchantAction", "Successfully renamed merchant to '$newMerchantName'")
+
+                        // Broadcast update to refresh UI
+                        context.sendBroadcast(Intent("com.expensemanager.app.DATA_CHANGED"))
+
+                        // Show confirmation notification
+                        notificationManager.showCategoryUpdateConfirmation(amount, newMerchantName, categoryName)
+
+                        // Dismiss the original notification
+                        notificationManager.dismissNotification(transactionId)
+
+                        CoroutineScope(Dispatchers.Main).launch {
+                            Toast.makeText(context, "Renamed to $newMerchantName", Toast.LENGTH_SHORT).show()
+                        }
+                    } else {
+                        logger.error("handleRenameMerchantAction", "Failed to rename merchant", null)
+                        CoroutineScope(Dispatchers.Main).launch {
+                            Toast.makeText(context, "Failed to rename merchant", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                } else {
+                    logger.warn("handleRenameMerchantAction", "Transaction $transactionId not found")
+                    CoroutineScope(Dispatchers.Main).launch {
+                        Toast.makeText(context, "Transaction not found", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } catch (e: Exception) {
+                logger.error("handleRenameMerchantAction", "Error renaming merchant", e)
+                CoroutineScope(Dispatchers.Main).launch {
+                    Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            } finally {
+                pendingResult.finish()
+            }
+        }
+    }
+
     private fun handleCreateCategoryAction(
         context: Context,
         transactionId: String,
@@ -151,14 +250,15 @@ class TransactionNotificationReceiver : BroadcastReceiver() {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         context.startActivity(intent)
-        
+
         Toast.makeText(context, "Opening app to create category", Toast.LENGTH_SHORT).show()
     }
     
     private fun handleMarkProcessedAction(
         context: Context,
         transactionId: String,
-        notificationManager: TransactionNotificationManager
+        notificationManager: TransactionNotificationManager,
+        pendingResult: PendingResult
     ) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
@@ -194,6 +294,8 @@ class TransactionNotificationReceiver : BroadcastReceiver() {
                 CoroutineScope(Dispatchers.Main).launch {
                     Toast.makeText(context, "Failed to process action", Toast.LENGTH_SHORT).show()
                 }
+            } finally {
+                pendingResult.finish()
             }
         }
     }
