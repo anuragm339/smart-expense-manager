@@ -55,6 +55,8 @@ class DashboardTrendBinder(
                 gridColor = ContextCompat.getColor(context, R.color.divider)
                 textColor = ContextCompat.getColor(context, R.color.text_secondary)
                 textSize = 10f
+                axisMinimum = 0f // Always start from 0
+                granularity = 1f // Minimum interval between values
             }
 
             axisRight.isEnabled = false
@@ -175,16 +177,29 @@ class DashboardTrendBinder(
 
         val entries = chartData.map { Entry(it.index, it.value) }
 
+        // Calculate max value for proper Y-axis scaling
+        val maxValue = chartData.maxOfOrNull { it.value } ?: 100f
+        val yAxisMax = if (maxValue > 0) maxValue * 1.2f else 100f // Add 20% padding
+
         val dataSet = LineDataSet(entries, "Spending Trend").apply {
             color = ContextCompat.getColor(context, R.color.primary)
             lineWidth = 2f
             setCircleColor(ContextCompat.getColor(context, R.color.primary))
             circleRadius = 4f
-            setDrawValues(false)
+            setDrawValues(true) // Enable value labels
+            valueTextColor = ContextCompat.getColor(context, R.color.text_primary)
+            valueTextSize = 10f
             mode = LineDataSet.Mode.LINEAR
             setDrawFilled(true)
             fillColor = ContextCompat.getColor(context, R.color.primary_light)
             fillAlpha = 50
+
+            // Custom value formatter to show ₹ symbol and hide ₹0
+            valueFormatter = object : ValueFormatter() {
+                override fun getFormattedValue(value: Float): String {
+                    return if (value > 0) "₹${value.toInt()}" else ""
+                }
+            }
         }
 
         chart.xAxis.valueFormatter = object : ValueFormatter() {
@@ -193,16 +208,20 @@ class DashboardTrendBinder(
             }
         }
 
-        chart.axisLeft.valueFormatter = object : ValueFormatter() {
-            override fun getFormattedValue(value: Float): String {
-                return "₹${value.toInt()}"
+        chart.axisLeft.apply {
+            valueFormatter = object : ValueFormatter() {
+                override fun getFormattedValue(value: Float): String {
+                    return "₹${value.toInt()}"
+                }
             }
+            axisMaximum = yAxisMax
+            axisMinimum = 0f
         }
 
         chart.data = LineData(dataSet)
         chart.invalidate()
 
-        logger.debug("renderChart", "Chart rendered successfully")
+        logger.debug("renderChart", "Chart rendered successfully with Y-axis range: 0 to ₹${yAxisMax.toInt()}")
     }
 
     /**

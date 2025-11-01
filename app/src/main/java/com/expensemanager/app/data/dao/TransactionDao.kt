@@ -96,7 +96,7 @@ interface TransactionDao {
     
     @Query("""
         SELECT
-            t.normalized_merchant,
+            COALESCE(m.display_name, t.normalized_merchant) as normalized_merchant,
             SUM(t.amount) as total_amount,
             COUNT(*) as transaction_count,
             COALESCE(c.name, 'Unknown') as category_name,
@@ -107,7 +107,7 @@ interface TransactionDao {
         WHERE t.transaction_date >= :startDate AND t.transaction_date <= :endDate
           AND t.is_debit = 1
           AND (m.is_excluded_from_expense_tracking = 0 OR m.is_excluded_from_expense_tracking IS NULL)
-        GROUP BY t.normalized_merchant, c.name, c.color
+        GROUP BY COALESCE(m.display_name, t.normalized_merchant), c.name, c.color
         ORDER BY total_amount DESC
         LIMIT :limit
     """)

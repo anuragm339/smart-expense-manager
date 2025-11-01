@@ -569,6 +569,874 @@
         "date_extraction": 0.10,
         "reference_number_extraction": 0.20
       }
+    },
+    {
+      "code": "CENTBK",
+      "display_name": "Central Bank of India",
+      "sender_patterns": ["CENTBK", "CBIN", "CENTRAL"],
+      "patterns": {
+        "amount": [
+          "(?:₹|Rs\\.?|INR)\\s*([\\d,]+(?:\\.\\d{2})?)"
+        ],
+        "merchant": [
+          "(?:to|from)\\s+([A-Za-z0-9._-]+@[a-z]+)(?:\\.|\\s|$)",
+          "(?:at|to)\\s+([A-Za-z0-9][A-Za-z0-9\\s&'\\-]{2,})(?:\\s+on|\\.|,|$)"
+        ],
+        "date": [
+          "(\\d{2}-\\d{2}-\\d{4})"
+        ],
+        "transaction_type": [
+          "(debited|withdrawn|Dr)",
+          "(credited|Cr)"
+        ],
+        "reference_number": [
+          "(?:Ref|RRN|Txn(?:\\s*ID)?)[:#\\s]*([A-Z0-9]{6,})"
+        ]
+      },
+      "confidence_weights": {
+        "sender_match": 0.25,
+        "amount_extraction": 0.25,
+        "merchant_extraction": 0.20,
+        "date_extraction": 0.10,
+        "reference_number_extraction": 0.20
+      }
+    },
+    {
+      "code": "INDBNK",
+      "display_name": "Indian Bank",
+      "sender_patterns": ["INDBNK", "INDBAK", "INDIANB"],
+      "patterns": {
+        "amount": [
+          "(?:₹|Rs\\.?|INR)\\s*([\\d,]+(?:\\.\\d{2})?)"
+        ],
+        "merchant": [
+          "(?:to|from)\\s+([A-Za-z0-9._-]+@[a-z]+)(?:\\.|\\s|$)",
+          "(?:at|to)\\s+([A-Za-z0-9][A-Za-z0-9\\s&'\\-]{2,})(?:\\s+on|\\.|,|$)"
+        ],
+        "date": [
+          "(\\d{2}-\\d{2}-\\d{4})"
+        ],
+        "transaction_type": [
+          "(debited|withdrawn)",
+          "(credited|deposited)"
+        ],
+        "reference_number": [
+          "(?:Ref|RRN|Txn)[:#\\s]*([A-Z0-9]{6,})"
+        ]
+      },
+      "confidence_weights": {
+        "sender_match": 0.25,
+        "amount_extraction": 0.25,
+        "merchant_extraction": 0.20,
+        "date_extraction": 0.10,
+        "reference_number_extraction": 0.20
+      }
+    },
+    {
+      "code": "INDOVR",
+      "display_name": "Indian Overseas Bank",
+      "sender_patterns": ["INDOVR", "IOBNET", "IOB"],
+      "patterns": {
+        "amount": [
+          "(?:₹|Rs\\.?|INR)\\s*([\\d,]+(?:\\.\\d{2})?)"
+        ],
+        "merchant": [
+          "(?:to|from)\\s+([A-Za-z0-9._-]+@[a-z]+)(?:\\.|\\s|$)",
+          "(?:at|to)\\s+([A-Za-z0-9][A-Za-z0-9\\s&'\\-]{2,})(?:\\s+on|\\.|,|$)"
+        ],
+        "date": [
+          "(\\d{2}-\\d{2}-\\d{4})"
+        ],
+        "transaction_type": [
+          "(debited|withdrawn)",
+          "(credited)"
+        ],
+        "reference_number": [
+          "(?:Ref|RRN|Txn)[:#\\s]*([A-Z0-9]{6,})"
+        ]
+      },
+      "confidence_weights": {
+        "sender_match": 0.25,
+        "amount_extraction": 0.25,
+        "merchant_extraction": 0.20,
+        "date_extraction": 0.10,
+        "reference_number_extraction": 0.20
+      }
+    },
+    {
+      "code": "UCCOBK",
+      "display_name": "UCO Bank",
+      "sender_patterns": ["UCCOBK", "UCOBNK", "UCO"],
+      "patterns": {
+        "amount": [
+          "(?:₹|Rs\\.?|INR)\\s*([\\d,]+(?:\\.\\d{2})?)"
+        ],
+        "merchant": [
+          "(?:to|from)\\s+([A-Za-z0-9._-]+@[a-z]+)(?:\\.|\\s|$)",
+          "(?:at|to)\\s+([A-Za-z0-9][A-Za-z0-9\\s&'\\-]{2,})(?:\\s+on|\\.|,|$)"
+        ],
+        "date": [
+          "(\\d{2}-\\d{2}-\\d{4})"
+        ],
+        "transaction_type": [
+          "(debited|withdrawn)",
+          "(credited)"
+        ],
+        "reference_number": [
+          "(?:Ref|RRN|Txn)[:#\\s]*([A-Z0-9]{6,})"
+        ]
+      },
+      "confidence_weights": {
+        "sender_match": 0.25,
+        "amount_extraction": 0.25,
+        "merchant_extraction": 0.20,
+        "date_extraction": 0.10,
+        "reference_number_extraction": 0.20
+      }
+    },
+    {
+      "code": "BANKMH",
+      "display_name": "Bank of Maharashtra",
+      "sender_patterns": ["BANKMH", "BOMMAH", "BOM"],
+      "patterns": {
+        "amount": [
+          "(?:₹|Rs\\.?|INR)\\s*([\\d,]+(?:\\.\\d{2})?)"
+        ],
+        "merchant": [
+          "(?:to|from)\\s+([A-Za-z0-9._-]+@[a-z]+)(?:\\.|\\s|$)",
+          "(?:at|to)\\s+([A-Za-z0-9][A-Za-z0-9\\s&'\\-]{2,})(?:\\s+on|\\.|,|$)"
+        ],
+        "date": [
+          "(\\d{2}-\\d{2}-\\d{4})"
+        ],
+        "transaction_type": [
+          "(debited|withdrawn)",
+          "(credited)"
+        ],
+        "reference_number": [
+          "(?:Ref|RRN|Txn)[:#\\s]*([A-Z0-9]{6,})"
+        ]
+      },
+      "confidence_weights": {
+        "sender_match": 0.25,
+        "amount_extraction": 0.25,
+        "merchant_extraction": 0.20,
+        "date_extraction": 0.10,
+        "reference_number_extraction": 0.20
+      }
+    },
+    {
+      "code": "SCBANK",
+      "display_name": "Standard Chartered Bank",
+      "sender_patterns": ["SCBANK", "SCBNK", "STANCR"],
+      "patterns": {
+        "amount": [
+          "(?:₹|Rs\\.?|INR|USD)\\s*([\\d,]+(?:\\.\\d{2})?)"
+        ],
+        "merchant": [
+          "(?:to|from)\\s+([A-Za-z0-9._-]+@[a-z]+)(?:\\.|\\s|$)",
+          "(?:at|to)\\s+([A-Za-z0-9][A-Za-z0-9\\s&'\\-]{2,})(?:\\s+on|\\.|,|$)"
+        ],
+        "date": [
+          "(\\d{2}-\\d{2}-\\d{4})"
+        ],
+        "transaction_type": [
+          "(debited|spent|paid)",
+          "(credited|received)"
+        ],
+        "reference_number": [
+          "(?:Ref|RRN|Txn)[:#\\s]*([A-Z0-9]{6,})"
+        ]
+      },
+      "confidence_weights": {
+        "sender_match": 0.25,
+        "amount_extraction": 0.25,
+        "merchant_extraction": 0.20,
+        "date_extraction": 0.10,
+        "reference_number_extraction": 0.20
+      }
+    },
+    {
+      "code": "CITI",
+      "display_name": "Citibank",
+      "sender_patterns": ["CITI", "CITIBNK", "CITIBANK"],
+      "patterns": {
+        "amount": [
+          "(?:₹|Rs\\.?|INR|USD)\\s*([\\d,]+(?:\\.\\d{2})?)"
+        ],
+        "merchant": [
+          "(?:to|from)\\s+([A-Za-z0-9._-]+@[a-z]+)(?:\\.|\\s|$)",
+          "(?:at|to)\\s+([A-Za-z0-9][A-Za-z0-9\\s&'\\-]{2,})(?:\\s+on|\\.|,|$)"
+        ],
+        "date": [
+          "(\\d{2}-\\d{2}-\\d{4})"
+        ],
+        "transaction_type": [
+          "(debited|spent)",
+          "(credited)"
+        ],
+        "reference_number": [
+          "(?:Ref|RRN|Txn)[:#\\s]*([A-Z0-9]{6,})"
+        ]
+      },
+      "confidence_weights": {
+        "sender_match": 0.25,
+        "amount_extraction": 0.25,
+        "merchant_extraction": 0.20,
+        "date_extraction": 0.10,
+        "reference_number_extraction": 0.20
+      }
+    },
+    {
+      "code": "HSBC",
+      "display_name": "HSBC Bank",
+      "sender_patterns": ["HSBC", "HSBCIN"],
+      "patterns": {
+        "amount": [
+          "(?:₹|Rs\\.?|INR|USD)\\s*([\\d,]+(?:\\.\\d{2})?)"
+        ],
+        "merchant": [
+          "(?:to|from)\\s+([A-Za-z0-9._-]+@[a-z]+)(?:\\.|\\s|$)",
+          "(?:at|to)\\s+([A-Za-z0-9][A-Za-z0-9\\s&'\\-]{2,})(?:\\s+on|\\.|,|$)"
+        ],
+        "date": [
+          "(\\d{2}-\\d{2}-\\d{4})"
+        ],
+        "transaction_type": [
+          "(debited|spent)",
+          "(credited)"
+        ],
+        "reference_number": [
+          "(?:Ref|RRN|Txn)[:#\\s]*([A-Z0-9]{6,})"
+        ]
+      },
+      "confidence_weights": {
+        "sender_match": 0.25,
+        "amount_extraction": 0.25,
+        "merchant_extraction": 0.20,
+        "date_extraction": 0.10,
+        "reference_number_extraction": 0.20
+      }
+    },
+    {
+      "code": "DCBBNK",
+      "display_name": "DCB Bank",
+      "sender_patterns": ["DCBBNK", "DCB"],
+      "patterns": {
+        "amount": [
+          "(?:₹|Rs\\.?|INR)\\s*([\\d,]+(?:\\.\\d{2})?)"
+        ],
+        "merchant": [
+          "(?:to|from)\\s+([A-Za-z0-9._-]+@[a-z]+)(?:\\.|\\s|$)",
+          "(?:at|to)\\s+([A-Za-z0-9][A-Za-z0-9\\s&'\\-]{2,})(?:\\s+on|\\.|,|$)"
+        ],
+        "date": [
+          "(\\d{2}-\\d{2}-\\d{4})"
+        ],
+        "transaction_type": [
+          "(debited|withdrawn)",
+          "(credited)"
+        ],
+        "reference_number": [
+          "(?:Ref|RRN|Txn)[:#\\s]*([A-Z0-9]{6,})"
+        ]
+      },
+      "confidence_weights": {
+        "sender_match": 0.25,
+        "amount_extraction": 0.25,
+        "merchant_extraction": 0.20,
+        "date_extraction": 0.10,
+        "reference_number_extraction": 0.20
+      }
+    },
+    {
+      "code": "KARBNK",
+      "display_name": "Karnataka Bank",
+      "sender_patterns": ["KARBNK", "KTKBAK"],
+      "patterns": {
+        "amount": [
+          "(?:₹|Rs\\.?|INR)\\s*([\\d,]+(?:\\.\\d{2})?)"
+        ],
+        "merchant": [
+          "(?:to|from)\\s+([A-Za-z0-9._-]+@[a-z]+)(?:\\.|\\s|$)",
+          "(?:at|to)\\s+([A-Za-z0-9][A-Za-z0-9\\s&'\\-]{2,})(?:\\s+on|\\.|,|$)"
+        ],
+        "date": [
+          "(\\d{2}-\\d{2}-\\d{4})"
+        ],
+        "transaction_type": [
+          "(debited|withdrawn)",
+          "(credited)"
+        ],
+        "reference_number": [
+          "(?:Ref|RRN|Txn)[:#\\s]*([A-Z0-9]{6,})"
+        ]
+      },
+      "confidence_weights": {
+        "sender_match": 0.25,
+        "amount_extraction": 0.25,
+        "merchant_extraction": 0.20,
+        "date_extraction": 0.10,
+        "reference_number_extraction": 0.20
+      }
+    },
+    {
+      "code": "SOUTHB",
+      "display_name": "South Indian Bank",
+      "sender_patterns": ["SOUTHB", "SIBNK", "SIB"],
+      "patterns": {
+        "amount": [
+          "(?:₹|Rs\\.?|INR)\\s*([\\d,]+(?:\\.\\d{2})?)"
+        ],
+        "merchant": [
+          "(?:to|from)\\s+([A-Za-z0-9._-]+@[a-z]+)(?:\\.|\\s|$)",
+          "(?:at|to)\\s+([A-Za-z0-9][A-Za-z0-9\\s&'\\-]{2,})(?:\\s+on|\\.|,|$)"
+        ],
+        "date": [
+          "(\\d{2}-\\d{2}-\\d{4})"
+        ],
+        "transaction_type": [
+          "(debited|withdrawn)",
+          "(credited)"
+        ],
+        "reference_number": [
+          "(?:Ref|RRN|Txn)[:#\\s]*([A-Z0-9]{6,})"
+        ]
+      },
+      "confidence_weights": {
+        "sender_match": 0.25,
+        "amount_extraction": 0.25,
+        "merchant_extraction": 0.20,
+        "date_extraction": 0.10,
+        "reference_number_extraction": 0.20
+      }
+    },
+    {
+      "code": "CITIUM",
+      "display_name": "City Union Bank",
+      "sender_patterns": ["CITIUM", "CUBBNK", "CUB"],
+      "patterns": {
+        "amount": [
+          "(?:₹|Rs\\.?|INR)\\s*([\\d,]+(?:\\.\\d{2})?)"
+        ],
+        "merchant": [
+          "(?:to|from)\\s+([A-Za-z0-9._-]+@[a-z]+)(?:\\.|\\s|$)",
+          "(?:at|to)\\s+([A-Za-z0-9][A-Za-z0-9\\s&'\\-]{2,})(?:\\s+on|\\.|,|$)"
+        ],
+        "date": [
+          "(\\d{2}-\\d{2}-\\d{4})"
+        ],
+        "transaction_type": [
+          "(debited|withdrawn)",
+          "(credited)"
+        ],
+        "reference_number": [
+          "(?:Ref|RRN|Txn)[:#\\s]*([A-Z0-9]{6,})"
+        ]
+      },
+      "confidence_weights": {
+        "sender_match": 0.25,
+        "amount_extraction": 0.25,
+        "merchant_extraction": 0.20,
+        "date_extraction": 0.10,
+        "reference_number_extraction": 0.20
+      }
+    },
+    {
+      "code": "KRVYBN",
+      "display_name": "Karur Vysya Bank",
+      "sender_patterns": ["KRVYBN", "KVB"],
+      "patterns": {
+        "amount": [
+          "(?:₹|Rs\\.?|INR)\\s*([\\d,]+(?:\\.\\d{2})?)"
+        ],
+        "merchant": [
+          "(?:to|from)\\s+([A-Za-z0-9._-]+@[a-z]+)(?:\\.|\\s|$)",
+          "(?:at|to)\\s+([A-Za-z0-9][A-Za-z0-9\\s&'\\-]{2,})(?:\\s+on|\\.|,|$)"
+        ],
+        "date": [
+          "(\\d{2}-\\d{2}-\\d{4})"
+        ],
+        "transaction_type": [
+          "(debited|withdrawn)",
+          "(credited)"
+        ],
+        "reference_number": [
+          "(?:Ref|RRN|Txn)[:#\\s]*([A-Z0-9]{6,})"
+        ]
+      },
+      "confidence_weights": {
+        "sender_match": 0.25,
+        "amount_extraction": 0.25,
+        "merchant_extraction": 0.20,
+        "date_extraction": 0.10,
+        "reference_number_extraction": 0.20
+      }
+    },
+    {
+      "code": "TMBBMB",
+      "display_name": "Tamilnad Mercantile Bank",
+      "sender_patterns": ["TMBBMB", "TMB"],
+      "patterns": {
+        "amount": [
+          "(?:₹|Rs\\.?|INR)\\s*([\\d,]+(?:\\.\\d{2})?)"
+        ],
+        "merchant": [
+          "(?:to|from)\\s+([A-Za-z0-9._-]+@[a-z]+)(?:\\.|\\s|$)",
+          "(?:at|to)\\s+([A-Za-z0-9][A-Za-z0-9\\s&'\\-]{2,})(?:\\s+on|\\.|,|$)"
+        ],
+        "date": [
+          "(\\d{2}-\\d{2}-\\d{4})"
+        ],
+        "transaction_type": [
+          "(debited|withdrawn)",
+          "(credited)"
+        ],
+        "reference_number": [
+          "(?:Ref|RRN|Txn)[:#\\s]*([A-Z0-9]{6,})"
+        ]
+      },
+      "confidence_weights": {
+        "sender_match": 0.25,
+        "amount_extraction": 0.25,
+        "merchant_extraction": 0.20,
+        "date_extraction": 0.10,
+        "reference_number_extraction": 0.20
+      }
+    },
+    {
+      "code": "EQUITA",
+      "display_name": "Equitas Small Finance Bank",
+      "sender_patterns": ["EQUITA", "ESFBNK", "EQUITB"],
+      "patterns": {
+        "amount": [
+          "(?:₹|Rs\\.?|INR)\\s*([\\d,]+(?:\\.\\d{2})?)"
+        ],
+        "merchant": [
+          "(?:to|from)\\s+([A-Za-z0-9._-]+@[a-z]+)(?:\\.|\\s|$)",
+          "(?:at|to)\\s+([A-Za-z0-9][A-Za-z0-9\\s&'\\-]{2,})(?:\\s+on|\\.|,|$)"
+        ],
+        "date": [
+          "(\\d{2}-\\d{2}-\\d{4})"
+        ],
+        "transaction_type": [
+          "(debited|withdrawn)",
+          "(credited)"
+        ],
+        "reference_number": [
+          "(?:Ref|RRN|Txn)[:#\\s]*([A-Z0-9]{6,})"
+        ]
+      },
+      "confidence_weights": {
+        "sender_match": 0.25,
+        "amount_extraction": 0.25,
+        "merchant_extraction": 0.20,
+        "date_extraction": 0.10,
+        "reference_number_extraction": 0.20
+      }
+    },
+    {
+      "code": "UJJIVN",
+      "display_name": "Ujjivan Small Finance Bank",
+      "sender_patterns": ["UJJIVN", "UJJSFB"],
+      "patterns": {
+        "amount": [
+          "(?:₹|Rs\\.?|INR)\\s*([\\d,]+(?:\\.\\d{2})?)"
+        ],
+        "merchant": [
+          "(?:to|from)\\s+([A-Za-z0-9._-]+@[a-z]+)(?:\\.|\\s|$)",
+          "(?:at|to)\\s+([A-Za-z0-9][A-Za-z0-9\\s&'\\-]{2,})(?:\\s+on|\\.|,|$)"
+        ],
+        "date": [
+          "(\\d{2}-\\d{2}-\\d{4})"
+        ],
+        "transaction_type": [
+          "(debited|withdrawn)",
+          "(credited)"
+        ],
+        "reference_number": [
+          "(?:Ref|RRN|Txn)[:#\\s]*([A-Z0-9]{6,})"
+        ]
+      },
+      "confidence_weights": {
+        "sender_match": 0.25,
+        "amount_extraction": 0.25,
+        "merchant_extraction": 0.20,
+        "date_extraction": 0.10,
+        "reference_number_extraction": 0.20
+      }
+    },
+    {
+      "code": "BANDHN",
+      "display_name": "Bandhan Bank",
+      "sender_patterns": ["BANDHN", "BANDBK"],
+      "patterns": {
+        "amount": [
+          "(?:₹|Rs\\.?|INR)\\s*([\\d,]+(?:\\.\\d{2})?)"
+        ],
+        "merchant": [
+          "(?:to|from)\\s+([A-Za-z0-9._-]+@[a-z]+)(?:\\.|\\s|$)",
+          "(?:at|to)\\s+([A-Za-z0-9][A-Za-z0-9\\s&'\\-]{2,})(?:\\s+on|\\.|,|$)"
+        ],
+        "date": [
+          "(\\d{2}-\\d{2}-\\d{4})"
+        ],
+        "transaction_type": [
+          "(debited|withdrawn)",
+          "(credited)"
+        ],
+        "reference_number": [
+          "(?:Ref|RRN|Txn)[:#\\s]*([A-Z0-9]{6,})"
+        ]
+      },
+      "confidence_weights": {
+        "sender_match": 0.25,
+        "amount_extraction": 0.25,
+        "merchant_extraction": 0.20,
+        "date_extraction": 0.10,
+        "reference_number_extraction": 0.20
+      }
+    },
+    {
+      "code": "JANABN",
+      "display_name": "Jana Small Finance Bank",
+      "sender_patterns": ["JANABN", "JANASFB"],
+      "patterns": {
+        "amount": [
+          "(?:₹|Rs\\.?|INR)\\s*([\\d,]+(?:\\.\\d{2})?)"
+        ],
+        "merchant": [
+          "(?:to|from)\\s+([A-Za-z0-9._-]+@[a-z]+)(?:\\.|\\s|$)",
+          "(?:at|to)\\s+([A-Za-z0-9][A-Za-z0-9\\s&'\\-]{2,})(?:\\s+on|\\.|,|$)"
+        ],
+        "date": [
+          "(\\d{2}-\\d{2}-\\d{4})"
+        ],
+        "transaction_type": [
+          "(debited|withdrawn)",
+          "(credited)"
+        ],
+        "reference_number": [
+          "(?:Ref|RRN|Txn)[:#\\s]*([A-Z0-9]{6,})"
+        ]
+      },
+      "confidence_weights": {
+        "sender_match": 0.25,
+        "amount_extraction": 0.25,
+        "merchant_extraction": 0.20,
+        "date_extraction": 0.10,
+        "reference_number_extraction": 0.20
+      }
+    },
+    {
+      "code": "FINCAR",
+      "display_name": "Fincare Small Finance Bank",
+      "sender_patterns": ["FINCAR", "FINCBK"],
+      "patterns": {
+        "amount": [
+          "(?:₹|Rs\\.?|INR)\\s*([\\d,]+(?:\\.\\d{2})?)"
+        ],
+        "merchant": [
+          "(?:to|from)\\s+([A-Za-z0-9._-]+@[a-z]+)(?:\\.|\\s|$)",
+          "(?:at|to)\\s+([A-Za-z0-9][A-Za-z0-9\\s&'\\-]{2,})(?:\\s+on|\\.|,|$)"
+        ],
+        "date": [
+          "(\\d{2}-\\d{2}-\\d{4})"
+        ],
+        "transaction_type": [
+          "(debited|withdrawn)",
+          "(credited)"
+        ],
+        "reference_number": [
+          "(?:Ref|RRN|Txn)[:#\\s]*([A-Z0-9]{6,})"
+        ]
+      },
+      "confidence_weights": {
+        "sender_match": 0.25,
+        "amount_extraction": 0.25,
+        "merchant_extraction": 0.20,
+        "date_extraction": 0.10,
+        "reference_number_extraction": 0.20
+      }
+    },
+    {
+      "code": "DOMBVL",
+      "display_name": "Dhanlaxmi Bank",
+      "sender_patterns": ["DOMBVL", "DHANLX"],
+      "patterns": {
+        "amount": [
+          "(?:₹|Rs\\.?|INR)\\s*([\\d,]+(?:\\.\\d{2})?)"
+        ],
+        "merchant": [
+          "(?:to|from)\\s+([A-Za-z0-9._-]+@[a-z]+)(?:\\.|\\s|$)",
+          "(?:at|to)\\s+([A-Za-z0-9][A-Za-z0-9\\s&'\\-]{2,})(?:\\s+on|\\.|,|$)"
+        ],
+        "date": [
+          "(\\d{2}-\\d{2}-\\d{4})"
+        ],
+        "transaction_type": [
+          "(debited|withdrawn)",
+          "(credited)"
+        ],
+        "reference_number": [
+          "(?:Ref|RRN|Txn)[:#\\s]*([A-Z0-9]{6,})"
+        ]
+      },
+      "confidence_weights": {
+        "sender_match": 0.25,
+        "amount_extraction": 0.25,
+        "merchant_extraction": 0.20,
+        "date_extraction": 0.10,
+        "reference_number_extraction": 0.20
+      }
+    },
+    {
+      "code": "NAINIT",
+      "display_name": "Nainital Bank",
+      "sender_patterns": ["NAINIT", "NAINTL"],
+      "patterns": {
+        "amount": [
+          "(?:₹|Rs\\.?|INR)\\s*([\\d,]+(?:\\.\\d{2})?)"
+        ],
+        "merchant": [
+          "(?:to|from)\\s+([A-Za-z0-9._-]+@[a-z]+)(?:\\.|\\s|$)",
+          "(?:at|to)\\s+([A-Za-z0-9][A-Za-z0-9\\s&'\\-]{2,})(?:\\s+on|\\.|,|$)"
+        ],
+        "date": [
+          "(\\d{2}-\\d{2}-\\d{4})"
+        ],
+        "transaction_type": [
+          "(debited|withdrawn)",
+          "(credited)"
+        ],
+        "reference_number": [
+          "(?:Ref|RRN|Txn)[:#\\s]*([A-Z0-9]{6,})"
+        ]
+      },
+      "confidence_weights": {
+        "sender_match": 0.25,
+        "amount_extraction": 0.25,
+        "merchant_extraction": 0.20,
+        "date_extraction": 0.10,
+        "reference_number_extraction": 0.20
+      }
+    },
+    {
+      "code": "SARASW",
+      "display_name": "Saraswat Bank",
+      "sender_patterns": ["SARASW", "SARBNK"],
+      "patterns": {
+        "amount": [
+          "(?:₹|Rs\\.?|INR)\\s*([\\d,]+(?:\\.\\d{2})?)"
+        ],
+        "merchant": [
+          "(?:to|from)\\s+([A-Za-z0-9._-]+@[a-z]+)(?:\\.|\\s|$)",
+          "(?:at|to)\\s+([A-Za-z0-9][A-Za-z0-9\\s&'\\-]{2,})(?:\\s+on|\\.|,|$)"
+        ],
+        "date": [
+          "(\\d{2}-\\d{2}-\\d{4})"
+        ],
+        "transaction_type": [
+          "(debited|withdrawn)",
+          "(credited)"
+        ],
+        "reference_number": [
+          "(?:Ref|RRN|Txn)[:#\\s]*([A-Z0-9]{6,})"
+        ]
+      },
+      "confidence_weights": {
+        "sender_match": 0.25,
+        "amount_extraction": 0.25,
+        "merchant_extraction": 0.20,
+        "date_extraction": 0.10,
+        "reference_number_extraction": 0.20
+      }
+    },
+    {
+      "code": "ABHYUD",
+      "display_name": "Abhyudaya Bank",
+      "sender_patterns": ["ABHYUD", "ABHYBK"],
+      "patterns": {
+        "amount": [
+          "(?:₹|Rs\\.?|INR)\\s*([\\d,]+(?:\\.\\d{2})?)"
+        ],
+        "merchant": [
+          "(?:to|from)\\s+([A-Za-z0-9._-]+@[a-z]+)(?:\\.|\\s|$)",
+          "(?:at|to)\\s+([A-Za-z0-9][A-Za-z0-9\\s&'\\-]{2,})(?:\\s+on|\\.|,|$)"
+        ],
+        "date": [
+          "(\\d{2}-\\d{2}-\\d{4})"
+        ],
+        "transaction_type": [
+          "(debited|withdrawn)",
+          "(credited)"
+        ],
+        "reference_number": [
+          "(?:Ref|RRN|Txn)[:#\\s]*([A-Z0-9]{6,})"
+        ]
+      },
+      "confidence_weights": {
+        "sender_match": 0.25,
+        "amount_extraction": 0.25,
+        "merchant_extraction": 0.20,
+        "date_extraction": 0.10,
+        "reference_number_extraction": 0.20
+      }
+    },
+    {
+      "code": "LAKSHM",
+      "display_name": "Lakshmi Vilas Bank",
+      "sender_patterns": ["LAKSHM", "LVB"],
+      "patterns": {
+        "amount": [
+          "(?:₹|Rs\\.?|INR)\\s*([\\d,]+(?:\\.\\d{2})?)"
+        ],
+        "merchant": [
+          "(?:to|from)\\s+([A-Za-z0-9._-]+@[a-z]+)(?:\\.|\\s|$)",
+          "(?:at|to)\\s+([A-Za-z0-9][A-Za-z0-9\\s&'\\-]{2,})(?:\\s+on|\\.|,|$)"
+        ],
+        "date": [
+          "(\\d{2}-\\d{2}-\\d{4})"
+        ],
+        "transaction_type": [
+          "(debited|withdrawn)",
+          "(credited)"
+        ],
+        "reference_number": [
+          "(?:Ref|RRN|Txn)[:#\\s]*([A-Z0-9]{6,})"
+        ]
+      },
+      "confidence_weights": {
+        "sender_match": 0.25,
+        "amount_extraction": 0.25,
+        "merchant_extraction": 0.20,
+        "date_extraction": 0.10,
+        "reference_number_extraction": 0.20
+      }
+    },
+    {
+      "code": "JAMKSH",
+      "display_name": "Jammu & Kashmir Bank",
+      "sender_patterns": ["JAMKSH", "JKBANK", "JKB"],
+      "patterns": {
+        "amount": [
+          "(?:₹|Rs\\.?|INR)\\s*([\\d,]+(?:\\.\\d{2})?)"
+        ],
+        "merchant": [
+          "(?:to|from)\\s+([A-Za-z0-9._-]+@[a-z]+)(?:\\.|\\s|$)",
+          "(?:at|to)\\s+([A-Za-z0-9][A-Za-z0-9\\s&'\\-]{2,})(?:\\s+on|\\.|,|$)"
+        ],
+        "date": [
+          "(\\d{2}-\\d{2}-\\d{4})"
+        ],
+        "transaction_type": [
+          "(debited|withdrawn)",
+          "(credited)"
+        ],
+        "reference_number": [
+          "(?:Ref|RRN|Txn)[:#\\s]*([A-Z0-9]{6,})"
+        ]
+      },
+      "confidence_weights": {
+        "sender_match": 0.25,
+        "amount_extraction": 0.25,
+        "merchant_extraction": 0.20,
+        "date_extraction": 0.10,
+        "reference_number_extraction": 0.20
+      }
+    },
+    {
+      "code": "ESAFBK",
+      "display_name": "ESAF Small Finance Bank",
+      "sender_patterns": ["ESAFBK", "ESAFSFB"],
+      "patterns": {
+        "amount": [
+          "(?:₹|Rs\\.?|INR)\\s*([\\d,]+(?:\\.\\d{2})?)"
+        ],
+        "merchant": [
+          "(?:to|from)\\s+([A-Za-z0-9._-]+@[a-z]+)(?:\\.|\\s|$)",
+          "(?:at|to)\\s+([A-Za-z0-9][A-Za-z0-9\\s&'\\-]{2,})(?:\\s+on|\\.|,|$)"
+        ],
+        "date": [
+          "(\\d{2}-\\d{2}-\\d{4})"
+        ],
+        "transaction_type": [
+          "(debited|withdrawn)",
+          "(credited)"
+        ],
+        "reference_number": [
+          "(?:Ref|RRN|Txn)[:#\\s]*([A-Z0-9]{6,})"
+        ]
+      },
+      "confidence_weights": {
+        "sender_match": 0.25,
+        "amount_extraction": 0.25,
+        "merchant_extraction": 0.20,
+        "date_extraction": 0.10,
+        "reference_number_extraction": 0.20
+      }
+    },
+    {
+      "code": "BARCLAYS",
+      "display_name": "Barclays Bank",
+      "sender_patterns": ["BARCLAYS", "BARCLY"],
+      "patterns": {
+        "amount": [
+          "(?:₹|Rs\\.?|INR|USD)\\s*([\\d,]+(?:\\.\\d{2})?)"
+        ],
+        "merchant": [
+          "(?:to|from)\\s+([A-Za-z0-9._-]+@[a-z]+)(?:\\.|\\s|$)",
+          "(?:at|to)\\s+([A-Za-z0-9][A-Za-z0-9\\s&'\\-]{2,})(?:\\s+on|\\.|,|$)"
+        ],
+        "date": [
+          "(\\d{2}-\\d{2}-\\d{4})"
+        ],
+        "transaction_type": [
+          "(debited|spent)",
+          "(credited)"
+        ],
+        "reference_number": [
+          "(?:Ref|RRN|Txn)[:#\\s]*([A-Z0-9]{6,})"
+        ]
+      },
+      "confidence_weights": {
+        "sender_match": 0.25,
+        "amount_extraction": 0.25,
+        "merchant_extraction": 0.20,
+        "date_extraction": 0.10,
+        "reference_number_extraction": 0.20
+      }
+    },
+    {
+      "code": "DEUTSC",
+      "display_name": "Deutsche Bank",
+      "sender_patterns": ["DEUTSC", "DEUTSCH", "DB"],
+      "patterns": {
+        "amount": [
+          "(?:₹|Rs\\.?|INR|USD|EUR)\\s*([\\d,]+(?:\\.\\d{2})?)"
+        ],
+        "merchant": [
+          "(?:to|from)\\s+([A-Za-z0-9._-]+@[a-z]+)(?:\\.|\\s|$)",
+          "(?:at|to)\\s+([A-Za-z0-9][A-Za-z0-9\\s&'\\-]{2,})(?:\\s+on|\\.|,|$)"
+        ],
+        "date": [
+          "(\\d{2}-\\d{2}-\\d{4})"
+        ],
+        "transaction_type": [
+          "(debited|spent)",
+          "(credited)"
+        ],
+        "reference_number": [
+          "(?:Ref|RRN|Txn)[:#\\s]*([A-Z0-9]{6,})"
+        ]
+      },
+      "confidence_weights": {
+        "sender_match": 0.25,
+        "amount_extraction": 0.25,
+        "merchant_extraction": 0.20,
+        "date_extraction": 0.10,
+        "reference_number_extraction": 0.20
+      }
     }
   ],
   "fallback_patterns": {

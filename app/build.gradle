@@ -20,6 +20,26 @@ android {
         testInstrumentationRunner "com.expensemanager.app.HiltTestRunner"
     }
 
+    signingConfigs {
+        release {
+            // Production release keystore for Play Store
+            // SHA-1: 60:4E:DD:A9:3D:22:FE:B9:17:AD:BC:84:8E:C9:CA:1E:C2:71:72:72
+            storeFile file("../release.keystore")
+            storePassword 'ExpenseManager2024'
+            keyAlias 'expense-manager'
+            keyPassword 'ExpenseManager2024'
+        }
+
+        debug {
+            // Debug builds continue using debug keystore
+            // SHA-1: B9:E9:55:75:09:22:21:2E:5E:62:F6:23:AF:28:EB:41:86:8E:9F:A5
+            storeFile file("${System.getProperty('user.home')}/.android/debug.keystore")
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
+
     buildTypes {
         debug {
             // Mock mode enabled for development - bypasses authentication and subscription
@@ -34,6 +54,7 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
 
             // Production mode - uses real Google Sign-In and Billing
             buildConfigField "boolean", "MOCK_AUTH", "false"
