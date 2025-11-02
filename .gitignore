@@ -103,4 +103,6 @@ ui-sample
 app/src/test
 app/src/androidTest
 # Temp files
-*~
+*~# Release keystore - DO NOT COMMIT
+release.keystore
+*.keystore

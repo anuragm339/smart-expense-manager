@@ -169,7 +169,7 @@
         </LinearLayout>
 
         <!-- Expandable Transactions List -->
-        <com.expensemanager.app.ui.messages.NestedScrollableRecyclerView
+        <com.smartexpenseai.app.ui.messages.NestedScrollableRecyclerView
             android:id="@+id/recycler_transactions"
             android:layout_width="match_parent"
             android:layout_height="200dp"

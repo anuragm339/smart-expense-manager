@@ -7,27 +7,27 @@ plugins {
 }
 
 android {
-    namespace 'com.expensemanager.app'
+    namespace 'com.smartexpenseai.app'
     compileSdk 35
 
     defaultConfig {
-        applicationId "com.expensemanager.app"
+        applicationId "com.smartexpenseai.app"
         minSdk 23
         targetSdk 35
-        versionCode 1
-        versionName "1.0"
+        versionCode 2
+        versionName "1.0.1"
 
-        testInstrumentationRunner "com.expensemanager.app.HiltTestRunner"
+        testInstrumentationRunner "com.smartexpenseai.app.HiltTestRunner"
     }
 
     signingConfigs {
         release {
-            // Production release keystore for Play Store
-            // SHA-1: 60:4E:DD:A9:3D:22:FE:B9:17:AD:BC:84:8E:C9:CA:1E:C2:71:72:72
-            storeFile file("../release.keystore")
-            storePassword 'ExpenseManager2024'
-            keyAlias 'expense-manager'
-            keyPassword 'ExpenseManager2024'
+            // Production release keystore for Play Store - Smart Expense AI
+            // SHA-1: 08:4C:85:1E:A0:0C:06:86:C5:10:9B:5C:6E:64:7C:68:AA:02:DA:50
+            storeFile file("../smartexpense-release.keystore")
+            storePassword 'SmartExpenseAI2024'
+            keyAlias 'smartexpense-release'
+            keyPassword 'SmartExpenseAI2024'
         }
 
         debug {
