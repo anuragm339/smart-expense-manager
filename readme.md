@@ -3,7 +3,7 @@
 An AI-powered Android expense management app that automatically reads SMS messages from banks, categorizes transactions, and provides intelligent financial insights.
 
 ## 🎯 Project Overview
-
+Keystore Password "keystore"
 Transform the way users manage their expenses by leveraging SMS-based transaction data and AI to provide:
 - **Automatic expense categorization** from bank SMS messages
 - **AI-powered spending insights** and recommendations
