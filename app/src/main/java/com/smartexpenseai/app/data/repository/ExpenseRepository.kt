@@ -188,6 +188,23 @@ class ExpenseRepository @Inject constructor(
         transactionRepository.deleteTransactionById(transactionId)
     }
 
+    override suspend fun deleteAllTransactions(): Int = withContext(Dispatchers.IO) {
+        try {
+            // Get count before deletion
+            val count = transactionDao.getTransactionCount()
+            logger.warn("deleteAllTransactions", "Deleting all $count transactions from database")
+
+            // Delete all transactions
+            transactionDao.deleteAllTransactions()
+
+            logger.info("deleteAllTransactions", "Successfully deleted $count transactions")
+            return@withContext count
+        } catch (e: Exception) {
+            logger.error("deleteAllTransactions", "Error deleting all transactions", e)
+            throw e
+        }
+    }
+
     override suspend fun updateTransaction(transaction: TransactionEntity) {
         transactionRepository.updateTransaction(transaction)
     }

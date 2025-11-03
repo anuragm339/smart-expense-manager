@@ -157,22 +157,6 @@ class SMSHistoryReader @Inject constructor(
         return smsList
     }
 
-    /**
-     * Check if SMS is a bank transaction by delegating to UnifiedSMSParser
-     * All validation logic (bank senders, patterns, spam detection) is in bank_rules.json
-     */
-    fun isBankTransactionSMS(sms: HistoricalSMS): Boolean {
-        return try {
-            // UnifiedSMSParser handles all validation using bank_rules.json
-            runBlocking {
-                val result = unifiedSMSParser.parseSMS(sms.address, sms.body, sms.date.time)
-                result is UnifiedSMSParser.ParseResult.Success
-            }
-        } catch (e: Exception) {
-            logger.warn("isBankTransactionSMS", "Error checking SMS: ${e.message}")
-            false
-        }
-    }
 
     /**
      * Parse transaction from SMS by delegating to UnifiedSMSParser

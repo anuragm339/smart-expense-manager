@@ -25,7 +25,8 @@ import javax.inject.Inject
 class DashboardViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val getDashboardDataUseCase: GetDashboardDataUseCase,
-    private val repository: com.smartexpenseai.app.data.repository.ExpenseRepository
+    private val repository: com.smartexpenseai.app.data.repository.ExpenseRepository,
+    private val syncSMSTransactionsUseCase: com.smartexpenseai.app.domain.usecase.sms.SyncSMSTransactionsUseCase
 ) : ViewModel() {
 
     private val logger = StructuredLogger("DASHBOARD", "DashboardViewModel")
@@ -84,6 +85,8 @@ class DashboardViewModel @Inject constructor(
             is DashboardUIEvent.LoadData -> loadDashboardData()
             is DashboardUIEvent.Refresh -> refreshDashboard()
             is DashboardUIEvent.SyncSMS -> syncSMSMessages()
+            is DashboardUIEvent.IncrementalRescan -> syncSMSMessages(incremental = true)
+            is DashboardUIEvent.CleanFullRescan -> syncSMSMessages(incremental = false)
             is DashboardUIEvent.ChangePeriod -> changePeriod(event.period)
             is DashboardUIEvent.ChangeTimePeriod -> changeTimePeriod(event.period)
             is DashboardUIEvent.CustomMonthsSelected -> selectCustomMonths(event.firstMonth, event.secondMonth)
@@ -172,12 +175,70 @@ class DashboardViewModel @Inject constructor(
     /**
      * Sync SMS messages for new transactions (temporarily disabled)
      */
-    private fun syncSMSMessages() {
+    /**
+     * Sync SMS messages
+     * @param incremental If true, only scan SMS without transactions. If false, delete all and rescan.
+     */
+    private fun syncSMSMessages(incremental: Boolean = true) {
         _uiState.value = _uiState.value.copy(
-            isSyncingSMS = false,
-            hasError = true,
-            error = "SMS sync not yet implemented in ViewModel"
+            isSyncingSMS = true,
+            hasError = false,
+            error = null
         )
+
+        viewModelScope.launch {
+            try {
+                logger.debug("syncSMSMessages", "Starting SMS sync (incremental: $incremental)")
+
+                val result = if (incremental) {
+                    // Incremental rescan: only scan SMS that don't have transactions
+                    syncSMSTransactionsUseCase.forceFullSync()
+                } else {
+                    // Clean full rescan: delete all and rescan everything
+                    syncSMSTransactionsUseCase.cleanFullRescan()
+                }
+
+                if (result.isSuccess) {
+                    val syncResult = result.getOrNull()!!
+                    val message = if (syncResult.isCleanRescan) {
+                        "Clean rescan completed: Deleted ${syncResult.deletedCount}, added ${syncResult.newTransactionsCount} transactions"
+                    } else {
+                        "Sync completed: ${syncResult.newTransactionsCount} new transactions"
+                    }
+
+                    logger.info("syncSMSMessages", message)
+
+                    _uiState.value = _uiState.value.copy(
+                        isSyncingSMS = false,
+                        syncedTransactionsCount = syncResult.newTransactionsCount,
+                        hasError = false,
+                        error = null
+                    )
+
+                    // Refresh dashboard data after sync
+                    refreshDashboard()
+
+                } else {
+                    val exception = result.exceptionOrNull()
+                    logger.error("syncSMSMessages", "SMS sync failed", exception)
+
+                    _uiState.value = _uiState.value.copy(
+                        isSyncingSMS = false,
+                        hasError = true,
+                        error = "SMS sync failed: ${exception?.message}"
+                    )
+                }
+
+            } catch (e: Exception) {
+                logger.error("syncSMSMessages", "Exception during SMS sync", e)
+
+                _uiState.value = _uiState.value.copy(
+                    isSyncingSMS = false,
+                    hasError = true,
+                    error = "SMS sync error: ${e.message}"
+                )
+            }
+        }
     }
     
     /**

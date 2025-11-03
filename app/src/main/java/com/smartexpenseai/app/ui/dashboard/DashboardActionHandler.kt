@@ -50,7 +50,7 @@ class DashboardActionHandler(
         }
 
         binding.btnSyncSms.setOnClickListener {
-            viewModel.handleEvent(DashboardUIEvent.SyncSMS)
+            showRescanModeDialog()
         }
 
         binding.btnViewBudget.setOnClickListener {
@@ -108,6 +108,58 @@ class DashboardActionHandler(
         }
 
         dialog.show()
+    }
+
+    /**
+     * Show dialog to select rescan mode
+     */
+    fun showRescanModeDialog() {
+        val options = arrayOf(
+            "Incremental Rescan",
+            "Clean Full Rescan"
+        )
+
+        val descriptions = arrayOf(
+            "Only scan SMS that don't have transactions yet (recommended)",
+            "Delete all existing transactions and rescan everything from scratch"
+        )
+
+        MaterialAlertDialogBuilder(context)
+            .setTitle("Select Rescan Mode")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> {
+                        // Incremental rescan (existing behavior)
+                        logger.debug("showRescanModeDialog", "User selected: Incremental Rescan")
+                        viewModel.handleEvent(DashboardUIEvent.IncrementalRescan)
+                    }
+                    1 -> {
+                        // Clean full rescan - confirm first
+                        showCleanRescanConfirmation()
+                    }
+                }
+            }
+            .setNegativeButton("Cancel") { dialog, _ ->
+                dialog.dismiss()
+            }
+            .show()
+    }
+
+    /**
+     * Show confirmation dialog before clean full rescan
+     */
+    private fun showCleanRescanConfirmation() {
+        MaterialAlertDialogBuilder(context)
+            .setTitle("Clean Full Rescan")
+            .setMessage("This will DELETE ALL existing transactions and rescan all SMS messages from scratch.\n\nThis action cannot be undone. Are you sure?")
+            .setPositiveButton("Delete & Rescan") { _, _ ->
+                logger.warn("showCleanRescanConfirmation", "User confirmed: Clean Full Rescan")
+                viewModel.handleEvent(DashboardUIEvent.CleanFullRescan)
+            }
+            .setNegativeButton("Cancel") { dialog, _ ->
+                dialog.dismiss()
+            }
+            .show()
     }
 
     /**

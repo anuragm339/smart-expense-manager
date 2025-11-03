@@ -89,7 +89,13 @@ interface TransactionRepositoryInterface {
      * Delete transaction by ID
      */
     suspend fun deleteTransactionById(transactionId: Long)
-    
+
+    /**
+     * Delete all transactions
+     * @return Number of transactions deleted
+     */
+    suspend fun deleteAllTransactions(): Int
+
     // =======================
     // SYNC OPERATIONS
     // =======================

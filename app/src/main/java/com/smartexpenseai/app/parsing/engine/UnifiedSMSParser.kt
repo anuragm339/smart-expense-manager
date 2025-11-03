@@ -24,13 +24,14 @@ class UnifiedSMSParser @Inject constructor(
     private val logger = StructuredLogger("SMS_PARSING", "UnifiedSMSParser")
 
     companion object {
+        // IMPORTANT: 2-digit year patterns MUST come first to prevent "yyyy" from accepting 2 digits as year 0-99
         private val DATE_FORMATS = listOf(
-            SimpleDateFormat("dd-MM-yyyy", Locale.ENGLISH),
-            SimpleDateFormat("dd/MM/yyyy", Locale.ENGLISH),
-            SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH),
-            SimpleDateFormat("dd-MM-yy", Locale.ENGLISH),
-            SimpleDateFormat("dd/MM/yy", Locale.ENGLISH),
-            SimpleDateFormat("dd.MM.yy", Locale.ENGLISH)
+            "dd-MM-yy",      // Try 2-digit patterns first
+            "dd/MM/yy",
+            "dd.MM.yy",
+            "dd-MM-yyyy",    // Then 4-digit patterns
+            "dd/MM/yyyy",
+            "dd MMM yyyy"
         )
     }
 
@@ -285,11 +286,21 @@ class UnifiedSMSParser @Inject constructor(
 
     /**
      * Try to parse date string with multiple formats
+     * Creates new SimpleDateFormat instances for thread safety
      */
     private fun tryParseDate(dateStr: String): Date? {
-        DATE_FORMATS.forEach { format ->
+        // Calendar for 2-digit year interpretation
+        val calendar = java.util.Calendar.getInstance()
+        calendar.set(2000, 0, 1) // Jan 1, 2000
+        val yearStartDate = calendar.time
+
+        DATE_FORMATS.forEach { pattern ->
             try {
+                // Create new SimpleDateFormat for thread safety
+                val format = SimpleDateFormat(pattern, Locale.ENGLISH)
                 format.isLenient = false
+                // Set 2-digit year start to interpret "yy" as 2000-2099
+                format.set2DigitYearStart(yearStartDate)
                 return format.parse(dateStr)
             } catch (e: Exception) {
                 // Try next format

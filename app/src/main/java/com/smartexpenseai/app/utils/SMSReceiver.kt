@@ -11,6 +11,7 @@ import com.smartexpenseai.app.notifications.TransactionNotificationManager
 import com.smartexpenseai.app.parsing.engine.ConfidenceCalculator
 import com.smartexpenseai.app.parsing.engine.RuleLoader
 import com.smartexpenseai.app.parsing.engine.UnifiedSMSParser
+import com.smartexpenseai.app.utils.logging.StructuredLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -21,8 +22,15 @@ class SMSReceiver : BroadcastReceiver() {
         private const val TAG = "SMSReceiver"
     }
 
+    private val logger = StructuredLogger(
+        featureTag = "SMSReceiver",
+        className = "SMSReceiver"
+    )
     override fun onReceive(context: Context?, intent: Intent?) {
         if (intent?.action == Telephony.Sms.Intents.SMS_RECEIVED_ACTION && context != null) {
+            // CRITICAL FIX: Use goAsync() to prevent process from being killed before async work completes
+            val pendingResult = goAsync()
+
             val bundle = intent.extras
             if (bundle != null) {
                 val pdus = bundle.get("pdus") as? Array<*>
@@ -39,8 +47,10 @@ class SMSReceiver : BroadcastReceiver() {
                     val sender = smsMessage.originatingAddress
                     val timestamp = smsMessage.timestampMillis
 
-                    processBankSMS(context, messageBody, sender, timestamp)
+                    processBankSMS(context, messageBody, sender, timestamp, pendingResult)
                 }
+            } else {
+                pendingResult.finish()
             }
         }
     }
@@ -49,9 +59,13 @@ class SMSReceiver : BroadcastReceiver() {
         context: Context,
         messageBody: String?,
         sender: String?,
-        timestamp: Long
+        timestamp: Long,
+        pendingResult: PendingResult
     ) {
-        if (messageBody == null || sender == null) return
+        if (messageBody == null || sender == null) {
+            pendingResult.finish()
+            return
+        }
 
         // Log SMS processing using Timber
         timber.log.Timber.tag("SMS").d("Processing SMS from $sender")
@@ -74,7 +88,7 @@ class SMSReceiver : BroadcastReceiver() {
 
                 if (result is UnifiedSMSParser.ParseResult.Success) {
                     val transaction = result.transaction
-                    timber.log.Timber.tag(TAG).d("PARSED_FROM_SMS: ${transaction.normalizedMerchant} - ₹${transaction.amount}")
+                    logger.debug("processBankSMS","PARSED_FROM_SMS: ${transaction.normalizedMerchant} - ₹${transaction.amount} on Date ${transaction.createdAt}")
 
                     // Save to SQLite database via ExpenseRepository
                     try {
@@ -87,14 +101,12 @@ class SMSReceiver : BroadcastReceiver() {
                         val existingTransaction =
                             repository.getTransactionBySmsId(transactionEntity.smsId)
 
-                        // Additional check for transaction similarity (in case SMS ID generation changed)
-                        val similarTransaction = repository.findSimilarTransaction(transactionEntity)
-
-                        if (existingTransaction == null && similarTransaction == null) {
+                        // Check for duplicate by SMS ID only (reference number is already part of SMS ID)
+                        if (existingTransaction == null) {
                             val insertedId = repository.insertTransaction(transactionEntity)
 
                             if (insertedId > 0) {
-                                timber.log.Timber.tag(TAG).i("[SUCCESS] New transaction saved: ${transaction.normalizedMerchant} - ₹${transaction.amount}")
+                                logger.debug("processBankSMS","[SUCCESS] New transaction saved: ${transaction.normalizedMerchant} - ₹${transaction.amount}")
 
                                 // Show notification
                                 val notificationManager = TransactionNotificationManager(context)
@@ -119,24 +131,25 @@ class SMSReceiver : BroadcastReceiver() {
                                 updateIntent.putExtra("merchant", transactionEntity.rawMerchant)
                                 context.sendBroadcast(updateIntent)
 
-                                timber.log.Timber.tag(TAG).d("[BROADCAST] Broadcast sent for new transaction: ${transactionEntity.smsId}")
+                                logger.debug("processBankSMS","[BROADCAST] Broadcast sent for new transaction: ${transactionEntity.smsId}")
                             } else {
-                                timber.log.Timber.tag(TAG).w("Failed to insert transaction into database")
+                                logger.warn("processBankSMS","Failed to insert transaction into database",null)
                             }
                         } else {
-                            val reason =
-                                if (existingTransaction != null) "SMS ID already exists" else "Similar transaction found"
-                            timber.log.Timber.tag(TAG).d("Duplicate transaction detected ($reason), skipping: ${transactionEntity.smsId}")
+                            logger.warn("processBankSMS","Duplicate transaction detected (SMS ID already exists), skipping: ${transactionEntity.smsId}")
                         }
 
                     } catch (e: Exception) {
-                        timber.log.Timber.tag(TAG).e(e, "Error saving transaction to SQLite database")
+                        logger.error("processBankSMS", "Error saving transaction to SQLite database",e)
                     }
                 } else {
-                    timber.log.Timber.tag(TAG).w("Failed to parse transaction data from SMS: $sender")
+                    logger.warn("processBankSMS","Failed to parse transaction data from SMS: $sender")
                 }
             } catch (e: Exception) {
-                timber.log.Timber.tag(TAG).e(e, "Error parsing SMS")
+                logger.error("processBankSMS","Error parsing SMS",e)
+            } finally {
+                // CRITICAL: Finish pendingResult to tell Android we're done with async work
+                pendingResult.finish()
             }
         }
     }

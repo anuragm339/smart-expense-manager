@@ -133,12 +133,14 @@ sealed class DashboardUIEvent {
     object LoadData : DashboardUIEvent()
     object Refresh : DashboardUIEvent()
     object SyncSMS : DashboardUIEvent()
+    object IncrementalRescan : DashboardUIEvent()  // Only scan SMS without transactions
+    object CleanFullRescan : DashboardUIEvent()    // Delete all and rescan everything
     object ClearError : DashboardUIEvent()
-    
+
     data class ChangePeriod(val period: String) : DashboardUIEvent()
     data class ChangeTimePeriod(val period: String) : DashboardUIEvent()
     data class CustomMonthsSelected(
-        val firstMonth: Pair<Int, Int>, 
+        val firstMonth: Pair<Int, Int>,
         val secondMonth: Pair<Int, Int>
     ) : DashboardUIEvent()
 }

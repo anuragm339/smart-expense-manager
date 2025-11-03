@@ -1,7 +1,7 @@
 package com.smartexpenseai.app.domain.usecase.sms
 
-import timber.log.Timber
 import com.smartexpenseai.app.domain.repository.TransactionRepositoryInterface
+import com.smartexpenseai.app.utils.logging.StructuredLogger
 import java.util.Date
 import javax.inject.Inject
 
@@ -12,22 +12,19 @@ import javax.inject.Inject
 class SyncSMSTransactionsUseCase @Inject constructor(
     private val repository: TransactionRepositoryInterface
 ) {
-    
-    companion object {
-        private const val TAG = "SyncSMSTransactionsUseCase"
-    }
+    private val logger = StructuredLogger("SMS_SYNC", "SyncSMSTransactionsUseCase")
     
     /**
      * Sync new SMS transactions
      */
     suspend fun execute(): Result<SMSSyncResult> {
         return try {
-            Timber.tag(TAG).d("Starting SMS transactions sync")
+            logger.debug("execute","Starting SMS transactions sync")
             
             val startTime = System.currentTimeMillis()
             val lastSyncTimestamp = repository.getLastSyncTimestamp()
-            
-            Timber.tag(TAG).d("Last sync timestamp: $lastSyncTimestamp")
+
+            logger.debug("execute","Last sync timestamp: $lastSyncTimestamp")
             
             // Perform the sync
             val newTransactionsCount = repository.syncNewSMS()
@@ -43,12 +40,12 @@ class SyncSMSTransactionsUseCase @Inject constructor(
                 success = true,
                 errorMessage = null
             )
-            
-            Timber.tag(TAG).d("SMS sync completed successfully: $newTransactionsCount new transactions in ${syncDuration}ms")
+
+            logger.debug("execute","SMS sync completed successfully: $newTransactionsCount new transactions in ${syncDuration}ms")
             Result.success(syncResult)
             
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "SMS sync failed")
+            logger.error("execute", "SMS sync failed",e)
             
             val syncResult = SMSSyncResult(
                 newTransactionsCount = 0,
@@ -71,7 +68,7 @@ class SyncSMSTransactionsUseCase @Inject constructor(
     ): Result<SMSSyncResult> {
         
         return try {
-            Timber.tag(TAG).d("Starting SMS sync with progress tracking")
+            logger.debug("executeWithProgress","Starting SMS sync with progress tracking")
             
             progressCallback?.invoke(SyncProgress(SyncPhase.STARTING, 0, "Initializing SMS sync..."))
             
@@ -83,7 +80,7 @@ class SyncSMSTransactionsUseCase @Inject constructor(
             // Get current sync status
             val currentStatus = repository.getSyncStatus()
             if (currentStatus == "IN_PROGRESS") {
-                Timber.tag(TAG).w("Sync already in progress")
+                logger.debug("executeWithProgress","Sync already in progress")
                 return Result.failure(Exception("SMS sync already in progress"))
             }
             
@@ -108,11 +105,11 @@ class SyncSMSTransactionsUseCase @Inject constructor(
                 errorMessage = null
             )
             
-            Timber.tag(TAG).d("SMS sync with progress completed: $newTransactionsCount new transactions")
+            logger.debug("executeWithProgress", "SMS sync with progress completed: $newTransactionsCount new transactions")
             Result.success(syncResult)
-            
+
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "SMS sync with progress failed")
+            logger.error("executeWithProgress", "SMS sync with progress failed", e)
             
             progressCallback?.invoke(SyncProgress(SyncPhase.FAILED, -1, "Sync failed: ${e.message}"))
             
@@ -130,23 +127,24 @@ class SyncSMSTransactionsUseCase @Inject constructor(
     }
     
     /**
-     * Force full SMS sync (re-sync all messages)
+     * Force full SMS sync (re-sync all messages) - Incremental mode
+     * Only processes SMS that don't have corresponding transactions
      */
     suspend fun forceFullSync(): Result<SMSSyncResult> {
         return try {
-            Timber.tag(TAG).w("Starting FORCE FULL SMS sync - this may take longer")
-            
+            logger.warn("forceFullSync","Starting FORCE FULL SMS sync - this may take longer")
+
             val startTime = System.currentTimeMillis()
-            
+
             // Clear last sync timestamp to force full sync
             repository.updateSyncState(Date(0))
-            
+
             // Perform the sync
             val newTransactionsCount = repository.syncNewSMS()
-            
+
             val endTime = System.currentTimeMillis()
             val syncDuration = endTime - startTime
-            
+
             val syncResult = SMSSyncResult(
                 newTransactionsCount = newTransactionsCount,
                 syncTimestamp = Date(),
@@ -156,13 +154,13 @@ class SyncSMSTransactionsUseCase @Inject constructor(
                 errorMessage = null,
                 isFullSync = true
             )
-            
-            Timber.tag(TAG).d("Force full SMS sync completed: $newTransactionsCount transactions in ${syncDuration}ms")
+
+            logger.warn("forceFullSync","Force full SMS sync completed: $newTransactionsCount transactions in ${syncDuration}ms")
             Result.success(syncResult)
-            
+
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Force full SMS sync failed")
-            
+            logger.error("forceFullSync", "Force full SMS sync failed",e)
+
             val syncResult = SMSSyncResult(
                 newTransactionsCount = 0,
                 syncTimestamp = Date(),
@@ -172,8 +170,64 @@ class SyncSMSTransactionsUseCase @Inject constructor(
                 errorMessage = e.message ?: "Unknown error",
                 isFullSync = true
             )
-            
+
             Result.failure(SyncException("Force full SMS sync failed", e, syncResult))
+        }
+    }
+
+    /**
+     * Clean full rescan - Deletes all existing transactions and rescans all SMS
+     * Useful when bank_rules.json is updated
+     */
+    suspend fun cleanFullRescan(): Result<SMSSyncResult> {
+        return try {
+            logger.debug("cleanFullRescan","Starting CLEAN FULL RESCAN - all transactions will be deleted and rescanned")
+
+            val startTime = System.currentTimeMillis()
+
+            // Delete all existing transactions
+            val deletedCount = repository.deleteAllTransactions()
+            logger.debug("cleanFullRescan","Deleted $deletedCount existing transactions")
+
+            // Clear last sync timestamp to force full sync
+            repository.updateSyncState(Date(0))
+
+            // Perform the sync from scratch
+            val newTransactionsCount = repository.syncNewSMS()
+
+            val endTime = System.currentTimeMillis()
+            val syncDuration = endTime - startTime
+
+            val syncResult = SMSSyncResult(
+                newTransactionsCount = newTransactionsCount,
+                syncTimestamp = Date(),
+                lastSyncTimestamp = null,
+                syncDurationMs = syncDuration,
+                success = true,
+                errorMessage = null,
+                isFullSync = true,
+                isCleanRescan = true,
+                deletedCount = deletedCount
+            )
+
+            logger.debug("cleanFullRescan","Clean full rescan completed: deleted $deletedCount, added $newTransactionsCount in ${syncDuration}ms")
+            Result.success(syncResult)
+
+        } catch (e: Exception) {
+            logger.error("cleanFullRescan","Clean full rescan failed",e)
+
+            val syncResult = SMSSyncResult(
+                newTransactionsCount = 0,
+                syncTimestamp = Date(),
+                lastSyncTimestamp = null,
+                syncDurationMs = 0,
+                success = false,
+                errorMessage = e.message ?: "Unknown error",
+                isFullSync = true,
+                isCleanRescan = true
+            )
+
+            Result.failure(SyncException("Clean full rescan failed", e, syncResult))
         }
     }
     
@@ -182,24 +236,24 @@ class SyncSMSTransactionsUseCase @Inject constructor(
      */
     suspend fun getSyncStatus(): Result<SyncStatus> {
         return try {
-            Timber.tag(TAG).d("Getting current sync status")
-            
+            logger.debug("getSyncStatus", "Getting current sync status")
+
             val status = repository.getSyncStatus() ?: "UNKNOWN"
             val lastSyncTimestamp = repository.getLastSyncTimestamp()
             val totalTransactions = repository.getTransactionCount()
-            
+
             val syncStatus = SyncStatus(
                 currentStatus = status,
                 lastSyncTimestamp = lastSyncTimestamp,
                 totalTransactions = totalTransactions,
                 isInProgress = status == "IN_PROGRESS"
             )
-            
-            Timber.tag(TAG).d("Current sync status: $status, Total transactions: $totalTransactions")
+
+            logger.debug("getSyncStatus", "Current sync status: $status, Total transactions: $totalTransactions")
             Result.success(syncStatus)
-            
+
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error getting sync status")
+            logger.error("getSyncStatus", "Error getting sync status", e)
             Result.failure(e)
         }
     }
@@ -209,25 +263,25 @@ class SyncSMSTransactionsUseCase @Inject constructor(
      */
     suspend fun isSyncNeeded(intervalHours: Int = 24): Result<Boolean> {
         return try {
-            Timber.tag(TAG).d("Checking if SMS sync is needed (interval: ${intervalHours}h)")
-            
+            logger.debug("isSyncNeeded", "Checking if SMS sync is needed (interval: ${intervalHours}h)")
+
             val lastSyncTimestamp = repository.getLastSyncTimestamp()
-            
+
             val isNeeded = if (lastSyncTimestamp != null) {
                 val currentTime = System.currentTimeMillis()
                 val timeSinceLastSync = currentTime - lastSyncTimestamp.time
                 val intervalMs = intervalHours * 60 * 60 * 1000L
-                
+
                 timeSinceLastSync >= intervalMs
             } else {
                 true // No previous sync, so sync is needed
             }
-            
-            Timber.tag(TAG).d("SMS sync needed: $isNeeded")
+
+            logger.debug("isSyncNeeded", "SMS sync needed: $isNeeded")
             Result.success(isNeeded)
-            
+
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error checking if sync is needed")
+            logger.error("isSyncNeeded", "Error checking if sync is needed", e)
             Result.failure(e)
         }
     }
@@ -237,26 +291,26 @@ class SyncSMSTransactionsUseCase @Inject constructor(
      */
     suspend fun validateSyncPrerequisites(): Result<ValidationResult> {
         return try {
-            Timber.tag(TAG).d("Validating SMS sync prerequisites")
-            
+            logger.debug("validateSyncPrerequisites", "Validating SMS sync prerequisites")
+
             // This would normally check for SMS permissions, but we'll assume they're granted
             // In a real implementation, you'd check for:
             // - READ_SMS permission
-            // - RECEIVE_SMS permission  
+            // - RECEIVE_SMS permission
             // - Device has SMS capability
             // - SMS provider is accessible
-            
+
             val validationResult = ValidationResult(
                 isValid = true,
                 missingPermissions = emptyList(),
                 issues = emptyList()
             )
-            
-            Timber.tag(TAG).d("SMS sync prerequisites validation passed")
+
+            logger.debug("validateSyncPrerequisites", "SMS sync prerequisites validation passed")
             Result.success(validationResult)
-            
+
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error validating sync prerequisites")
+            logger.error("validateSyncPrerequisites", "Error validating sync prerequisites", e)
             Result.failure(e)
         }
     }
@@ -272,7 +326,9 @@ data class SMSSyncResult(
     val syncDurationMs: Long,
     val success: Boolean,
     val errorMessage: String?,
-    val isFullSync: Boolean = false
+    val isFullSync: Boolean = false,
+    val isCleanRescan: Boolean = false,
+    val deletedCount: Int = 0
 )
 
 /**
