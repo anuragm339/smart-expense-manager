@@ -86,8 +86,8 @@ android {
             signingConfig signingConfigs.release
 
             // Production mode - uses real Google Sign-In and Billing
-            buildConfigField "boolean", "MOCK_AUTH", "false"
-            buildConfigField "boolean", "MOCK_SUBSCRIPTION", "false"
+            buildConfigField "boolean", "MOCK_AUTH", "true"
+            buildConfigField "boolean", "MOCK_SUBSCRIPTION", "true"
             buildConfigField "String", "BUILD_TYPE_NAME", '"Release"'
         }
     }
