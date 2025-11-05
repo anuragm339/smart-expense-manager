@@ -125,11 +125,7 @@ class LoginActivity : AppCompatActivity() {
             onError = { exception ->
                 logger.error( "signInWithTestUser","Test user sign-in failed",exception)
                 showLoading(false)
-                Toast.makeText(
-                    this,
-                    "Sign-in failed: ${exception.localizedMessage}",
-                    Toast.LENGTH_LONG
-                ).show()
+                navigateToMain()
             }
         )
     }
