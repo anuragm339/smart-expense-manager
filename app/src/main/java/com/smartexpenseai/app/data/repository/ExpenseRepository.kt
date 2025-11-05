@@ -170,6 +170,9 @@ class ExpenseRepository @Inject constructor(
     override suspend fun getTransactionBySmsId(smsId: String): TransactionEntity? =
         transactionRepository.transactionBySmsId(smsId)
 
+    override suspend fun getTransactionById(transactionId: Long): TransactionEntity? =
+        transactionRepository.transactionById(transactionId)
+
     suspend fun findSimilarTransaction(entity: TransactionEntity): TransactionEntity? =
         transactionRepository.findSimilarTransaction(entity)
 
@@ -211,6 +214,104 @@ class ExpenseRepository @Inject constructor(
 
     override suspend fun getTransactionsByMerchant(merchantName: String): List<TransactionEntity> =
         transactionRepository.transactionsByMerchant(merchantName)
+
+    /**
+     * Auto-categorize a transaction based on its merchant
+     * Creates merchant if it doesn't exist, then updates transaction's category_id
+     */
+    suspend fun autoCategorizeTransaction(transactionId: Long): Boolean = withContext(Dispatchers.IO) {
+        try {
+            // Get the transaction
+            val transaction = transactionRepository.transactionById(transactionId)
+            if (transaction == null) {
+                logger.warn("autoCategorizeTransaction", "Transaction $transactionId not found")
+                return@withContext false
+            }
+
+            // Check if merchant exists
+            var merchant = merchantDao.getMerchantByNormalizedName(transaction.normalizedMerchant)
+
+            if (merchant == null) {
+                // Create merchant with auto-categorization
+                logger.debug("autoCategorizeTransaction", "Creating merchant: ${transaction.rawMerchant}")
+
+                val categoryName = transactionRepository.categorizeMerchant(transaction.rawMerchant)
+                var category = categoryDao.getCategoryByName(categoryName)
+
+                if (category == null) {
+                    // Fall back to "Other" category (should always exist with id=1)
+                    category = categoryDao.getCategoryById(1L)
+                        ?: categoryDao.getCategoryByName("Other")
+
+                    if (category == null) {
+                        logger.error("autoCategorizeTransaction", "No default category found!")
+                        return@withContext false
+                    }
+                }
+
+                val merchantEntity = MerchantEntity(
+                    normalizedName = transaction.normalizedMerchant,
+                    displayName = transaction.rawMerchant,
+                    categoryId = category.id,
+                    isUserDefined = false,
+                    createdAt = Date()
+                )
+                merchantDao.insertMerchant(merchantEntity)
+                merchant = merchantDao.getMerchantByNormalizedName(transaction.normalizedMerchant)
+
+                logger.debug("autoCategorizeTransaction", "✅ Created merchant '${transaction.rawMerchant}' in category '${category.name}'")
+            }
+
+            if (merchant != null) {
+                // Update transaction's category to match merchant's category
+                val updatedTransaction = transaction.copy(categoryId = merchant.categoryId)
+                transactionRepository.updateTransaction(updatedTransaction)
+
+                val category = categoryDao.getCategoryById(merchant.categoryId)
+                logger.debug("autoCategorizeTransaction", "✅ Auto-categorized transaction #$transactionId → Category: ${category?.name ?: "Unknown"}")
+                return@withContext true
+            }
+
+            return@withContext false
+        } catch (e: Exception) {
+            logger.error("autoCategorizeTransaction", "Error auto-categorizing transaction $transactionId", e)
+            return@withContext false
+        }
+    }
+
+    /**
+     * Update category for all transactions with a specific merchant
+     * This maintains data consistency when a merchant's category is changed
+     *
+     * @param normalizedMerchant The normalized merchant name
+     * @param newCategoryId The new category ID to apply
+     * @return Number of transactions updated
+     */
+    suspend fun updateAllTransactionsCategoryByMerchant(
+        normalizedMerchant: String,
+        newCategoryId: Long
+    ): Int = withContext(Dispatchers.IO) {
+        try {
+            val updatedCount = transactionDao.updateTransactionsCategoryByMerchant(
+                normalizedMerchant = normalizedMerchant,
+                newCategoryId = newCategoryId
+            )
+
+            logger.debug(
+                "updateAllTransactionsCategoryByMerchant",
+                "Updated $updatedCount transactions for merchant '$normalizedMerchant' to category ID $newCategoryId"
+            )
+
+            updatedCount
+        } catch (e: Exception) {
+            logger.error(
+                "updateAllTransactionsCategoryByMerchant",
+                "Error updating transactions for merchant '$normalizedMerchant'",
+                e
+            )
+            0
+        }
+    }
 
     override suspend fun syncNewSMS(): Int = transactionRepository.syncNewSms()
 

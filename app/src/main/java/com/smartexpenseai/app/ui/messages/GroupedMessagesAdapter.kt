@@ -202,6 +202,12 @@ class GroupedMessagesAdapter(
         
         fun bind(group: MerchantGroup) {
             binding.apply {
+                // Log merchant group category for debugging
+                logger.debug(
+                    where = "bind",
+                    what = "[MERCHANT_GROUP_CATEGORY] Merchant: '${group.merchantName}' -> Category: '${group.category}' -> Transactions: ${group.transactions.size} -> Total: ₹${String.format("%.0f", group.totalAmount)}"
+                )
+
                 // Set merchant info
                 tvMerchantName.text = group.merchantName
                 tvTransactionCount.text = "${group.transactions.size} transactions"
@@ -214,9 +220,19 @@ class GroupedMessagesAdapter(
                 
                 // Set category color
                 try {
-                    viewCategoryColor.setBackgroundColor(Color.parseColor(group.categoryColor))
+                    val parsedColor = Color.parseColor(group.categoryColor)
+                    viewCategoryColor.setBackgroundColor(parsedColor)
+                    logger.debug(
+                        where = "bind",
+                        what = "[COLOR] Applied color '${group.categoryColor}' to merchant '${group.merchantName}' category '${group.category}'"
+                    )
                 } catch (e: Exception) {
+                    logger.warn(
+                        where = "bind",
+                        what = "[COLOR] Failed to parse color '${group.categoryColor}' for merchant '${group.merchantName}': ${e.message}"
+                    )
                     // Fallback to default color
+                    viewCategoryColor.setBackgroundColor(Color.parseColor("#9e9e9e"))
                 }
                 
                 // Show date range
@@ -536,11 +552,17 @@ class TransactionItemAdapter(
         fun bind(transaction: MessageItem) {
             val amountBankText = itemView.findViewById<android.widget.TextView>(com.smartexpenseai.app.R.id.tv_amount_bank)
             val dateConfidenceText = itemView.findViewById<android.widget.TextView>(com.smartexpenseai.app.R.id.tv_date_confidence)
-            
+
+            // Log transaction category for debugging
+            logger.debug(
+                where = "bind",
+                what = "[TRANSACTION_CATEGORY] Merchant: '${transaction.merchant}' -> Category: '${transaction.category}' -> Amount: ₹${transaction.amount}"
+            )
+
             // Add debit/credit indicator
             val transactionType = if (transaction.isDebit) "DEBIT" else "CREDIT"
             val typeIndicator = if (transaction.isDebit) "−" else "+"
-            
+
             amountBankText.text = "$typeIndicator₹${String.format("%.0f", transaction.amount)} • ${transaction.bankName} • $transactionType"
             dateConfidenceText.text = "${transaction.dateTime} • ${transaction.confidence}% confidence"
             

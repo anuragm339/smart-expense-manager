@@ -104,6 +104,17 @@ internal class MerchantCategoryOperations(
                             where = "updateMerchantAliasInDatabase",
                             what = "[DB_UPDATE] UPDATE affected $rowsUpdated rows for '$normalizedName'"
                         )
+
+                        // CRITICAL FIX: Update all existing transactions for this merchant
+                        val updatedTransactionsCount = transactionDao.updateTransactionsCategoryByMerchant(
+                            normalizedMerchant = normalizedName,
+                            newCategoryId = category.id
+                        )
+                        logger.info(
+                            where = "updateMerchantAliasInDatabase",
+                            what = "[DB_UPDATE] Updated $updatedTransactionsCount transactions for merchant '$normalizedName' to category '${category.name}'"
+                        )
+
                         updatedCount++
                     } else {
                         val newMerchant = MerchantEntity(
@@ -115,6 +126,21 @@ internal class MerchantCategoryOperations(
                         )
 
                         merchantDao.insertMerchant(newMerchant)
+                        logger.info(
+                            where = "updateMerchantAliasInDatabase",
+                            what = "[DB_CREATE] Created new merchant '$normalizedName' with category '${category.name}'"
+                        )
+
+                        // Update any existing transactions for this merchant
+                        val updatedTransactionsCount = transactionDao.updateTransactionsCategoryByMerchant(
+                            normalizedMerchant = normalizedName,
+                            newCategoryId = category.id
+                        )
+                        logger.info(
+                            where = "updateMerchantAliasInDatabase",
+                            what = "[DB_CREATE] Updated $updatedTransactionsCount existing transactions for new merchant '$normalizedName'"
+                        )
+
                         createdCount++
                     }
                 } catch (e: Exception) {
@@ -218,12 +244,19 @@ internal class MerchantCategoryOperations(
                     return@withContext false
                 }
 
+                // Update merchant's category
                 val updatedMerchant = merchant.copy(categoryId = newCategory.id)
                 merchantDao.updateMerchant(updatedMerchant)
 
+                // CRITICAL: Update all transactions for this merchant to maintain data consistency
+                val updatedTransactionsCount = transactionDao.updateTransactionsCategoryByMerchant(
+                    normalizedMerchant = normalizedMerchantName,
+                    newCategoryId = newCategory.id
+                )
+
                 logger.debug(
                     where = "changeMerchantCategory",
-                    what = "Changed merchant $merchantName to category $newCategoryName"
+                    what = "✅ Changed merchant '$merchantName' to category '$newCategoryName' (updated $updatedTransactionsCount transactions)"
                 )
                 true
             } catch (e: Exception) {

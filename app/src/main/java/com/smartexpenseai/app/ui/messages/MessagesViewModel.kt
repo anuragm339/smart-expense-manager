@@ -749,8 +749,10 @@ class MessagesViewModel @Inject constructor(
     
     /**
      * Group transactions by merchant for display
+     * CRITICAL FIX: Gets category from merchants table instead of transactions table
+     * to ensure consistency with Category Manager
      */
-    private fun groupTransactionsByMerchant(transactions: List<MessageItem>, sortOption: SortOption): List<MerchantGroup> {
+    private suspend fun groupTransactionsByMerchant(transactions: List<MessageItem>, sortOption: SortOption): List<MerchantGroup> {
         // 🔧 BUG FIX: Filter out transactions with empty/invalid merchant names
         val validTransactions = transactions.filter { transaction ->
             transaction.merchant.isNotBlank() && transaction.merchant != "."

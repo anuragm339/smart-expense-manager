@@ -176,21 +176,21 @@ class TransactionDetailsViewModel @Inject constructor(
      */
     private fun updateCategory(newCategory: String) {
         logger.debug("updateCategory","Updating category to: $newCategory")
-        
+
         val currentTransaction = _uiState.value.transactionData ?: return
-        
+
         _uiState.value = _uiState.value.copy(isUpdating = true)
-        
+
         viewModelScope.launch {
             try {
                 logger.debug("updateCategory","Step 1: Updating SharedPreferences alias...")
-                
+
                 // STEP 1: Update SharedPreferences (MerchantAliasManager)
                 var aliasUpdateSuccess = true
                 try {
                     merchantAliasManager.setMerchantAlias(
-                        currentTransaction.merchant, 
-                        currentTransaction.merchant, 
+                        currentTransaction.merchant,
+                        currentTransaction.merchant,
                         newCategory
                     )
                     logger.debug("updateCategory","SharedPreferences update completed successfully")
@@ -198,11 +198,11 @@ class TransactionDetailsViewModel @Inject constructor(
                     logger.error("updateCategory","SharedPreferences update failed",e)
                     aliasUpdateSuccess = false
                 }
-                
+
                 // STEP 2: Update Database
                 logger.debug("updateCategory","Step 2: Updating database...")
                 var databaseUpdateSuccess = false
-                
+
                 if (aliasUpdateSuccess) {
                     try {
                         databaseUpdateSuccess = repository.updateMerchantAliasInDatabase(
@@ -210,7 +210,7 @@ class TransactionDetailsViewModel @Inject constructor(
                             currentTransaction.merchant, // Keep same name, just update category
                             newCategory
                         )
-                        
+
                         if (databaseUpdateSuccess) {
                             logger.debug("updateCategory","Database update completed successfully")
                         } else {
@@ -221,7 +221,34 @@ class TransactionDetailsViewModel @Inject constructor(
                         databaseUpdateSuccess = false
                     }
                 }
-                
+
+                // STEP 2.5: Update all transactions for this merchant to maintain consistency
+                var transactionsUpdatedCount = 0
+                if (aliasUpdateSuccess && databaseUpdateSuccess) {
+                    try {
+                        logger.debug("updateCategory","Step 2.5: Updating all transactions for merchant...")
+
+                        // Get category ID for the new category
+                        val category = repository.getCategoryByName(newCategory)
+                        if (category != null) {
+                            // Update all transactions with this merchant's normalized name
+                            transactionsUpdatedCount = repository.updateAllTransactionsCategoryByMerchant(
+                                normalizedMerchant = currentTransaction.merchant.lowercase()
+                                    .replace(Regex("[^a-zA-Z0-9\\s]"), "")
+                                    .replace(Regex("\\s+"), " ")
+                                    .trim(),
+                                newCategoryId = category.id
+                            )
+                            logger.debug("updateCategory","✅ Updated $transactionsUpdatedCount transactions to category '$newCategory'")
+                        } else {
+                            logger.warn("updateCategory","Category '$newCategory' not found in database")
+                        }
+                    } catch (e: Exception) {
+                        logger.error("updateCategory","Failed to update transactions for merchant",e)
+                        // Continue anyway - merchant update was successful
+                    }
+                }
+
                 // STEP 3: Update UI based on results
                 if (aliasUpdateSuccess && databaseUpdateSuccess) {
                     logger.debug("updateCategory","COMPLETE SUCCESS: Both SharedPreferences and Database updated")
@@ -281,21 +308,21 @@ class TransactionDetailsViewModel @Inject constructor(
      */
     private fun updateMerchant(newMerchantName: String, newCategory: String) {
         logger.debug("updateMerchant","Updating merchant to: $newMerchantName, category: $newCategory")
-        
+
         val currentTransaction = _uiState.value.transactionData ?: return
-        
+
         _uiState.value = _uiState.value.copy(isUpdating = true)
-        
+
         viewModelScope.launch {
             try {
                 logger.debug("updateMerchant","Step 1: Updating SharedPreferences alias...")
-                
+
                 // STEP 1: Update SharedPreferences (MerchantAliasManager)
                 var aliasUpdateSuccess = true
                 try {
                     merchantAliasManager.setMerchantAlias(
-                        currentTransaction.merchant, 
-                        newMerchantName, 
+                        currentTransaction.merchant,
+                        newMerchantName,
                         newCategory
                     )
                     logger.debug("updateMerchant","SharedPreferences update completed successfully")
@@ -303,11 +330,11 @@ class TransactionDetailsViewModel @Inject constructor(
                     logger.error("updateMerchant","SharedPreferences update failed",e)
                     aliasUpdateSuccess = false
                 }
-                
+
                 // STEP 2: Update Database
                 logger.debug("updateMerchant","Step 2: Updating database...")
                 var databaseUpdateSuccess = false
-                
+
                 if (aliasUpdateSuccess) {
                     try {
                         databaseUpdateSuccess = repository.updateMerchantAliasInDatabase(
@@ -315,7 +342,7 @@ class TransactionDetailsViewModel @Inject constructor(
                             newMerchantName,
                             newCategory
                         )
-                        
+
                         if (databaseUpdateSuccess) {
                             logger.debug("updateMerchant","Database update completed successfully")
                         } else {
@@ -326,7 +353,34 @@ class TransactionDetailsViewModel @Inject constructor(
                         databaseUpdateSuccess = false
                     }
                 }
-                
+
+                // STEP 2.5: Update all transactions for this merchant to maintain consistency
+                var transactionsUpdatedCount = 0
+                if (aliasUpdateSuccess && databaseUpdateSuccess) {
+                    try {
+                        logger.debug("updateMerchant","Step 2.5: Updating all transactions for merchant...")
+
+                        // Get category ID for the new category
+                        val category = repository.getCategoryByName(newCategory)
+                        if (category != null) {
+                            // Update all transactions with this merchant's normalized name
+                            transactionsUpdatedCount = repository.updateAllTransactionsCategoryByMerchant(
+                                normalizedMerchant = currentTransaction.merchant.lowercase()
+                                    .replace(Regex("[^a-zA-Z0-9\\s]"), "")
+                                    .replace(Regex("\\s+"), " ")
+                                    .trim(),
+                                newCategoryId = category.id
+                            )
+                            logger.debug("updateMerchant","✅ Updated $transactionsUpdatedCount transactions to category '$newCategory'")
+                        } else {
+                            logger.warn("updateMerchant","Category '$newCategory' not found in database")
+                        }
+                    } catch (e: Exception) {
+                        logger.error("updateMerchant","Failed to update transactions for merchant",e)
+                        // Continue anyway - merchant update was successful
+                    }
+                }
+
                 // STEP 3: Update UI based on results
                 if (aliasUpdateSuccess && databaseUpdateSuccess) {
                     logger.debug("updateMerchant","COMPLETE SUCCESS: Both SharedPreferences and Database updated")

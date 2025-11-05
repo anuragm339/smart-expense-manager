@@ -334,6 +334,7 @@ class UnifiedSMSParser @Inject constructor(
             amount = cleanAmount,
             rawMerchant = merchantName,
             normalizedMerchant = normalizedMerchant,
+            categoryId = 1L,  // Default to "Other" - will be set properly when merchant is created/linked
             bankName = bankName ?: "Unknown Bank",
             transactionDate = date ?: Date(timestamp),
             rawSmsBody = body,

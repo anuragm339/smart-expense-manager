@@ -74,6 +74,9 @@ internal class TransactionDataRepository(
     suspend fun transactionBySmsId(smsId: String): TransactionEntity? =
         transactionDao.getTransactionBySmsId(smsId)
 
+    suspend fun transactionById(transactionId: Long): TransactionEntity? =
+        transactionDao.getTransactionById(transactionId)
+
     suspend fun insertTransaction(transaction: TransactionEntity): Long =
         transactionDao.insertTransaction(transaction)
 
@@ -376,7 +379,7 @@ internal class TransactionDataRepository(
         return other.copy(id = id)
     }
 
-    private fun categorizeMerchant(merchantName: String): String {
+    fun categorizeMerchant(merchantName: String): String {
         val upper = merchantName.uppercase()
         return when {
             upper.contains("SWIGGY") || upper.contains("ZOMATO") ||

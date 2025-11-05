@@ -49,6 +49,9 @@ class CategoriesFragment : Fragment() {
     private lateinit var merchantAliasManager: MerchantAliasManager
     private lateinit var categoryManager: CategoryManager
 
+    // Track receiver registration state
+    private var isReceiverRegistered = false
+
     private val merchantCategoryChangeReceiver = object : android.content.BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: android.content.Intent?) {
             if (intent?.action == "com.expensemanager.MERCHANT_CATEGORY_CHANGED") {
@@ -568,6 +571,18 @@ class CategoriesFragment : Fragment() {
     override fun onResume() {
         super.onResume()
 
+        // Register broadcast receiver for merchant category changes
+        if (!isReceiverRegistered) {
+            try {
+                val filter = android.content.IntentFilter("com.expensemanager.MERCHANT_CATEGORY_CHANGED")
+                requireContext().registerReceiver(merchantCategoryChangeReceiver, filter)
+                isReceiverRegistered = true
+                logger.debug("onResume", "Registered broadcast receiver for merchant category changes")
+            } catch (e: Exception) {
+                logger.error("onResume", "Failed to register broadcast receiver", e)
+            }
+        }
+
         // Ensure "Money" category is available (commonly needed category)
         val allCategories = categoryManager.getAllCategories()
         if (!allCategories.contains("Money")) {
@@ -921,14 +936,18 @@ class CategoriesFragment : Fragment() {
 
     override fun onPause() {
         super.onPause()
-        try {
-            requireContext().unregisterReceiver(merchantCategoryChangeReceiver)
-            logger.debug(
-                "onPause",
-                "Unregistered broadcast receiver for merchant category changes."
-            )
-        } catch (e: Exception) {
-            logger.error("onPause", "Broadcast receiver not registered, ignoring unregister.", e)
+        if (isReceiverRegistered) {
+            try {
+                requireContext().unregisterReceiver(merchantCategoryChangeReceiver)
+                isReceiverRegistered = false
+                logger.debug(
+                    "onPause",
+                    "Unregistered broadcast receiver for merchant category changes."
+                )
+            } catch (e: Exception) {
+                logger.error("onPause", "Failed to unregister broadcast receiver", e)
+                isReceiverRegistered = false // Reset flag even on error
+            }
         }
     }
 
