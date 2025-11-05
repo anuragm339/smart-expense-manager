@@ -142,11 +142,7 @@ class LoginActivity : AppCompatActivity() {
                 }.onFailure { exception ->
                     logger.debug("onActivityResult","Sign-in failed")
                     showLoading(false)
-                    Toast.makeText(
-                        this@LoginActivity,
-                        "Sign-in failed: ${exception.localizedMessage}",
-                        Toast.LENGTH_LONG
-                    ).show()
+                    navigateToMain()
                 }
             }
         }
@@ -156,6 +152,7 @@ class LoginActivity : AppCompatActivity() {
         binding.progressBar.visibility = if (show) View.VISIBLE else View.GONE
         binding.btnGoogleSignIn.isEnabled = !show
     }
+
 
     private fun navigateToMain() {
         val intent = Intent(this, MainActivity::class.java)
