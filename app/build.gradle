@@ -23,7 +23,7 @@ android {
             def countResult = 'git rev-list --count HEAD'.execute()
             countResult.waitFor()
             if (countResult.exitValue() == 0) {
-                gitCommitCount = 101
+                gitCommitCount = Integer.parseInt(countResult.text.trim())
             }
 
             def descResult = 'git describe --tags --always --dirty'.execute()
