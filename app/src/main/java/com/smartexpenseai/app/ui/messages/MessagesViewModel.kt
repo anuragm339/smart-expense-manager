@@ -1304,6 +1304,7 @@ class MessagesViewModel @Inject constructor(
             logger.error("invalidateMerchantAliasCache","Error invalidating ViewModel merchant alias cache",e)
         }
     }
+
     
     /**
      * Force refresh data after external changes (called from Fragment)
