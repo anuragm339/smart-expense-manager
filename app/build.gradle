@@ -6,44 +6,6 @@ plugins {
     id 'com.google.gms.google-services'  // Required for google-services.json
 }
 
-// Function to get version from Git
-def getVersionCode() {
-    try {
-        def stdout = new ByteArrayOutputStream()
-        exec {
-            commandLine 'git', 'rev-list', '--count', 'HEAD'
-            standardOutput = stdout
-        }
-        return Integer.parseInt(stdout.toString().trim())
-    } catch (Exception e) {
-        println "Warning: Could not get git commit count, using default versionCode"
-        return 1
-    }
-}
-
-def getVersionName() {
-    try {
-        def stdout = new ByteArrayOutputStream()
-        exec {
-            commandLine 'git', 'describe', '--tags', '--always', '--dirty'
-            standardOutput = stdout
-        }
-        def gitVersion = stdout.toString().trim()
-
-        // If there are no tags, use commit count as version
-        if (!gitVersion.contains('-')) {
-            return "1.0.${getVersionCode()}"
-        }
-
-        // Parse git describe output (e.g., v1.0.0-5-gabcdef or v1.0.0)
-        def version = gitVersion.replaceFirst('^v', '').replaceFirst('-dirty$', '')
-        return version
-    } catch (Exception e) {
-        println "Warning: Could not get git version, using default versionName"
-        return "1.0.0-dev"
-    }
-}
-
 android {
     namespace 'com.smartexpenseai.app'
     compileSdk 35
@@ -52,18 +14,39 @@ android {
         applicationId "com.smartexpenseai.app"
         minSdk 23
         targetSdk 35
-        versionCode getVersionCode()
-        versionName getVersionName()
+
+        // Get version from Git
+        def gitCommitCount = 92  // fallback
+        def gitVersionName = "1.0.2"  // fallback
+
+        try {
+            def countResult = 'git rev-list --count HEAD'.execute()
+            countResult.waitFor()
+            if (countResult.exitValue() == 0) {
+                gitCommitCount = Integer.parseInt(countResult.text.trim())
+            }
+
+            def descResult = 'git describe --tags --always --dirty'.execute()
+            descResult.waitFor()
+            if (descResult.exitValue() == 0) {
+                def desc = descResult.text.trim()
+                // Remove 'v' prefix and '-dirty' suffix
+                gitVersionName = desc.replaceFirst('^v', '').replaceFirst('-dirty$', '')
+                // If no tags, use commit count
+                if (!desc.contains('-') && !desc.startsWith('v')) {
+                    gitVersionName = "1.0.${gitCommitCount}"
+                }
+            }
+        } catch (Exception e) {
+            println "Warning: Git version detection failed, using fallback values"
+        }
+
+        versionCode gitCommitCount
+        versionName gitVersionName
 
         testInstrumentationRunner "com.smartexpenseai.app.HiltTestRunner"
-    }
 
-    // Log version info after configuration
-    applicationVariants.all { variant ->
-        variant.outputs.all { output ->
-            output.versionNameOverride = getVersionName()
-            output.versionCodeOverride = getVersionCode()
-        }
+        println "Building version ${gitVersionName} (code: ${gitCommitCount})"
     }
 
     signingConfigs {
@@ -209,13 +192,30 @@ dependencies {
 // Task to print current version
 task printVersion {
     doLast {
+        def vCode = 92
+        def vName = "1.0.2"
+        try {
+            def countResult = 'git rev-list --count HEAD'.execute()
+            countResult.waitFor()
+            if (countResult.exitValue() == 0) {
+                vCode = Integer.parseInt(countResult.text.trim())
+            }
+            def descResult = 'git describe --tags --always --dirty'.execute()
+            descResult.waitFor()
+            if (descResult.exitValue() == 0) {
+                vName = descResult.text.trim().replaceFirst('^v', '').replaceFirst('-dirty$', '')
+            }
+        } catch (Exception e) {
+            println "Warning: Could not get Git version"
+        }
+
         println "============================================"
         println "App Version Information"
         println "============================================"
-        println "Version Name: ${getVersionName()}"
-        println "Version Code: ${getVersionCode()}"
-        println "Git Commits:  ${getVersionCode()}"
-        println "Git Describe: ${getVersionName()}"
+        println "Version Name: ${vName}"
+        println "Version Code: ${vCode}"
+        println "Git Commits:  ${vCode}"
+        println "Git Describe: ${vName}"
         println "============================================"
     }
 }
