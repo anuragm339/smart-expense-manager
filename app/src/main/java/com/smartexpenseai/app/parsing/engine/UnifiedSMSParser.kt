@@ -59,10 +59,10 @@ class UnifiedSMSParser @Inject constructor(
 
             // 2. Extract transaction fields
             val amount = extractAmount(body, bankRule, rules)
-            val merchant = extractMerchant(body, bankRule, rules)
-            val date = extractDate(body, bankRule, timestamp)
-            val transactionType = extractTransactionType(body, bankRule, rules)
-            val referenceNumber = extractReferenceNumber(body, bankRule, rules)
+            val merchant = extractMerchant(body.replace(Regex("[^A-Za-z0-9\\s]"), " ").trim(), bankRule, rules)
+            val date = extractDate(body.replace(Regex("[^A-Za-z0-9\\s]"), " ").trim(), bankRule, timestamp)
+            val transactionType = extractTransactionType(body.replace(Regex("[^A-Za-z0-9\\s]"), " ").trim(), bankRule, rules)
+            val referenceNumber = extractReferenceNumber(body.replace(Regex("[^A-Za-z0-9\\s]"), " ").trim(), bankRule, rules)
 
             // 3. Validate required fields (HARD REQUIREMENTS)
             if (amount == null) {
@@ -277,11 +277,13 @@ class UnifiedSMSParser @Inject constructor(
      * Clean merchant name (remove extra spaces, special chars)
      */
     private fun cleanMerchantName(merchant: String): String {
-        return merchant
+        val trim = merchant
             .trim()
             .replace(Regex("\\s+"), " ")
             .replace(Regex("[^A-Za-z0-9\\s&'-]"), "")
             .trim()
+        logger.debug("cleanMerchantName","$trim actual merchant name $merchant")
+        return trim;
     }
 
     /**

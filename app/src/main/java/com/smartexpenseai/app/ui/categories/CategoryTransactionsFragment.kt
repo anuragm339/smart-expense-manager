@@ -20,7 +20,6 @@ import com.smartexpenseai.app.databinding.FragmentCategoryTransactionsBinding
 import com.smartexpenseai.app.ui.messages.MessageItem
 import com.smartexpenseai.app.ui.messages.MessagesAdapter
 import com.smartexpenseai.app.utils.CategoryManager
-import com.smartexpenseai.app.utils.MerchantAliasManager
 import com.smartexpenseai.app.data.repository.ExpenseRepository
 import com.smartexpenseai.app.utils.logging.StructuredLogger
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -45,7 +44,6 @@ class CategoryTransactionsFragment : Fragment() {
     private lateinit var categoryName: String
     private lateinit var transactionsAdapter: MessagesAdapter
     private lateinit var categoryManager: CategoryManager
-    private lateinit var merchantAliasManager: MerchantAliasManager
     private lateinit var repository: ExpenseRepository
     
     // Legacy filter and sort state (now handled by ViewModel)
@@ -107,8 +105,7 @@ class CategoryTransactionsFragment : Fragment() {
         
         // Initialize legacy components for fallback compatibility
         categoryName = arguments?.getString("categoryName") ?: "Unknown"
-        categoryManager = CategoryManager(requireContext())
-        merchantAliasManager = MerchantAliasManager(requireContext())
+        categoryManager = CategoryManager(requireContext(), repository)
         repository = ExpenseRepository.getInstance(requireContext())
         
         setupUI()
@@ -261,7 +258,7 @@ class CategoryTransactionsFragment : Fragment() {
                     if (transactionCategory == categoryName) {
                         MessageItem(
                             amount = transaction.amount,
-                            merchant = merchantAliasManager.getDisplayName(transaction.rawMerchant), // Apply alias lookup
+                            merchant = merchantWithCategory?.display_name ?: transaction.rawMerchant, // Apply alias lookup
                             bankName = transaction.bankName,
                             category = transactionCategory,
                             categoryColor = merchantWithCategory?.category_color ?: "#888888",

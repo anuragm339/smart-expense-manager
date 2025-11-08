@@ -23,7 +23,6 @@ import com.google.android.material.card.MaterialCardView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
 import com.smartexpenseai.app.data.repository.ExpenseRepository
-import com.smartexpenseai.app.utils.MerchantAliasManager
 import com.smartexpenseai.app.utils.CategoryManager
 import kotlinx.coroutines.launch
 import java.util.*
@@ -46,7 +45,6 @@ class CategoriesFragment : Fragment() {
     // Keep repository and managers for fallback compatibility
     private lateinit var repository: ExpenseRepository
     private lateinit var categoriesAdapter: CategoriesAdapter
-    private lateinit var merchantAliasManager: MerchantAliasManager
     private lateinit var categoryManager: CategoryManager
 
     // Track receiver registration state
@@ -78,8 +76,7 @@ class CategoriesFragment : Fragment() {
 
         // Initialize legacy components for fallback compatibility
         repository = ExpenseRepository.getInstance(requireContext())
-        merchantAliasManager = MerchantAliasManager(requireContext())
-        categoryManager = CategoryManager(requireContext())
+        categoryManager = CategoryManager(requireContext(), repository)
 
         setupRecyclerView()
         setupUI()
@@ -422,7 +419,9 @@ class CategoriesFragment : Fragment() {
 
     private fun showEmptyState() {
         // Show only custom categories with ₹0 amounts - no fake data
-        categoriesAdapter.submitList(getEmptyCategories())
+        lifecycleScope.launch {
+            categoriesAdapter.submitList(getEmptyCategories())
+        }
         binding.tvTotalSpending.text = "₹0"
         binding.tvCategoriesCount.text = "0 Categories"
     }
@@ -584,10 +583,12 @@ class CategoriesFragment : Fragment() {
         }
 
         // Ensure "Money" category is available (commonly needed category)
-        val allCategories = categoryManager.getAllCategories()
-        if (!allCategories.contains("Money")) {
-            categoryManager.addCustomCategory("Money")
-            logger.debug("onResume", "Added 'Money' category to CategoryManager")
+        lifecycleScope.launch {
+            val allCategories = categoryManager.getAllCategories()
+            if (!allCategories.contains("Money")) {
+                categoryManager.addCustomCategory("Money")
+                logger.debug("onResume", "Added 'Money' category to CategoryManager")
+            }
         }
 
         // Trigger ViewModel refresh when returning to this screen
@@ -680,7 +681,7 @@ class CategoriesFragment : Fragment() {
     /**
      * Get empty categories (only custom categories with ₹0 amounts)
      */
-    private fun getEmptyCategories(): List<CategoryItem> {
+    private suspend fun getEmptyCategories(): List<CategoryItem> {
         logger.debug("getEmptyCategories","Showing empty categories state - no dummy data")
 
         // Only show custom categories with ₹0 amounts - no fake data

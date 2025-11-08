@@ -391,6 +391,24 @@ class ExpenseRepository @Inject constructor(
         return merchantDao.getExcludedMerchants()
     }
 
+    /**
+     * Update merchant category and mark as user-defined
+     * Used for learning user preferences when they manually change a merchant's category
+     */
+    suspend fun updateMerchantCategory(normalizedName: String, categoryId: Long, isUserDefined: Boolean) {
+        val merchant = merchantDao.getMerchantByNormalizedName(normalizedName)
+        if (merchant != null) {
+            val updatedMerchant = merchant.copy(
+                categoryId = categoryId,
+                isUserDefined = isUserDefined
+            )
+            merchantDao.updateMerchant(updatedMerchant)
+            logger.debug("updateMerchantCategory", "Updated merchant '$normalizedName' to category $categoryId, isUserDefined=$isUserDefined")
+        } else {
+            logger.warn("updateMerchantCategory", "Merchant '$normalizedName' not found in database")
+        }
+    }
+
     suspend fun updateMerchantAliasInDatabase(
         originalMerchantNames: List<String>,
         newDisplayName: String,
@@ -768,6 +786,21 @@ class ExpenseRepository @Inject constructor(
     suspend fun getAllCategoryBudgets(): List<BudgetEntity> =
         withContext(Dispatchers.IO) {
             budgetDao.getAllActiveCategoryBudgets()
+        }
+
+    /**
+     * Get budget for a specific category by category ID
+     * Alias for getCategoryBudget for migration helper compatibility
+     */
+    suspend fun getBudgetByCategoryId(categoryId: Long): BudgetEntity? =
+        getCategoryBudget(categoryId)
+
+    /**
+     * Insert a new budget (for migration purposes)
+     */
+    suspend fun insertBudget(budget: BudgetEntity): Long =
+        withContext(Dispatchers.IO) {
+            budgetDao.insertBudget(budget)
         }
 }
 

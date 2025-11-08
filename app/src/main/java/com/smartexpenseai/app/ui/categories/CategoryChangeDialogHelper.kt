@@ -4,10 +4,12 @@ import android.content.Context
 import android.view.LayoutInflater
 import android.widget.ArrayAdapter
 import com.smartexpenseai.app.R
+import com.smartexpenseai.app.data.repository.ExpenseRepository
 import com.smartexpenseai.app.databinding.DialogChangeMerchantCategoryBinding
 import com.smartexpenseai.app.utils.CategoryManager
 import com.smartexpenseai.app.utils.logging.StructuredLogger
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import kotlinx.coroutines.runBlocking
 
 class CategoryChangeDialogHelper(private val context: Context) {
     private val logger = StructuredLogger("CategoryChangeDialogHelper","CategoryChangeDialogHelper")
@@ -17,6 +19,7 @@ class CategoryChangeDialogHelper(private val context: Context) {
 
     fun showChangeCategoryDialog(
         merchant: MerchantInCategory,
+        repository: ExpenseRepository,
         onCategoryChanged: (merchantName: String, newCategory: String, applyToFuture: Boolean) -> Unit
     ) {
         val dialogView = LayoutInflater.from(context).inflate(
@@ -32,8 +35,8 @@ class CategoryChangeDialogHelper(private val context: Context) {
         binding.tvCurrentCategory.text = "Current Category: ${merchant.currentCategory}"
 
         // Get available categories
-        val categoryManager = CategoryManager(context)
-        val availableCategories = categoryManager.getAllCategories().toMutableList()
+        val categoryManager = CategoryManager(context, repository)
+        val availableCategories = runBlocking { categoryManager.getAllCategories().toMutableList() }
 
         // Remove current category from selection (since it's already assigned)
         availableCategories.remove(merchant.currentCategory)

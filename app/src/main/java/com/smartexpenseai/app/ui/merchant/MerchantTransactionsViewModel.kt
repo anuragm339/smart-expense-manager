@@ -12,7 +12,6 @@ import kotlinx.coroutines.launch
 import com.smartexpenseai.app.data.repository.ExpenseRepository
 import com.smartexpenseai.app.data.entities.TransactionEntity
 import com.smartexpenseai.app.utils.logging.StructuredLogger
-import org.json.JSONObject
 import javax.inject.Inject
 
 @HiltViewModel
@@ -72,57 +71,29 @@ class MerchantTransactionsViewModel @Inject constructor(
     }
 
     fun loadInclusionState(merchantName: String) {
-        val prefs = context.getSharedPreferences("expense_calculations", Context.MODE_PRIVATE)
-        val inclusionStatesJson = prefs.getString("group_inclusion_states", null)
-        
-        // Normalize merchant name for consistent lookup
-        val normalizedMerchantName = merchantName.trim()
-
-        logger.debug("loadMerchantTransactions","Loading inclusion state for original: '$merchantName'")
-        logger.debug("loadMerchantTransactions","Loading inclusion state for normalized: '$normalizedMerchantName'")
-        logger.debug("loadMerchantTransactions","Inclusion states JSON: $inclusionStatesJson")
-        
-        var isIncluded = true // Default to included
-        
-        if (inclusionStatesJson != null) {
+        viewModelScope.launch {
             try {
-                val inclusionStates = JSONObject(inclusionStatesJson)
-                
-                // Debug: Log all keys in the inclusion states
-                val keys = mutableListOf<String>()
-                inclusionStates.keys().forEach { key -> keys.add(key) }
-                logger.debug("loadMerchantTransactions","All keys in preferences: $keys")
-                
-                // Try normalized merchant name first, then original name for backward compatibility
-                when {
-                    inclusionStates.has(normalizedMerchantName) -> {
-                        isIncluded = inclusionStates.getBoolean(normalizedMerchantName)
-                        logger.debug("loadMerchantTransactions","[DEBUG] Found normalized '$normalizedMerchantName' in preferences: $isIncluded")
-                    }
-                    inclusionStates.has(merchantName) -> {
-                        isIncluded = inclusionStates.getBoolean(merchantName)
-                        logger.debug("loadMerchantTransactions","[DEBUG] Found original '$merchantName' in preferences: $isIncluded (legacy)")
-                        
-                        // Migrate to normalized key
-                        inclusionStates.put(normalizedMerchantName, isIncluded)
-                        inclusionStates.remove(merchantName)
-                        prefs.edit()
-                            .putString("group_inclusion_states", inclusionStates.toString())
-                            .apply()
-                        logger.debug("loadMerchantTransactions","Migrated '$merchantName' -> '$normalizedMerchantName'")
-                    }
-                    else -> {
-                        logger.debug("loadMerchantTransactions","Neither normalized nor original merchant name found in preferences, defaulting to included")
-                    }
+                logger.debug("loadInclusionState","Loading inclusion state from DB for: '$merchantName'")
+
+                // Get merchant from database
+                val merchant = repository.getMerchantWithCategory(merchantName)
+
+                // Default to included (not excluded)
+                val isIncluded = if (merchant != null) {
+                    !merchant.is_excluded_from_expense_tracking
+                } else {
+                    true // If merchant doesn't exist in DB, default to included
                 }
+
+                logger.debug("loadInclusionState","Merchant '$merchantName' inclusion state from DB: $isIncluded")
+
+                _uiState.value = _uiState.value.copy(isIncludedInExpense = isIncluded)
             } catch (e: Exception) {
-                logger.error("loadMerchantTransactions","Error loading inclusion state", e)
+                logger.error("loadInclusionState","Error loading inclusion state from DB", e)
+                // Default to included on error
+                _uiState.value = _uiState.value.copy(isIncludedInExpense = true)
             }
-        } else {
-            logger.debug("loadMerchantTransactions","No inclusion states JSON found, defaulting to included")
         }
-        
-        _uiState.value = _uiState.value.copy(isIncludedInExpense = isIncluded)
     }
 
     fun updateInclusionState(merchantName: String, isIncluded: Boolean) {
@@ -134,68 +105,40 @@ class MerchantTransactionsViewModel @Inject constructor(
                     _events.value = MerchantTransactionsEvent.ShowError("Invalid merchant name")
                     return@launch
                 }
-                
-                // Normalize merchant name for consistent storage (trim whitespace and handle special chars)
-                val normalizedMerchantName = merchantName.trim()
 
-                logger.debug("updateInclusionState","[DEBUG] Updating inclusion state for normalized merchant: '$normalizedMerchantName'")
-                logger.debug("updateInclusionState","[DEBUG] Original merchant name length: ${merchantName.length}")
-                logger.debug("updateInclusionState","[DEBUG] Normalized merchant name length: ${normalizedMerchantName.length}")
-                
-                // Save to SharedPreferences
-                val prefs = context.getSharedPreferences("expense_calculations", Context.MODE_PRIVATE)
-                val inclusionStatesJson = prefs.getString("group_inclusion_states", null)
-                
-                val inclusionStates = if (inclusionStatesJson != null) {
-                    JSONObject(inclusionStatesJson)
-                } else {
-                    JSONObject()
-                }
-                
-                // Use normalized merchant name for consistent key storage
-                inclusionStates.put(normalizedMerchantName, isIncluded)
-                
-                prefs.edit()
-                    .putString("group_inclusion_states", inclusionStates.toString())
-                    .apply()
+                logger.debug("updateInclusionState","Updating inclusion state in DB for: '$merchantName' to $isIncluded")
 
-                logger.debug("updateInclusionState","[DEBUG] Updated inclusion state for '$normalizedMerchantName': $isIncluded")
-                logger.debug("updateInclusionState","[DEBUG] Full inclusion states JSON: ${inclusionStates.toString()}")
-                
-                // Debug: Log all keys in the inclusion states
-                val keys = mutableListOf<String>()
-                inclusionStates.keys().forEach { key -> keys.add(key) }
-                logger.debug("updateInclusionState","[DEBUG] All merchant keys in preferences: $keys")
-                
-                // FIXED: Send broadcast to notify Dashboard and other screens about inclusion state change
-                val totalIncluded = inclusionStates.keys().asSequence().count { key ->
-                    inclusionStates.getBoolean(key)
-                }
+                // Update merchant exclusion in database
+                // isIncluded = true means NOT excluded, so we need to invert the boolean
+                val isExcluded = !isIncluded
+                repository.updateMerchantExclusion(merchantName, isExcluded)
+
+                logger.debug("updateInclusionState","Updated merchant exclusion in DB: '$merchantName' isExcluded=$isExcluded")
+
+                // Send broadcast to notify Dashboard and other screens about inclusion state change
                 val intent = android.content.Intent("com.expensemanager.INCLUSION_STATE_CHANGED").apply {
-                    putExtra("included_count", totalIncluded)
-                    putExtra("total_amount", 0.0) // Could calculate actual amount if needed
-                    putExtra("merchant_name", normalizedMerchantName)
+                    putExtra("merchant_name", merchantName)
                     putExtra("is_included", isIncluded)
                 }
                 context.sendBroadcast(intent)
-                logger.debug("updateInclusionState","Broadcast sent for inclusion state change: $normalizedMerchantName = $isIncluded")
-                
+                logger.debug("updateInclusionState","Broadcast sent for inclusion state change: $merchantName = $isIncluded")
+
                 _uiState.value = _uiState.value.copy(isIncludedInExpense = isIncluded)
-                
-                // Create user-friendly display name (truncate if too long but keep original name for UX)
+
+                // Create user-friendly display name
                 val displayName = if (merchantName.length > 50) {
                     "${merchantName.take(47)}..."
                 } else {
                     merchantName
                 }
-                
+
                 _events.value = MerchantTransactionsEvent.ShowMessage(
                     if (isIncluded) "✓ $displayName is now included in expense calculations"
                     else "ℹ️ $displayName is now excluded from expense calculations"
                 )
-                
+
             } catch (e: Exception) {
-                logger.error("updateInclusionState","Error updating inclusion state",e)
+                logger.error("updateInclusionState","Error updating inclusion state in DB",e)
                 _events.value = MerchantTransactionsEvent.ShowError("Error updating inclusion state")
             }
         }

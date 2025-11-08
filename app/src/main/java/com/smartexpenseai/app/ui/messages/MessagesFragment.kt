@@ -58,8 +58,8 @@ class MessagesFragment : Fragment() {
 
     private val logger = StructuredLogger("UI", MessagesFragment::class.java.simpleName)
     private lateinit var categoryManager: CategoryManager
-    private lateinit var merchantAliasManager: MerchantAliasManager
-    
+    private lateinit var merchantAliasManager: com.smartexpenseai.app.utils.MerchantAliasManager
+
     companion object {
         private const val CATEGORY_BROADCAST_DELAY_MS = 100L
     }
@@ -132,8 +132,9 @@ class MessagesFragment : Fragment() {
     
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        categoryManager = CategoryManager(requireContext())
-        merchantAliasManager = MerchantAliasManager(requireContext())
+        val repository = com.smartexpenseai.app.data.repository.ExpenseRepository.getInstance(requireContext())
+        categoryManager = CategoryManager(requireContext(), repository)
+        merchantAliasManager = com.smartexpenseai.app.utils.MerchantAliasManager(requireContext(), repository)
         
         viewBinder = MessagesViewBinder(
             binding = binding,
@@ -1165,29 +1166,31 @@ class MessagesFragment : Fragment() {
     }
 
     private fun showCategoryEditDialogFallback(messageItem: MessageItem) {
-        val categories = categoryManager.getAllCategories()
-        val currentCategoryIndex = categories.indexOf(messageItem.category)
+        lifecycleScope.launch {
+            val categories = categoryManager.getAllCategories()
+            val currentCategoryIndex = categories.indexOf(messageItem.category)
 
-        // Create enhanced categories with emojis
-        val enhancedCategories = categories.map { category ->
-            "${getCategoryEmoji(category)} $category"
-        }.toTypedArray()
+            // Create enhanced categories with emojis
+            val enhancedCategories = categories.map { category ->
+                "${getCategoryEmoji(category)} $category"
+            }.toTypedArray()
 
-        logger.debug("MessagesFragment", "[TARGET] Showing custom category dialog for ${messageItem.merchant} (fallback)")
+            logger.debug("MessagesFragment", "[TARGET] Showing custom category dialog for ${messageItem.merchant} (fallback)")
 
-        val dialog = CategorySelectionDialogFragment.newInstance(
-            categories = enhancedCategories,
-            currentIndex = currentCategoryIndex,
-            merchantName = messageItem.merchant
-        ) { selectedCategory ->
-            // Remove emoji from selected category to get the actual name
-            val actualCategory = parseCategoryName(selectedCategory)
-            if (actualCategory != messageItem.category) {
-                updateCategoryForMerchant(messageItem, actualCategory)
+            val dialog = CategorySelectionDialogFragment.newInstance(
+                categories = enhancedCategories,
+                currentIndex = currentCategoryIndex,
+                merchantName = messageItem.merchant
+            ) { selectedCategory ->
+                // Remove emoji from selected category to get the actual name
+                val actualCategory = parseCategoryName(selectedCategory)
+                if (actualCategory != messageItem.category) {
+                    updateCategoryForMerchant(messageItem, actualCategory)
+                }
             }
-        }
 
-        dialog.show(parentFragmentManager, "CategoryEditDialog")
+            dialog.show(parentFragmentManager, "CategoryEditDialog")
+        }
     }
     
     private fun getCategoryEmoji(categoryName: String): String {
@@ -1753,30 +1756,32 @@ class MessagesFragment : Fragment() {
         
         // Pre-fill current values
         etGroupName.setText(group.merchantName)
-        
+
         // Setup category selection
-        val categories = categoryManager.getAllCategories().toMutableList()
-        
-        // Ensure "Money" category is available
-        if (!categories.contains("Money")) {
-            categoryManager.addCustomCategory("Money")
-            categories.add("Money")
-        }
-        
-        logger.debug("MessagesFragment", "Loading categories for selector: $categories")
-        
-        // Set current category
-        val initialCategory = if (categories.contains(group.category)) group.category else categories.firstOrNull() ?: "Other"
-        tvSelectedCategory.text = initialCategory
-        
-        logger.debug("MessagesFragment", "Set initial category to: $initialCategory")
-        
-        // Handle category selection
-        categorySelectorCard.setOnClickListener {
-            logger.debug("MessagesFragment", "Category selector clicked, showing dialog")
-            showCategorySelectionDialog(categories, tvSelectedCategory.text.toString()) { newCategory ->
-                tvSelectedCategory.text = newCategory
-                logger.debug("MessagesFragment", "Category updated to: $newCategory")
+        lifecycleScope.launch {
+            val categories = categoryManager.getAllCategories().toMutableList()
+
+            // Ensure "Money" category is available
+            if (!categories.contains("Money")) {
+                categoryManager.addCustomCategory("Money")
+                categories.add("Money")
+            }
+
+            logger.debug("MessagesFragment", "Loading categories for selector: $categories")
+
+            // Set current category
+            val initialCategory = if (categories.contains(group.category)) group.category else categories.firstOrNull() ?: "Other"
+            tvSelectedCategory.text = initialCategory
+
+            logger.debug("MessagesFragment", "Set initial category to: $initialCategory")
+
+            // Handle category selection
+            categorySelectorCard.setOnClickListener {
+                logger.debug("MessagesFragment", "Category selector clicked, showing dialog")
+                showCategorySelectionDialog(categories, tvSelectedCategory.text.toString()) { newCategory ->
+                    tvSelectedCategory.text = newCategory
+                    logger.debug("MessagesFragment", "Category updated to: $newCategory")
+                }
             }
         }
         
@@ -2674,9 +2679,11 @@ class MessagesFragment : Fragment() {
         
         // Handle category selection
         categorySelectorCard.setOnClickListener {
-            val categories = categoryManager.getAllCategories()
-            showCategorySelectionDialog(categories, tvSelectedCategory.text.toString()) { newCategory ->
-                tvSelectedCategory.text = newCategory
+            lifecycleScope.launch {
+                val categories = categoryManager.getAllCategories()
+                showCategorySelectionDialog(categories, tvSelectedCategory.text.toString()) { newCategory ->
+                    tvSelectedCategory.text = newCategory
+                }
             }
         }
         

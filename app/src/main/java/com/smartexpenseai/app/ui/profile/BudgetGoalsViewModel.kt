@@ -11,8 +11,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import com.smartexpenseai.app.data.repository.ExpenseRepository
+import com.smartexpenseai.app.data.entities.BudgetEntity
 import com.smartexpenseai.app.utils.CategoryManager
-import com.smartexpenseai.app.utils.MerchantAliasManager
 import com.smartexpenseai.app.utils.logging.StructuredLogger
 import org.json.JSONArray
 import org.json.JSONObject
@@ -30,8 +30,7 @@ class BudgetGoalsViewModel @Inject constructor(
     }
 
     private val prefs: SharedPreferences = context.getSharedPreferences("budget_settings", Context.MODE_PRIVATE)
-    private val categoryManager = CategoryManager(context)
-    private val merchantAliasManager = MerchantAliasManager(context)
+    private val categoryManager = CategoryManager(context, repository)
     private val logger = StructuredLogger("BudgetGoalsViewModel", "BudgetGoalsViewModel")
     // UI State
     private val _uiState = MutableStateFlow(BudgetGoalsUiState())
@@ -110,54 +109,98 @@ class BudgetGoalsViewModel @Inject constructor(
     }
 
     private fun loadBudgetDataFallback() {
-        val monthlyBudget = prefs.getFloat("monthly_budget", 15000f)
+        // Use default budget value (no SharedPreferences fallback)
+        val monthlyBudget = 15000f
         val currentSpent = 0f
         val insights = calculateBudgetInsights(monthlyBudget, currentSpent, 0)
-        
+
         _uiState.value = _uiState.value.copy(
             monthlyBudget = monthlyBudget,
             currentSpent = currentSpent,
             budgetProgress = 0,
             insights = insights
         )
-        
+
         loadDefaultCategoryBudgets()
     }
 
     private suspend fun loadCategoryBudgets(startDate: Date, endDate: Date) {
-        val categoryBudgetsJson = prefs.getString("category_budgets", "")
         val categoryBudgets = mutableListOf<CategoryBudgetItem>()
-        
+
         // Get category spending from repository (with exclusions already applied)
         val categorySpending = repository.getCategorySpending(startDate, endDate)
         val categorySpendingMap = categorySpending.associate { it.category_name to it.total_amount }
-        
-        if (categoryBudgetsJson?.isNotEmpty() == true) {
-            try {
-                val jsonArray = JSONArray(categoryBudgetsJson)
-                for (i in 0 until jsonArray.length()) {
-                    val json = jsonArray.getJSONObject(i)
-                    val categoryName = json.getString("category")
-                    val actualSpent = categorySpendingMap[categoryName] ?: 0.0
-                    
-                    categoryBudgets.add(
-                        CategoryBudgetItem(
-                            categoryName = categoryName,
-                            budgetAmount = json.getDouble("budget").toFloat(),
-                            spentAmount = actualSpent.toFloat(),
-                            categoryColor = json.getString("color")
+
+        try {
+            // Load category budgets from database
+            val dbCategoryBudgets = repository.getAllCategoryBudgets()
+
+            if (dbCategoryBudgets.isNotEmpty()) {
+                logger.debug("loadCategoryBudgets", "Loaded ${dbCategoryBudgets.size} category budgets from DB")
+
+                // Map DB budgets to UI model
+                for (budgetEntity in dbCategoryBudgets) {
+                    val category = repository.getCategoryById(budgetEntity.categoryId ?: continue)
+                    if (category != null) {
+                        val actualSpent = categorySpendingMap[category.name] ?: 0.0
+
+                        categoryBudgets.add(
+                            CategoryBudgetItem(
+                                categoryName = category.name,
+                                budgetAmount = budgetEntity.budgetAmount.toFloat(),
+                                spentAmount = actualSpent.toFloat(),
+                                categoryColor = category.color
+                            )
                         )
-                    )
+                    }
                 }
-            } catch (e: Exception) {
-                logger.error("loadCategoryBudgets","Error parsing category budgets",e)
+            } else {
+                // No budgets in DB - try migration from SharedPreferences
+                logger.debug("loadCategoryBudgets", "No category budgets in DB, attempting migration from SharedPreferences")
+                val categoryBudgetsJson = prefs.getString("category_budgets", "")
+
+                if (categoryBudgetsJson?.isNotEmpty() == true) {
+                    try {
+                        val jsonArray = JSONArray(categoryBudgetsJson)
+                        for (i in 0 until jsonArray.length()) {
+                            val json = jsonArray.getJSONObject(i)
+                            val categoryName = json.getString("category")
+                            val budgetAmount = json.getDouble("budget")
+
+                            // Migrate to database
+                            val category = repository.getCategoryByName(categoryName)
+                            if (category != null) {
+                                val calendar = Calendar.getInstance()
+                                repository.insertBudget(
+                                    BudgetEntity(
+                                        categoryId = category.id,
+                                        budgetAmount = budgetAmount,
+                                        periodType = "MONTHLY",
+                                        startDate = startDate,
+                                        endDate = endDate,
+                                        isActive = true,
+                                        createdAt = calendar.time
+                                    )
+                                )
+                                logger.debug("loadCategoryBudgets", "Migrated budget for $categoryName: ₹$budgetAmount")
+                            }
+                        }
+                        // Reload after migration
+                        loadCategoryBudgets(startDate, endDate)
+                        return
+                    } catch (e: Exception) {
+                        logger.error("loadCategoryBudgets", "Error migrating category budgets from SharedPreferences", e)
+                    }
+                }
+
+                // No budgets in DB or SharedPreferences - use defaults
                 loadDefaultCategoryBudgetsWithRealSpending(categoryBudgets, categorySpendingMap)
             }
-        } else {
-            // Load default budgets with real spending
+        } catch (e: Exception) {
+            logger.error("loadCategoryBudgets", "Error loading category budgets from DB", e)
             loadDefaultCategoryBudgetsWithRealSpending(categoryBudgets, categorySpendingMap)
         }
-        
+
         _uiState.value = _uiState.value.copy(categoryBudgets = categoryBudgets)
     }
 
@@ -186,8 +229,7 @@ class BudgetGoalsViewModel @Inject constructor(
                 )
             )
         }
-        
-        saveCategoryBudgets(categoryBudgets)
+        // Note: Default budgets are for display only, not saved to DB
     }
 
     private fun loadDefaultCategoryBudgets() {
@@ -198,9 +240,9 @@ class BudgetGoalsViewModel @Inject constructor(
             CategoryBudgetItem("Healthcare", 1500f, 950f, "#e91e63"),
             CategoryBudgetItem("Entertainment", 1000f, 750f, "#9c27b0")
         )
-        
+
         _uiState.value = _uiState.value.copy(categoryBudgets = categoryBudgets)
-        saveCategoryBudgets(categoryBudgets)
+        // Note: Default budgets are for display only, not saved to DB
     }
 
     private fun calculateBudgetInsights(monthlyBudget: Float, currentSpent: Float, budgetProgress: Int): BudgetInsights {
@@ -253,39 +295,62 @@ class BudgetGoalsViewModel @Inject constructor(
     }
 
     fun addCategoryBudget(categoryName: String, budget: Float) {
-        val currentList = _uiState.value.categoryBudgets.toMutableList()
-        val categoryColor = getCategoryColor(categoryName)
-        
-        currentList.add(CategoryBudgetItem(categoryName, budget, 0f, categoryColor))
-        _uiState.value = _uiState.value.copy(categoryBudgets = currentList)
-        saveCategoryBudgets(currentList)
-        _events.value = BudgetGoalsEvent.ShowMessage("Budget set for $categoryName")
+        viewModelScope.launch {
+            try {
+                val category = repository.getCategoryByName(categoryName)
+                if (category != null) {
+                    val calendar = Calendar.getInstance()
+                    val startDate = calendar.apply { set(Calendar.DAY_OF_MONTH, 1) }.time
+                    val endDate = calendar.apply {
+                        set(Calendar.DAY_OF_MONTH, getActualMaximum(Calendar.DAY_OF_MONTH))
+                    }.time
+
+                    repository.insertBudget(
+                        BudgetEntity(
+                            categoryId = category.id,
+                            budgetAmount = budget.toDouble(),
+                            periodType = "MONTHLY",
+                            startDate = startDate,
+                            endDate = endDate,
+                            isActive = true,
+                            createdAt = calendar.time
+                        )
+                    )
+                    _events.value = BudgetGoalsEvent.ShowMessage("Budget set for $categoryName")
+                    loadBudgetData() // Reload to show new budget
+                } else {
+                    _events.value = BudgetGoalsEvent.ShowError("Category not found")
+                }
+            } catch (e: Exception) {
+                logger.error("addCategoryBudget", "Error adding category budget", e)
+                _events.value = BudgetGoalsEvent.ShowError("Error setting budget: ${e.message}")
+            }
+        }
     }
 
     fun updateCategoryBudget(categoryName: String, newBudget: Float) {
-        val currentList = _uiState.value.categoryBudgets.toMutableList()
-        val index = currentList.indexOfFirst { it.categoryName == categoryName }
-        
-        if (index != -1) {
-            currentList[index] = currentList[index].copy(budgetAmount = newBudget)
-            _uiState.value = _uiState.value.copy(categoryBudgets = currentList)
-            saveCategoryBudgets(currentList)
-            _events.value = BudgetGoalsEvent.ShowMessage("Budget updated")
-        }
-    }
-
-    private fun saveCategoryBudgets(categoryBudgets: List<CategoryBudgetItem>) {
-        val jsonArray = JSONArray()
-        categoryBudgets.forEach { budget ->
-            val json = JSONObject().apply {
-                put("category", budget.categoryName)
-                put("budget", budget.budgetAmount.toDouble())
-                put("spent", budget.spentAmount.toDouble())
-                put("color", budget.categoryColor)
+        viewModelScope.launch {
+            try {
+                val category = repository.getCategoryByName(categoryName)
+                if (category != null) {
+                    val existingBudget = repository.getBudgetByCategoryId(category.id)
+                    if (existingBudget != null) {
+                        // Update existing budget
+                        repository.insertBudget(
+                            existingBudget.copy(budgetAmount = newBudget.toDouble())
+                        )
+                        _events.value = BudgetGoalsEvent.ShowMessage("Budget updated")
+                        loadBudgetData() // Reload to show updated budget
+                    } else {
+                        // No existing budget, create new one
+                        addCategoryBudget(categoryName, newBudget)
+                    }
+                }
+            } catch (e: Exception) {
+                logger.error("updateCategoryBudget", "Error updating category budget", e)
+                _events.value = BudgetGoalsEvent.ShowError("Error updating budget: ${e.message}")
             }
-            jsonArray.put(json)
         }
-        prefs.edit().putString("category_budgets", jsonArray.toString()).apply()
     }
 
     private fun getCategoryColor(categoryName: String): String {

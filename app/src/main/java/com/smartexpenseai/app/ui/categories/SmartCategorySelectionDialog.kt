@@ -57,9 +57,10 @@ class SmartCategorySelectionDialog : DialogFragment() {
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+
         merchantName = arguments?.getString(ARG_MERCHANT_NAME) ?: ""
-        categoryManager = CategoryManager(requireContext())
+        val repository = com.smartexpenseai.app.data.repository.ExpenseRepository.getInstance(requireContext())
+        categoryManager = CategoryManager(requireContext(), repository)
         
         // Load all available categories
         allCategories = getCategoryList()

@@ -36,8 +36,8 @@ class MessagesViewModel @Inject constructor(
     }
     
     // Utility classes
-    private val categoryManager by lazy { CategoryManager(context) }
-    private val merchantAliasManager by lazy { MerchantAliasManager(context) }
+    private val categoryManager by lazy { CategoryManager(context, expenseRepository) }
+    private val merchantAliasManager by lazy { MerchantAliasManager(context, expenseRepository) }
     // SMS parsing is now handled by the injected SMSParsingService
     private val logger = StructuredLogger(
         featureTag = "UI",

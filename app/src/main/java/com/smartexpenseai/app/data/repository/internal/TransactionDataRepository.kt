@@ -12,6 +12,7 @@ import com.smartexpenseai.app.data.entities.CategoryEntity
 import com.smartexpenseai.app.data.entities.MerchantEntity
 import com.smartexpenseai.app.data.entities.SyncStateEntity
 import com.smartexpenseai.app.data.entities.TransactionEntity
+import com.smartexpenseai.app.data.repository.ExpenseRepository
 import com.smartexpenseai.app.models.ParsedTransaction
 import com.smartexpenseai.app.services.SMSParsingService
 import com.smartexpenseai.app.services.TransactionFilterService
@@ -223,7 +224,7 @@ internal class TransactionDataRepository(
         try {
             val syncState = syncStateDao.getSyncState()
             val lastSyncTimestamp = syncState?.lastSmsSyncTimestamp ?: Date(0)
-
+            val repository = ExpenseRepository.getInstance(context)
             logger.debug(
                 where = "syncNewSms",
                 what = "Starting SMS sync - Last sync timestamp: $lastSyncTimestamp"
@@ -245,8 +246,11 @@ internal class TransactionDataRepository(
                 val similar = findSimilarTransaction(entity)
 
                 if (existing == null && similar == null) {
-                    if (transactionDao.insertTransaction(entity) > 0) {
+                    val insertedId=transactionDao.insertTransaction(entity);
+                    if (insertedId > 0) {
+                        repository.autoCategorizeTransaction(insertedId)
                         insertedCount++
+
                     }
                 } else {
                     duplicateCount++

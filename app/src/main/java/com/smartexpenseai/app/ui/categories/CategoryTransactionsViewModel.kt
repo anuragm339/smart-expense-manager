@@ -7,7 +7,6 @@ import androidx.lifecycle.viewModelScope
 import com.smartexpenseai.app.data.repository.ExpenseRepository
 import com.smartexpenseai.app.ui.messages.MessageItem
 import com.smartexpenseai.app.utils.CategoryManager
-import com.smartexpenseai.app.utils.MerchantAliasManager
 import com.smartexpenseai.app.utils.logging.StructuredLogger
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -39,8 +38,7 @@ class CategoryTransactionsViewModel @Inject constructor(
     val uiState: StateFlow<CategoryTransactionsUIState> = _uiState.asStateFlow()
     
     // Manager instances
-    private val categoryManager = CategoryManager(context)
-    private val merchantAliasManager = MerchantAliasManager(context)
+    private val categoryManager = CategoryManager(context, repository)
     private val logger = StructuredLogger("CategoryTransactionsViewModel", "CategoryTransactionsViewModel")
     
     init {
@@ -385,7 +383,7 @@ class CategoryTransactionsViewModel @Inject constructor(
                     MessageItem(
                         transactionId = transaction.id,  // Add transaction ID for direct updates
                         amount = transaction.amount,
-                        merchant = merchantAliasManager.getDisplayName(transaction.rawMerchant), // Apply alias lookup
+                        merchant = merchantWithCategory?.display_name ?: transaction.rawMerchant, // Use display name from DB
                         bankName = transaction.bankName,
                         category = transactionCategory,
                         categoryColor = merchantWithCategory?.category_color ?: "#888888",

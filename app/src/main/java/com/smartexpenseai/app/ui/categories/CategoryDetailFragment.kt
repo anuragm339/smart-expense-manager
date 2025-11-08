@@ -28,6 +28,7 @@ class CategoryDetailFragment : Fragment() {
 
     private val viewModel: CategoryDetailViewModel by viewModels()
     private lateinit var merchantsAdapter: MerchantsInCategoryAdapter
+    private lateinit var repository: com.smartexpenseai.app.data.repository.ExpenseRepository
 
     private var categoryName: String = ""
     private val logger = StructuredLogger("CategoryDetailFragment", CategoryDetailFragment.javaClass.name)
@@ -53,6 +54,8 @@ class CategoryDetailFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        repository = com.smartexpenseai.app.data.repository.ExpenseRepository.getInstance(requireContext())
 
         setupRecyclerView()
         setupClickListeners()
@@ -173,7 +176,7 @@ class CategoryDetailFragment : Fragment() {
 
     private fun showChangeCategoryDialog(merchant: MerchantInCategory) {
         val dialogHelper = CategoryChangeDialogHelper(requireContext())
-        dialogHelper.showChangeCategoryDialog(merchant) { merchantName, newCategory, applyToFuture ->
+        dialogHelper.showChangeCategoryDialog(merchant, repository) { merchantName, newCategory, applyToFuture ->
             viewModel.changeMerchantCategory(merchantName, newCategory, applyToFuture)
             Toast.makeText(
                 requireContext(),
@@ -282,72 +285,74 @@ class CategoryDetailFragment : Fragment() {
 
     private fun showDeleteCategoryDialog() {
         // Get list of other categories for reassignment
-        val categoryManager = com.smartexpenseai.app.utils.CategoryManager(requireContext())
-        val allCategories = categoryManager.getAllCategories().toMutableList()
-        allCategories.remove(viewModel.uiState.value.categoryName) // Remove current category
+        lifecycleScope.launch {
+            val categoryManager = com.smartexpenseai.app.utils.CategoryManager(requireContext(), repository)
+            val allCategories = categoryManager.getAllCategories().toMutableList()
+            allCategories.remove(viewModel.uiState.value.categoryName) // Remove current category
 
-        if (allCategories.isEmpty()) {
-            Toast.makeText(
-                requireContext(),
-                "Cannot delete the last category. Create another category first.",
-                Toast.LENGTH_LONG
-            ).show()
-            return
-        }
-
-        val dialogView = LayoutInflater.from(requireContext()).inflate(
-            R.layout.dialog_delete_category,
-            null
-        )
-
-        val dialog = com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
-            .setView(dialogView)
-            .setBackgroundInsetStart(16)
-            .setBackgroundInsetEnd(16)
-            .setBackgroundInsetTop(64)
-            .setBackgroundInsetBottom(64)
-            .create()
-
-        // Set category name
-        dialogView.findViewById<TextView>(R.id.tv_category_name).text = viewModel.uiState.value.categoryName
-
-        // Set up category dropdown
-        val categoryAdapter = android.widget.ArrayAdapter(
-            requireContext(),
-            android.R.layout.simple_dropdown_item_1line,
-            allCategories
-        )
-        val spinner = dialogView.findViewById<AutoCompleteTextView>(R.id.spinner_reassign_category)
-        spinner.setAdapter(categoryAdapter)
-
-        // Set up button listeners
-        dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.btn_cancel).setOnClickListener {
-            dialog.dismiss()
-        }
-
-        dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.btn_delete).setOnClickListener {
-            val selectedCategory = spinner.text.toString().trim()
-            if (selectedCategory.isNotEmpty() && allCategories.contains(selectedCategory)) {
-                viewModel.deleteCategory(selectedCategory)
+            if (allCategories.isEmpty()) {
                 Toast.makeText(
                     requireContext(),
-                    "Deleting category...",
-                    Toast.LENGTH_SHORT
+                    "Cannot delete the last category. Create another category first.",
+                    Toast.LENGTH_LONG
                 ).show()
-                dialog.dismiss()
-            } else {
-                val tilCategory = dialogView.findViewById<com.google.android.material.textfield.TextInputLayout>(R.id.til_reassign_category)
-                tilCategory.error = "Please select a category"
+                return@launch
             }
-        }
 
-        // Clear error when user selects
-        spinner.setOnItemClickListener { _, _, _, _ ->
-            val tilCategory = dialogView.findViewById<com.google.android.material.textfield.TextInputLayout>(R.id.til_reassign_category)
-            tilCategory.error = null
-        }
+            val dialogView = LayoutInflater.from(requireContext()).inflate(
+                R.layout.dialog_delete_category,
+                null
+            )
 
-        dialog.show()
+            val dialog = com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                .setView(dialogView)
+                .setBackgroundInsetStart(16)
+                .setBackgroundInsetEnd(16)
+                .setBackgroundInsetTop(64)
+                .setBackgroundInsetBottom(64)
+                .create()
+
+            // Set category name
+            dialogView.findViewById<TextView>(R.id.tv_category_name).text = viewModel.uiState.value.categoryName
+
+            // Set up category dropdown
+            val categoryAdapter = android.widget.ArrayAdapter(
+                requireContext(),
+                android.R.layout.simple_dropdown_item_1line,
+                allCategories
+            )
+            val spinner = dialogView.findViewById<AutoCompleteTextView>(R.id.spinner_reassign_category)
+            spinner.setAdapter(categoryAdapter)
+
+            // Set up button listeners
+            dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.btn_cancel).setOnClickListener {
+                dialog.dismiss()
+            }
+
+            dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.btn_delete).setOnClickListener {
+                val selectedCategory = spinner.text.toString().trim()
+                if (selectedCategory.isNotEmpty() && allCategories.contains(selectedCategory)) {
+                    viewModel.deleteCategory(selectedCategory)
+                    Toast.makeText(
+                        requireContext(),
+                        "Deleting category...",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    dialog.dismiss()
+                } else {
+                    val tilCategory = dialogView.findViewById<com.google.android.material.textfield.TextInputLayout>(R.id.til_reassign_category)
+                    tilCategory.error = "Please select a category"
+                }
+            }
+
+            // Clear error when user selects
+            spinner.setOnItemClickListener { _, _, _, _ ->
+                val tilCategory = dialogView.findViewById<com.google.android.material.textfield.TextInputLayout>(R.id.til_reassign_category)
+                tilCategory.error = null
+            }
+
+            dialog.show()
+        }
     }
 
     override fun onDestroyView() {

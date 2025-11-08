@@ -16,7 +16,6 @@ import dagger.hilt.android.AndroidEntryPoint
 import com.smartexpenseai.app.R
 import com.smartexpenseai.app.databinding.FragmentTransactionDetailsBinding
 import com.smartexpenseai.app.utils.CategoryManager
-import com.smartexpenseai.app.utils.MerchantAliasManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.launch
@@ -33,7 +32,6 @@ class TransactionDetailsFragment : Fragment() {
     
     // Keep managers for fallback compatibility
     private lateinit var categoryManager: CategoryManager
-    private lateinit var merchantAliasManager: MerchantAliasManager
     
     // Transaction details passed as arguments (kept for backward compatibility)
     private var amount: Float = 0.0f
@@ -65,28 +63,30 @@ class TransactionDetailsFragment : Fragment() {
         _binding = FragmentTransactionDetailsBinding.inflate(inflater, container, false)
         return binding.root
     }
-    
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         
-        // Initialize legacy components for fallback compatibility
-        categoryManager = CategoryManager(requireContext())
-        merchantAliasManager = MerchantAliasManager(requireContext())
-        
-        setupUI()
-        setupClickListeners()
-        observeViewModel()
-        
-        // Set transaction data in ViewModel
-        viewModel.setTransactionData(
-            amount = amount,
-            merchant = merchant,
-            bankName = bankName,
-            category = category,
-            dateTime = dateTime,
-            confidence = confidence,
-            rawSMS = rawSMS
-        )
+        viewLifecycleOwner.lifecycleScope.launch {
+            // Initialize legacy components for fallback compatibility
+            val repository = com.smartexpenseai.app.data.repository.ExpenseRepository.getInstance(requireContext())
+            categoryManager = CategoryManager(requireContext(), repository)
+            
+            setupUI()
+            setupClickListeners()
+            observeViewModel()
+            
+            // Set transaction data in ViewModel
+            viewModel.setTransactionData(
+                amount = amount,
+                merchant = merchant,
+                bankName = bankName,
+                category = category,
+                dateTime = dateTime,
+                confidence = confidence,
+                rawSMS = rawSMS
+            )
+        }
     }
     
     /**
@@ -163,6 +163,12 @@ class TransactionDetailsFragment : Fragment() {
             Toast.makeText(requireContext(), uiState.error, Toast.LENGTH_LONG).show()
             viewModel.handleEvent(TransactionDetailsUIEvent.ClearError)
         }
+
+        // Handle success messages
+        if (uiState.successMessage != null) {
+            Toast.makeText(requireContext(), uiState.successMessage, Toast.LENGTH_LONG).show()
+            viewModel.handleEvent(TransactionDetailsUIEvent.ClearSuccess)
+        }
     }
 
     private fun setupUI() {
@@ -211,29 +217,31 @@ class TransactionDetailsFragment : Fragment() {
     }
     
     private fun showEditCategoryDialog() {
-        val categories = viewModel.getAllCategories()
-        val currentCategory = viewModel.uiState.value.transactionData?.category ?: ""
-        val currentIndex = categories.indexOf(currentCategory)
+        lifecycleScope.launch {
+            val categories = viewModel.getAllCategories()
+            val currentCategory = viewModel.uiState.value.transactionData?.category ?: ""
+            val currentIndex = categories.indexOf(currentCategory)
         
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Change Category")
-            .setSingleChoiceItems(
-                categories.toTypedArray(),
-                currentIndex
-            ) { dialog, which ->
-                val newCategory = categories[which]
-                if (newCategory != currentCategory) {
-                    viewModel.handleEvent(TransactionDetailsUIEvent.UpdateCategory(newCategory))
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Change Category")
+                .setSingleChoiceItems(
+                    categories.toTypedArray(),
+                    currentIndex
+                ) { dialog, which ->
+                    val newCategory = categories[which]
+                    if (newCategory != currentCategory) {
+                        viewModel.handleEvent(TransactionDetailsUIEvent.UpdateCategory(newCategory))
+                    }
+                    dialog.dismiss()
                 }
-                dialog.dismiss()
-            }
-            .setNeutralButton("Create New Category") { _, _ ->
-                showCreateCategoryDialog()
-            }
-            .setNegativeButton("Cancel") { dialog, _ ->
-                dialog.dismiss()
-            }
-            .show()
+                .setNeutralButton("Create New Category") { _, _ ->
+                    showCreateCategoryDialog()
+                }
+                .setNegativeButton("Cancel") { dialog, _ ->
+                    dialog.dismiss()
+                }
+                .show()
+        }
     }
     
     private fun showCreateCategoryDialog() {
@@ -296,46 +304,48 @@ class TransactionDetailsFragment : Fragment() {
     }
     
     private fun showEditMerchantDialog() {
-        val dialogView = LayoutInflater.from(requireContext()).inflate(
-            R.layout.dialog_edit_merchant_group,
-            null
-        )
-        
-        val etGroupName = dialogView.findViewById<TextInputEditText>(R.id.et_group_name)
-        val spinnerCategory = dialogView.findViewById<AutoCompleteTextView>(R.id.spinner_category)
-        
-        val currentTransaction = viewModel.uiState.value.transactionData
-        
-        // Pre-fill current values
-        etGroupName?.setText(currentTransaction?.merchant ?: "")
-        
-        // Setup category dropdown
-        val categories = viewModel.getAllCategories()
-        val adapter = ArrayAdapter(requireContext(), R.layout.dropdown_item_category, categories)
-        spinnerCategory?.setAdapter(adapter)
-        spinnerCategory?.setText(currentTransaction?.category ?: "", false)
-        
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Edit Merchant Name")
-            .setView(dialogView)
-            .setPositiveButton("Save") { _, _ ->
-                val newMerchantName = etGroupName?.text.toString().trim()
-                val newCategory = spinnerCategory?.text.toString().trim()
-                
-                if (newMerchantName.isNotEmpty() && newCategory.isNotEmpty()) {
-                    viewModel.handleEvent(TransactionDetailsUIEvent.UpdateMerchant(newMerchantName, newCategory))
-                } else {
-                    Toast.makeText(
-                        requireContext(),
-                        "Please fill all fields",
-                        Toast.LENGTH_SHORT
-                    ).show()
+        lifecycleScope.launch {
+            val dialogView = LayoutInflater.from(requireContext()).inflate(
+                R.layout.dialog_edit_merchant_group,
+                null
+            )
+
+            val etGroupName = dialogView.findViewById<TextInputEditText>(R.id.et_group_name)
+            val spinnerCategory = dialogView.findViewById<AutoCompleteTextView>(R.id.spinner_category)
+
+            val currentTransaction = viewModel.uiState.value.transactionData
+
+            // Pre-fill current values
+            etGroupName?.setText(currentTransaction?.merchant ?: "")
+
+            // Setup category dropdown
+            val categories = viewModel.getAllCategories()
+            val adapter = ArrayAdapter(requireContext(), R.layout.dropdown_item_category, categories)
+            spinnerCategory?.setAdapter(adapter)
+            spinnerCategory?.setText(currentTransaction?.category ?: "", false)
+
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Edit Merchant Name")
+                .setView(dialogView)
+                .setPositiveButton("Save") { _, _ ->
+                    val newMerchantName = etGroupName?.text.toString().trim()
+                    val newCategory = spinnerCategory?.text.toString().trim()
+
+                    if (newMerchantName.isNotEmpty() && newCategory.isNotEmpty()) {
+                        viewModel.handleEvent(TransactionDetailsUIEvent.UpdateMerchant(newMerchantName, newCategory))
+                    } else {
+                        Toast.makeText(
+                            requireContext(),
+                            "Please fill all fields",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
                 }
-            }
-            .setNegativeButton("Cancel") { dialog, _ ->
-                dialog.dismiss()
-            }
-            .show()
+                .setNegativeButton("Cancel") { dialog, _ ->
+                    dialog.dismiss()
+                }
+                .show()
+        }
     }
     
     private fun showMarkDuplicateDialog() {

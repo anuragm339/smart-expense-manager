@@ -162,6 +162,7 @@ class SMSHistoryReader @Inject constructor(
      * Parse transaction from SMS by delegating to UnifiedSMSParser
      * All parsing logic (amount, merchant, bank, reference) comes from bank_rules.json
      */
+
     suspend fun parseTransactionFromSMS(sms: HistoricalSMS): ParsedTransaction? {
         return try {
             val result = unifiedSMSParser.parseSMS(sms.address, sms.body, sms.date.time)

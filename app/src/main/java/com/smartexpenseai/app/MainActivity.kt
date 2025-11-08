@@ -35,8 +35,6 @@ class MainActivity : AppCompatActivity() {
     @Inject
     lateinit var transactionRepository: TransactionRepositoryInterface
 
-    @Inject
-    lateinit var dataMigrationManager: com.smartexpenseai.app.data.migration.DataMigrationManager
 
     @Inject
     lateinit var smsParsingService: SMSParsingService
@@ -254,15 +252,7 @@ class MainActivity : AppCompatActivity() {
                 
                 if (allPermissionsGranted) {
                     showPermissionGrantedInfo()
-
-                    // 🔧 BUG FIX #1: Retry initial SMS import if it was skipped during app launch
-                    lifecycleScope.launch {
-                        logger.debug("onRequestPermissionsResult","SMS permission granted - triggering migration retry...")
-                        dataMigrationManager.retryInitialSMSImportIfNeeded()
-                    }
-
                     scanHistoricalSMS()
-                    // After SMS permissions are granted, also request notification permission
                     requestNotificationPermissionIfNeeded()
                 } else {
                     showPermissionDeniedInfo()

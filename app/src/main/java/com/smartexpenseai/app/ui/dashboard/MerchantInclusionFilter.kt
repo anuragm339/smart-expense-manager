@@ -1,52 +1,54 @@
 package com.smartexpenseai.app.ui.dashboard
 
 import android.content.Context
-import android.content.SharedPreferences
+import com.smartexpenseai.app.data.repository.ExpenseRepository
 import com.smartexpenseai.app.utils.logging.StructuredLogger
-import org.json.JSONObject
+import kotlinx.coroutines.runBlocking
 
 /**
- * Filters merchants using the inclusion state persisted by the Messages screen.
+ * Filters merchants using the inclusion state from the database.
+ * Migrated from SharedPreferences to Database.
  */
 class MerchantInclusionFilter(
     context: Context,
     private val logger: StructuredLogger
 ) {
-    private val preferences: SharedPreferences =
-        context.getSharedPreferences("expense_calculations", Context.MODE_PRIVATE)
+    private val repository = ExpenseRepository.getInstance(context)
 
     fun apply(merchants: List<MerchantSpending>): List<MerchantSpending> {
         if (merchants.isEmpty()) return merchants
 
-        val inclusionStatesJson = preferences.getString("group_inclusion_states", null)
-        if (inclusionStatesJson.isNullOrEmpty()) {
-            logger.debug(
-                "apply",
-                "No inclusion states stored; returning original merchant list",
-                "Count: ${merchants.size}"
-            )
-            return merchants
-        }
+        return runBlocking {
+            try {
+                // Get excluded merchants from database
+                val excludedMerchants = repository.getExcludedMerchants()
+                val excludedMerchantNames = excludedMerchants.map { it.displayName }.toSet()
 
-        return runCatching { JSONObject(inclusionStatesJson) }
-            .map { inclusionStates ->
-                merchants.filter { merchant ->
-                    inclusionStates.optBoolean(merchant.merchantName, true)
-                }
-            }
-            .onSuccess { filtered ->
                 logger.debug(
                     "apply",
-                    "Applied inclusion filter",
+                    "Loaded exclusions from database",
+                    "Excluded merchants: ${excludedMerchantNames.size}"
+                )
+
+                // Filter out excluded merchants
+                val filtered = merchants.filter { merchant ->
+                    !excludedMerchantNames.contains(merchant.merchantName)
+                }
+
+                logger.debug(
+                    "apply",
+                    "Applied inclusion filter from DB",
                     "Before=${merchants.size}, After=${filtered.size}"
                 )
-            }
-            .onFailure { error ->
+
+                filtered
+            } catch (e: Exception) {
                 logger.error(
                     "apply",
-                    "Failed to parse inclusion states", error
+                    "Failed to load exclusions from database, returning all merchants", e
                 )
+                merchants
             }
-            .getOrElse { merchants }
+        }
     }
 }

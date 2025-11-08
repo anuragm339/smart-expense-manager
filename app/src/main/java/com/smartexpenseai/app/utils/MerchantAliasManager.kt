@@ -1,10 +1,8 @@
 package com.smartexpenseai.app.utils
 
 import android.content.Context
-import android.content.SharedPreferences
 import com.smartexpenseai.app.utils.logging.StructuredLogger
-import org.json.JSONObject
-import org.json.JSONException
+import kotlinx.coroutines.runBlocking
 
 data class MerchantAlias(
     val originalName: String,
@@ -13,157 +11,88 @@ data class MerchantAlias(
     val categoryColor: String
 )
 
-class MerchantAliasManager(private val context: Context) {
-    
-    companion object {
-        private const val PREFS_NAME = "merchant_aliases"
-        private const val KEY_ALIASES = "aliases"
-    }
-    
-    private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-    private val categoryManager = CategoryManager(context)
+/**
+ * MerchantAliasManager - Database-backed merchant alias management
+ * All operations now use ExpenseRepository instead of SharedPreferences
+ */
+class MerchantAliasManager(
+    private val context: Context,
+    private val repository: com.smartexpenseai.app.data.repository.ExpenseRepository
+) {
+
+    private val categoryManager = CategoryManager(context, repository)
     private val logger = StructuredLogger("MerchantAliasManager", "MerchantAliasManager")
-    // Enhanced cache for performance with LRU eviction
-    private var aliasCache: MutableMap<String, MerchantAlias>? = null
-    private var lastCacheUpdate = 0L
-    private val CACHE_VALIDITY_MS = 5 * 60 * 1000L // 5 minutes
-    
-    // Category lookup cache to reduce repeated database queries
-    private val categoryCache = mutableMapOf<String, String>()
-    private var categoryCacheTimestamp = 0L
     
     /**
-     * Get the display name for a merchant (original name or alias)
+     * Get the display name for a merchant (original name or alias) - NOW USES DB
      */
-    fun getDisplayName(originalMerchantName: String): String {
+    fun getDisplayName(originalMerchantName: String): String = runBlocking {
         val normalizedName = normalizeMerchantName(originalMerchantName)
-        val alias = getAlias(normalizedName)
 
-        // Use explicit alias display name if exists, otherwise use ORIGINAL name to prevent duplicates
-        // Using original name ensures transactions without aliases group together consistently
-        val displayName = alias?.displayName ?: originalMerchantName
+        // Get from database instead of SharedPreferences
+        val merchantWithCategory = repository.getMerchantWithCategory(normalizedName)
+        val displayName = merchantWithCategory?.display_name ?: originalMerchantName
 
-        logger.debug("getDisplayName","'$originalMerchantName' -> '$displayName' (normalized: '$normalizedName', hasAlias: ${alias != null})")
-        return displayName
+        logger.debug("getDisplayName","'$originalMerchantName' -> '$displayName' (from DB, normalized: '$normalizedName')")
+        displayName
     }
     
     /**
-     * Get the category for a merchant (from alias or default categorization)
+     * Get the category for a merchant - NOW USES DB
      */
-    fun getMerchantCategory(originalMerchantName: String): String {
+    fun getMerchantCategory(originalMerchantName: String): String = runBlocking {
         val normalizedName = normalizeMerchantName(originalMerchantName)
-        val alias = getAlias(normalizedName)
-        val category = alias?.category ?: categoryManager.categorizeTransaction(originalMerchantName)
-        
-        
-        return category
+
+        // Get from database instead of SharedPreferences
+        val merchantWithCategory = repository.getMerchantWithCategory(normalizedName)
+        merchantWithCategory?.category_name ?: categoryManager.categorizeTransaction(originalMerchantName)
     }
     
     /**
-     * Get the category color for a merchant
+     * Get the category color for a merchant - NOW USES DB
      */
-    fun getMerchantCategoryColor(originalMerchantName: String): String {
+    fun getMerchantCategoryColor(originalMerchantName: String): String = runBlocking {
         val normalizedName = normalizeMerchantName(originalMerchantName)
-        val alias = getAlias(normalizedName)
-        return alias?.categoryColor ?: categoryManager.getCategoryColor(getMerchantCategory(originalMerchantName))
+
+        // Get from database instead of SharedPreferences
+        val merchantWithCategory = repository.getMerchantWithCategory(normalizedName)
+        merchantWithCategory?.category_color ?: categoryManager.getCategoryColor(getMerchantCategory(originalMerchantName))
     }
     
     /**
-     * Create or update an alias for a merchant
+     * Create or update an alias for a merchant - NOW USES DB
      * This method allows multiple merchants to map to the same display name (grouping)
      */
-    fun setMerchantAlias(originalName: String, displayName: String, category: String): Boolean {
-        logger.debug("setMerchantAlias","Setting alias: '$originalName' -> '$displayName' in category '$category'")
-        
-        return try {
-            // Enhanced validation
-            if (originalName.trim().isEmpty()) {
-                logger.debug("setMerchantAlias","Invalid original name: empty")
-                return false
+    fun setMerchantAlias(originalName: String, displayName: String, category: String): Boolean = runBlocking {
+        logger.debug("setMerchantAlias","Setting alias: '$originalName' -> '$displayName' in category '$category' (DB-only)")
+
+        try {
+            // Validation
+            if (originalName.trim().isEmpty() || displayName.trim().isEmpty() || category.trim().isEmpty()) {
+                logger.debug("setMerchantAlias","Invalid parameters")
+                return@runBlocking false
             }
-            
-            if (displayName.trim().isEmpty()) {
-                logger.debug("setMerchantAlias","Invalid display name: empty")
-                return false
-            }
-            
-            if (category.trim().isEmpty()) {
-                logger.debug("setMerchantAlias","Invalid category: empty")
-                return false
-            }
-            
+
             val normalizedName = normalizeMerchantName(originalName)
             val cleanDisplayName = displayName.trim()
             val cleanCategory = category.trim()
 
             logger.debug("setMerchantAlias","Normalized name: '$normalizedName' -> '$cleanDisplayName'")
-            
-            // Check for existing aliases and log conflicts
-            val existingAliases = getAllAliases()
-            val existingSameDisplayName = existingAliases.values.filter { it.displayName == cleanDisplayName }
-            
-            if (existingSameDisplayName.isNotEmpty()) {
-                logger.debug("setMerchantAlias","Found ${existingSameDisplayName.size} existing merchants with display name '$cleanDisplayName'")
-                existingSameDisplayName.forEach { existing ->
-                    logger.debug("setMerchantAlias","Existing: '${existing.originalName}' -> '${existing.displayName}' (${existing.category})")
-                }
-            }
-            
-            // Check if this would create a conflict (same original name with different display name)
-            val existingForOriginal = existingAliases[normalizedName]
-            if (existingForOriginal != null && existingForOriginal.displayName != cleanDisplayName) {
-                logger.debug("setMerchantAlias", "Overwriting existing alias for '$normalizedName': '${existingForOriginal.displayName}' -> '$cleanDisplayName'")
-            }
-            
-            // Get category color with fallback
-            var categoryColor = categoryManager.getCategoryColor(cleanCategory)
-            if (categoryColor.isEmpty() || categoryColor == "#000000") {
-                categoryColor = "#4CAF50" // Default green
-                logger.debug("setMerchantAlias", "Using default color for category '$cleanCategory'")
-            }
-            
-            val alias = MerchantAlias(
-                originalName = normalizedName,
-                displayName = cleanDisplayName,
-                category = cleanCategory,
-                categoryColor = categoryColor
+
+            // Update merchant in database
+            val success = repository.updateMerchantAliasInDatabase(
+                listOf(normalizedName),
+                cleanDisplayName,
+                cleanCategory
             )
-            
-            // Get current aliases with error handling
-            val aliases = try {
-                getAllAliases().toMutableMap()
-            } catch (e: Exception) {
-                logger.error("setMerchantAlias","Error loading existing aliases, starting fresh",e)
-                mutableMapOf<String, MerchantAlias>()
-            }
-            
-            // Set the alias (this allows multiple original names to map to same display name)
-            aliases[normalizedName] = alias
-            logger.debug("setMerchantAlias","Added alias to collection. Total aliases: ${aliases.size}")
-            
-            // Save aliases with error handling
-            val saveSuccess = try {
-                saveAliases(aliases)
-                true
-            } catch (e: Exception) {
-                logger.error("setMerchantAlias","Failed to save aliases",e)
-                false
-            }
-            
-            if (saveSuccess) {
-                // Force cache invalidation and fresh reload to ensure immediate consistency
-                aliasCache = null
-                logger.debug("setMerchantAlias","Invalidated cache to force fresh reload")
-                
-                // Force immediate reload to verify the data
-                loadAliases()
-                val verificationAlias = aliasCache?.get(normalizedName)
-                return true
+
+            if (success) {
+                logger.debug("setMerchantAlias","Successfully updated merchant in database")
             } else {
-                logger.error("setMerchantAlias", "Failed to save alias for $normalizedName",null)
-                return false
+                logger.error("setMerchantAlias", "Failed to update merchant in database", null)
             }
-            
+
+            success
         } catch (e: Exception) {
             logger.error("setMerchantAlias","Critical error setting merchant alias",e)
             false
@@ -171,27 +100,41 @@ class MerchantAliasManager(private val context: Context) {
     }
     
     /**
-     * Remove an alias for a merchant
+     * Remove an alias for a merchant - NOW USES DB
+     * Note: In DB model, we can't truly "remove" a merchant, we reset it to default
      */
-    fun removeMerchantAlias(originalName: String) {
+    fun removeMerchantAlias(originalName: String): Unit = runBlocking {
         val normalizedName = normalizeMerchantName(originalName)
-        val aliases = getAllAliases().toMutableMap()
-        aliases.remove(normalizedName)
-        saveAliases(aliases)
-        
-        // Update cache
-        aliasCache = aliases
-        
+        logger.debug("removeMerchantAlias","Removing alias for: '$normalizedName' (DB-only)")
+
+        // For now, we'll set it back to default category
+        // This is a best-effort approach since DB doesn't have a "remove" concept
+        try {
+            repository.updateMerchantAliasInDatabase(
+                listOf(normalizedName),
+                normalizedName, // Reset display name to original
+                "Other" // Reset to default category
+            )
+            logger.debug("removeMerchantAlias","Reset merchant to defaults")
+        } catch (e: Exception) {
+            logger.error("removeMerchantAlias","Error removing alias",e)
+        }
     }
-    
+
     /**
-     * Get all merchants that map to the same display name
+     * Get all merchants that map to the same display name - NOW USES DB
      * This handles cases where multiple original names map to the same group
      */
-    fun getMerchantsByDisplayName(displayName: String): List<String> {
-        return getAllAliases().values
-            .filter { it.displayName == displayName }
-            .map { it.originalName }
+    fun getMerchantsByDisplayName(displayName: String): List<String> = runBlocking {
+        try {
+            val allMerchants = repository.getAllMerchants()
+            allMerchants
+                .filter { it.displayName == displayName }
+                .map { it.normalizedName }
+        } catch (e: Exception) {
+            logger.error("getMerchantsByDisplayName","Error getting merchants by display name",e)
+            emptyList()
+        }
     }
     
     /**
@@ -214,19 +157,17 @@ class MerchantAliasManager(private val context: Context) {
         OVERWRITE_EXISTING       // Would overwrite existing alias for this merchant
     }
     
-    fun checkAliasConflict(originalName: String, displayName: String, category: String): AliasConflict {
+    fun checkAliasConflict(originalName: String, displayName: String, category: String): AliasConflict = runBlocking {
         val normalizedName = normalizeMerchantName(originalName)
         val cleanDisplayName = displayName.trim()
         val cleanCategory = category.trim()
-        val existingAliases = getAllAliases()
 
-        logger.debug("checkAliasConflict","Checking alias conflict for: '$originalName' -> '$cleanDisplayName' in '$cleanCategory'")
-        logger.debug("checkAliasConflict","Normalized name: '$normalizedName', existing aliases count: ${existingAliases.size}")
-        
+        logger.debug("checkAliasConflict","Checking alias conflict for: '$originalName' -> '$cleanDisplayName' in '$cleanCategory' (DB-only)")
+
         // Enhanced validation
-        if (cleanDisplayName.isEmpty()) {
-            logger.debug("checkAliasConflict","Empty display name provided")
-            return AliasConflict(
+        if (cleanDisplayName.isEmpty() || cleanCategory.isEmpty()) {
+            logger.debug("checkAliasConflict","Empty parameters provided")
+            return@runBlocking AliasConflict(
                 type = ConflictType.NONE,
                 existingDisplayName = null,
                 existingCategory = null,
@@ -235,10 +176,75 @@ class MerchantAliasManager(private val context: Context) {
                 affectedMerchants = emptyList()
             )
         }
-        
-        if (cleanCategory.isEmpty()) {
-            logger.debug("checkAliasConflict","Empty category provided")
-            return AliasConflict(
+
+        try {
+            // Get existing merchant from DB
+            val existingMerchant = repository.getMerchantWithCategory(normalizedName)
+
+            if (existingMerchant != null) {
+                logger.debug("checkAliasConflict","Found existing merchant: '${existingMerchant.display_name}' -> '${existingMerchant.category_name}'")
+
+                if (existingMerchant.display_name != cleanDisplayName || existingMerchant.category_name != cleanCategory) {
+                    logger.debug("checkAliasConflict","OVERWRITE_EXISTING detected")
+                    return@runBlocking AliasConflict(
+                        type = ConflictType.OVERWRITE_EXISTING,
+                        existingDisplayName = existingMerchant.display_name,
+                        existingCategory = existingMerchant.category_name,
+                        newDisplayName = cleanDisplayName,
+                        newCategory = cleanCategory,
+                        affectedMerchants = listOf(originalName)
+                    )
+                } else {
+                    logger.debug("checkAliasConflict","No changes detected")
+                    return@runBlocking AliasConflict(
+                        type = ConflictType.NONE,
+                        existingDisplayName = null,
+                        existingCategory = null,
+                        newDisplayName = cleanDisplayName,
+                        newCategory = cleanCategory,
+                        affectedMerchants = emptyList()
+                    )
+                }
+            }
+
+            // Check if display name exists for other merchants
+            val allMerchants = repository.getAllMerchants()
+            val merchantsWithSameDisplayName = allMerchants.filter {
+                it.displayName == cleanDisplayName && it.normalizedName != normalizedName
+            }
+
+            if (merchantsWithSameDisplayName.isNotEmpty()) {
+                logger.debug("checkAliasConflict","Found ${merchantsWithSameDisplayName.size} merchants with display name '$cleanDisplayName'")
+
+                // Get unique categories
+                val categories = merchantsWithSameDisplayName.map { it.categoryId }.distinct()
+
+                // For simplicity, we'll allow grouping
+                // Note: We can't easily check category name without loading all categories
+                logger.debug("checkAliasConflict","NONE - grouping allowed")
+                return@runBlocking AliasConflict(
+                    type = ConflictType.NONE,
+                    existingDisplayName = null,
+                    existingCategory = null,
+                    newDisplayName = cleanDisplayName,
+                    newCategory = cleanCategory,
+                    affectedMerchants = merchantsWithSameDisplayName.map { it.normalizedName }
+                )
+            }
+
+            // No conflict
+            logger.debug("checkAliasConflict","NONE - no conflicts")
+            AliasConflict(
+                type = ConflictType.NONE,
+                existingDisplayName = null,
+                existingCategory = null,
+                newDisplayName = cleanDisplayName,
+                newCategory = cleanCategory,
+                affectedMerchants = emptyList()
+            )
+        } catch (e: Exception) {
+            logger.error("checkAliasConflict","Error checking conflict",e)
+            AliasConflict(
                 type = ConflictType.NONE,
                 existingDisplayName = null,
                 existingCategory = null,
@@ -247,95 +253,6 @@ class MerchantAliasManager(private val context: Context) {
                 affectedMerchants = emptyList()
             )
         }
-        
-        // Check if this merchant already has an alias
-        val existingForOriginal = existingAliases[normalizedName]
-        if (existingForOriginal != null) {
-            logger.debug("checkAliasConflict","Found existing alias for '$normalizedName': '${existingForOriginal.displayName}' -> '${existingForOriginal.category}'")
-            
-            if (existingForOriginal.displayName != cleanDisplayName) {
-                logger.debug("checkAliasConflict","OVERWRITE_EXISTING detected: changing display name from '${existingForOriginal.displayName}' to '$cleanDisplayName'")
-                return AliasConflict(
-                    type = ConflictType.OVERWRITE_EXISTING,
-                    existingDisplayName = existingForOriginal.displayName,
-                    existingCategory = existingForOriginal.category,
-                    newDisplayName = cleanDisplayName,
-                    newCategory = cleanCategory,
-                    affectedMerchants = listOf(originalName)
-                )
-            } else if (existingForOriginal.category != cleanCategory) {
-                logger.debug("checkAliasConflict","OVERWRITE_EXISTING detected: changing category from '${existingForOriginal.category}' to '$cleanCategory'")
-                return AliasConflict(
-                    type = ConflictType.OVERWRITE_EXISTING,
-                    existingDisplayName = existingForOriginal.displayName,
-                    existingCategory = existingForOriginal.category,
-                    newDisplayName = cleanDisplayName,
-                    newCategory = cleanCategory,
-                    affectedMerchants = listOf(originalName)
-                )
-            } else {
-                logger.debug("checkAliasConflict","No changes detected for existing alias")
-                return AliasConflict(
-                    type = ConflictType.NONE,
-                    existingDisplayName = null,
-                    existingCategory = null,
-                    newDisplayName = cleanDisplayName,
-                    newCategory = cleanCategory,
-                    affectedMerchants = emptyList()
-                )
-            }
-        }
-        
-        // Check if display name already exists for other merchants
-        val existingSameDisplayName = existingAliases.values.filter { 
-            it.displayName == cleanDisplayName && it.originalName != normalizedName 
-        }
-        
-        if (existingSameDisplayName.isNotEmpty()) {
-            logger.debug("checkAliasConflict","Found ${existingSameDisplayName.size} existing merchants with display name '$cleanDisplayName'")
-            existingSameDisplayName.forEach { existing ->
-                logger.debug("checkAliasConflict","${existing.originalName}' -> '${existing.displayName}' (${existing.category})")
-            }
-            
-            // Check if all existing merchants with this display name have the same category
-            val existingCategories = existingSameDisplayName.map { it.category }.distinct()
-            logger.debug("checkAliasConflict","Existing categories: $existingCategories, new category: '$cleanCategory'")
-            
-            if (existingCategories.size == 1 && existingCategories.first() == cleanCategory) {
-                // Same category - this is fine, it's just grouping merchants
-                logger.debug("checkAliasConflict","NONE - same category grouping allowed")
-                return AliasConflict(
-                    type = ConflictType.NONE,
-                    existingDisplayName = null,
-                    existingCategory = null,
-                    newDisplayName = cleanDisplayName,
-                    newCategory = cleanCategory,
-                    affectedMerchants = existingSameDisplayName.map { it.originalName }
-                )
-            } else {
-                // Different categories - potential conflict
-                logger.debug("checkAliasConflict","CATEGORY_MISMATCH detected - different categories: ${existingCategories.joinToString(", ")} vs '$cleanCategory'")
-                return AliasConflict(
-                    type = ConflictType.CATEGORY_MISMATCH,
-                    existingDisplayName = cleanDisplayName,
-                    existingCategory = existingCategories.joinToString(", "),
-                    newDisplayName = cleanDisplayName,
-                    newCategory = cleanCategory,
-                    affectedMerchants = existingSameDisplayName.map { it.originalName }
-                )
-            }
-        }
-        
-        // No conflict
-        logger.debug("checkAliasConflict","NONE - no conflicts detected")
-        return AliasConflict(
-            type = ConflictType.NONE,
-            existingDisplayName = null,
-            existingCategory = null,
-            newDisplayName = cleanDisplayName,
-            newCategory = cleanCategory,
-            affectedMerchants = emptyList()
-        )
     }
     
     /**
@@ -348,142 +265,59 @@ class MerchantAliasManager(private val context: Context) {
     }
     
     /**
-     * Check if a merchant has a custom alias
+     * Check if a merchant has a custom alias - NOW USES DB
      */
-    fun hasAlias(originalName: String): Boolean {
+    fun hasAlias(originalName: String): Boolean = runBlocking {
         val normalizedName = normalizeMerchantName(originalName)
-        return getAlias(normalizedName) != null
-    }
-    
-    /**
-     * Get all stored aliases
-     */
-    fun getAllAliases(): Map<String, MerchantAlias> {
-        if (aliasCache == null) {
-            loadAliases()
+        try {
+            repository.getMerchantWithCategory(normalizedName) != null
+        } catch (e: Exception) {
+            logger.error("hasAlias","Error checking alias",e)
+            false
         }
-        return aliasCache ?: emptyMap()
     }
-    
+
     /**
-     * Clear all aliases (for testing/reset)
+     * Get all stored aliases - NOW USES DB
+     * Note: MerchantEntity doesn't have category info, so we need to fetch it separately
+     */
+    fun getAllAliases(): Map<String, MerchantAlias> = runBlocking {
+        try {
+            val merchants = repository.getAllMerchants()
+            merchants.associate { merchant ->
+                // Get category info for this merchant
+                val merchantWithCategory = repository.getMerchantWithCategory(merchant.normalizedName)
+                merchant.normalizedName to MerchantAlias(
+                    originalName = merchant.normalizedName,
+                    displayName = merchant.displayName,
+                    category = merchantWithCategory?.category_name ?: "Other",
+                    categoryColor = merchantWithCategory?.category_color ?: "#9e9e9e"
+                )
+            }
+        } catch (e: Exception) {
+            logger.error("getAllAliases","Error getting all aliases",e)
+            emptyMap()
+        }
+    }
+
+    /**
+     * Clear all aliases (for testing/reset) - NOW NO-OP
+     * Note: In DB model, we don't clear merchants, they remain with default values
      */
     fun clearAllAliases() {
-        prefs.edit().clear().apply()
-        aliasCache = mutableMapOf()
-        categoryCache.clear()
-        lastCacheUpdate = 0L
-        categoryCacheTimestamp = 0L
-        logger.debug("clearAllAliases","Cleared all merchant aliases and caches")
+        logger.debug("clearAllAliases","Clear all aliases is a no-op in DB-only mode")
+        // DB model doesn't support clearing merchants
+        // This method is kept for backward compatibility but does nothing
     }
-    
+
     /**
-     * Invalidate cache to force reload
+     * Invalidate cache to force reload - NOW NO-OP
+     * Note: DB queries are always fresh, no cache to invalidate
      */
     fun invalidateCache() {
-        aliasCache = null
-        categoryCache.clear()
-        lastCacheUpdate = 0L
-        categoryCacheTimestamp = 0L
-        logger.debug("invalidateCache","Invalidated merchant alias caches")
-    }
-    
-    /**
-     * Check if cache is valid
-     */
-    private fun isCacheValid(): Boolean {
-        return aliasCache != null && (System.currentTimeMillis() - lastCacheUpdate) < CACHE_VALIDITY_MS
-    }
-    
-    private fun getAlias(normalizedName: String): MerchantAlias? {
-        if (aliasCache == null) {
-            loadAliases()
-        }
-        return aliasCache?.get(normalizedName)
-    }
-    
-    private fun loadAliases() {
-        try {
-            val aliasesJson = prefs.getString(KEY_ALIASES, null)
-            if (aliasesJson != null) {
-                aliasCache = parseAliasesFromJson(aliasesJson).toMutableMap()
-            } else {
-                aliasCache = mutableMapOf()
-            }
-            logger.debug("loadAliases","Loaded ${aliasCache?.size ?: 0} merchant aliases")
-        } catch (e: Exception) {
-            logger.error("loadAliases","Error loading aliases",e)
-            aliasCache = mutableMapOf()
-        }
-    }
-    
-    private fun saveAliases(aliases: Map<String, MerchantAlias>) {
-        try {
-            val aliasesJson = convertAliasesToJson(aliases)
-            logger.debug("saveAliases","Converted aliases to JSON (${aliasesJson.length} chars)")
-            
-            val editor = prefs.edit()
-            val putSuccess = editor.putString(KEY_ALIASES, aliasesJson)
-            logger.debug("saveAliases","Put string to editor: $putSuccess")
-            
-            val commitSuccess = editor.commit() // Use commit() instead of apply() for immediate error detection
-            
-            if (commitSuccess) {
-                logger.debug("saveAliases","Successfully saved ${aliases.size} merchant aliases")
-                
-                // Verify the save by reading it back
-                val savedJson = prefs.getString(KEY_ALIASES, null)
-                if (savedJson != null && savedJson == aliasesJson) {
-                    logger.debug("saveAliases","Save verification successful")
-                } else {
-                    logger.debug("saveAliases","Save verification failed - data may not have persisted correctly")
-                    throw Exception("Save verification failed")
-                }
-            } else {
-                logger.error("saveAliases","SharedPreferences commit() returned false",null)
-                throw Exception("SharedPreferences commit failed")
-            }
-            
-        } catch (e: Exception) {
-            logger.error("saveAliases","Error saving aliases to SharedPreferences",e)
-            throw e // Re-throw to let caller handle
-        }
-    }
-    
-    private fun convertAliasesToJson(aliases: Map<String, MerchantAlias>): String {
-        val jsonObject = JSONObject()
-        aliases.forEach { (key, alias) ->
-            val aliasJson = JSONObject().apply {
-                put("originalName", alias.originalName)
-                put("displayName", alias.displayName)
-                put("category", alias.category)
-                put("categoryColor", alias.categoryColor)
-            }
-            jsonObject.put(key, aliasJson)
-        }
-        return jsonObject.toString()
-    }
-    
-    private fun parseAliasesFromJson(jsonString: String): Map<String, MerchantAlias> {
-        val aliases = mutableMapOf<String, MerchantAlias>()
-        try {
-            val jsonObject = JSONObject(jsonString)
-            val keys = jsonObject.keys()
-            while (keys.hasNext()) {
-                val key = keys.next()
-                val aliasJson = jsonObject.getJSONObject(key)
-                val alias = MerchantAlias(
-                    originalName = aliasJson.getString("originalName"),
-                    displayName = aliasJson.getString("displayName"),
-                    category = aliasJson.getString("category"),
-                    categoryColor = aliasJson.getString("categoryColor")
-                )
-                aliases[key] = alias
-            }
-        } catch (e: JSONException) {
-            logger.error("parseAliasesFromJson","Error parsing aliases JSON",e)
-        }
-        return aliases
+        logger.debug("invalidateCache","Invalidate cache is a no-op in DB-only mode")
+        // DB-backed implementation doesn't use cache
+        // This method is kept for backward compatibility but does nothing
     }
     
     /**
