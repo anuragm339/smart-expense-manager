@@ -241,19 +241,33 @@ internal class TransactionDataRepository(
 
             newTransactions.forEach { parsed ->
                 val entity = convertToTransactionEntity(parsed)
+                logger.debug("syncNewSms", "Processing entity: ${entity.rawMerchant} - Ref: ${entity.referenceNumber}")
+
                 val existing = transactionDao.getTransactionBySmsId(entity.smsId)
 
                 val similar = findSimilarTransaction(entity)
+                if (similar != null) {
+                    logger.debug("syncNewSms", "Similar found: ${similar.rawMerchant} - Ref: ${similar.referenceNumber}")
+                }
 
                 if (existing == null && similar == null) {
                     val insertedId=transactionDao.insertTransaction(entity);
                     if (insertedId > 0) {
                         repository.autoCategorizeTransaction(insertedId)
                         insertedCount++
-
                     }
                 } else {
                     duplicateCount++
+                    val refInfo = if (!entity.referenceNumber.isNullOrBlank()) " [Ref: ${entity.referenceNumber}]" else ""
+                    val reason = when {
+                        existing != null -> "SMS ID match (${entity.smsId})"
+                        similar != null -> {
+                            val similarRefInfo = if (!similar.referenceNumber.isNullOrBlank()) " [Ref: ${similar.referenceNumber}]" else ""
+                            "Similar transaction found (${similar.rawMerchant} - ₹${similar.amount}$similarRefInfo)"
+                        }
+                        else -> "Unknown"
+                    }
+                    logger.debug("syncNewSms", "⚠️ Duplicate: ${entity.rawMerchant} - ₹${entity.amount}$refInfo - Reason: $reason and smsId is ${entity.smsId}")
                 }
             }
 
@@ -327,6 +341,7 @@ internal class TransactionDataRepository(
             rawSmsBody = parsed.rawSMS,
             confidenceScore = parsed.confidence,
             isDebit = parsed.isDebit,
+            referenceNumber = parsed.referenceNumber,
             createdAt = Date(),
             updatedAt = Date()
         )
@@ -342,7 +357,7 @@ internal class TransactionDataRepository(
         val startDate = Date(entity.transactionDate.time - timeWindowMillis)
         val endDate = Date(entity.transactionDate.time + timeWindowMillis)
 
-        return transactionDao.findSimilarTransaction(
+        val similarTransaction = transactionDao.findSimilarTransaction(
             normalizedMerchant = entity.normalizedMerchant,
             minAmount = minAmount,
             maxAmount = maxAmount,
@@ -350,6 +365,24 @@ internal class TransactionDataRepository(
             endDate = endDate,
             bankName = entity.bankName
         )
+
+        // Additional check: If both transactions have reference numbers and they are DIFFERENT,
+        // then they are NOT duplicates (even if merchant, amount, time, and bank match)
+        if (similarTransaction != null) {
+            val newRefNumber = entity.referenceNumber?.trim()
+            val existingRefNumber = similarTransaction.referenceNumber?.trim()
+
+            // If both have reference numbers and they're different, this is NOT a duplicate
+            if (!newRefNumber.isNullOrBlank() && !existingRefNumber.isNullOrBlank()) {
+                if (newRefNumber != existingRefNumber) {
+                    logger.debug("findSimilarTransaction",
+                        "Different reference numbers - NOT a duplicate (New: $newRefNumber vs Existing: $existingRefNumber)")
+                    return null
+                }
+            }
+        }
+
+        return similarTransaction
     }
 
     private suspend fun ensureMerchantExists(normalizedName: String, displayName: String) {

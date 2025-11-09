@@ -777,15 +777,13 @@ class MessagesViewModel @Inject constructor(
             .groupBy { it.merchant.trim() }
             .map { (displayName, merchantTransactions) ->
                 val sortedTransactions = merchantTransactions.sortedByDescending { transaction ->
-                    getDateSortOrderReverse(transaction.dateTime)
+                    transaction.actualDate.time
                 }
                 val totalAmount = merchantTransactions.sumOf { it.amount }
                 val category = merchantTransactions.firstOrNull()?.category ?: "Other"
                 val categoryColor = merchantTransactions.firstOrNull()?.categoryColor ?: "#9e9e9e"
-                
-                val latestTransactionDate = sortedTransactions.firstOrNull()?.let { 
-                    getDateSortOrderReverse(it.dateTime) 
-                } ?: 0L
+
+                val latestTransactionDate = sortedTransactions.firstOrNull()?.actualDate?.time ?: 0L
                 
                 val primaryBankName = merchantTransactions
                     .groupBy { it.bankName }

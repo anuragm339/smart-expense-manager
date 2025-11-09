@@ -36,7 +36,6 @@
                     android:id="@+id/tv_merchant_initial"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:text="H"
                     android:textSize="18sp"
                     android:textStyle="bold"
                     android:textColor="@color/primary"
@@ -57,7 +56,6 @@
                 android:id="@+id/tv_merchant_name"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="HungerBox"
                 android:textSize="16sp"
                 android:textStyle="bold"
                 android:textColor="@color/text_primary"
@@ -74,7 +72,6 @@
                     android:id="@+id/tv_transaction_count"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="15 transactions"
                     android:textSize="12sp"
                     android:textColor="@color/text_secondary" />
 
@@ -89,7 +86,6 @@
                     android:id="@+id/tv_last_transaction"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="2 days ago"
                     android:textSize="12sp"
                     android:textColor="@color/text_secondary" />
 
@@ -119,7 +115,6 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
-                    android:text="35%"
                     android:textSize="10sp"
                     android:textStyle="bold"
                     android:textColor="@color/text_secondary" />
@@ -140,7 +135,6 @@
                 style="@style/AmountTextStyle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="₹1,250"
                 android:textColor="@color/error"
                 android:textSize="16sp" />
 

@@ -70,18 +70,21 @@ class TransactionDetailsViewModel @Inject constructor(
         merchant: String,
         bankName: String,
         category: String,
-        dateTime: String,
+        transactionDate: Long,
         confidence: Int,
         rawSMS: String
     ) {
         logger.debug("setTransactionData","Setting transaction data...")
-        
+
         _uiState.value = _uiState.value.copy(isLoading = true)
 
         try {
             // Get category color from database
             val categoryEntity = repository.getCategoryByName(category)
             val categoryColor = categoryEntity?.color ?: "#9e9e9e"
+
+            // Format the date using the same logic as MessagesViewModel
+            val dateTime = formatDate(java.util.Date(transactionDate))
 
             val transactionData = TransactionData(
                 amount = amount,
@@ -472,5 +475,26 @@ class TransactionDetailsViewModel @Inject constructor(
             hasError = true,
             error = errorMessage
         )
+    }
+
+    /**
+     * Format date to relative time string (e.g., "2 hours ago", "Yesterday")
+     */
+    private fun formatDate(date: java.util.Date): String {
+        val now = java.util.Date()
+        val diffInMs = now.time - date.time
+        val diffInDays = diffInMs / (1000 * 60 * 60 * 24)
+        val diffInHours = diffInMs / (1000 * 60 * 60)
+
+        return when {
+            diffInHours < 1 -> "Just now"
+            diffInHours < 24 -> "$diffInHours hours ago"
+            diffInDays == 1L -> "Yesterday"
+            diffInDays < 7 -> "$diffInDays days ago"
+            else -> {
+                val formatter = java.text.SimpleDateFormat("MMM dd", java.util.Locale.getDefault())
+                formatter.format(date)
+            }
+        }
     }
 }

@@ -60,9 +60,11 @@ class UnifiedSMSParser @Inject constructor(
             // 2. Extract transaction fields
             val amount = extractAmount(body, bankRule, rules)
             val merchant = extractMerchant(body.replace(Regex("[^A-Za-z0-9\\s]"), " ").trim(), bankRule, rules)
-            val date = extractDate(body.replace(Regex("[^A-Za-z0-9\\s]"), " ").trim(), bankRule, timestamp)
+            val date = extractDate(body, bankRule, timestamp)
             val transactionType = extractTransactionType(body.replace(Regex("[^A-Za-z0-9\\s]"), " ").trim(), bankRule, rules)
-            val referenceNumber = extractReferenceNumber(body.replace(Regex("[^A-Za-z0-9\\s]"), " ").trim(), bankRule, rules)
+            val referenceNumber = extractReferenceNumber(body, bankRule, rules)
+
+            logger.debug("parseSMS", "Extracted referenceNumber: $referenceNumber for amount: $amount, merchant: $merchant")
 
             // 3. Validate required fields (HARD REQUIREMENTS)
             if (amount == null) {
@@ -105,6 +107,8 @@ class UnifiedSMSParser @Inject constructor(
             val transactionWithConfidence = transaction.copy(
                 confidenceScore = confidence.overall
             )
+
+            logger.debug("parseSMS", "Created TransactionEntity with referenceNumber: ${transactionWithConfidence.referenceNumber}")
 
             ParseResult.Success(transactionWithConfidence, confidence)
 

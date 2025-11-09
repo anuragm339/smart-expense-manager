@@ -101,7 +101,8 @@ class SMSParsingService @Inject constructor(
                             date = parseResult.transaction.transactionDate,
                             rawSMS = parseResult.transaction.rawSmsBody,
                             confidence = parseResult.confidence.overall,
-                            isDebit = parseResult.transaction.isDebit
+                            isDebit = parseResult.transaction.isDebit,
+                            referenceNumber = parseResult.transaction.referenceNumber
                         )
 
                         // Only accept if confidence is reasonable

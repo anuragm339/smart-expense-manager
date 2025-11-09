@@ -170,15 +170,21 @@ class SMSHistoryReader @Inject constructor(
             when (result) {
                 is UnifiedSMSParser.ParseResult.Success -> {
                     // Convert UnifiedSMSParser result to legacy ParsedTransaction format
-                    ParsedTransaction(
+                    logger.debug("parseTransactionFromSMS", "TransactionEntity ref: ${result.transaction.referenceNumber}")
+
+                    val parsed = ParsedTransaction(
                         id = "hist_${sms.id}",
                         amount = result.transaction.amount,
                         merchant = result.transaction.normalizedMerchant,
                         bankName = result.transaction.bankName,
                         date = sms.date,
                         rawSMS = sms.body,
-                        confidence = result.transaction.confidenceScore
+                        confidence = result.transaction.confidenceScore,
+                        referenceNumber = result.transaction.referenceNumber
                     )
+
+                    logger.debug("parseTransactionFromSMS", "ParsedTransaction ref: ${parsed.referenceNumber}")
+                    parsed
                 }
                 is UnifiedSMSParser.ParseResult.Failed -> {
                     logger.debug("parseTransactionFromSMS", "Failed to parse: ${result.reason}")

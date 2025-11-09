@@ -105,8 +105,8 @@ class CategoryTransactionsFragment : Fragment() {
         
         // Initialize legacy components for fallback compatibility
         categoryName = arguments?.getString("categoryName") ?: "Unknown"
-        categoryManager = CategoryManager(requireContext(), repository)
         repository = ExpenseRepository.getInstance(requireContext())
+        categoryManager = CategoryManager(requireContext(), repository)
         
         setupUI()
         setupRecyclerView()

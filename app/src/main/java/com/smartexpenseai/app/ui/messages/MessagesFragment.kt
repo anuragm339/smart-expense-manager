@@ -2306,7 +2306,7 @@ class MessagesFragment : Fragment() {
             putString("merchant", messageItem.merchant)
             putString("bankName", messageItem.bankName)
             putString("category", messageItem.category)
-            putString("dateTime", messageItem.dateTime)
+            putLong("transactionDate", messageItem.actualDate.time)
             putInt("confidence", messageItem.confidence)
             putString("rawSMS", messageItem.rawSMS)
         }

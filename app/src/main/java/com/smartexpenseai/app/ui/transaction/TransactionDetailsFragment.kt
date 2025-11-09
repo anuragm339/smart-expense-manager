@@ -38,10 +38,10 @@ class TransactionDetailsFragment : Fragment() {
     private var merchant: String = ""
     private var bankName: String = ""
     private var category: String = ""
-    private var dateTime: String = ""
+    private var transactionDate: Long = 0L
     private var confidence: Int = 0
     private var rawSMS: String = ""
-    
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         arguments?.let {
@@ -49,7 +49,7 @@ class TransactionDetailsFragment : Fragment() {
             merchant = it.getString("merchant", "")
             bankName = it.getString("bankName", "")
             category = it.getString("category", "")
-            dateTime = it.getString("dateTime", "")
+            transactionDate = it.getLong("transactionDate", 0L)
             confidence = it.getInt("confidence", 0)
             rawSMS = it.getString("rawSMS", "")
         }
@@ -82,7 +82,7 @@ class TransactionDetailsFragment : Fragment() {
                 merchant = merchant,
                 bankName = bankName,
                 category = category,
-                dateTime = dateTime,
+                transactionDate = transactionDate,
                 confidence = confidence,
                 rawSMS = rawSMS
             )

@@ -237,13 +237,15 @@ class GroupedMessagesAdapter(
                 
                 // Show date range
                 if (group.transactions.isNotEmpty()) {
-                    val sortedTransactions = group.transactions.sortedByDescending { getTransactionTimestamp(it) }
+                    val sortedTransactions = group.transactions.sortedByDescending { it.actualDate.time }
                     val latestDate = sortedTransactions.first().dateTime
                     val oldestDate = sortedTransactions.last().dateTime
-                    
-                    tvDateRange.text = if (sortedTransactions.size == 1) {
+
+                    tvDateRange.text = if (sortedTransactions.size == 1 || latestDate == oldestDate) {
+                        // Single transaction or all transactions have same date
                         latestDate
                     } else {
+                        // Multiple transactions with different dates
                         "$oldestDate - $latestDate"
                     }
                 }
@@ -443,8 +445,8 @@ class GroupedMessagesAdapter(
                 setHasFixedSize(false)
                 
                 // Sort transactions by date descending (newest first)
-                val sortedTransactions = group.transactions.sortedByDescending { 
-                    getTransactionTimestamp(it) 
+                val sortedTransactions = group.transactions.sortedByDescending {
+                    it.actualDate.time
                 }
                 transactionsAdapter.submitList(sortedTransactions)
                 
@@ -496,22 +498,6 @@ class GroupedMessagesAdapter(
             }
         }
         
-        private fun getTransactionTimestamp(transaction: MessageItem): Long {
-            // Convert dateTime string to timestamp for proper sorting
-            return when {
-                transaction.dateTime.contains("Just now") -> System.currentTimeMillis()
-                transaction.dateTime.contains("hour") -> {
-                    val hours = transaction.dateTime.split(" ")[0].toIntOrNull() ?: 0
-                    System.currentTimeMillis() - (hours * 60 * 60 * 1000L)
-                }
-                transaction.dateTime.contains("Yesterday") -> System.currentTimeMillis() - (24 * 60 * 60 * 1000L)
-                transaction.dateTime.contains("days ago") -> {
-                    val days = transaction.dateTime.split(" ")[0].toIntOrNull() ?: 0
-                    System.currentTimeMillis() - (days * 24 * 60 * 60 * 1000L)
-                }
-                else -> 0L // Very old
-            }
-        }
     }
 }
 
