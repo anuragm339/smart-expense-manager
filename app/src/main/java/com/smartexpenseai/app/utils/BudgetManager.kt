@@ -13,12 +13,13 @@ import javax.inject.Inject
  */
 class BudgetManager @Inject constructor(
     private val context: Context,
-    private val smsHistoryReader: SMSHistoryReader
+    private val smsHistoryReader: SMSHistoryReader,
+    private val repository: com.smartexpenseai.app.data.repository.ExpenseRepository
 ) {
 
     private val prefs: SharedPreferences = context.getSharedPreferences("budget_settings", Context.MODE_PRIVATE)
-    private val categoryManager = CategoryManager(context)
-    private val merchantAliasManager = MerchantAliasManager(context)
+    private val categoryManager = CategoryManager(context, repository)
+    private val merchantAliasManager = MerchantAliasManager(context, repository)
     
     companion object {
         private const val TAG = "BudgetManager"
@@ -88,7 +89,7 @@ class BudgetManager @Inject constructor(
     /**
      * Calculate spending breakdown by category with budget comparison
      */
-    private fun calculateCategoryBreakdown(transactions: List<ParsedTransaction>): List<CategoryBudget> {
+    suspend fun calculateCategoryBreakdown(transactions: List<ParsedTransaction>): List<CategoryBudget> {
         // Calculate actual spending by category
         val categorySpending = mutableMapOf<String, Double>()
         transactions.forEach { transaction ->

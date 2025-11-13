@@ -18,7 +18,8 @@ data class ParsedTransaction(
     val isDebit: Boolean = true,
     val date: Date,
     val confidence: Float,
-    val rawSMS: String
+    val rawSMS: String,
+    val referenceNumber: String? = null
 ) {
     // Constructor for compatibility with different use cases
     constructor(
@@ -31,7 +32,8 @@ data class ParsedTransaction(
         isDebit: Boolean,
         date: Date,
         confidence: Double,
-        rawSMS: String
+        rawSMS: String,
+        referenceNumber: String? = null
     ) : this(
         id = "",
         amount = amount,
@@ -43,7 +45,8 @@ data class ParsedTransaction(
         isDebit = isDebit,
         date = date,
         confidence = confidence.toFloat(),
-        rawSMS = rawSMS
+        rawSMS = rawSMS,
+        referenceNumber = referenceNumber
     )
     
     fun formattedAmount(): String = "₹${String.format("%.0f", amount)}"

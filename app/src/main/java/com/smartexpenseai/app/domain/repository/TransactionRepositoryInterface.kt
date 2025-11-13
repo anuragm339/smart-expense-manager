@@ -65,9 +65,14 @@ interface TransactionRepositoryInterface {
      * Get transaction by SMS ID
      */
     suspend fun getTransactionBySmsId(smsId: String): TransactionEntity?
-    
+
+    /**
+     * Get transaction by ID
+     */
+    suspend fun getTransactionById(transactionId: Long): TransactionEntity?
+
     // =======================
-    // WRITE OPERATIONS  
+    // WRITE OPERATIONS
     // =======================
     
     /**

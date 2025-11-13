@@ -1,59 +1,24 @@
 package com.smartexpenseai.app
 
 import android.app.Application
-import com.smartexpenseai.app.data.migration.DataMigrationManager
 import com.smartexpenseai.app.utils.logging.StructuredLogger
 import com.smartexpenseai.app.utils.logging.TimberFileTree
 import dagger.hilt.android.HiltAndroidApp
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 import timber.log.Timber
 
 @HiltAndroidApp
 class ExpenseManagerApplication : Application() {
-
-    @Inject
-    lateinit var dataMigrationManager: DataMigrationManager
-
     @Inject
     lateinit var timberFileTree: TimberFileTree
 
-    // Application-wide coroutine scope
-    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val logger = StructuredLogger("APP", ExpenseManagerApplication::class.java.simpleName)
-    
+
     override fun onCreate() {
         super.onCreate()
-
-        // Initialize Timber logging system
-        initializeTimber()
-
         logger.debug("onCreate","Application onCreate() starting with Timber logging...")
+        initializeTimber()
         logger.debug("onCreate","Timber logging system initialized successfully")
-
-        // Perform data migration in background
-        applicationScope.launch {
-            try {
-                logger.debug("onCreate","Starting data migration check...")
-
-                val success = dataMigrationManager.performMigrationIfNeeded()
-
-                if (success) {
-                    logger.debug("onCreate","Data migration completed successfully")
-                    logger.debug("onCreate","App initialization completed successfully")
-                } else {
-                    logger.debug("onCreate","Data migration completed with warnings")
-                    logger.debug("onCreate","App initialization completed with warnings")
-                }
-
-            } catch (e: Exception) {
-                logger.error("onCreate","Data migration failed",e)
-                // App can still continue to work, just with degraded functionality
-            }
-        }
     }
 
     /**

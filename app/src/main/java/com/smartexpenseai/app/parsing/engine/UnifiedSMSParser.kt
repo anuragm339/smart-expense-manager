@@ -59,10 +59,12 @@ class UnifiedSMSParser @Inject constructor(
 
             // 2. Extract transaction fields
             val amount = extractAmount(body, bankRule, rules)
-            val merchant = extractMerchant(body, bankRule, rules)
+            val merchant = extractMerchant(body.replace(Regex("[^A-Za-z0-9\\s]"), " ").trim(), bankRule, rules)
             val date = extractDate(body, bankRule, timestamp)
-            val transactionType = extractTransactionType(body, bankRule, rules)
+            val transactionType = extractTransactionType(body.replace(Regex("[^A-Za-z0-9\\s]"), " ").trim(), bankRule, rules)
             val referenceNumber = extractReferenceNumber(body, bankRule, rules)
+
+            logger.debug("parseSMS", "Extracted referenceNumber: $referenceNumber for amount: $amount, merchant: $merchant")
 
             // 3. Validate required fields (HARD REQUIREMENTS)
             if (amount == null) {
@@ -105,6 +107,8 @@ class UnifiedSMSParser @Inject constructor(
             val transactionWithConfidence = transaction.copy(
                 confidenceScore = confidence.overall
             )
+
+            logger.debug("parseSMS", "Created TransactionEntity with referenceNumber: ${transactionWithConfidence.referenceNumber}")
 
             ParseResult.Success(transactionWithConfidence, confidence)
 
@@ -277,11 +281,13 @@ class UnifiedSMSParser @Inject constructor(
      * Clean merchant name (remove extra spaces, special chars)
      */
     private fun cleanMerchantName(merchant: String): String {
-        return merchant
+        val trim = merchant
             .trim()
             .replace(Regex("\\s+"), " ")
             .replace(Regex("[^A-Za-z0-9\\s&'-]"), "")
             .trim()
+        logger.debug("cleanMerchantName","$trim actual merchant name $merchant")
+        return trim;
     }
 
     /**
@@ -334,6 +340,7 @@ class UnifiedSMSParser @Inject constructor(
             amount = cleanAmount,
             rawMerchant = merchantName,
             normalizedMerchant = normalizedMerchant,
+            categoryId = 1L,  // Default to "Other" - will be set properly when merchant is created/linked
             bankName = bankName ?: "Unknown Bank",
             transactionDate = date ?: Date(timestamp),
             rawSmsBody = body,

@@ -155,9 +155,10 @@ object AppModule {
     @Provides
     @Singleton
     fun provideMerchantAliasManager(
-        @ApplicationContext context: Context
+        @ApplicationContext context: Context,
+        repository: ExpenseRepository
     ): MerchantAliasManager {
-        return MerchantAliasManager(context)
+        return MerchantAliasManager(context, repository)
     }
     
     /**

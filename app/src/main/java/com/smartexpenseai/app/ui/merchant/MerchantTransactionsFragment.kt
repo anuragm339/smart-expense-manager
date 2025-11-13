@@ -12,7 +12,6 @@ import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.smartexpenseai.app.R
 import com.smartexpenseai.app.databinding.FragmentMerchantTransactionsBinding
-import com.smartexpenseai.app.utils.MerchantAliasManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -27,7 +26,6 @@ class MerchantTransactionsFragment : Fragment() {
     
     private val viewModel: MerchantTransactionsViewModel by viewModels()
     private lateinit var transactionsAdapter: MerchantTransactionsAdapter
-    private lateinit var merchantAliasManager: MerchantAliasManager
     
     private var merchantName: String = ""
     
@@ -53,7 +51,7 @@ class MerchantTransactionsFragment : Fragment() {
     
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        merchantAliasManager = MerchantAliasManager(requireContext())
+        val repository = com.smartexpenseai.app.data.repository.ExpenseRepository.getInstance(requireContext())
         
         setupUI()
         setupRecyclerView()
@@ -75,7 +73,7 @@ class MerchantTransactionsFragment : Fragment() {
             // Navigate to transaction details
             val bundle = Bundle().apply {
                 putFloat("amount", transaction.amount.toFloat())
-                putString("merchant", merchantAliasManager.getDisplayName(transaction.rawMerchant))
+                putString("merchant", merchantName)
                 putString("bankName", transaction.bankName)
                 putString("category", "Other") // Will be populated properly
                 putString("dateTime", SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault()).format(transaction.transactionDate))

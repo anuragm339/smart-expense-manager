@@ -20,7 +20,6 @@ import com.smartexpenseai.app.databinding.FragmentCategoryTransactionsBinding
 import com.smartexpenseai.app.ui.messages.MessageItem
 import com.smartexpenseai.app.ui.messages.MessagesAdapter
 import com.smartexpenseai.app.utils.CategoryManager
-import com.smartexpenseai.app.utils.MerchantAliasManager
 import com.smartexpenseai.app.data.repository.ExpenseRepository
 import com.smartexpenseai.app.utils.logging.StructuredLogger
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -45,7 +44,6 @@ class CategoryTransactionsFragment : Fragment() {
     private lateinit var categoryName: String
     private lateinit var transactionsAdapter: MessagesAdapter
     private lateinit var categoryManager: CategoryManager
-    private lateinit var merchantAliasManager: MerchantAliasManager
     private lateinit var repository: ExpenseRepository
     
     // Legacy filter and sort state (now handled by ViewModel)
@@ -60,13 +58,13 @@ class CategoryTransactionsFragment : Fragment() {
                 val merchant = intent.getStringExtra("merchant") ?: "Unknown"
                 val amount = intent.getDoubleExtra("amount", 0.0)
                 logger.debug("onReceive","Received new transaction broadcast: $merchant - ₹${String.format("%.0f", amount)}")
-                
+
                 // Refresh category transactions data on the main thread using ViewModel
                 lifecycleScope.launch {
                     try {
                         logger.debug("onReceive","[PROCESS] Refreshing category transactions due to new transaction")
                         viewModel.handleEvent(CategoryTransactionsUIEvent.Refresh)
-                        
+
                     } catch (e: Exception) {
                         logger.error("onReceive", "Error refreshing category transactions after new transaction",e)
                     }
@@ -74,7 +72,25 @@ class CategoryTransactionsFragment : Fragment() {
             }
         }
     }
-    
+
+    // Broadcast receiver for category update notifications
+    private val categoryUpdateReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == "com.expensemanager.CATEGORY_UPDATED") {
+                logger.debug("categoryUpdateReceiver","Category updated, refreshing transactions")
+
+                // Refresh category transactions data
+                lifecycleScope.launch {
+                    try {
+                        viewModel.handleEvent(CategoryTransactionsUIEvent.Refresh)
+                    } catch (e: Exception) {
+                        logger.error("categoryUpdateReceiver", "Error refreshing after category update", e)
+                    }
+                }
+            }
+        }
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -89,9 +105,8 @@ class CategoryTransactionsFragment : Fragment() {
         
         // Initialize legacy components for fallback compatibility
         categoryName = arguments?.getString("categoryName") ?: "Unknown"
-        categoryManager = CategoryManager(requireContext())
-        merchantAliasManager = MerchantAliasManager(requireContext())
         repository = ExpenseRepository.getInstance(requireContext())
+        categoryManager = CategoryManager(requireContext(), repository)
         
         setupUI()
         setupRecyclerView()
@@ -243,7 +258,7 @@ class CategoryTransactionsFragment : Fragment() {
                     if (transactionCategory == categoryName) {
                         MessageItem(
                             amount = transaction.amount,
-                            merchant = merchantAliasManager.getDisplayName(transaction.rawMerchant), // Apply alias lookup
+                            merchant = merchantWithCategory?.display_name ?: transaction.rawMerchant, // Apply alias lookup
                             bankName = transaction.bankName,
                             category = transactionCategory,
                             categoryColor = merchantWithCategory?.category_color ?: "#888888",
@@ -593,24 +608,34 @@ class CategoryTransactionsFragment : Fragment() {
     
     override fun onResume() {
         super.onResume()
-        
+
         // Register broadcast receiver for new transactions
-        val intentFilter = IntentFilter("com.expensemanager.NEW_TRANSACTION_ADDED")
+        val newTransactionFilter = IntentFilter("com.expensemanager.NEW_TRANSACTION_ADDED")
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            requireContext().registerReceiver(newTransactionReceiver, intentFilter, android.content.Context.RECEIVER_NOT_EXPORTED)
+            requireContext().registerReceiver(newTransactionReceiver, newTransactionFilter, android.content.Context.RECEIVER_NOT_EXPORTED)
         } else {
-            requireContext().registerReceiver(newTransactionReceiver, intentFilter)
+            requireContext().registerReceiver(newTransactionReceiver, newTransactionFilter)
         }
         logger.debug("onResume","Registered broadcast receiver for new transactions")
+
+        // Register broadcast receiver for category updates
+        val categoryUpdateFilter = IntentFilter("com.expensemanager.CATEGORY_UPDATED")
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            requireContext().registerReceiver(categoryUpdateReceiver, categoryUpdateFilter, android.content.Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            requireContext().registerReceiver(categoryUpdateReceiver, categoryUpdateFilter)
+        }
+        logger.debug("onResume","Registered broadcast receiver for category updates")
     }
     
     override fun onPause() {
         super.onPause()
-        
-        // Unregister broadcast receiver to prevent memory leaks
+
+        // Unregister broadcast receivers to prevent memory leaks
         try {
             requireContext().unregisterReceiver(newTransactionReceiver)
-            logger.debug("onPause","Unregistered broadcast receiver for new transactions")
+            requireContext().unregisterReceiver(categoryUpdateReceiver)
+            logger.debug("onPause","Unregistered broadcast receivers")
         } catch (e: Exception) {
             // Receiver may not have been registered, ignore
             logger.warn("onPause", "Broadcast receiver was not registered, ignoring unregister")

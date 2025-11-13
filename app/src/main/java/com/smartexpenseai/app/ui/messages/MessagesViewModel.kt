@@ -36,8 +36,8 @@ class MessagesViewModel @Inject constructor(
     }
     
     // Utility classes
-    private val categoryManager by lazy { CategoryManager(context) }
-    private val merchantAliasManager by lazy { MerchantAliasManager(context) }
+    private val categoryManager by lazy { CategoryManager(context, expenseRepository) }
+    private val merchantAliasManager by lazy { MerchantAliasManager(context, expenseRepository) }
     // SMS parsing is now handled by the injected SMSParsingService
     private val logger = StructuredLogger(
         featureTag = "UI",
@@ -749,8 +749,10 @@ class MessagesViewModel @Inject constructor(
     
     /**
      * Group transactions by merchant for display
+     * CRITICAL FIX: Gets category from merchants table instead of transactions table
+     * to ensure consistency with Category Manager
      */
-    private fun groupTransactionsByMerchant(transactions: List<MessageItem>, sortOption: SortOption): List<MerchantGroup> {
+    private suspend fun groupTransactionsByMerchant(transactions: List<MessageItem>, sortOption: SortOption): List<MerchantGroup> {
         // 🔧 BUG FIX: Filter out transactions with empty/invalid merchant names
         val validTransactions = transactions.filter { transaction ->
             transaction.merchant.isNotBlank() && transaction.merchant != "."
@@ -775,15 +777,13 @@ class MessagesViewModel @Inject constructor(
             .groupBy { it.merchant.trim() }
             .map { (displayName, merchantTransactions) ->
                 val sortedTransactions = merchantTransactions.sortedByDescending { transaction ->
-                    getDateSortOrderReverse(transaction.dateTime)
+                    transaction.actualDate.time
                 }
                 val totalAmount = merchantTransactions.sumOf { it.amount }
                 val category = merchantTransactions.firstOrNull()?.category ?: "Other"
                 val categoryColor = merchantTransactions.firstOrNull()?.categoryColor ?: "#9e9e9e"
-                
-                val latestTransactionDate = sortedTransactions.firstOrNull()?.let { 
-                    getDateSortOrderReverse(it.dateTime) 
-                } ?: 0L
+
+                val latestTransactionDate = sortedTransactions.firstOrNull()?.actualDate?.time ?: 0L
                 
                 val primaryBankName = merchantTransactions
                     .groupBy { it.bankName }
@@ -1302,6 +1302,7 @@ class MessagesViewModel @Inject constructor(
             logger.error("invalidateMerchantAliasCache","Error invalidating ViewModel merchant alias cache",e)
         }
     }
+
     
     /**
      * Force refresh data after external changes (called from Fragment)

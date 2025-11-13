@@ -162,6 +162,7 @@ class SMSHistoryReader @Inject constructor(
      * Parse transaction from SMS by delegating to UnifiedSMSParser
      * All parsing logic (amount, merchant, bank, reference) comes from bank_rules.json
      */
+
     suspend fun parseTransactionFromSMS(sms: HistoricalSMS): ParsedTransaction? {
         return try {
             val result = unifiedSMSParser.parseSMS(sms.address, sms.body, sms.date.time)
@@ -169,15 +170,21 @@ class SMSHistoryReader @Inject constructor(
             when (result) {
                 is UnifiedSMSParser.ParseResult.Success -> {
                     // Convert UnifiedSMSParser result to legacy ParsedTransaction format
-                    ParsedTransaction(
+                    logger.debug("parseTransactionFromSMS", "TransactionEntity ref: ${result.transaction.referenceNumber}")
+
+                    val parsed = ParsedTransaction(
                         id = "hist_${sms.id}",
                         amount = result.transaction.amount,
                         merchant = result.transaction.normalizedMerchant,
                         bankName = result.transaction.bankName,
                         date = sms.date,
                         rawSMS = sms.body,
-                        confidence = result.transaction.confidenceScore
+                        confidence = result.transaction.confidenceScore,
+                        referenceNumber = result.transaction.referenceNumber
                     )
+
+                    logger.debug("parseTransactionFromSMS", "ParsedTransaction ref: ${parsed.referenceNumber}")
+                    parsed
                 }
                 is UnifiedSMSParser.ParseResult.Failed -> {
                     logger.debug("parseTransactionFromSMS", "Failed to parse: ${result.reason}")

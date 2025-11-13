@@ -13,7 +13,6 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.smartexpenseai.app.databinding.FragmentExportDataBinding
 import com.smartexpenseai.app.utils.CategoryManager
-import com.smartexpenseai.app.utils.MerchantAliasManager
 import com.smartexpenseai.app.data.repository.ExpenseRepository
 import android.graphics.Canvas
 import android.graphics.Color
@@ -38,9 +37,9 @@ class ExportDataFragment : Fragment() {
     
     private lateinit var prefs: SharedPreferences
     private lateinit var categoryManager: CategoryManager
-    private lateinit var merchantAliasManager: MerchantAliasManager
     private lateinit var repository: ExpenseRepository
-    
+    private lateinit var merchantAliasManager: com.smartexpenseai.app.utils.MerchantAliasManager
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -49,13 +48,13 @@ class ExportDataFragment : Fragment() {
         _binding = FragmentExportDataBinding.inflate(inflater, container, false)
         return binding.root
     }
-    
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         prefs = requireContext().getSharedPreferences("export_settings", Context.MODE_PRIVATE)
-        categoryManager = CategoryManager(requireContext())
-        merchantAliasManager = MerchantAliasManager(requireContext())
         repository = ExpenseRepository.getInstance(requireContext())
+        categoryManager = CategoryManager(requireContext(), repository)
+        merchantAliasManager = com.smartexpenseai.app.utils.MerchantAliasManager(requireContext(), repository)
         setupClickListeners()
         loadSettings()
     }

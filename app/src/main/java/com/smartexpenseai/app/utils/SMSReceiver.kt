@@ -108,6 +108,14 @@ class SMSReceiver : BroadcastReceiver() {
                             if (insertedId > 0) {
                                 logger.debug("processBankSMS","[SUCCESS] New transaction saved: ${transaction.normalizedMerchant} - ₹${transaction.amount}")
 
+                                // Auto-categorize the transaction based on merchant
+                                val categorized = repository.autoCategorizeTransaction(insertedId)
+                                if (categorized) {
+                                    logger.debug("processBankSMS","[AUTO-CATEGORIZE] Transaction auto-categorized successfully")
+                                } else {
+                                    logger.warn("processBankSMS","[AUTO-CATEGORIZE] Failed to auto-categorize transaction")
+                                }
+
                                 // Show notification
                                 val notificationManager = TransactionNotificationManager(context)
                                 notificationManager.showNewTransactionNotification(

@@ -138,6 +138,7 @@ class AddTransactionUseCase @Inject constructor(
             amount = amount,
             rawMerchant = merchantName,
             normalizedMerchant = merchantName.trim().lowercase(),
+            categoryId = 1L,  // Default to "Other" category - will be updated in ensureMerchantAndCategoryExist
             bankName = bankName,
             transactionDate = now,
             rawSmsBody = "MANUAL_ENTRY: ₹$amount at $merchantName ($categoryName)",

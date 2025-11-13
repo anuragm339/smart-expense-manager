@@ -12,10 +12,12 @@ data class TransactionDetailsUIState(
     // Transaction data
     val transactionData: TransactionData? = null,
     val similarTransactionsCount: Int = 0,
-    
+    val updatedTransactionsCount: Int = 0,
+
     // State flags
     val hasError: Boolean = false,
     val error: String? = null,
+    val successMessage: String? = null,
     val hasUnsavedChanges: Boolean = false,
     val showSimilarWarning: Boolean = false,
     val lastUpdateTime: Long = 0L
@@ -73,6 +75,7 @@ sealed class TransactionDetailsUIEvent {
     object MarkAsDuplicate : TransactionDetailsUIEvent()
     object CheckSimilarTransactions : TransactionDetailsUIEvent()
     object ClearError : TransactionDetailsUIEvent()
+    object ClearSuccess : TransactionDetailsUIEvent()
     object NavigateBack : TransactionDetailsUIEvent()
     
     data class UpdateCategory(val category: String) : TransactionDetailsUIEvent()

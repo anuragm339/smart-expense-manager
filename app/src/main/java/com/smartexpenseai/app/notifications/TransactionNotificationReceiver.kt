@@ -65,7 +65,7 @@ class TransactionNotificationReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val repository = ExpenseRepository.getInstance(context)
-                val categoryManager = CategoryManager(context)
+                val categoryManager = CategoryManager(context, repository)
                 
                 logger.debug("handleCategorizeAction", "Categorizing transaction $transactionId as $category for merchant $merchant")
                 

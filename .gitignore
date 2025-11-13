@@ -106,3 +106,6 @@ app/src/androidTest
 *~# Release keystore - DO NOT COMMIT
 release.keystore
 *.keystore
+.DS_Store
+.idea/gradle.xml
+app/.DS_Store

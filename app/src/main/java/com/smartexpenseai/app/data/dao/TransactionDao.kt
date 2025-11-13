@@ -103,7 +103,7 @@ interface TransactionDao {
             COALESCE(c.color, '#9e9e9e') as category_color
         FROM transactions t
         LEFT JOIN merchants m ON t.normalized_merchant = m.normalized_name
-        LEFT JOIN categories c ON m.category_id = c.id
+        LEFT JOIN categories c ON t.category_id = c.id
         WHERE t.transaction_date >= :startDate AND t.transaction_date <= :endDate
           AND t.is_debit = 1
           AND (m.is_excluded_from_expense_tracking = 0 OR m.is_excluded_from_expense_tracking IS NULL)
@@ -121,7 +121,10 @@ interface TransactionDao {
     
     @Query("SELECT * FROM transactions WHERE sms_id = :smsId")
     suspend fun getTransactionBySmsId(smsId: String): TransactionEntity?
-    
+
+    @Query("SELECT * FROM transactions WHERE id = :transactionId LIMIT 1")
+    suspend fun getTransactionById(transactionId: Long): TransactionEntity?
+
     @Query("""
         SELECT * FROM transactions 
         WHERE normalized_merchant = :normalizedMerchant 
@@ -175,35 +178,55 @@ interface TransactionDao {
         bankName: String
     ): Int
     
-    // For dashboard category breakdown - joins with merchants to get categories
+    // For dashboard category breakdown - uses direct category_id from transactions
     @Query("""
-        SELECT m.category_id, c.name as category_name, c.color,
+        SELECT t.category_id, c.name as category_name, c.color,
                SUM(t.amount) as total_amount, COUNT(t.id) as transaction_count,
                MAX(t.transaction_date) as last_transaction_date
         FROM transactions t
-        JOIN merchants m ON t.normalized_merchant = m.normalized_name
-        JOIN categories c ON m.category_id = c.id
+        JOIN categories c ON t.category_id = c.id
+        LEFT JOIN merchants m ON t.normalized_merchant = m.normalized_name
         WHERE t.transaction_date >= :startDate AND t.transaction_date <= :endDate
           AND t.is_debit = 1
-          AND m.is_excluded_from_expense_tracking = 0
-        GROUP BY m.category_id, c.name, c.color
+          AND (m.is_excluded_from_expense_tracking = 0 OR m.is_excluded_from_expense_tracking IS NULL)
+        GROUP BY t.category_id, c.name, c.color
         ORDER BY total_amount DESC
     """)
     suspend fun getCategorySpendingBreakdown(startDate: Date, endDate: Date): List<CategorySpendingResult>
 
     // Get all merchants in a specific category with their transaction statistics
+    // Now uses transactions' category_id directly instead of merchants' category_id
     @Query("""
-        SELECT m.display_name as displayName, m.normalized_name as normalizedName,
-               SUM(t.amount) as totalAmount, COUNT(t.id) as transactionCount,
-               MAX(t.transaction_date) as lastTransactionDate
-        FROM merchants m
-        LEFT JOIN transactions t ON m.normalized_name = t.normalized_merchant AND t.is_debit = 1
-        WHERE m.category_id = :categoryId
-        GROUP BY m.id, m.display_name, m.normalized_name
+        SELECT
+            COALESCE(m.display_name, t.normalized_merchant) as displayName,
+            t.normalized_merchant as normalizedName,
+            SUM(t.amount) as totalAmount,
+            COUNT(t.id) as transactionCount,
+            MAX(t.transaction_date) as lastTransactionDate
+        FROM transactions t
+        LEFT JOIN merchants m ON t.normalized_merchant = m.normalized_name
+        WHERE t.category_id = :categoryId
+          AND t.is_debit = 1
+          AND (m.is_excluded_from_expense_tracking = 0 OR m.is_excluded_from_expense_tracking IS NULL)
+        GROUP BY t.normalized_merchant
         HAVING transactionCount > 0
         ORDER BY totalAmount DESC
     """)
     suspend fun getMerchantsInCategoryWithStats(categoryId: Long): List<MerchantCategoryStats>
+
+    /**
+     * Update category_id for all transactions with a specific merchant
+     * Used when merchant category is changed to maintain data consistency
+     */
+    @Query("""
+        UPDATE transactions
+        SET category_id = :newCategoryId
+        WHERE normalized_merchant = :normalizedMerchant
+    """)
+    suspend fun updateTransactionsCategoryByMerchant(
+        normalizedMerchant: String,
+        newCategoryId: Long
+    ): Int
 }
 
 // Data classes for query results

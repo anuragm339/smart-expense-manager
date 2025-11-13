@@ -4,11 +4,13 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
@@ -26,8 +28,6 @@ import com.smartexpenseai.app.databinding.FragmentDashboardBinding
 import com.smartexpenseai.app.data.repository.ExpenseRepository
 import com.smartexpenseai.app.data.repository.DashboardData
 import com.smartexpenseai.app.utils.CategoryManager
-import com.smartexpenseai.app.utils.MerchantAliasManager
-import com.smartexpenseai.app.services.TransactionParsingService
 import com.smartexpenseai.app.services.TransactionFilterService
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import dagger.hilt.android.AndroidEntryPoint
@@ -63,7 +63,6 @@ class DashboardFragment : Fragment() {
 
     // Hilt-injected dependencies
     @Inject lateinit var addTransactionUseCase: AddTransactionUseCase
-    @Inject lateinit var transactionParsingService: TransactionParsingService
     @Inject lateinit var transactionFilterService: TransactionFilterService
 
     private val logger = StructuredLogger("DASHBOARD", DashboardFragment::class.java.simpleName)
@@ -71,7 +70,7 @@ class DashboardFragment : Fragment() {
     // Core dependencies
     private lateinit var repository: ExpenseRepository
     private lateinit var categoryManager: CategoryManager
-    private lateinit var merchantAliasManager: MerchantAliasManager
+    private lateinit var merchantAliasManager: com.smartexpenseai.app.utils.MerchantAliasManager
 
     // Helper classes for UI responsibilities
     private lateinit var viewBinder: DashboardViewBinder
@@ -179,8 +178,8 @@ class DashboardFragment : Fragment() {
 
         // Initialize core dependencies
         repository = ExpenseRepository.getInstance(requireContext())
-        categoryManager = CategoryManager(requireContext())
-        merchantAliasManager = MerchantAliasManager(requireContext())
+        categoryManager = CategoryManager(requireContext(), repository)
+        merchantAliasManager = com.smartexpenseai.app.utils.MerchantAliasManager(requireContext(), repository)
 
         // Initialize helper classes
         val inclusionFilter = MerchantInclusionFilter(requireContext(), logger)
@@ -209,9 +208,7 @@ class DashboardFragment : Fragment() {
         )
         actionHandler.setupClickListeners()
 
-        dataOrchestrator = DashboardDataOrchestrator(
-            repository, transactionParsingService, transactionFilterService, categoryManager, logger
-        )
+        dataOrchestrator = DashboardDataOrchestrator(repository, logger)
 
         setupDashboardPeriodFilter()
         observeUIState()
@@ -525,6 +522,7 @@ class DashboardFragment : Fragment() {
     }
 
 
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onResume() {
         super.onResume()
 

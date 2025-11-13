@@ -97,6 +97,7 @@ data class MessagesUIState(
  * Individual message/transaction item
  */
 data class MessageItem(
+    val transactionId: Long = 0,  // Transaction ID for direct updates
     val amount: Double,
     val merchant: String,
     val bankName: String,

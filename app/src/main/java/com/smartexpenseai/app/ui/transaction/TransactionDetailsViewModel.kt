@@ -6,7 +6,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.smartexpenseai.app.data.repository.ExpenseRepository
 import com.smartexpenseai.app.utils.CategoryManager
-import com.smartexpenseai.app.utils.MerchantAliasManager
 import com.smartexpenseai.app.utils.logging.StructuredLogger
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -37,8 +36,7 @@ class TransactionDetailsViewModel @Inject constructor(
     val uiState: StateFlow<TransactionDetailsUIState> = _uiState.asStateFlow()
     
     // Manager instances
-    private val categoryManager = CategoryManager(context)
-    private val merchantAliasManager = MerchantAliasManager(context)
+    private val categoryManager = CategoryManager(context, repository)
     
     init {
         logger.debug("init","ViewModel initialized")
@@ -59,6 +57,7 @@ class TransactionDetailsViewModel @Inject constructor(
             is TransactionDetailsUIEvent.CreateNewCategory -> createNewCategory(event.categoryName)
             is TransactionDetailsUIEvent.CheckSimilarTransactions -> checkSimilarTransactions()
             is TransactionDetailsUIEvent.ClearError -> clearError()
+            is TransactionDetailsUIEvent.ClearSuccess -> clearSuccess()
             is TransactionDetailsUIEvent.NavigateBack -> handleNavigateBack()
         }
     }
@@ -66,22 +65,27 @@ class TransactionDetailsViewModel @Inject constructor(
     /**
      * Set transaction data from fragment arguments
      */
-    fun setTransactionData(
+    suspend fun setTransactionData(
         amount: Float,
         merchant: String,
         bankName: String,
         category: String,
-        dateTime: String,
+        transactionDate: Long,
         confidence: Int,
         rawSMS: String
     ) {
         logger.debug("setTransactionData","Setting transaction data...")
-        
+
         _uiState.value = _uiState.value.copy(isLoading = true)
-        
+
         try {
-            val categoryColor = merchantAliasManager.getMerchantCategoryColor(category)
-            
+            // Get category color from database
+            val categoryEntity = repository.getCategoryByName(category)
+            val categoryColor = categoryEntity?.color ?: "#9e9e9e"
+
+            // Format the date using the same logic as MessagesViewModel
+            val dateTime = formatDate(java.util.Date(transactionDate))
+
             val transactionData = TransactionData(
                 amount = amount,
                 merchant = merchant,
@@ -175,67 +179,82 @@ class TransactionDetailsViewModel @Inject constructor(
      * Update transaction category
      */
     private fun updateCategory(newCategory: String) {
-        logger.debug("updateCategory","Updating category to: $newCategory")
-        
+        logger.debug("updateCategory","Updating category to: $newCategory (DB-only)")
+
         val currentTransaction = _uiState.value.transactionData ?: return
-        
+
         _uiState.value = _uiState.value.copy(isUpdating = true)
-        
+
         viewModelScope.launch {
             try {
-                logger.debug("updateCategory","Step 1: Updating SharedPreferences alias...")
-                
-                // STEP 1: Update SharedPreferences (MerchantAliasManager)
-                var aliasUpdateSuccess = true
+                logger.debug("updateCategory","Updating database and all transactions...")
+
+                var transactionsUpdatedCount = 0
+                var databaseUpdateSuccess = false
+
                 try {
-                    merchantAliasManager.setMerchantAlias(
-                        currentTransaction.merchant, 
-                        currentTransaction.merchant, 
+                    // STEP 1: Get or create the category
+                    val category = repository.getCategoryByName(newCategory)
+                    if (category == null) {
+                        // Category doesn't exist - let repository handle creation
+                        logger.debug("updateCategory","Category '$newCategory' will be created during update")
+                    }
+
+                    // STEP 2: Update merchant and all associated transactions in DB
+                    databaseUpdateSuccess = repository.updateMerchantAliasInDatabase(
+                        listOf(currentTransaction.merchant),
+                        currentTransaction.merchant, // Keep same name, just update category
                         newCategory
                     )
-                    logger.debug("updateCategory","SharedPreferences update completed successfully")
-                } catch (e: Exception) {
-                    logger.error("updateCategory","SharedPreferences update failed",e)
-                    aliasUpdateSuccess = false
-                }
-                
-                // STEP 2: Update Database
-                logger.debug("updateCategory","Step 2: Updating database...")
-                var databaseUpdateSuccess = false
-                
-                if (aliasUpdateSuccess) {
-                    try {
-                        databaseUpdateSuccess = repository.updateMerchantAliasInDatabase(
-                            listOf(currentTransaction.merchant),
-                            currentTransaction.merchant, // Keep same name, just update category
-                            newCategory
-                        )
-                        
-                        if (databaseUpdateSuccess) {
-                            logger.debug("updateCategory","Database update completed successfully")
-                        } else {
-                            logger.error("updateCategory","Database update failed (returned false)",null)
+
+                    if (databaseUpdateSuccess) {
+                        logger.debug("updateCategory","Database update completed successfully")
+
+                        // STEP 3: Get the count of updated transactions
+                        val categoryAfterUpdate = repository.getCategoryByName(newCategory)
+                        if (categoryAfterUpdate != null) {
+                            transactionsUpdatedCount = repository.updateAllTransactionsCategoryByMerchant(
+                                normalizedMerchant = currentTransaction.merchant.lowercase()
+                                    .replace(Regex("[^a-zA-Z0-9\\s]"), "")
+                                    .replace(Regex("\\s+"), " ")
+                                    .trim(),
+                                newCategoryId = categoryAfterUpdate.id
+                            )
+                            logger.debug("updateCategory","✅ Updated $transactionsUpdatedCount transactions to category '$newCategory'")
                         }
-                    } catch (e: Exception) {
-                        logger.error("updateCategory","Database update failed with exception",e)
-                        databaseUpdateSuccess = false
+                    } else {
+                        logger.error("updateCategory","Database update failed (returned false)",null)
                     }
+                } catch (e: Exception) {
+                    logger.error("updateCategory","Database update failed with exception",e)
+                    databaseUpdateSuccess = false
                 }
-                
-                // STEP 3: Update UI based on results
-                if (aliasUpdateSuccess && databaseUpdateSuccess) {
-                    logger.debug("updateCategory","COMPLETE SUCCESS: Both SharedPreferences and Database updated")
-                    
-                    val categoryColor = merchantAliasManager.getMerchantCategoryColor(newCategory)
-                    
+
+                // STEP 4: Update UI based on results
+                if (databaseUpdateSuccess) {
+                    logger.debug("updateCategory","SUCCESS: Database updated")
+
+                    // Get category color from database
+                    val categoryEntity = repository.getCategoryByName(newCategory)
+                    val categoryColor = categoryEntity?.color ?: "#9e9e9e"
+
                     val updatedTransaction = currentTransaction.copy(
                         category = newCategory,
                         categoryColor = categoryColor
                     )
-                    
+
+                    // Create success message with transaction count
+                    val successMsg = if (transactionsUpdatedCount > 0) {
+                        "Updated category to '$newCategory' for $transactionsUpdatedCount transaction${if (transactionsUpdatedCount > 1) "s" else ""}"
+                    } else {
+                        "Category updated to '$newCategory'"
+                    }
+
                     _uiState.value = _uiState.value.copy(
                         isUpdating = false,
                         transactionData = updatedTransaction,
+                        updatedTransactionsCount = transactionsUpdatedCount,
+                        successMessage = successMsg,
                         hasUnsavedChanges = true,
                         lastUpdateTime = System.currentTimeMillis(),
                         hasError = false,
@@ -244,28 +263,8 @@ class TransactionDetailsViewModel @Inject constructor(
 
                     logger.debug("updateCategory","Category updated successfully to: $newCategory")
                     
-                } else if (aliasUpdateSuccess && !databaseUpdateSuccess) {
-                    logger.debug("updateCategory","PARTIAL SUCCESS: SharedPreferences updated but database failed")
-                    
-                    // Still update UI but show warning
-                    val categoryColor = merchantAliasManager.getMerchantCategoryColor(newCategory)
-                    
-                    val updatedTransaction = currentTransaction.copy(
-                        category = newCategory,
-                        categoryColor = categoryColor
-                    )
-                    
-                    _uiState.value = _uiState.value.copy(
-                        isUpdating = false,
-                        transactionData = updatedTransaction,
-                        hasUnsavedChanges = true,
-                        lastUpdateTime = System.currentTimeMillis(),
-                        hasError = true,
-                        error = "Category changed in app but may not persist. Please try again."
-                    )
-                    
                 } else {
-                    logger.debug("updateCategory","COMPLETE FAILURE: Both updates failed")
+                    logger.debug("updateCategory","FAILURE: Database update failed")
                     handleTransactionError(Exception("Failed to update category. Please try again."))
                 }
                 
@@ -280,68 +279,78 @@ class TransactionDetailsViewModel @Inject constructor(
      * Update merchant name and category
      */
     private fun updateMerchant(newMerchantName: String, newCategory: String) {
-        logger.debug("updateMerchant","Updating merchant to: $newMerchantName, category: $newCategory")
-        
+        logger.debug("updateMerchant","Updating merchant to: $newMerchantName, category: $newCategory (DB-only)")
+
         val currentTransaction = _uiState.value.transactionData ?: return
-        
+
         _uiState.value = _uiState.value.copy(isUpdating = true)
-        
+
         viewModelScope.launch {
             try {
-                logger.debug("updateMerchant","Step 1: Updating SharedPreferences alias...")
-                
-                // STEP 1: Update SharedPreferences (MerchantAliasManager)
-                var aliasUpdateSuccess = true
+                logger.debug("updateMerchant","Updating database and all transactions...")
+
+                var transactionsUpdatedCount = 0
+                var databaseUpdateSuccess = false
+
                 try {
-                    merchantAliasManager.setMerchantAlias(
-                        currentTransaction.merchant, 
-                        newMerchantName, 
+                    // STEP 1: Update merchant and all associated transactions in DB
+                    databaseUpdateSuccess = repository.updateMerchantAliasInDatabase(
+                        listOf(currentTransaction.merchant),
+                        newMerchantName,
                         newCategory
                     )
-                    logger.debug("updateMerchant","SharedPreferences update completed successfully")
-                } catch (e: Exception) {
-                    logger.error("updateMerchant","SharedPreferences update failed",e)
-                    aliasUpdateSuccess = false
-                }
-                
-                // STEP 2: Update Database
-                logger.debug("updateMerchant","Step 2: Updating database...")
-                var databaseUpdateSuccess = false
-                
-                if (aliasUpdateSuccess) {
-                    try {
-                        databaseUpdateSuccess = repository.updateMerchantAliasInDatabase(
-                            listOf(currentTransaction.merchant),
-                            newMerchantName,
-                            newCategory
-                        )
-                        
-                        if (databaseUpdateSuccess) {
-                            logger.debug("updateMerchant","Database update completed successfully")
+
+                    if (databaseUpdateSuccess) {
+                        logger.debug("updateMerchant","Database update completed successfully")
+
+                        // STEP 2: Get the count of updated transactions
+                        val category = repository.getCategoryByName(newCategory)
+                        if (category != null) {
+                            transactionsUpdatedCount = repository.updateAllTransactionsCategoryByMerchant(
+                                normalizedMerchant = currentTransaction.merchant.lowercase()
+                                    .replace(Regex("[^a-zA-Z0-9\\s]"), "")
+                                    .replace(Regex("\\s+"), " ")
+                                    .trim(),
+                                newCategoryId = category.id
+                            )
+                            logger.debug("updateMerchant","✅ Updated $transactionsUpdatedCount transactions to category '$newCategory'")
                         } else {
-                            logger.debug("updateMerchant","Database update failed (returned false)")
+                            logger.warn("updateMerchant","Category '$newCategory' not found in database")
                         }
-                    } catch (e: Exception) {
-                        logger.error("updateMerchant","Database update failed with exception",e)
-                        databaseUpdateSuccess = false
+                    } else {
+                        logger.error("updateMerchant","Database update failed (returned false)",null)
                     }
+                } catch (e: Exception) {
+                    logger.error("updateMerchant","Database update failed with exception",e)
+                    databaseUpdateSuccess = false
                 }
-                
+
                 // STEP 3: Update UI based on results
-                if (aliasUpdateSuccess && databaseUpdateSuccess) {
-                    logger.debug("updateMerchant","COMPLETE SUCCESS: Both SharedPreferences and Database updated")
-                    
-                    val categoryColor = merchantAliasManager.getMerchantCategoryColor(newCategory)
-                    
+                if (databaseUpdateSuccess) {
+                    logger.debug("updateMerchant","SUCCESS: Database updated")
+
+                    // Get category color from database
+                    val categoryEntity = repository.getCategoryByName(newCategory)
+                    val categoryColor = categoryEntity?.color ?: "#9e9e9e"
+
                     val updatedTransaction = currentTransaction.copy(
                         merchant = newMerchantName,
                         category = newCategory,
                         categoryColor = categoryColor
                     )
-                    
+
+                    // Create success message with transaction count
+                    val successMsg = if (transactionsUpdatedCount > 0) {
+                        "Updated '$newMerchantName' and category '$newCategory' for $transactionsUpdatedCount transaction${if (transactionsUpdatedCount > 1) "s" else ""}"
+                    } else {
+                        "Merchant updated to '$newMerchantName' with category '$newCategory'"
+                    }
+
                     _uiState.value = _uiState.value.copy(
                         isUpdating = false,
                         transactionData = updatedTransaction,
+                        updatedTransactionsCount = transactionsUpdatedCount,
+                        successMessage = successMsg,
                         hasUnsavedChanges = true,
                         lastUpdateTime = System.currentTimeMillis(),
                         hasError = false,
@@ -350,29 +359,8 @@ class TransactionDetailsViewModel @Inject constructor(
 
                     logger.debug("updateMerchant","Merchant updated successfully to: $newMerchantName")
                     
-                } else if (aliasUpdateSuccess && !databaseUpdateSuccess) {
-                    logger.debug("updateMerchant","PARTIAL SUCCESS: SharedPreferences updated but database failed")
-                    
-                    // Still update UI but show warning
-                    val categoryColor = merchantAliasManager.getMerchantCategoryColor(newCategory)
-                    
-                    val updatedTransaction = currentTransaction.copy(
-                        merchant = newMerchantName,
-                        category = newCategory,
-                        categoryColor = categoryColor
-                    )
-                    
-                    _uiState.value = _uiState.value.copy(
-                        isUpdating = false,
-                        transactionData = updatedTransaction,
-                        hasUnsavedChanges = true,
-                        lastUpdateTime = System.currentTimeMillis(),
-                        hasError = true,
-                        error = "Changes saved to app but may not persist. Please try again."
-                    )
-                    
                 } else {
-                    logger.debug("updateMerchant","COMPLETE FAILURE: Both updates failed")
+                    logger.debug("updateMerchant","FAILURE: Database update failed")
                     handleTransactionError(Exception("Failed to update merchant. Please try again."))
                 }
                 
@@ -433,7 +421,7 @@ class TransactionDetailsViewModel @Inject constructor(
     /**
      * Get all available categories
      */
-    fun getAllCategories(): List<String> {
+    suspend fun getAllCategories(): List<String> {
         return categoryManager.getAllCategories()
     }
     
@@ -446,7 +434,17 @@ class TransactionDetailsViewModel @Inject constructor(
             error = null
         )
     }
-    
+
+    /**
+     * Clear success message
+     */
+    private fun clearSuccess() {
+        _uiState.value = _uiState.value.copy(
+            successMessage = null,
+            updatedTransactionsCount = 0
+        )
+    }
+
     /**
      * Handle navigation back
      */
@@ -477,5 +475,26 @@ class TransactionDetailsViewModel @Inject constructor(
             hasError = true,
             error = errorMessage
         )
+    }
+
+    /**
+     * Format date to relative time string (e.g., "2 hours ago", "Yesterday")
+     */
+    private fun formatDate(date: java.util.Date): String {
+        val now = java.util.Date()
+        val diffInMs = now.time - date.time
+        val diffInDays = diffInMs / (1000 * 60 * 60 * 24)
+        val diffInHours = diffInMs / (1000 * 60 * 60)
+
+        return when {
+            diffInHours < 1 -> "Just now"
+            diffInHours < 24 -> "$diffInHours hours ago"
+            diffInDays == 1L -> "Yesterday"
+            diffInDays < 7 -> "$diffInDays days ago"
+            else -> {
+                val formatter = java.text.SimpleDateFormat("MMM dd", java.util.Locale.getDefault())
+                formatter.format(date)
+            }
+        }
     }
 }

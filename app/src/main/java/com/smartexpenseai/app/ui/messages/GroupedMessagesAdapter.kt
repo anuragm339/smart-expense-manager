@@ -202,6 +202,12 @@ class GroupedMessagesAdapter(
         
         fun bind(group: MerchantGroup) {
             binding.apply {
+                // Log merchant group category for debugging
+                logger.debug(
+                    where = "bind",
+                    what = "[MERCHANT_GROUP_CATEGORY] Merchant: '${group.merchantName}' -> Category: '${group.category}' -> Transactions: ${group.transactions.size} -> Total: ₹${String.format("%.0f", group.totalAmount)}"
+                )
+
                 // Set merchant info
                 tvMerchantName.text = group.merchantName
                 tvTransactionCount.text = "${group.transactions.size} transactions"
@@ -214,20 +220,32 @@ class GroupedMessagesAdapter(
                 
                 // Set category color
                 try {
-                    viewCategoryColor.setBackgroundColor(Color.parseColor(group.categoryColor))
+                    val parsedColor = Color.parseColor(group.categoryColor)
+                    viewCategoryColor.setBackgroundColor(parsedColor)
+                    logger.debug(
+                        where = "bind",
+                        what = "[COLOR] Applied color '${group.categoryColor}' to merchant '${group.merchantName}' category '${group.category}'"
+                    )
                 } catch (e: Exception) {
+                    logger.warn(
+                        where = "bind",
+                        what = "[COLOR] Failed to parse color '${group.categoryColor}' for merchant '${group.merchantName}': ${e.message}"
+                    )
                     // Fallback to default color
+                    viewCategoryColor.setBackgroundColor(Color.parseColor("#9e9e9e"))
                 }
                 
                 // Show date range
                 if (group.transactions.isNotEmpty()) {
-                    val sortedTransactions = group.transactions.sortedByDescending { getTransactionTimestamp(it) }
+                    val sortedTransactions = group.transactions.sortedByDescending { it.actualDate.time }
                     val latestDate = sortedTransactions.first().dateTime
                     val oldestDate = sortedTransactions.last().dateTime
-                    
-                    tvDateRange.text = if (sortedTransactions.size == 1) {
+
+                    tvDateRange.text = if (sortedTransactions.size == 1 || latestDate == oldestDate) {
+                        // Single transaction or all transactions have same date
                         latestDate
                     } else {
+                        // Multiple transactions with different dates
                         "$oldestDate - $latestDate"
                     }
                 }
@@ -427,8 +445,8 @@ class GroupedMessagesAdapter(
                 setHasFixedSize(false)
                 
                 // Sort transactions by date descending (newest first)
-                val sortedTransactions = group.transactions.sortedByDescending { 
-                    getTransactionTimestamp(it) 
+                val sortedTransactions = group.transactions.sortedByDescending {
+                    it.actualDate.time
                 }
                 transactionsAdapter.submitList(sortedTransactions)
                 
@@ -480,22 +498,6 @@ class GroupedMessagesAdapter(
             }
         }
         
-        private fun getTransactionTimestamp(transaction: MessageItem): Long {
-            // Convert dateTime string to timestamp for proper sorting
-            return when {
-                transaction.dateTime.contains("Just now") -> System.currentTimeMillis()
-                transaction.dateTime.contains("hour") -> {
-                    val hours = transaction.dateTime.split(" ")[0].toIntOrNull() ?: 0
-                    System.currentTimeMillis() - (hours * 60 * 60 * 1000L)
-                }
-                transaction.dateTime.contains("Yesterday") -> System.currentTimeMillis() - (24 * 60 * 60 * 1000L)
-                transaction.dateTime.contains("days ago") -> {
-                    val days = transaction.dateTime.split(" ")[0].toIntOrNull() ?: 0
-                    System.currentTimeMillis() - (days * 24 * 60 * 60 * 1000L)
-                }
-                else -> 0L // Very old
-            }
-        }
     }
 }
 
@@ -536,11 +538,17 @@ class TransactionItemAdapter(
         fun bind(transaction: MessageItem) {
             val amountBankText = itemView.findViewById<android.widget.TextView>(com.smartexpenseai.app.R.id.tv_amount_bank)
             val dateConfidenceText = itemView.findViewById<android.widget.TextView>(com.smartexpenseai.app.R.id.tv_date_confidence)
-            
+
+            // Log transaction category for debugging
+            logger.debug(
+                where = "bind",
+                what = "[TRANSACTION_CATEGORY] Merchant: '${transaction.merchant}' -> Category: '${transaction.category}' -> Amount: ₹${transaction.amount}"
+            )
+
             // Add debit/credit indicator
             val transactionType = if (transaction.isDebit) "DEBIT" else "CREDIT"
             val typeIndicator = if (transaction.isDebit) "−" else "+"
-            
+
             amountBankText.text = "$typeIndicator₹${String.format("%.0f", transaction.amount)} • ${transaction.bankName} • $transactionType"
             dateConfidenceText.text = "${transaction.dateTime} • ${transaction.confidence}% confidence"
             

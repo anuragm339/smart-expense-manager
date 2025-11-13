@@ -24,9 +24,13 @@ data class TransactionEntity(
     @ColumnInfo(name = "raw_merchant")
     val rawMerchant: String,
     
-    @ColumnInfo(name = "normalized_merchant") 
+    @ColumnInfo(name = "normalized_merchant")
     val normalizedMerchant: String,
-    
+
+    // Direct category reference - eliminates need for merchant table JOIN
+    @ColumnInfo(name = "category_id")
+    val categoryId: Long = 1L,  // Default to "Other" category (id=1)
+
     @ColumnInfo(name = "bank_name")
     val bankName: String,
     

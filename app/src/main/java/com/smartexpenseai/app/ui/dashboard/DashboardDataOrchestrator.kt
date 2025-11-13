@@ -1,9 +1,6 @@
 package com.smartexpenseai.app.ui.dashboard
 
 import com.smartexpenseai.app.data.repository.ExpenseRepository
-import com.smartexpenseai.app.services.TransactionFilterService
-import com.smartexpenseai.app.services.TransactionParsingService
-import com.smartexpenseai.app.utils.CategoryManager
 import com.smartexpenseai.app.utils.logging.StructuredLogger
 import java.text.SimpleDateFormat
 import java.util.*
@@ -14,9 +11,6 @@ import java.util.*
  */
 class DashboardDataOrchestrator(
     private val repository: ExpenseRepository,
-    private val parsingService: TransactionParsingService,
-    private val filterService: TransactionFilterService,
-    private val categoryManager: CategoryManager,
     private val logger: StructuredLogger
 ) {
 
