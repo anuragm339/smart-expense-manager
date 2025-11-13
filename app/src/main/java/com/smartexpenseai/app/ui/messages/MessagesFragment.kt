@@ -217,6 +217,11 @@ class MessagesFragment : Fragment() {
                 viewBinder.showContent()
                 // Submit data AFTER making RecyclerView visible
                 viewBinder.submitMerchantGroups(state.groupedMessages)
+
+                // Log sorted groups for debugging
+                logger.debug("updateUI", "📋 Submitted ${state.groupedMessages.size} groups sorted by ${state.currentSortOption.field}. First 3: ${
+                    state.groupedMessages.take(3).map { "${it.merchantName} (₹${String.format("%.0f", it.totalAmount)})" }.joinToString(", ")
+                }")
             }
             else -> {
                 // Fallback case - no data and not loading
@@ -398,14 +403,14 @@ class MessagesFragment : Fragment() {
                     else -> return@setSingleChoiceItems
                 }
                 
-                
-                // Use ViewModel event
+
+                // Use ViewModel event - ViewModel is the single source of truth
                 messagesViewModel.handleEvent(MessagesUIEvent.ApplySort(newSortOption))
-                
-                // Keep legacy for fallback
-                currentSortOption = SortOption(newSortOption.name, newSortOption.field, newSortOption.ascending)
-                applyFiltersAndSort()
-                
+                logger.debug("showSortMenu", "🔀 User selected sort: field=${newSortOption.field}, name=${newSortOption.name}")
+
+                // Note: currentSortOption will be synced from ViewModel state in updateUI()
+                // Removed redundant applyFiltersAndSort() call - ViewModel handles sorting
+
                 dialog.dismiss()
             }
             .setNegativeButton("Cancel", null)

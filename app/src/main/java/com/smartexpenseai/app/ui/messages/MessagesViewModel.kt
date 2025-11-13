@@ -605,6 +605,7 @@ class MessagesViewModel @Inject constructor(
      * Apply sort option
      */
     private fun applySortOption(sortOption: SortOption) {
+        logger.info("applySortOption", "🔄 Applying sort: field=${sortOption.field}, ascending=${sortOption.ascending}, name=${sortOption.name}")
         _uiState.value = _uiState.value.copy(
             currentSortOption = sortOption
         )
@@ -814,7 +815,9 @@ class MessagesViewModel @Inject constructor(
         val groupsWithInclusionStates = loadGroupInclusionStates(groups)
 
         // Sort groups based on current sort option
-        return when (sortOption.field) {
+        logger.info("groupTransactionsByMerchant", "📊 Sorting ${groupsWithInclusionStates.size} merchant groups by field=${sortOption.field}, ascending=${sortOption.ascending}")
+
+        val sortedGroups = when (sortOption.field) {
             "date" -> {
                 if (sortOption.ascending) {
                     groupsWithInclusionStates.sortedBy { it.latestTransactionDate }
@@ -852,6 +855,13 @@ class MessagesViewModel @Inject constructor(
             }
             else -> groupsWithInclusionStates.sortedByDescending { it.latestTransactionDate }
         }
+
+        // Log the first 3 groups to verify sorting
+        logger.info("groupTransactionsByMerchant", "✅ Sort complete. First 3 groups: ${
+            sortedGroups.take(3).map { "${it.merchantName} (₹${String.format("%.0f", it.totalAmount)})" }.joinToString(", ")
+        }")
+
+        return sortedGroups
     }
     
     /**

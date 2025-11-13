@@ -143,11 +143,8 @@ class CategoriesViewModel @Inject constructor(
         
         viewModelScope.launch {
             try {
-                // Add to CategoryManager for persistence (SharedPreferences)
-                categoryManager.addCustomCategory(name)
-                
-                // CRITICAL FIX: Also save category to database so it appears in dropdowns and can be deleted/renamed
-                val categoryColor = getRandomCategoryColor() // Use same color for both database and UI
+                // Save category to database with user's chosen emoji
+                val categoryColor = getRandomCategoryColor()
                 val categoryEntity = com.smartexpenseai.app.data.entities.CategoryEntity(
                     name = name,
                     emoji = emoji,
