@@ -76,7 +76,8 @@ class CategoriesFragment : Fragment() {
 
         // Initialize legacy components for fallback compatibility
         repository = ExpenseRepository.getInstance(requireContext())
-        categoryManager = CategoryManager(requireContext(), repository)
+        val merchantRuleEngine = com.smartexpenseai.app.parsing.engine.MerchantRuleEngine(requireContext())
+        categoryManager = CategoryManager(requireContext(), repository, merchantRuleEngine)
 
         setupRecyclerView()
         setupUI()

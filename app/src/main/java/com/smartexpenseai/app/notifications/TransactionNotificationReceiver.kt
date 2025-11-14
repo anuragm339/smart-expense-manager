@@ -65,7 +65,8 @@ class TransactionNotificationReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val repository = ExpenseRepository.getInstance(context)
-                val categoryManager = CategoryManager(context, repository)
+                val merchantRuleEngine = com.smartexpenseai.app.parsing.engine.MerchantRuleEngine(context)
+                val categoryManager = CategoryManager(context, repository, merchantRuleEngine)
                 
                 logger.debug("handleCategorizeAction", "Categorizing transaction $transactionId as $category for merchant $merchant")
                 
@@ -175,6 +176,7 @@ class TransactionNotificationReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val repository = ExpenseRepository.getInstance(context)
+                val merchantRuleEngine = com.smartexpenseai.app.parsing.engine.MerchantRuleEngine(context)
 
                 // Get transaction to find merchant and category
                 val transaction = repository.getTransactionBySmsId(transactionId)
@@ -263,6 +265,7 @@ class TransactionNotificationReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val repository = ExpenseRepository.getInstance(context)
+                val merchantRuleEngine = com.smartexpenseai.app.parsing.engine.MerchantRuleEngine(context)
                 
                 // Check if transaction exists in SQLite database
                 val transaction = repository.getTransactionBySmsId(transactionId)

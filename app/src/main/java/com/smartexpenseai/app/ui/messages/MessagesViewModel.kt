@@ -29,16 +29,14 @@ class MessagesViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val expenseRepository: ExpenseRepository,
     private val smsParsingService: SMSParsingService,
-    private val transactionFilterService: TransactionFilterService
+    private val transactionFilterService: TransactionFilterService,
+    private val categoryManager: CategoryManager,
+    private val merchantAliasManager: MerchantAliasManager
 ) : ViewModel() {
-    
+
     companion object {
     }
-    
-    // Utility classes - FIXED: Direct initialization instead of lazy to avoid stale cache
-    private val categoryManager = CategoryManager(context, expenseRepository)
-    private val merchantAliasManager = MerchantAliasManager(context, expenseRepository)
-    // SMS parsing is now handled by the injected SMSParsingService
+
     private val logger = StructuredLogger(
         featureTag = "UI",
         className = "MessagesViewModel"

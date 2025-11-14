@@ -286,7 +286,8 @@ class CategoryDetailFragment : Fragment() {
     private fun showDeleteCategoryDialog() {
         // Get list of other categories for reassignment
         lifecycleScope.launch {
-            val categoryManager = com.smartexpenseai.app.utils.CategoryManager(requireContext(), repository)
+            val merchantRuleEngine = com.smartexpenseai.app.parsing.engine.MerchantRuleEngine(requireContext())
+            val categoryManager = com.smartexpenseai.app.utils.CategoryManager(requireContext(), repository, merchantRuleEngine)
             val allCategories = categoryManager.getAllCategories().toMutableList()
             allCategories.remove(viewModel.uiState.value.categoryName) // Remove current category
 

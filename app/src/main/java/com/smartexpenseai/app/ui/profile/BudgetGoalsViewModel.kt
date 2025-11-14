@@ -22,7 +22,8 @@ import javax.inject.Inject
 @HiltViewModel
 class BudgetGoalsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val repository: ExpenseRepository
+    private val repository: ExpenseRepository,
+    private val categoryManager: CategoryManager
 ) : ViewModel() {
 
     companion object {
@@ -30,7 +31,7 @@ class BudgetGoalsViewModel @Inject constructor(
     }
 
     private val prefs: SharedPreferences = context.getSharedPreferences("budget_settings", Context.MODE_PRIVATE)
-    private val categoryManager = CategoryManager(context, repository)
+
     private val logger = StructuredLogger("BudgetGoalsViewModel", "BudgetGoalsViewModel")
     // UI State
     private val _uiState = MutableStateFlow(BudgetGoalsUiState())

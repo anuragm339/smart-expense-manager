@@ -53,8 +53,9 @@ class ExportDataFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         prefs = requireContext().getSharedPreferences("export_settings", Context.MODE_PRIVATE)
         repository = ExpenseRepository.getInstance(requireContext())
-        categoryManager = CategoryManager(requireContext(), repository)
-        merchantAliasManager = com.smartexpenseai.app.utils.MerchantAliasManager(requireContext(), repository)
+        val merchantRuleEngine = com.smartexpenseai.app.parsing.engine.MerchantRuleEngine(requireContext())
+        categoryManager = CategoryManager(requireContext(), repository, merchantRuleEngine)
+        merchantAliasManager = com.smartexpenseai.app.utils.MerchantAliasManager(requireContext(), repository, categoryManager)
         setupClickListeners()
         loadSettings()
     }

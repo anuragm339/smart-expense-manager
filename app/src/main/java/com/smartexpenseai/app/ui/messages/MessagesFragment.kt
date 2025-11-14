@@ -1,6 +1,7 @@
 package com.smartexpenseai.app.ui.messages
 
 import android.Manifest
+import com.smartexpenseai.app.parsing.engine.MerchantRuleEngine
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -133,8 +134,9 @@ class MessagesFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         val repository = com.smartexpenseai.app.data.repository.ExpenseRepository.getInstance(requireContext())
-        categoryManager = CategoryManager(requireContext(), repository)
-        merchantAliasManager = com.smartexpenseai.app.utils.MerchantAliasManager(requireContext(), repository)
+        val merchantRuleEngine = com.smartexpenseai.app.parsing.engine.MerchantRuleEngine(requireContext())
+        categoryManager = CategoryManager(requireContext(), repository, merchantRuleEngine)
+        merchantAliasManager = com.smartexpenseai.app.utils.MerchantAliasManager(requireContext(), repository, categoryManager)
         
         viewBinder = MessagesViewBinder(
             binding = binding,

@@ -14,12 +14,12 @@ import javax.inject.Inject
 class BudgetManager @Inject constructor(
     private val context: Context,
     private val smsHistoryReader: SMSHistoryReader,
-    private val repository: com.smartexpenseai.app.data.repository.ExpenseRepository
+    private val repository: com.smartexpenseai.app.data.repository.ExpenseRepository,
+    private val categoryManager: CategoryManager,
+    private val merchantAliasManager: MerchantAliasManager
 ) {
 
     private val prefs: SharedPreferences = context.getSharedPreferences("budget_settings", Context.MODE_PRIVATE)
-    private val categoryManager = CategoryManager(context, repository)
-    private val merchantAliasManager = MerchantAliasManager(context, repository)
     
     companion object {
         private const val TAG = "BudgetManager"

@@ -35,7 +35,8 @@ class CategoryChangeDialogHelper(private val context: Context) {
         binding.tvCurrentCategory.text = "Current Category: ${merchant.currentCategory}"
 
         // Get available categories
-        val categoryManager = CategoryManager(context, repository)
+        val merchantRuleEngine = com.smartexpenseai.app.parsing.engine.MerchantRuleEngine(context)
+        val categoryManager = CategoryManager(context, repository, merchantRuleEngine)
         val availableCategories = runBlocking { categoryManager.getAllCategories().toMutableList() }
 
         // Remove current category from selection (since it's already assigned)

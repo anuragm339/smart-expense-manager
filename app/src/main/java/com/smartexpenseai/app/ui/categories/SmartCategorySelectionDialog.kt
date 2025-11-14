@@ -1,6 +1,7 @@
 package com.smartexpenseai.app.ui.categories
 
 import android.app.Dialog
+import com.smartexpenseai.app.parsing.engine.MerchantRuleEngine
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -60,7 +61,8 @@ class SmartCategorySelectionDialog : DialogFragment() {
 
         merchantName = arguments?.getString(ARG_MERCHANT_NAME) ?: ""
         val repository = com.smartexpenseai.app.data.repository.ExpenseRepository.getInstance(requireContext())
-        categoryManager = CategoryManager(requireContext(), repository)
+        val merchantRuleEngine = com.smartexpenseai.app.parsing.engine.MerchantRuleEngine(requireContext())
+        categoryManager = CategoryManager(requireContext(), repository, merchantRuleEngine)
         
         // Load all available categories
         allCategories = getCategoryList()

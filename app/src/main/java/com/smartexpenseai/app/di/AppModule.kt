@@ -3,9 +3,11 @@ package com.smartexpenseai.app.di
 import android.content.Context
 import android.content.SharedPreferences
 import com.smartexpenseai.app.data.repository.ExpenseRepository
+import com.smartexpenseai.app.parsing.engine.MerchantRuleEngine
 import com.smartexpenseai.app.services.SMSParsingService
 import com.smartexpenseai.app.ui.categories.CategoryDisplayProvider
 import com.smartexpenseai.app.ui.categories.DefaultCategoryDisplayProvider
+import com.smartexpenseai.app.utils.CategoryManager
 import com.smartexpenseai.app.utils.MerchantAliasManager
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
@@ -147,7 +149,33 @@ object AppModule {
     ): SMSParsingService {
         return SMSParsingService(context, unifiedParser)
     }
-    
+
+    /**
+     * Provides merchant rule engine for JSON-based categorization
+     * Used by CategoryManager and TransactionDataRepository
+     */
+    @Provides
+    @Singleton
+    fun provideMerchantRuleEngine(
+        @ApplicationContext context: Context
+    ): MerchantRuleEngine {
+        return MerchantRuleEngine(context)
+    }
+
+    /**
+     * Provides category manager for transaction categorization
+     * Used by ViewModels and other components that need category operations
+     */
+    @Provides
+    @Singleton
+    fun provideCategoryManager(
+        @ApplicationContext context: Context,
+        repository: ExpenseRepository,
+        merchantRuleEngine: MerchantRuleEngine
+    ): CategoryManager {
+        return CategoryManager(context, repository, merchantRuleEngine)
+    }
+
     /**
      * Provides merchant alias manager for merchant name normalization
      * Used for consistent merchant categorization and aliasing
@@ -156,9 +184,10 @@ object AppModule {
     @Singleton
     fun provideMerchantAliasManager(
         @ApplicationContext context: Context,
-        repository: ExpenseRepository
+        repository: ExpenseRepository,
+        categoryManager: CategoryManager
     ): MerchantAliasManager {
-        return MerchantAliasManager(context, repository)
+        return MerchantAliasManager(context, repository, categoryManager)
     }
     
     /**

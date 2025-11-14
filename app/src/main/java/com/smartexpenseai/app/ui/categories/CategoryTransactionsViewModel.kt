@@ -24,21 +24,20 @@ import javax.inject.Inject
 class CategoryTransactionsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val repository: ExpenseRepository,
-    private val categoryDisplayProvider: CategoryDisplayProvider
+    private val categoryDisplayProvider: CategoryDisplayProvider,
+    private val categoryManager: CategoryManager
 ) : ViewModel() {
-    
+
     companion object {
         private const val TAG = "CategoryTransactionsViewModel"
     }
-    
+
     // Private mutable state
     private val _uiState = MutableStateFlow(CategoryTransactionsUIState())
-    
+
     // Public immutable state
     val uiState: StateFlow<CategoryTransactionsUIState> = _uiState.asStateFlow()
-    
-    // Manager instances
-    private val categoryManager = CategoryManager(context, repository)
+
     private val logger = StructuredLogger("CategoryTransactionsViewModel", "CategoryTransactionsViewModel")
     
     init {

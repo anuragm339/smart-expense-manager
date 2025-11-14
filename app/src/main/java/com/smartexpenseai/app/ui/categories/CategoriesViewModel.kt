@@ -22,22 +22,22 @@ import javax.inject.Inject
 class CategoriesViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val repository: ExpenseRepository,
-    private val categoryDisplayProvider: CategoryDisplayProvider
+    private val categoryDisplayProvider: CategoryDisplayProvider,
+    private val categoryManager: CategoryManager,
+    private val merchantAliasManager: MerchantAliasManager
 ) : ViewModel() {
-    
+
     companion object {
     }
-    
+
     // Private mutable state
     private val _uiState = MutableStateFlow(CategoriesUIState())
-    
+
     // Public immutable state
     val uiState: StateFlow<CategoriesUIState> = _uiState.asStateFlow()
-    
-    // Manager instances
-    private val categoryManager = CategoryManager(context, repository)
+
+    // Logger instance
     private val logger = StructuredLogger("CATEGORIES", "CategoriesViewModel")
-    private val merchantAliasManager = MerchantAliasManager(context, repository)
     
     init {
         logger.debug("init","ViewModel initialized, loading categories...")

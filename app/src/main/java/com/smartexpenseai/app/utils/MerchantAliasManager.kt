@@ -3,6 +3,8 @@ package com.smartexpenseai.app.utils
 import android.content.Context
 import com.smartexpenseai.app.utils.logging.StructuredLogger
 import kotlinx.coroutines.runBlocking
+import javax.inject.Inject
+import javax.inject.Singleton
 
 data class MerchantAlias(
     val originalName: String,
@@ -15,12 +17,13 @@ data class MerchantAlias(
  * MerchantAliasManager - Database-backed merchant alias management
  * All operations now use ExpenseRepository instead of SharedPreferences
  */
-class MerchantAliasManager(
+@Singleton
+class MerchantAliasManager @Inject constructor(
     private val context: Context,
-    private val repository: com.smartexpenseai.app.data.repository.ExpenseRepository
+    private val repository: com.smartexpenseai.app.data.repository.ExpenseRepository,
+    private val categoryManager: CategoryManager
 ) {
 
-    private val categoryManager = CategoryManager(context, repository)
     private val logger = StructuredLogger("MerchantAliasManager", "MerchantAliasManager")
     
     /**

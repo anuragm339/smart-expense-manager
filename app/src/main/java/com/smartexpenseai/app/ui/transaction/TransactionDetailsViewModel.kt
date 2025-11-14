@@ -21,23 +21,21 @@ import javax.inject.Inject
 class TransactionDetailsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val repository: ExpenseRepository,
-    private val savedStateHandle: SavedStateHandle
+    private val savedStateHandle: SavedStateHandle,
+    private val categoryManager: CategoryManager
 ) : ViewModel() {
-    
+
     companion object {
         private const val TAG = "TransactionDetailsViewModel"
     }
-    
+
     // Private mutable state
     private val _uiState = MutableStateFlow(TransactionDetailsUIState())
     private val logger = StructuredLogger("TransactionDetailsViewModel", "TransactionDetailsViewModel")
 
     // Public immutable state
     val uiState: StateFlow<TransactionDetailsUIState> = _uiState.asStateFlow()
-    
-    // Manager instances
-    private val categoryManager = CategoryManager(context, repository)
-    
+
     init {
         logger.debug("init","ViewModel initialized")
     }

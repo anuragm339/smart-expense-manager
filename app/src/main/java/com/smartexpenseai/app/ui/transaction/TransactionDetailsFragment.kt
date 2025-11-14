@@ -70,7 +70,8 @@ class TransactionDetailsFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             // Initialize legacy components for fallback compatibility
             val repository = com.smartexpenseai.app.data.repository.ExpenseRepository.getInstance(requireContext())
-            categoryManager = CategoryManager(requireContext(), repository)
+            val merchantRuleEngine = com.smartexpenseai.app.parsing.engine.MerchantRuleEngine(requireContext())
+            categoryManager = CategoryManager(requireContext(), repository, merchantRuleEngine)
             
             setupUI()
             setupClickListeners()

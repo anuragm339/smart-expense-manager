@@ -106,7 +106,8 @@ class CategoryTransactionsFragment : Fragment() {
         // Initialize legacy components for fallback compatibility
         categoryName = arguments?.getString("categoryName") ?: "Unknown"
         repository = ExpenseRepository.getInstance(requireContext())
-        categoryManager = CategoryManager(requireContext(), repository)
+        val merchantRuleEngine = com.smartexpenseai.app.parsing.engine.MerchantRuleEngine(requireContext())
+        categoryManager = CategoryManager(requireContext(), repository, merchantRuleEngine)
         
         setupUI()
         setupRecyclerView()

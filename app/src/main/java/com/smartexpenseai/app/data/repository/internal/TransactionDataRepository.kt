@@ -14,6 +14,7 @@ import com.smartexpenseai.app.data.entities.SyncStateEntity
 import com.smartexpenseai.app.data.entities.TransactionEntity
 import com.smartexpenseai.app.data.repository.ExpenseRepository
 import com.smartexpenseai.app.models.ParsedTransaction
+import com.smartexpenseai.app.parsing.engine.MerchantRuleEngine
 import com.smartexpenseai.app.services.SMSParsingService
 import com.smartexpenseai.app.services.TransactionFilterService
 import com.smartexpenseai.app.utils.logging.StructuredLogger
@@ -31,7 +32,7 @@ internal class TransactionDataRepository(
     private val syncStateDao: SyncStateDao,
     private val smsParsingService: SMSParsingService,
     private val transactionFilterService: TransactionFilterService?,
-    
+    private val merchantRuleEngine: MerchantRuleEngine
 ) {
 
     private val logger = StructuredLogger(
@@ -416,44 +417,25 @@ internal class TransactionDataRepository(
         return other.copy(id = id)
     }
 
+    /**
+     * Rule-based merchant categorization using JSON rules
+     *
+     * REFACTORED: Now uses MerchantRuleEngine with merchant_rules.json instead of hardcoded rules
+     * This eliminates the code duplication between CategoryManager and TransactionDataRepository
+     *
+     * Benefits:
+     * - Single source of truth (merchant_rules.json)
+     * - Easy to modify without code changes
+     * - Regex pattern support for advanced matching
+     * - Better maintainability
+     */
     fun categorizeMerchant(merchantName: String): String {
-        val upper = merchantName.uppercase()
-        return when {
-            upper.contains("SWIGGY") || upper.contains("ZOMATO") ||
-                upper.contains("DOMINOES") || upper.contains("PIZZA") ||
-                upper.contains("MCDONALD") || upper.contains("KFC") ||
-                upper.contains("RESTAURANT") || upper.contains("CAFE") ||
-                upper.contains("FOOD") || upper.contains("DINING") ||
-                upper.contains("AKSHAYAKALPA") -> "Food & Dining"
+        // Initialize rule engine if needed
+        merchantRuleEngine.initialize()
 
-            upper.contains("UBER") || upper.contains("OLA") ||
-                upper.contains("TAXI") || upper.contains("METRO") ||
-                upper.contains("BUS") || upper.contains("TRANSPORT") -> "Transportation"
-
-            upper.contains("BIGBAZAAR") || upper.contains("DMART") ||
-                upper.contains("RELIANCE") || upper.contains("GROCERY") ||
-                upper.contains("SUPERMARKET") || upper.contains("FRESH") ||
-                upper.contains("MART") -> "Groceries"
-
-            upper.contains("HOSPITAL") || upper.contains("CLINIC") ||
-                upper.contains("PHARMACY") || upper.contains("MEDICAL") ||
-                upper.contains("HEALTH") || upper.contains("DOCTOR") -> "Healthcare"
-
-            upper.contains("MOVIE") || upper.contains("CINEMA") ||
-                upper.contains("THEATRE") || upper.contains("GAME") ||
-                upper.contains("ENTERTAINMENT") || upper.contains("NETFLIX") ||
-                upper.contains("SPOTIFY") -> "Entertainment"
-
-            upper.contains("AMAZON") || upper.contains("FLIPKART") ||
-                upper.contains("MYNTRA") || upper.contains("AJIO") ||
-                upper.contains("SHOPPING") || upper.contains("STORE") -> "Shopping"
-
-            upper.contains("ELECTRICITY") || upper.contains("WATER") ||
-                upper.contains("GAS") || upper.contains("INTERNET") ||
-                upper.contains("MOBILE") || upper.contains("RECHARGE") -> "Utilities"
-
-            else -> "Other"
-        }
+        // Use rule engine for categorization
+        val result = merchantRuleEngine.categorize(merchantName)
+        return result.categoryName
     }
 
     fun normalizeMerchantName(merchant: String): String {
