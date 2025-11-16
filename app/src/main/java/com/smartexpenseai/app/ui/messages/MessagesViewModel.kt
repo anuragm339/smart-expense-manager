@@ -872,9 +872,15 @@ class MessagesViewModel @Inject constructor(
         val sortedGroups = when (sortOption.field) {
             "date" -> {
                 if (sortOption.ascending) {
-                    groupsWithInclusionStates.sortedBy { it.latestTransactionDate }
+                    groupsWithInclusionStates.sortedWith(
+                        compareBy<MerchantGroup> { it.latestTransactionDate }
+                            .thenBy { it.merchantName } // Secondary sort for same-day transactions
+                    )
                 } else {
-                    groupsWithInclusionStates.sortedByDescending { it.latestTransactionDate }
+                    groupsWithInclusionStates.sortedWith(
+                        compareByDescending<MerchantGroup> { it.latestTransactionDate }
+                            .thenBy { it.merchantName } // Secondary sort for same-day transactions
+                    )
                 }
             }
             "amount" -> {
