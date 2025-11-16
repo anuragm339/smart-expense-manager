@@ -331,7 +331,8 @@ class UnifiedSMSParser @Inject constructor(
     ): TransactionEntity {
         val cleanAmount = amount.replace(",", "").toDoubleOrNull() ?: 0.0
         val merchantName = merchant ?: "Unknown Merchant"
-        val normalizedMerchant = merchantName.uppercase().replace(Regex("\\s+"), "_")
+        // FIX: Use spaces instead of underscores to match repository normalization
+        val normalizedMerchant = merchantName.uppercase().replace(Regex("\\s+"), " ").trim()
         val now = Date()
 
         return TransactionEntity(

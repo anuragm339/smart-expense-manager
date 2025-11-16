@@ -158,6 +158,11 @@ class MessagesViewModel @Inject constructor(
                             val aliasCategory = merchantAliasManager.getMerchantCategory(transaction.rawMerchant)
                             val aliasCategoryColor = merchantAliasManager.getMerchantCategoryColor(transaction.rawMerchant)
 
+                            // Log suspicious merchant names
+                            if (displayName.isBlank() || displayName == ".") {
+                                logger.warn("loadMessages","🚨 SUSPICIOUS merchant: rawMerchant='${transaction.rawMerchant}', displayName='$displayName'")
+                            }
+
                             MessageItem(
                                 amount = transaction.amount,
                                 merchant = displayName,
@@ -177,7 +182,11 @@ class MessagesViewModel @Inject constructor(
                         }
                     }.filter {
                         // Filter out invalid merchants
-                        it.merchant.isNotBlank() && it.merchant != "."
+                        val isValid = it.merchant.isNotBlank() && it.merchant != "."
+                        if (!isValid) {
+                            logger.debug("loadMessages","🔴 Filtering out invalid merchant: '${it.merchant}', rawMerchant='${it.rawMerchant}'")
+                        }
+                        isValid
                     }
 
                     val hasMoreData = dbTransactions.size >= pageSize
@@ -635,11 +644,14 @@ class MessagesViewModel @Inject constructor(
     }
     
     /**
-     * Reset all filters
+     * Reset filters to default (current month)
      */
     private fun resetFilters() {
+        val defaultFilters = FilterOptions.getDefault()
+        logger.debug("resetFilters", "Resetting filters to current month: ${defaultFilters.dateFrom} to ${defaultFilters.dateTo}")
+
         _uiState.value = _uiState.value.copy(
-            currentFilterOptions = FilterOptions(),
+            currentFilterOptions = defaultFilters,
             searchQuery = "",
             currentFilterTab = TransactionFilterTab.ALL
         )
@@ -686,26 +698,36 @@ class MessagesViewModel @Inject constructor(
             if (filters.selectedBanks.isNotEmpty()) {
                 filtered = filtered.filter { filters.selectedBanks.contains(it.bankName) }
             }
-            
-            if (filters.minConfidence > 0) {
-                filtered = filtered.filter { it.confidence >= filters.minConfidence }
-            }
-            
+
             // Apply date filters using actual Date objects (parse String dates from filter UI)
+            val beforeDateFilter = filtered.size
             filters.dateFrom?.let { dateFromStr ->
                 try {
                     // Try with time first (yyyy-MM-dd HH:mm:ss), fallback to date only (yyyy-MM-dd)
                     val dateFrom = try {
                         SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).parse(dateFromStr)
                     } catch (e: Exception) {
-                        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(dateFromStr)
+                        val parsedDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(dateFromStr)
+                        // Set to start of day (00:00:00) to include all transactions from that date
+                        if (parsedDate != null) {
+                            val calendar = Calendar.getInstance()
+                            calendar.time = parsedDate
+                            calendar.set(Calendar.HOUR_OF_DAY, 0)
+                            calendar.set(Calendar.MINUTE, 0)
+                            calendar.set(Calendar.SECOND, 0)
+                            calendar.set(Calendar.MILLISECOND, 0)
+                            calendar.time
+                        } else {
+                            parsedDate
+                        }
                     }
                     if (dateFrom != null) {
+                        val beforeFilter = filtered.size
                         filtered = filtered.filter { it.actualDate >= dateFrom }
-                        logger.debug("applyFiltersAndSort","Applied dateFrom filter: $dateFromStr (parsed: $dateFrom)")
+                        logger.debug("applyFiltersAndSort","✅ Applied dateFrom filter: $dateFromStr (parsed: $dateFrom), ${beforeFilter} -> ${filtered.size} items")
                     }
                 } catch (e: Exception) {
-                    logger.error("applyFiltersAndSort","Invalid dateFrom format: $dateFromStr - ${e.message}",e)
+                    logger.error("applyFiltersAndSort","❌ Invalid dateFrom format: $dateFromStr - ${e.message}",e)
                 }
             }
             filters.dateTo?.let { dateToStr ->
@@ -714,14 +736,27 @@ class MessagesViewModel @Inject constructor(
                     val dateTo = try {
                         SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).parse(dateToStr)
                     } catch (e: Exception) {
-                        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(dateToStr)
+                        val parsedDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(dateToStr)
+                        // Set to end of day (23:59:59) to include all transactions on that date
+                        if (parsedDate != null) {
+                            val calendar = Calendar.getInstance()
+                            calendar.time = parsedDate
+                            calendar.set(Calendar.HOUR_OF_DAY, 23)
+                            calendar.set(Calendar.MINUTE, 59)
+                            calendar.set(Calendar.SECOND, 59)
+                            calendar.set(Calendar.MILLISECOND, 999)
+                            calendar.time
+                        } else {
+                            parsedDate
+                        }
                     }
                     if (dateTo != null) {
+                        val beforeFilter = filtered.size
                         filtered = filtered.filter { it.actualDate <= dateTo }
-                        logger.debug("applyFiltersAndSort","Applied dateTo filter: $dateToStr (parsed: $dateTo)")
+                        logger.debug("applyFiltersAndSort","✅ Applied dateTo filter: $dateToStr (parsed: $dateTo), ${beforeFilter} -> ${filtered.size} items")
                     }
                 } catch (e: Exception) {
-                    logger.warn("applyFiltersAndSort","Invalid dateTo format: $dateToStr - ${e.message}")
+                    logger.error("applyFiltersAndSort","❌ Invalid dateTo format: $dateToStr - ${e.message}",e)
                 }
             }
 
@@ -753,6 +788,17 @@ class MessagesViewModel @Inject constructor(
      */
     private suspend fun groupTransactionsByMerchant(transactions: List<MessageItem>, sortOption: SortOption): List<MerchantGroup> {
         // 🔧 BUG FIX: Filter out transactions with empty/invalid merchant names
+        val invalidTransactions = transactions.filter { transaction ->
+            transaction.merchant.isBlank() || transaction.merchant == "."
+        }
+
+        if (invalidTransactions.isNotEmpty()) {
+            logger.warn("groupTransactionsByMerchant","⚠️ Found ${invalidTransactions.size} transactions with invalid merchant names:")
+            invalidTransactions.take(5).forEach { tx ->
+                logger.warn("groupTransactionsByMerchant","  - merchant='${tx.merchant}', rawMerchant='${tx.rawMerchant}', amount=${tx.amount}")
+            }
+        }
+
         val validTransactions = transactions.filter { transaction ->
             transaction.merchant.isNotBlank() && transaction.merchant != "."
         }

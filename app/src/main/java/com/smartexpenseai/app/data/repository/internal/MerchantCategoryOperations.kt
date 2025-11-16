@@ -117,6 +117,18 @@ internal class MerchantCategoryOperations(
 
                         updatedCount++
                     } else {
+                        // CRITICAL CHECK: Before creating new merchant, verify transactions exist for this normalized name
+                        val transactionCount = transactionDao.getTransactionCountByMerchant(normalizedName)
+
+                        if (transactionCount == 0) {
+                            logger.error(
+                                where = "updateMerchantAliasInDatabase",
+                                what = "[DB_ERROR] Cannot create merchant '$normalizedName' - no transactions found with this normalized name. This indicates a normalization mismatch!"
+                            )
+                            failedUpdates.add(originalName)
+                            continue
+                        }
+
                         val newMerchant = MerchantEntity(
                             normalizedName = normalizedName,
                             displayName = newDisplayName,
@@ -131,7 +143,7 @@ internal class MerchantCategoryOperations(
                             what = "[DB_CREATE] Created new merchant '$normalizedName' with category '${category.name}'"
                         )
 
-                        // Update any existing transactions for this merchant
+                        // Update existing transactions for this merchant
                         val updatedTransactionsCount = transactionDao.updateTransactionsCategoryByMerchant(
                             normalizedMerchant = normalizedName,
                             newCategoryId = category.id

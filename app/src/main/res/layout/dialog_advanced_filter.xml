@@ -88,8 +88,10 @@
                     android:id="@+id/et_date_from"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:inputType="date"
-                    android:focusable="false" />
+                    android:inputType="none"
+                    android:focusable="true"
+                    android:clickable="true"
+                    android:hint="YYYY-MM-DD" />
 
             </com.google.android.material.textfield.TextInputLayout>
 
@@ -105,33 +107,14 @@
                     android:id="@+id/et_date_to"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:inputType="date"
-                    android:focusable="false" />
+                    android:inputType="none"
+                    android:focusable="true"
+                    android:clickable="true"
+                    android:hint="YYYY-MM-DD" />
 
             </com.google.android.material.textfield.TextInputLayout>
 
         </LinearLayout>
-
-        <!-- Confidence Filter -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="🎯 Minimum Confidence"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:textColor="?attr/colorOnSurface"
-            android:layout_marginBottom="8dp" />
-
-        <com.google.android.material.slider.Slider
-            android:id="@+id/slider_confidence"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            android:valueFrom="0"
-            android:valueTo="100"
-            android:stepSize="5"
-            android:value="0"
-            app:labelBehavior="withinBounds" />
 
         <!-- Bank Filter -->
         <TextView

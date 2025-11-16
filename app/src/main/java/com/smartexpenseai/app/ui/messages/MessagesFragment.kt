@@ -80,7 +80,6 @@ class MessagesFragment : Fragment() {
         val minAmount: Double? = null,
         val maxAmount: Double? = null,
         val selectedBanks: Set<String> = emptySet(),
-        val minConfidence: Int = 0,
         val dateFrom: String? = null,
         val dateTo: String? = null
     )
@@ -257,7 +256,6 @@ class MessagesFragment : Fragment() {
             minAmount = state.currentFilterOptions.minAmount,
             maxAmount = state.currentFilterOptions.maxAmount,
             selectedBanks = state.currentFilterOptions.selectedBanks,
-            minConfidence = state.currentFilterOptions.minConfidence,
             dateFrom = state.currentFilterOptions.dateFrom,
             dateTo = state.currentFilterOptions.dateTo
         )
@@ -429,7 +427,6 @@ class MessagesFragment : Fragment() {
         val etMaxAmount = dialogView.findViewById<TextInputEditText>(R.id.et_max_amount)
         val etDateFrom = dialogView.findViewById<TextInputEditText>(R.id.et_date_from)
         val etDateTo = dialogView.findViewById<TextInputEditText>(R.id.et_date_to)
-        val sliderConfidence = dialogView.findViewById<com.google.android.material.slider.Slider>(R.id.slider_confidence)
         val chipGroupBanks = dialogView.findViewById<com.google.android.material.chip.ChipGroup>(R.id.chip_group_banks)
         
         // Set current values
@@ -437,10 +434,24 @@ class MessagesFragment : Fragment() {
         etMaxAmount.setText(currentFilterOptions.maxAmount?.toString() ?: "")
         etDateFrom.setText(currentFilterOptions.dateFrom ?: "")
         etDateTo.setText(currentFilterOptions.dateTo ?: "")
-        sliderConfidence.value = currentFilterOptions.minConfidence.toFloat()
-        
+
+        // Setup DatePicker for From Date
+        etDateFrom.setOnClickListener {
+            showDatePickerDialog { selectedDate ->
+                etDateFrom.setText(selectedDate)
+            }
+        }
+
+        // Setup DatePicker for To Date
+        etDateTo.setOnClickListener {
+            showDatePickerDialog { selectedDate ->
+                etDateTo.setText(selectedDate)
+            }
+        }
+
         // Add bank chips
         val uniqueBanks = allMessageItems.map { it.bankName }.distinct().sorted()
+        logger.debug("showFilterDialog", "[FILTER_DEBUG] allMessageItems.size=${allMessageItems.size}, uniqueBanks=$uniqueBanks")
         chipGroupBanks.removeAllViews()
         uniqueBanks.forEach { bankName ->
             val chip = com.google.android.material.chip.Chip(requireContext())
@@ -449,6 +460,7 @@ class MessagesFragment : Fragment() {
             chip.isChecked = currentFilterOptions.selectedBanks.contains(bankName)
             chipGroupBanks.addView(chip)
         }
+        logger.debug("showFilterDialog", "[FILTER_DEBUG] Added ${chipGroupBanks.childCount} bank chips to ChipGroup")
         
         val dialog = MaterialAlertDialogBuilder(requireContext(), R.style.DialogTheme)
             .setTitle("Advanced Filters")
@@ -462,35 +474,56 @@ class MessagesFragment : Fragment() {
                         selectedBanks.add(chip.text.toString())
                     }
                 }
-                
-                // Update filter options
-                currentFilterOptions = FilterOptions(
+
+                // Create filter options
+                val filterOptions = com.smartexpenseai.app.ui.messages.FilterOptions(
                     minAmount = etMinAmount.text.toString().toDoubleOrNull(),
                     maxAmount = etMaxAmount.text.toString().toDoubleOrNull(),
                     selectedBanks = selectedBanks,
-                    minConfidence = sliderConfidence.value.toInt(),
                     dateFrom = etDateFrom.text.toString().takeIf { it.isNotEmpty() },
                     dateTo = etDateTo.text.toString().takeIf { it.isNotEmpty() }
                 )
-                
-                // Update filter button text
-                val activeFilters = listOfNotNull(
-                    if (currentFilterOptions.minAmount != null || currentFilterOptions.maxAmount != null) "Amount" else null,
-                    if (currentFilterOptions.selectedBanks.isNotEmpty()) "Banks" else null,
-                    if (currentFilterOptions.minConfidence > 0) "Confidence" else null,
-                    if (currentFilterOptions.dateFrom != null || currentFilterOptions.dateTo != null) "Date" else null
-                )
 
-                applyFiltersAndSort()
+                // Use ViewModel to apply filters - ViewModel is the single source of truth
+                messagesViewModel.handleEvent(MessagesUIEvent.ApplyFilter(filterOptions))
+
+                logger.debug("showFilterDialog", "Applied filters via ViewModel: $filterOptions")
             }
-            .setNegativeButton("Reset") { _, _ ->
-                currentFilterOptions = FilterOptions()
-                applyFiltersAndSort()
-            }
+            .setNegativeButton("Reset", null) // Set to null initially, will override below
             .setNeutralButton("Cancel", null)
             .create()
-        
+
         dialog.show()
+
+        // Override Reset button to prevent dialog from closing
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setOnClickListener {
+            // Set to current month's date range
+            val calendar = java.util.Calendar.getInstance()
+
+            // First day of current month
+            calendar.set(java.util.Calendar.DAY_OF_MONTH, 1)
+            val firstDayOfMonth = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(calendar.time)
+
+            // Last day of current month
+            calendar.set(java.util.Calendar.DAY_OF_MONTH, calendar.getActualMaximum(java.util.Calendar.DAY_OF_MONTH))
+            val lastDayOfMonth = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(calendar.time)
+
+            // Set filter fields to current month
+            etMinAmount.setText("")
+            etMaxAmount.setText("")
+            etDateFrom.setText(firstDayOfMonth)
+            etDateTo.setText(lastDayOfMonth)
+
+            // Uncheck all bank chips
+            for (i in 0 until chipGroupBanks.childCount) {
+                val chip = chipGroupBanks.getChildAt(i) as com.google.android.material.chip.Chip
+                chip.isChecked = false
+            }
+
+            logger.debug("showFilterDialog", "Reset filter fields to current month: $firstDayOfMonth to $lastDayOfMonth")
+
+            // Don't dismiss dialog - user can see the reset fields and then Apply or Cancel
+        }
         
         // Apply additional programmatic styling for high contrast (similar to category dialog)
         try {
@@ -530,43 +563,9 @@ class MessagesFragment : Fragment() {
         }
     }
     
-    private fun applyFiltersAndSort() {
-        
-        // UPDATED: Use unified TransactionFilterService for consistent filtering across screens
-        lifecycleScope.launch {
-            try {
-                // Step 1: Apply exclusion filtering first
-                val excludedFiltered = allMessageItems // Filtering disabled - transactionFilterService removed
-
-                // Step 2: Apply generic filters (skip if no filters applied)
-                val filtered = excludedFiltered // Filtering disabled - transactionFilterService removed
-                
-                logger.debug("MessagesFragment", "[UNIFIED] Final filtering result: ${filtered.size} items")
-                
-                if (filtered.isNotEmpty()) {
-                    filtered.take(3).forEach { item ->
-                        logger.debug("MessagesFragment", "  - ${item.merchant}: ₹${item.amount} (${item.dateTime})")
-                    }
-                }
-                
-                // Update UI state with unified filtering results
-                filteredMessageItems = filtered
-                
-                // Update UI - this will call groupTransactionsByMerchant which handles the sorting
-                updateTransactionsList(filteredMessageItems)
-                updateSummaryStats(filteredMessageItems)
-                
-                logger.debug("MessagesFragment", "[UNIFIED] applyFiltersAndSort() completed using unified services - ${filtered.size} transactions displayed")
-                
-            } catch (e: Exception) {
-                logger.error("MessagesFragment", "Error applying unified filters", e)
-                // Fallback to original data on error
-                filteredMessageItems = allMessageItems
-                updateTransactionsList(filteredMessageItems)
-                updateSummaryStats(filteredMessageItems)
-            }
-        }
-    }
+    // REMOVED: Fragment no longer does its own filtering
+    // All filtering is now handled by MessagesViewModel as the single source of truth
+    // The ViewModel's filtered data comes through the UI state observation in updateUI()
     
     private fun updateTransactionsList(messageItems: List<MessageItem>) {
         if (messageItems.isEmpty()) {
@@ -656,7 +655,6 @@ class MessagesFragment : Fragment() {
                     filteredMessageItems = messageItems
                     
                     // Apply initial sorting and filtering
-                    applyFiltersAndSort()
                     viewBinder.showContent()
                     
                     // Update UI stats (initially all groups are included)
@@ -906,8 +904,9 @@ class MessagesFragment : Fragment() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val repository = com.smartexpenseai.app.data.repository.ExpenseRepository.getInstance(requireContext())
-                val dbTransactions = repository.getTransactionsByDateRange(startDate, endDate)
-                logger.debug("MessagesFragment", "[DATA] Found ${dbTransactions.size} transactions for date range")
+                // FIX: Use getExpenseTransactionsByDateRange to filter out credits/mandates (is_debit = 1)
+                val dbTransactions = repository.getExpenseTransactionsByDateRange(startDate, endDate)
+                logger.debug("MessagesFragment", "[DATA] Found ${dbTransactions.size} expense transactions for date range (filtered is_debit = 1)")
                 
                 if (dbTransactions.isNotEmpty()) {
                     processAndDisplayTransactions(dbTransactions, isPartial = false)
@@ -973,10 +972,11 @@ class MessagesFragment : Fragment() {
                 val endDate = java.util.Calendar.getInstance().time
                 
                 logger.debug("MessagesFragment", "[DATE_FILTER] Loading transactions for current month from ${java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(startDate)}")
-                
+
                 // PERFORMANCE: Load transactions with limit for faster initial display
-                val dbTransactions = repository.getTransactionsByDateRange(startDate, endDate)
-                logger.debug("MessagesFragment", "[DATA] Found ${dbTransactions.size} transactions in database")
+                // FIX: Use getExpenseTransactionsByDateRange to filter out credits/mandates (is_debit = 1)
+                val dbTransactions = repository.getExpenseTransactionsByDateRange(startDate, endDate)
+                logger.debug("MessagesFragment", "[DATA] Found ${dbTransactions.size} expense transactions in database (filtered is_debit = 1)")
                 
                 // PERFORMANCE: Show partial results immediately if we have many transactions
                 val shouldShowProgressively = dbTransactions.size > 50
@@ -1059,7 +1059,6 @@ class MessagesFragment : Fragment() {
                     filteredMessageItems = messageItems
                     
                     // Apply initial sorting and filtering
-                    applyFiltersAndSort()
                     viewBinder.showContent()
                     
                     // Update stats with real data
@@ -2301,7 +2300,6 @@ class MessagesFragment : Fragment() {
         return currentFilterOptions.minAmount != null ||
                currentFilterOptions.maxAmount != null ||
                currentFilterOptions.selectedBanks.isNotEmpty() ||
-               currentFilterOptions.minConfidence > 0 ||
                currentFilterOptions.dateFrom != null ||
                currentFilterOptions.dateTo != null ||
                currentSearchQuery.isNotBlank()
@@ -2342,7 +2340,6 @@ class MessagesFragment : Fragment() {
             }
             
             // Apply initial sorting and filtering
-            applyFiltersAndSort()
             viewBinder.showContent()
             
             // Update stats with current data
@@ -2366,7 +2363,6 @@ class MessagesFragment : Fragment() {
                 filteredMessageItems = allMessageItems // Will be re-filtered
                 
                 // Update display with growing dataset
-                applyFiltersAndSort()
                 updateExpenseCalculations()
             }
             
@@ -2800,5 +2796,43 @@ class MessagesFragment : Fragment() {
                 ).show()
             }
         }
+    }
+
+    /**
+     * Check if a date string is within the specified range
+     * Supports multiple date formats commonly used in the app
+     */
+    // REMOVED: Date filtering helper functions
+    // These are no longer needed in Fragment since ViewModel handles all filtering
+
+    /**
+     * Show DatePicker dialog and return selected date in yyyy-MM-dd format
+     * This format matches what the ViewModel filtering logic expects
+     */
+    private fun showDatePickerDialog(onDateSelected: (String) -> Unit) {
+        val calendar = java.util.Calendar.getInstance()
+        val year = calendar.get(java.util.Calendar.YEAR)
+        val month = calendar.get(java.util.Calendar.MONTH)
+        val day = calendar.get(java.util.Calendar.DAY_OF_MONTH)
+
+        val datePickerDialog = android.app.DatePickerDialog(
+            requireContext(),
+            R.style.DatePickerTheme, // Apply light theme for visibility
+            { _, selectedYear, selectedMonth, selectedDay ->
+                // Format date as yyyy-MM-dd (matches ViewModel filter format)
+                val formattedDate = String.format(
+                    "%04d-%02d-%02d",
+                    selectedYear,
+                    selectedMonth + 1, // Month is 0-based
+                    selectedDay
+                )
+                onDateSelected(formattedDate)
+            },
+            year,
+            month,
+            day
+        )
+
+        datePickerDialog.show()
     }
 }
