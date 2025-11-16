@@ -76,7 +76,8 @@ class CategoriesFragment : Fragment() {
 
         // Initialize legacy components for fallback compatibility
         repository = ExpenseRepository.getInstance(requireContext())
-        categoryManager = CategoryManager(requireContext(), repository)
+        val merchantRuleEngine = com.smartexpenseai.app.parsing.engine.MerchantRuleEngine(requireContext())
+        categoryManager = CategoryManager(requireContext(), repository, merchantRuleEngine)
 
         setupRecyclerView()
         setupUI()
@@ -574,7 +575,16 @@ class CategoriesFragment : Fragment() {
         if (!isReceiverRegistered) {
             try {
                 val filter = android.content.IntentFilter("com.expensemanager.MERCHANT_CATEGORY_CHANGED")
-                requireContext().registerReceiver(merchantCategoryChangeReceiver, filter)
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                    // Android 13+ requires explicit export flag
+                    requireContext().registerReceiver(
+                        merchantCategoryChangeReceiver,
+                        filter,
+                        android.content.Context.RECEIVER_NOT_EXPORTED
+                    )
+                } else {
+                    requireContext().registerReceiver(merchantCategoryChangeReceiver, filter)
+                }
                 isReceiverRegistered = true
                 logger.debug("onResume", "Registered broadcast receiver for merchant category changes")
             } catch (e: Exception) {

@@ -7,6 +7,7 @@ import com.smartexpenseai.app.data.entities.*
 import com.smartexpenseai.app.data.dao.*
 import com.smartexpenseai.app.domain.repository.*
 import com.smartexpenseai.app.models.ParsedTransaction
+import com.smartexpenseai.app.parsing.engine.MerchantRuleEngine
 import com.smartexpenseai.app.services.SMSParsingService
 import com.smartexpenseai.app.services.TransactionFilterService
 import com.smartexpenseai.app.utils.logging.StructuredLogger
@@ -31,7 +32,8 @@ class ExpenseRepository @Inject constructor(
     private val syncStateDao: SyncStateDao,
     private val budgetDao: BudgetDao,
     private val smsParsingService: SMSParsingService,
-    private val transactionFilterService: TransactionFilterService? = null
+    private val transactionFilterService: TransactionFilterService? = null,
+    private val merchantRuleEngine: MerchantRuleEngine
 ) : TransactionRepositoryInterface,
     CategoryRepositoryInterface,
     MerchantRepositoryInterface,
@@ -50,6 +52,10 @@ class ExpenseRepository @Inject constructor(
                 val confidenceCalculator = com.smartexpenseai.app.parsing.engine.ConfidenceCalculator()
                 val unifiedParser = com.smartexpenseai.app.parsing.engine.UnifiedSMSParser(ruleLoader, confidenceCalculator)
                 val smsParsingService = SMSParsingService(context.applicationContext, unifiedParser)
+
+                // Create MerchantRuleEngine for auto-categorization
+                val merchantRuleEngine = MerchantRuleEngine(context.applicationContext)
+
                 val instance = ExpenseRepository(
                     context.applicationContext,
                     database.transactionDao(),
@@ -58,7 +64,8 @@ class ExpenseRepository @Inject constructor(
                     database.syncStateDao(),
                     database.budgetDao(),
                     smsParsingService,
-                    null // transactionFilterService (optional)
+                    null, // transactionFilterService (optional)
+                    merchantRuleEngine
                 )
                 INSTANCE = instance
                 instance
@@ -76,7 +83,8 @@ class ExpenseRepository @Inject constructor(
         merchantDao = merchantDao,
         syncStateDao = syncStateDao,
         smsParsingService = smsParsingService,
-        transactionFilterService = transactionFilterService
+        transactionFilterService = transactionFilterService,
+        merchantRuleEngine = merchantRuleEngine
     )
     private val merchantCategoryOperations = MerchantCategoryOperations(
         context = context,

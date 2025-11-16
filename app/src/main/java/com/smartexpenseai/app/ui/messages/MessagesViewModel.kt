@@ -29,16 +29,14 @@ class MessagesViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val expenseRepository: ExpenseRepository,
     private val smsParsingService: SMSParsingService,
-    private val transactionFilterService: TransactionFilterService
+    private val transactionFilterService: TransactionFilterService,
+    private val categoryManager: CategoryManager,
+    private val merchantAliasManager: MerchantAliasManager
 ) : ViewModel() {
-    
+
     companion object {
     }
-    
-    // Utility classes
-    private val categoryManager by lazy { CategoryManager(context, expenseRepository) }
-    private val merchantAliasManager by lazy { MerchantAliasManager(context, expenseRepository) }
-    // SMS parsing is now handled by the injected SMSParsingService
+
     private val logger = StructuredLogger(
         featureTag = "UI",
         className = "MessagesViewModel"
@@ -160,6 +158,11 @@ class MessagesViewModel @Inject constructor(
                             val aliasCategory = merchantAliasManager.getMerchantCategory(transaction.rawMerchant)
                             val aliasCategoryColor = merchantAliasManager.getMerchantCategoryColor(transaction.rawMerchant)
 
+                            // Log suspicious merchant names
+                            if (displayName.isBlank() || displayName == ".") {
+                                logger.warn("loadMessages","🚨 SUSPICIOUS merchant: rawMerchant='${transaction.rawMerchant}', displayName='$displayName'")
+                            }
+
                             MessageItem(
                                 amount = transaction.amount,
                                 merchant = displayName,
@@ -179,7 +182,11 @@ class MessagesViewModel @Inject constructor(
                         }
                     }.filter {
                         // Filter out invalid merchants
-                        it.merchant.isNotBlank() && it.merchant != "."
+                        val isValid = it.merchant.isNotBlank() && it.merchant != "."
+                        if (!isValid) {
+                            logger.debug("loadMessages","🔴 Filtering out invalid merchant: '${it.merchant}', rawMerchant='${it.rawMerchant}'")
+                        }
+                        isValid
                     }
 
                     val hasMoreData = dbTransactions.size >= pageSize
@@ -605,6 +612,7 @@ class MessagesViewModel @Inject constructor(
      * Apply sort option
      */
     private fun applySortOption(sortOption: SortOption) {
+        logger.info("applySortOption", "🔄 Applying sort: field=${sortOption.field}, ascending=${sortOption.ascending}, name=${sortOption.name}")
         _uiState.value = _uiState.value.copy(
             currentSortOption = sortOption
         )
@@ -636,11 +644,14 @@ class MessagesViewModel @Inject constructor(
     }
     
     /**
-     * Reset all filters
+     * Reset filters to default (current month)
      */
     private fun resetFilters() {
+        val defaultFilters = FilterOptions.getDefault()
+        logger.debug("resetFilters", "Resetting filters to current month: ${defaultFilters.dateFrom} to ${defaultFilters.dateTo}")
+
         _uiState.value = _uiState.value.copy(
-            currentFilterOptions = FilterOptions(),
+            currentFilterOptions = defaultFilters,
             searchQuery = "",
             currentFilterTab = TransactionFilterTab.ALL
         )
@@ -687,26 +698,36 @@ class MessagesViewModel @Inject constructor(
             if (filters.selectedBanks.isNotEmpty()) {
                 filtered = filtered.filter { filters.selectedBanks.contains(it.bankName) }
             }
-            
-            if (filters.minConfidence > 0) {
-                filtered = filtered.filter { it.confidence >= filters.minConfidence }
-            }
-            
+
             // Apply date filters using actual Date objects (parse String dates from filter UI)
+            val beforeDateFilter = filtered.size
             filters.dateFrom?.let { dateFromStr ->
                 try {
                     // Try with time first (yyyy-MM-dd HH:mm:ss), fallback to date only (yyyy-MM-dd)
                     val dateFrom = try {
                         SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).parse(dateFromStr)
                     } catch (e: Exception) {
-                        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(dateFromStr)
+                        val parsedDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(dateFromStr)
+                        // Set to start of day (00:00:00) to include all transactions from that date
+                        if (parsedDate != null) {
+                            val calendar = Calendar.getInstance()
+                            calendar.time = parsedDate
+                            calendar.set(Calendar.HOUR_OF_DAY, 0)
+                            calendar.set(Calendar.MINUTE, 0)
+                            calendar.set(Calendar.SECOND, 0)
+                            calendar.set(Calendar.MILLISECOND, 0)
+                            calendar.time
+                        } else {
+                            parsedDate
+                        }
                     }
                     if (dateFrom != null) {
+                        val beforeFilter = filtered.size
                         filtered = filtered.filter { it.actualDate >= dateFrom }
-                        logger.debug("applyFiltersAndSort","Applied dateFrom filter: $dateFromStr (parsed: $dateFrom)")
+                        logger.debug("applyFiltersAndSort","✅ Applied dateFrom filter: $dateFromStr (parsed: $dateFrom), ${beforeFilter} -> ${filtered.size} items")
                     }
                 } catch (e: Exception) {
-                    logger.error("applyFiltersAndSort","Invalid dateFrom format: $dateFromStr - ${e.message}",e)
+                    logger.error("applyFiltersAndSort","❌ Invalid dateFrom format: $dateFromStr - ${e.message}",e)
                 }
             }
             filters.dateTo?.let { dateToStr ->
@@ -715,14 +736,27 @@ class MessagesViewModel @Inject constructor(
                     val dateTo = try {
                         SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).parse(dateToStr)
                     } catch (e: Exception) {
-                        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(dateToStr)
+                        val parsedDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(dateToStr)
+                        // Set to end of day (23:59:59) to include all transactions on that date
+                        if (parsedDate != null) {
+                            val calendar = Calendar.getInstance()
+                            calendar.time = parsedDate
+                            calendar.set(Calendar.HOUR_OF_DAY, 23)
+                            calendar.set(Calendar.MINUTE, 59)
+                            calendar.set(Calendar.SECOND, 59)
+                            calendar.set(Calendar.MILLISECOND, 999)
+                            calendar.time
+                        } else {
+                            parsedDate
+                        }
                     }
                     if (dateTo != null) {
+                        val beforeFilter = filtered.size
                         filtered = filtered.filter { it.actualDate <= dateTo }
-                        logger.debug("applyFiltersAndSort","Applied dateTo filter: $dateToStr (parsed: $dateTo)")
+                        logger.debug("applyFiltersAndSort","✅ Applied dateTo filter: $dateToStr (parsed: $dateTo), ${beforeFilter} -> ${filtered.size} items")
                     }
                 } catch (e: Exception) {
-                    logger.warn("applyFiltersAndSort","Invalid dateTo format: $dateToStr - ${e.message}")
+                    logger.error("applyFiltersAndSort","❌ Invalid dateTo format: $dateToStr - ${e.message}",e)
                 }
             }
 
@@ -754,6 +788,17 @@ class MessagesViewModel @Inject constructor(
      */
     private suspend fun groupTransactionsByMerchant(transactions: List<MessageItem>, sortOption: SortOption): List<MerchantGroup> {
         // 🔧 BUG FIX: Filter out transactions with empty/invalid merchant names
+        val invalidTransactions = transactions.filter { transaction ->
+            transaction.merchant.isBlank() || transaction.merchant == "."
+        }
+
+        if (invalidTransactions.isNotEmpty()) {
+            logger.warn("groupTransactionsByMerchant","⚠️ Found ${invalidTransactions.size} transactions with invalid merchant names:")
+            invalidTransactions.take(5).forEach { tx ->
+                logger.warn("groupTransactionsByMerchant","  - merchant='${tx.merchant}', rawMerchant='${tx.rawMerchant}', amount=${tx.amount}")
+            }
+        }
+
         val validTransactions = transactions.filter { transaction ->
             transaction.merchant.isNotBlank() && transaction.merchant != "."
         }
@@ -814,7 +859,9 @@ class MessagesViewModel @Inject constructor(
         val groupsWithInclusionStates = loadGroupInclusionStates(groups)
 
         // Sort groups based on current sort option
-        return when (sortOption.field) {
+        logger.info("groupTransactionsByMerchant", "📊 Sorting ${groupsWithInclusionStates.size} merchant groups by field=${sortOption.field}, ascending=${sortOption.ascending}")
+
+        val sortedGroups = when (sortOption.field) {
             "date" -> {
                 if (sortOption.ascending) {
                     groupsWithInclusionStates.sortedBy { it.latestTransactionDate }
@@ -852,6 +899,13 @@ class MessagesViewModel @Inject constructor(
             }
             else -> groupsWithInclusionStates.sortedByDescending { it.latestTransactionDate }
         }
+
+        // Log the first 3 groups to verify sorting
+        logger.info("groupTransactionsByMerchant", "✅ Sort complete. First 3 groups: ${
+            sortedGroups.take(3).map { "${it.merchantName} (₹${String.format("%.0f", it.totalAmount)})" }.joinToString(", ")
+        }")
+
+        return sortedGroups
     }
     
     /**
@@ -887,15 +941,19 @@ class MessagesViewModel @Inject constructor(
                     // CRITICAL FIX: Update both SharedPreferences AND database, then refresh data
                     launch {
                         delay(200) // Additional delay for persistence operations
-                        
+
                         // 1. Save to SharedPreferences (legacy support)
                         saveGroupInclusionStates(updatedGroups)
-                        
+
                         // 2. Update database exclusion state
                         updateMerchantExclusionInDatabase(merchantName, !isIncluded)
-                        
-                        // 3. CRITICAL: Trigger data refresh to update summary calculations
+
+                        // 3. Trigger data refresh to update summary calculations in other screens
                         notifyDataChanged()
+
+                        // 4. CRITICAL: Reload messages to refresh allMessages cache
+                        // This ensures EXCLUDED tab filtering works with current database state
+                        loadMessages()
                     }
 
                     logger.debug("toggleGroupInclusion","Successfully toggled group inclusion for '$merchantName'")
@@ -927,15 +985,18 @@ class MessagesViewModel @Inject constructor(
                 if (existingOriginalNames.isNotEmpty()) {
                     originalMerchantNames.addAll(existingOriginalNames)
                 } else {
-                    // Extract from raw SMS data
-                    val group = _uiState.value.groupedMessages.find { it.merchantName == merchantName }
-                    group?.transactions?.forEach { transaction ->
-                        val originalName = extractOriginalMerchantFromRawSMS(transaction.rawSMS)
+                    // FIXED: Query database instead of using cached UI state
+                    val transactions = expenseRepository.getTransactionsByMerchant(merchantName)
+                    logger.debug("updateMerchantGroup", "Loaded ${transactions.size} transactions from database for merchant: $merchantName")
+
+                    transactions.forEach { transaction ->
+                        // Use rawMerchant from database transaction
+                        val originalName = transaction.rawMerchant
                         if (originalName.isNotEmpty()) {
                             originalMerchantNames.add(originalName)
                         }
                     }
-                    
+
                     if (originalMerchantNames.isEmpty()) {
                         originalMerchantNames.add(merchantName)
                     }
@@ -1147,86 +1208,72 @@ class MessagesViewModel @Inject constructor(
         return ""
     }
     
-    private fun loadGroupInclusionStates(groups: List<MerchantGroup>): List<MerchantGroup> {
+    private suspend fun loadGroupInclusionStates(groups: List<MerchantGroup>): List<MerchantGroup> {
         try {
-            logger.debug("loadGroupInclusionStates", "Loading inclusion states for ${groups.size} groups")
+            logger.debug("loadGroupInclusionStates", "Loading inclusion states from database for ${groups.size} groups")
 
-            val prefs = context.getSharedPreferences("expense_calculations", Context.MODE_PRIVATE)
-            val inclusionStatesJson = prefs.getString("group_inclusion_states", null)
+            // FIXED: Query database instead of SharedPreferences for merchant exclusion states
+            val excludedMerchants = expenseRepository.getExcludedMerchants().map { it.normalizedName }.toSet()
 
-            if (inclusionStatesJson != null && inclusionStatesJson.isNotBlank()) {
-                try {
-                    val inclusionStates = org.json.JSONObject(inclusionStatesJson)
-                    var loadedCount = 0
+            logger.debug("loadGroupInclusionStates", "Found ${excludedMerchants.size} excluded merchants in database")
 
-                    val updatedGroups = groups.map { group ->
-                        val isIncluded = try {
-                            if (inclusionStates.has(group.merchantName)) {
-                                loadedCount++
-                                inclusionStates.getBoolean(group.merchantName)
-                            } else {
-                                true // Default to included if not found
-                            }
-                        } catch (e: Exception) {
-                            logger.warn("loadGroupInclusionStates", "Error loading inclusion state for '${group.merchantName}': ${e.message}")
-                            true // Default to included on error
-                        }
-                        group.copy(isIncludedInCalculations = isIncluded)
-                    }
-
-                    logger.debug("loadGroupInclusionStates", "Successfully loaded $loadedCount inclusion states")
-                    return updatedGroups
-
-                } catch (e: Exception) {
-                    logger.warn("loadGroupInclusionStates", "Error parsing inclusion states JSON: ${e.message}")
+            val updatedGroups = groups.map { group ->
+                // FIX: Use rawMerchant from transactions instead of display alias
+                // group.merchantName = display alias (e.g., "ABC12345")
+                // group.transactions.first().rawMerchant = original merchant name (e.g., "M S MUNCHZESTERFOODS BANGALORE LLP")
+                val normalizedMerchantName = if (group.transactions.isNotEmpty()) {
+                    // Use the raw merchant name from the first transaction
+                    normalizeMerchantName(group.transactions.first().rawMerchant)
+                } else {
+                    // Fallback to display name if no transactions (shouldn't happen)
+                    normalizeMerchantName(group.merchantName)
                 }
-            } else {
-                logger.debug("loadGroupInclusionStates", "No inclusion states found, using defaults")
+
+                val isIncluded = !excludedMerchants.contains(normalizedMerchantName)
+
+                logger.debug("loadGroupInclusionStates",
+                    "[CHECK] Group '${group.merchantName}' -> rawMerchant '${if (group.transactions.isNotEmpty()) group.transactions.first().rawMerchant else "N/A"}' -> normalized '$normalizedMerchantName' -> isIncluded: $isIncluded")
+
+                group.copy(isIncludedInCalculations = isIncluded)
             }
 
-            // Return original groups with default inclusion states
-            return groups
+            val includedCount = updatedGroups.count { it.isIncludedInCalculations }
+            logger.debug("loadGroupInclusionStates", "Loaded states: $includedCount included, ${groups.size - includedCount} excluded")
+
+            return updatedGroups
 
         } catch (e: Exception) {
-            logger.error("loadGroupInclusionStates", "Critical error loading inclusion states", e)
-            // Return original groups on critical error
-            return groups
+            logger.error("loadGroupInclusionStates", "Error loading inclusion states from database", e)
+            // Return original groups with default inclusion on error
+            return groups.map { it.copy(isIncludedInCalculations = true) }
         }
     }
 
     private fun saveGroupInclusionStates(groups: List<MerchantGroup>) {
-        try {
-            logger.debug("saveGroupInclusionStates","Saving inclusion states for ${groups.size} groups")
+        viewModelScope.launch {
+            try {
+                logger.debug("saveGroupInclusionStates", "Saving inclusion states to database for ${groups.size} groups")
 
-            val prefs = context.getSharedPreferences("expense_calculations", Context.MODE_PRIVATE)
-            val editor = prefs.edit()
-
-            val inclusionStates = org.json.JSONObject()
-            var savedCount = 0
-
-            groups.forEach { group ->
-                try {
-                    inclusionStates.put(group.merchantName, group.isIncludedInCalculations)
-                    savedCount++
-                } catch (e: Exception) {
-                    logger.debug("saveGroupInclusionStates","Failed to save inclusion state for '${group.merchantName}'")
+                // FIXED: Save to database instead of SharedPreferences
+                var savedCount = 0
+                groups.forEach { group ->
+                    try {
+                        // isExcluded in database = NOT isIncludedInCalculations in UI
+                        val isExcluded = !group.isIncludedInCalculations
+                        updateMerchantExclusionInDatabase(group.merchantName, isExcluded)
+                        savedCount++
+                    } catch (e: Exception) {
+                        logger.warn("saveGroupInclusionStates", "Failed to save exclusion state for '${group.merchantName}': ${e.message}")
+                    }
                 }
+
+                logger.debug("saveGroupInclusionStates", "Successfully saved $savedCount exclusion states to database")
+
+            } catch (e: Exception) {
+                logger.error("saveGroupInclusionStates", "Error saving group exclusion states to database", e)
+                // Don't show error to user - it's not critical
+                // The UI state is already updated, this is just persistence
             }
-
-            editor.putString("group_inclusion_states", inclusionStates.toString())
-            val success = editor.commit()
-
-            if (success) {
-                logger.debug("saveGroupInclusionStates","Successfully saved $savedCount inclusion states")
-            } else {
-                logger.debug("saveGroupInclusionStates","Failed to commit inclusion states to SharedPreferences")
-                throw Exception("SharedPreferences commit failed")
-            }
-
-        } catch (e: Exception) {
-            logger.error("saveGroupInclusionStates","Error saving group inclusion states",e)
-            // Don't show error to user for this - it's not critical
-            // The UI state is already updated, this is just persistence
         }
     }
     

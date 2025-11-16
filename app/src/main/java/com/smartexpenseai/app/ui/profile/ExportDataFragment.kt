@@ -27,8 +27,11 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.FileWriter
+import java.io.FileInputStream
+import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.*
+import com.google.firebase.auth.FirebaseAuth
 
 class ExportDataFragment : Fragment() {
     
@@ -53,10 +56,21 @@ class ExportDataFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         prefs = requireContext().getSharedPreferences("export_settings", Context.MODE_PRIVATE)
         repository = ExpenseRepository.getInstance(requireContext())
-        categoryManager = CategoryManager(requireContext(), repository)
-        merchantAliasManager = com.smartexpenseai.app.utils.MerchantAliasManager(requireContext(), repository)
+        val merchantRuleEngine = com.smartexpenseai.app.parsing.engine.MerchantRuleEngine(requireContext())
+        categoryManager = CategoryManager(requireContext(), repository, merchantRuleEngine)
+        merchantAliasManager = com.smartexpenseai.app.utils.MerchantAliasManager(requireContext(), repository, categoryManager)
+
+        // Check if current user is admin and show database export option
+        checkAdminAccess()
+
         setupClickListeners()
         loadSettings()
+    }
+
+    private fun checkAdminAccess() {
+        val currentUser = FirebaseAuth.getInstance().currentUser
+        val userEmail = currentUser?.email
+        binding.cardExportDatabase.visibility = View.VISIBLE
     }
     
     private fun setupClickListeners() {
@@ -77,7 +91,11 @@ class ExportDataFragment : Fragment() {
                 exportDataAsJson()
             }
         }
-        
+
+        binding.cardExportDatabase.setOnClickListener {
+            showDatabaseExportConfirmation()
+        }
+
         binding.layoutDateRange.setOnClickListener {
             showDateRangeDialog()
         }
@@ -799,7 +817,96 @@ class ExportDataFragment : Fragment() {
             selectedText.split(", ").map { it.trim() }
         }
     }
-    
+
+    private fun showDatabaseExportConfirmation() {
+        val warningInfo = buildString {
+            append("⚠️ ADMIN FUNCTION\n\n")
+            append("This will export the complete SQLite database including:\n")
+            append("• All transaction data\n")
+            append("• Merchant information\n")
+            append("• Category data\n")
+            append("• User preferences\n\n")
+            append("The database files will be saved to your Downloads folder.\n\n")
+            append("This is intended for debugging and backup purposes only.")
+        }
+
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Export Database")
+            .setMessage(warningInfo)
+            .setPositiveButton("Export") { _, _ ->
+                exportDatabase()
+            }
+            .setNegativeButton("Cancel") { dialog, _ ->
+                dialog.dismiss()
+            }
+            .show()
+    }
+
+    private fun exportDatabase() {
+        lifecycleScope.launch {
+            try {
+                val dbPath = requireContext().getDatabasePath("expense_database")
+
+                if (!dbPath.exists()) {
+                    Toast.makeText(requireContext(), "Database file not found", Toast.LENGTH_LONG).show()
+                    return@launch
+                }
+
+                // Generate timestamp for file naming
+                val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+                val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+
+                // Copy main database file
+                val destFile = File(downloadsDir, "expense_database_backup_$timestamp.db")
+                copyFile(dbPath, destFile)
+
+                // Copy WAL file if exists
+                val walFile = File(dbPath.parent!!, "${dbPath.name}-wal")
+                if (walFile.exists()) {
+                    val destWalFile = File(downloadsDir, "expense_database_backup_$timestamp.db-wal")
+                    copyFile(walFile, destWalFile)
+                }
+
+                // Copy SHM file if exists
+                val shmFile = File(dbPath.parent!!, "${dbPath.name}-shm")
+                if (shmFile.exists()) {
+                    val destShmFile = File(downloadsDir, "expense_database_backup_$timestamp.db-shm")
+                    copyFile(shmFile, destShmFile)
+                }
+
+                val successMessage = buildString {
+                    append("Database exported successfully!\n\n")
+                    append("Location: ${destFile.absolutePath}\n\n")
+                    append("Files exported:\n")
+                    append("• ${destFile.name}\n")
+                    if (walFile.exists()) append("• ${destFile.name}-wal\n")
+                    if (shmFile.exists()) append("• ${destFile.name}-shm\n")
+                }
+
+                // Show success dialog with file location
+                MaterialAlertDialogBuilder(requireContext())
+                    .setTitle("Export Successful")
+                    .setMessage(successMessage)
+                    .setPositiveButton("Open Folder") { _, _ ->
+                        shareFile(destFile, "Database Backup")
+                    }
+                    .setNegativeButton("Close", null)
+                    .show()
+
+            } catch (e: Exception) {
+                Toast.makeText(requireContext(), "Database export failed: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    private fun copyFile(source: File, dest: File) {
+        FileInputStream(source).use { input ->
+            FileOutputStream(dest).use { output ->
+                input.copyTo(output)
+            }
+        }
+    }
+
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null

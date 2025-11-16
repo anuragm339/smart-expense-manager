@@ -22,22 +22,41 @@ import javax.inject.Inject
 class CategoriesViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val repository: ExpenseRepository,
-    private val categoryDisplayProvider: CategoryDisplayProvider
+    private val categoryDisplayProvider: CategoryDisplayProvider,
+    private val categoryManager: CategoryManager,
+    private val merchantAliasManager: MerchantAliasManager
 ) : ViewModel() {
-    
+
     companion object {
+        /**
+         * Get current month date range (start and end)
+         */
+        fun getCurrentMonthDateRange(): Pair<Date, Date> {
+            val calendar = Calendar.getInstance()
+
+            // First day of current month
+            calendar.set(Calendar.DAY_OF_MONTH, 1)
+            calendar.set(Calendar.HOUR_OF_DAY, 0)
+            calendar.set(Calendar.MINUTE, 0)
+            calendar.set(Calendar.SECOND, 0)
+            calendar.set(Calendar.MILLISECOND, 0)
+            val startDate = calendar.time
+
+            // Current time (end of range)
+            val endDate = Calendar.getInstance().time
+
+            return Pair(startDate, endDate)
+        }
     }
-    
+
     // Private mutable state
     private val _uiState = MutableStateFlow(CategoriesUIState())
-    
+
     // Public immutable state
     val uiState: StateFlow<CategoriesUIState> = _uiState.asStateFlow()
-    
-    // Manager instances
-    private val categoryManager = CategoryManager(context, repository)
+
+    // Logger instance
     private val logger = StructuredLogger("CATEGORIES", "CategoriesViewModel")
-    private val merchantAliasManager = MerchantAliasManager(context, repository)
     
     init {
         logger.debug("init","ViewModel initialized, loading categories...")
@@ -84,6 +103,7 @@ class CategoriesViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(
                     isInitialLoading = false,
                     categories = categories,
+                    originalCategories = categories, // Store unfiltered data
                     totalSpent = categories.sumOf { it.amount },
                     categoryCount = categories.size,
                     isEmpty = categories.isEmpty(),
@@ -122,6 +142,7 @@ class CategoriesViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(
                     isRefreshing = false,
                     categories = categories,
+                    originalCategories = categories, // Store unfiltered data
                     totalSpent = categories.sumOf { it.amount },
                     categoryCount = categories.size,
                     isEmpty = categories.isEmpty(),
@@ -143,11 +164,8 @@ class CategoriesViewModel @Inject constructor(
         
         viewModelScope.launch {
             try {
-                // Add to CategoryManager for persistence (SharedPreferences)
-                categoryManager.addCustomCategory(name)
-                
-                // CRITICAL FIX: Also save category to database so it appears in dropdowns and can be deleted/renamed
-                val categoryColor = getRandomCategoryColor() // Use same color for both database and UI
+                // Save category to database with user's chosen emoji
+                val categoryColor = getRandomCategoryColor()
                 val categoryEntity = com.smartexpenseai.app.data.entities.CategoryEntity(
                     name = name,
                     emoji = emoji,
@@ -363,18 +381,9 @@ class CategoriesViewModel @Inject constructor(
     private suspend fun loadCategoryData(): List<CategoryItem> {
         return try {
             logger.debug("loadCategoryData","Loading category data from repository...")
-            
-            // Get date range from the start of the current month to the current time
-            val calendar = Calendar.getInstance()
-            calendar.set(Calendar.DAY_OF_MONTH, 1)
-            calendar.set(Calendar.HOUR_OF_DAY, 0)
-            calendar.set(Calendar.MINUTE, 0)
-            calendar.set(Calendar.SECOND, 0)
-            calendar.set(Calendar.MILLISECOND, 0)
-            val startDate = calendar.time
 
-            // Set end date to current time to exclude future transactions
-            val endDate = Calendar.getInstance().time
+            // Get current month date range using helper
+            val (startDate, endDate) = getCurrentMonthDateRange()
 
             val dateFormatter = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
             logger.debug("loadCategoryData","Loading categories from start of month: ${dateFormatter.format(startDate)}")
@@ -384,60 +393,7 @@ class CategoriesViewModel @Inject constructor(
             
             logger.debug("loadCategoryData","Repository returned ${categorySpendingResults.size} category results")
             
-            if (categorySpendingResults.isNotEmpty()) {
-                // Convert repository results to CategoryItem format
-                val transactionCategoryData = categorySpendingResults.map { categoryResult ->
-                    val lastTransactionText = categoryResult.last_transaction_date?.let { 
-                        formatLastTransaction(it) 
-                    } ?: ""
-                    
-                    CategoryItem(
-                        name = categoryResult.category_name,
-                        emoji = getCategoryEmoji(categoryResult.category_name),
-                        color = categoryResult.color,
-                        amount = categoryResult.total_amount,
-                        transactionCount = categoryResult.transaction_count,
-                        lastTransaction = lastTransactionText,
-                        percentage = 0, // Will be calculated after we have total
-                        progress = 0    // Will be calculated after we have total
-                    )
-                }
-                
-                // Add custom categories that might not have transactions yet
-                val allCategories = categoryManager.getAllCategories()
-                val existingCategoryNames = transactionCategoryData.map { it.name }
-                val missingCategories = allCategories.filter { !existingCategoryNames.contains(it) }
-                    .map { categoryName ->
-                        CategoryItem(
-                            name = categoryName,
-                            emoji = getCategoryEmoji(categoryName),
-                            color = getRandomCategoryColor(),
-                            amount = 0.0,
-                            transactionCount = 0,
-                            lastTransaction = "",
-                            percentage = 0,
-                            progress = 0
-                        )
-                    }
-                
-                val categoryData = (transactionCategoryData + missingCategories)
-                    .sortedByDescending { it.amount }
-                
-                // Calculate percentages and progress
-                val totalSpent = categoryData.sumOf { it.amount }
-                
-                return categoryData.map { categoryItem ->
-                    val percentage = if (totalSpent > 0) ((categoryItem.amount / totalSpent) * 100).toInt() else 0
-                    categoryItem.copy(
-                        percentage = percentage,
-                        progress = percentage.coerceAtMost(100)
-                    )
-                }
-                
-            } else {
-                logger.debug("loadCategoryData","No data in repository, falling back to SMS reading...")
-                return loadCategoryDataFallback()
-            }
+            return processCategorySpendingResults(categorySpendingResults)
             
         } catch (e: SecurityException) {
             logger.error("loadCategoryData", "Permission denied, showing empty state",e)
@@ -449,88 +405,92 @@ class CategoriesViewModel @Inject constructor(
     }
     
     /**
+     * Process category spending results and convert to CategoryItem list
+     * Shared logic between loadCategoryData and loadCategoryDataFallback
+     */
+    private suspend fun processCategorySpendingResults(
+        categorySpendingResults: List<com.smartexpenseai.app.data.dao.CategorySpendingResult>
+    ): List<CategoryItem> {
+        if (categorySpendingResults.isEmpty()) {
+            logger.debug("processCategorySpendingResults", "No data in repository, falling back to SMS reading...")
+            return loadCategoryDataFallback()
+        }
+
+        // Convert repository results to CategoryItem format
+        val transactionCategoryData = categorySpendingResults.map { categoryResult ->
+            val lastTransactionText = categoryResult.last_transaction_date?.let {
+                formatLastTransaction(it)
+            } ?: ""
+
+            CategoryItem(
+                name = categoryResult.category_name,
+                emoji = getCategoryEmoji(categoryResult.category_name),
+                color = categoryResult.color,
+                amount = categoryResult.total_amount,
+                transactionCount = categoryResult.transaction_count,
+                lastTransaction = lastTransactionText,
+                percentage = 0, // Will be calculated after we have total
+                progress = 0    // Will be calculated after we have total
+            )
+        }
+
+        // Add custom categories that might not have transactions yet
+        val allCategories = categoryManager.getAllCategories()
+        val existingCategoryNames = transactionCategoryData.map { it.name }
+        val missingCategories = allCategories.filter { !existingCategoryNames.contains(it) }
+            .map { categoryName ->
+                CategoryItem(
+                    name = categoryName,
+                    emoji = getCategoryEmoji(categoryName),
+                    color = getRandomCategoryColor(),
+                    amount = 0.0,
+                    transactionCount = 0,
+                    lastTransaction = "",
+                    percentage = 0,
+                    progress = 0
+                )
+            }
+
+        val categoryData = (transactionCategoryData + missingCategories)
+            .sortedByDescending { it.amount }
+
+        // Calculate percentages and progress
+        val totalSpent = categoryData.sumOf { it.amount }
+
+        return categoryData.map { categoryItem ->
+            val percentage = if (totalSpent > 0) ((categoryItem.amount / totalSpent) * 100).toInt() else 0
+            categoryItem.copy(
+                percentage = percentage,
+                progress = percentage.coerceAtMost(100)
+            )
+        }
+    }
+
+    /**
      * Fallback category loading from SMS
+     * Triggers SMS sync and then reuses main loading logic
      */
     private suspend fun loadCategoryDataFallback(): List<CategoryItem> {
         return try {
             logger.debug("loadCategoryDataFallback","Loading category data from SMS as fallback...")
-            
+
             // Trigger SMS sync if no data exists
             val syncedCount = repository.syncNewSMS()
             logger.debug("loadCategoryDataFallback","Synced $syncedCount new transactions from SMS")
-            
+
             if (syncedCount > 0) {
-                // Now load data from repository
-                // Get date range from the start of the current month to the current time
-                val calendar = Calendar.getInstance()
-                calendar.set(Calendar.DAY_OF_MONTH, 1)
-                calendar.set(Calendar.HOUR_OF_DAY, 0)
-                calendar.set(Calendar.MINUTE, 0)
-                calendar.set(Calendar.SECOND, 0)
-                calendar.set(Calendar.MILLISECOND, 0)
-                val startDate = calendar.time
-
-                // Set end date to current time to exclude future transactions
-                val endDate = Calendar.getInstance().time
-
+                // Reuse the main loading logic - no need to duplicate code!
+                val (startDate, endDate) = getCurrentMonthDateRange()
                 val dateFormatter = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
                 logger.debug("loadCategoryDataFallback","Loading categories fallback from start of month: ${dateFormatter.format(startDate)}")
-                
-                val categorySpendingResults = repository.getCategorySpending(startDate, endDate)
-                
-                if (categorySpendingResults.isNotEmpty()) {
-                    // Convert and calculate as in main method
-                    val transactionCategoryData = categorySpendingResults.map { categoryResult ->
-                        val lastTransactionText = categoryResult.last_transaction_date?.let { 
-                            formatLastTransaction(it) 
-                        } ?: ""
-                        
-                        CategoryItem(
-                            name = categoryResult.category_name,
-                            emoji = getCategoryEmoji(categoryResult.category_name),
-                            color = categoryResult.color,
-                            amount = categoryResult.total_amount,
-                            transactionCount = categoryResult.transaction_count,
-                            lastTransaction = lastTransactionText,
-                            percentage = 0,
-                            progress = 0
-                        )
-                    }
-                    
-                    val allCategories = categoryManager.getAllCategories()
-                    val existingCategoryNames = transactionCategoryData.map { it.name }
-                    val missingCategories = allCategories.filter { !existingCategoryNames.contains(it) }
-                        .map { categoryName ->
-                            CategoryItem(
-                                name = categoryName,
-                                emoji = getCategoryEmoji(categoryName),
-                                color = getRandomCategoryColor(),
-                                amount = 0.0,
-                                transactionCount = 0,
-                                lastTransaction = "",
-                                percentage = 0,
-                                progress = 0
-                            )
-                        }
-                    
-                    val categoryData = (transactionCategoryData + missingCategories)
-                        .sortedByDescending { it.amount }
-                    
-                    val totalSpent = categoryData.sumOf { it.amount }
-                    return categoryData.map { categoryItem ->
-                        val percentage = if (totalSpent > 0) ((categoryItem.amount / totalSpent) * 100).toInt() else 0
-                        categoryItem.copy(
-                            percentage = percentage,
-                            progress = percentage.coerceAtMost(100)
-                        )
-                    }
-                } else {
-                    return getEmptyCategories()
-                }
+
+                return processCategorySpendingResults(
+                    repository.getCategorySpending(startDate, endDate)
+                )
             } else {
                 return getEmptyCategories()
             }
-            
+
         } catch (e: Exception) {
             logger.error("loadCategoryDataFallback", "Error in fallback loading, showing empty state",e)
             return getEmptyCategories()
@@ -649,34 +609,26 @@ class CategoriesViewModel @Inject constructor(
     // NOTE: printAllCategoriesFromBothSources() removed - no longer needed!
     // Single source of truth: Room Database only
 
-    // Add state for filtering and searching
-    private var originalCategories: List<CategoryItem> = emptyList()
-    private var currentSearchQuery: String = ""
-    private var currentSortType: String = "amount_desc"
-    private var currentFilterType: String = "all"
-
     /**
      * Search categories by name or merchant
      */
     private fun searchCategories(query: String) {
-        currentSearchQuery = query
         logger.debug("searchCategories","Searching categories with query: '$query'")
 
-        val currentCategories = originalCategories.ifEmpty { _uiState.value.categories }
-        if (originalCategories.isEmpty()) {
-            originalCategories = currentCategories
-        }
+        val originalCats = _uiState.value.originalCategories.ifEmpty { _uiState.value.categories }
 
         val filteredCategories = if (query.isBlank()) {
-            currentCategories
+            originalCats
         } else {
-            currentCategories.filter { category ->
+            originalCats.filter { category ->
                 category.name.contains(query, ignoreCase = true)
             }
         }
 
         _uiState.value = _uiState.value.copy(
-            categories = applySortAndFilter(filteredCategories),
+            searchQuery = query,
+            originalCategories = if (_uiState.value.originalCategories.isEmpty()) originalCats else _uiState.value.originalCategories,
+            categories = applySortAndFilter(filteredCategories, _uiState.value.sortType),
             isEmpty = filteredCategories.isEmpty()
         )
     }
@@ -685,66 +637,50 @@ class CategoriesViewModel @Inject constructor(
      * Sort categories by different criteria
      */
     private fun sortCategories(sortType: String) {
-        currentSortType = sortType
         logger.debug("sortCategories","Sorting categories by: $sortType")
 
-        val currentCategories = _uiState.value.categories
-        val sortedCategories = when (sortType) {
-            "amount_desc" -> currentCategories.sortedByDescending { it.amount }
-            "amount_asc" -> currentCategories.sortedBy { it.amount }
-            "name_asc" -> currentCategories.sortedBy { it.name }
-            "name_desc" -> currentCategories.sortedByDescending { it.name }
-            "recent_activity" -> currentCategories.sortedByDescending {
-                when {
-                    it.lastTransaction.contains("Just now") -> 5
-                    it.lastTransaction.contains("hours ago") -> 4
-                    it.lastTransaction.contains("Yesterday") -> 3
-                    it.lastTransaction.contains("days ago") -> 2
-                    else -> 1
-                }
-            }
-            else -> currentCategories
-        }
+        val sortedCategories = applySortAndFilter(_uiState.value.categories, sortType)
 
-        _uiState.value = _uiState.value.copy(categories = sortedCategories)
+        _uiState.value = _uiState.value.copy(
+            sortType = sortType,
+            categories = sortedCategories
+        )
     }
 
     /**
      * Filter categories by type
      */
     private fun filterCategories(filterType: String) {
-        currentFilterType = filterType
         logger.debug("filterCategories","Filtering categories by: $filterType")
 
-        val currentCategories = originalCategories.ifEmpty { _uiState.value.categories }
-        if (originalCategories.isEmpty()) {
-            originalCategories = currentCategories
-        }
+        val originalCats = _uiState.value.originalCategories.ifEmpty { _uiState.value.categories }
 
         val filteredCategories = when (filterType) {
-            "all" -> currentCategories
-            "has_transactions" -> currentCategories.filter { it.transactionCount > 0 }
-            "empty" -> currentCategories.filter { it.transactionCount == 0 }
-            "custom" -> currentCategories.filter { !isSystemCategory(it.name) }
+            "all" -> originalCats
+            "has_transactions" -> originalCats.filter { it.transactionCount > 0 }
+            "empty" -> originalCats.filter { it.transactionCount == 0 }
+            "custom" -> originalCats.filter { !isSystemCategory(it.name) }
             "high_spend" -> {
-                val totalSpent = currentCategories.sumOf { it.amount }
+                val totalSpent = originalCats.sumOf { it.amount }
                 val threshold = totalSpent * 0.1 // Top 10% of spending
-                currentCategories.filter { it.amount >= threshold && it.amount > 0 }
+                originalCats.filter { it.amount >= threshold && it.amount > 0 }
             }
-            else -> currentCategories
+            else -> originalCats
         }
 
         _uiState.value = _uiState.value.copy(
-            categories = applySortAndFilter(filteredCategories),
+            filterType = filterType,
+            originalCategories = if (_uiState.value.originalCategories.isEmpty()) originalCats else _uiState.value.originalCategories,
+            categories = applySortAndFilter(filteredCategories, _uiState.value.sortType),
             isEmpty = filteredCategories.isEmpty()
         )
     }
 
     /**
-     * Apply current sort and filter to a list of categories
+     * Apply sort to a list of categories
      */
-    private fun applySortAndFilter(categories: List<CategoryItem>): List<CategoryItem> {
-        return when (currentSortType) {
+    private fun applySortAndFilter(categories: List<CategoryItem>, sortType: String): List<CategoryItem> {
+        return when (sortType) {
             "amount_desc" -> categories.sortedByDescending { it.amount }
             "amount_asc" -> categories.sortedBy { it.amount }
             "name_asc" -> categories.sortedBy { it.name }

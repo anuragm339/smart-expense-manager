@@ -12,9 +12,15 @@ data class CategoriesUIState(
     
     // Data
     val categories: List<CategoryItem> = emptyList(),
+    val originalCategories: List<CategoryItem> = emptyList(), // Unfiltered data
     val totalSpent: Double = 0.0,
     val categoryCount: Int = 0,
-    
+
+    // Search, Sort, and Filter state
+    val searchQuery: String = "",
+    val sortType: String = "amount_desc",
+    val filterType: String = "all",
+
     // State flags
     val isEmpty: Boolean = false,
     val hasError: Boolean = false,

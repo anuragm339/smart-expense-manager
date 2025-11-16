@@ -14,12 +14,12 @@ import javax.inject.Inject
 class BudgetManager @Inject constructor(
     private val context: Context,
     private val smsHistoryReader: SMSHistoryReader,
-    private val repository: com.smartexpenseai.app.data.repository.ExpenseRepository
+    private val repository: com.smartexpenseai.app.data.repository.ExpenseRepository,
+    private val categoryManager: CategoryManager,
+    private val merchantAliasManager: MerchantAliasManager
 ) {
 
     private val prefs: SharedPreferences = context.getSharedPreferences("budget_settings", Context.MODE_PRIVATE)
-    private val categoryManager = CategoryManager(context, repository)
-    private val merchantAliasManager = MerchantAliasManager(context, repository)
     
     companion object {
         private const val TAG = "BudgetManager"
@@ -281,27 +281,36 @@ class BudgetManager @Inject constructor(
         }
     }
     
-    private fun filterTransactionsByInclusionState(transactions: List<ParsedTransaction>): List<ParsedTransaction> {
-        val inclusionPrefs = context.getSharedPreferences("expense_calculations", Context.MODE_PRIVATE)
-        val inclusionStatesJson = inclusionPrefs.getString("group_inclusion_states", null)
-        
-        if (inclusionStatesJson != null) {
-            try {
-                val inclusionStates = JSONObject(inclusionStatesJson)
-                return transactions.filter { transaction ->
-                    val displayMerchant = merchantAliasManager.getDisplayName(transaction.merchant)
-                    if (inclusionStates.has(displayMerchant)) {
-                        inclusionStates.getBoolean(displayMerchant)
-                    } else {
-                        true // Default to included if not found
-                    }
-                }
-            } catch (e: Exception) {
-                // Inclusion state error - use all transactions
+    /**
+     * Filter transactions by merchant exclusion state
+     * FIXED: Now uses database for merchant exclusions (removed SharedPreferences fallback)
+     * This method filters out transactions from excluded merchants
+     */
+    private suspend fun filterTransactionsByInclusionState(transactions: List<ParsedTransaction>): List<ParsedTransaction> {
+        return try {
+            // Get excluded merchants from database (single source of truth)
+            val excludedMerchants = repository.getExcludedMerchants()
+            val excludedNormalizedNames = excludedMerchants.map { it.normalizedName }.toSet()
+
+            // Filter out transactions from excluded merchants
+            transactions.filter { transaction ->
+                val normalizedMerchant = normalizeMerchantName(transaction.merchant)
+                !excludedNormalizedNames.contains(normalizedMerchant)
             }
+        } catch (e: Exception) {
+            // On error, return all transactions
+            transactions
         }
-        
-        return transactions
+    }
+
+    /**
+     * Normalize merchant name for consistent comparison
+     */
+    private fun normalizeMerchantName(merchantName: String): String {
+        return merchantName.uppercase()
+            .replace(Regex("[*#@\\-_]+.*"), "")
+            .replace(Regex("\\s+"), " ")
+            .trim()
     }
     
     private fun getDefaultCategoryBudget(categoryName: String): Float {

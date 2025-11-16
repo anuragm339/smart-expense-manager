@@ -22,7 +22,10 @@ interface TransactionDao {
 
     @Query("SELECT * FROM transactions WHERE normalized_merchant = :merchantName ORDER BY transaction_date DESC")
     suspend fun getTransactionsByMerchant(merchantName: String): List<TransactionEntity>
-    
+
+    @Query("SELECT COUNT(*) FROM transactions WHERE normalized_merchant = :merchantName")
+    suspend fun getTransactionCountByMerchant(merchantName: String): Int
+
     @Query("SELECT * FROM transactions WHERE normalized_merchant LIKE '%' || :merchantName || '%' AND amount >= :minAmount ORDER BY transaction_date DESC")
     suspend fun getTransactionsByMerchantAndAmount(merchantName: String, minAmount: Double): List<TransactionEntity>
     

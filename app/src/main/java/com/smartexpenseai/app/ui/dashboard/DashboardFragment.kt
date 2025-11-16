@@ -1,6 +1,7 @@
 package com.smartexpenseai.app.ui.dashboard
 
 import android.content.BroadcastReceiver
+import com.smartexpenseai.app.parsing.engine.MerchantRuleEngine
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -178,8 +179,9 @@ class DashboardFragment : Fragment() {
 
         // Initialize core dependencies
         repository = ExpenseRepository.getInstance(requireContext())
-        categoryManager = CategoryManager(requireContext(), repository)
-        merchantAliasManager = com.smartexpenseai.app.utils.MerchantAliasManager(requireContext(), repository)
+        val merchantRuleEngine = com.smartexpenseai.app.parsing.engine.MerchantRuleEngine(requireContext())
+        categoryManager = CategoryManager(requireContext(), repository, merchantRuleEngine)
+        merchantAliasManager = com.smartexpenseai.app.utils.MerchantAliasManager(requireContext(), repository, categoryManager)
 
         // Initialize helper classes
         val inclusionFilter = MerchantInclusionFilter(requireContext(), logger)

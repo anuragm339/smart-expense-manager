@@ -39,7 +39,7 @@ data class MessagesUIState(
     // Search and filters
     val searchQuery: String = "",
     val currentSortOption: SortOption = SortOption("Date (Newest First)", "date", false),
-    val currentFilterOptions: FilterOptions = FilterOptions(),
+    val currentFilterOptions: FilterOptions = FilterOptions.getDefault(), // Default to current month
     val currentFilterTab: TransactionFilterTab = TransactionFilterTab.ALL,
 
     // State flags
@@ -73,19 +73,17 @@ data class MessagesUIState(
         get() = filteredMessages.count { it.category != "Other" && it.confidence >= 80 }
     
     val hasActiveFilters: Boolean
-        get() = searchQuery.isNotEmpty() || 
+        get() = searchQuery.isNotEmpty() ||
                 currentFilterOptions.minAmount != null ||
                 currentFilterOptions.maxAmount != null ||
                 currentFilterOptions.selectedBanks.isNotEmpty() ||
-                currentFilterOptions.minConfidence > 0 ||
                 currentFilterOptions.dateFrom != null ||
                 currentFilterOptions.dateTo != null
-    
+
     val activeFilterCount: Int
         get() = listOfNotNull(
             if (currentFilterOptions.minAmount != null || currentFilterOptions.maxAmount != null) "Amount" else null,
             if (currentFilterOptions.selectedBanks.isNotEmpty()) "Banks" else null,
-            if (currentFilterOptions.minConfidence > 0) "Confidence" else null,
             if (currentFilterOptions.dateFrom != null || currentFilterOptions.dateTo != null) "Date" else null
         ).size
     
@@ -172,17 +170,37 @@ data class FilterOptions(
     val minAmount: Double? = null,
     val maxAmount: Double? = null,
     val selectedBanks: Set<String> = emptySet(),
-    val minConfidence: Int = 0,
     val dateFrom: String? = null,
     val dateTo: String? = null
 ) {
     val isEmpty: Boolean
-        get() = minAmount == null && 
-                maxAmount == null && 
-                selectedBanks.isEmpty() && 
-                minConfidence == 0 && 
-                dateFrom == null && 
+        get() = minAmount == null &&
+                maxAmount == null &&
+                selectedBanks.isEmpty() &&
+                dateFrom == null &&
                 dateTo == null
+
+    companion object {
+        /**
+         * Create default filter options (current month)
+         */
+        fun getDefault(): FilterOptions {
+            val calendar = java.util.Calendar.getInstance()
+
+            // First day of current month
+            calendar.set(java.util.Calendar.DAY_OF_MONTH, 1)
+            val firstDayOfMonth = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(calendar.time)
+
+            // Last day of current month
+            calendar.set(java.util.Calendar.DAY_OF_MONTH, calendar.getActualMaximum(java.util.Calendar.DAY_OF_MONTH))
+            val lastDayOfMonth = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(calendar.time)
+
+            return FilterOptions(
+                dateFrom = firstDayOfMonth,
+                dateTo = lastDayOfMonth
+            )
+        }
+    }
 }
 
 /**

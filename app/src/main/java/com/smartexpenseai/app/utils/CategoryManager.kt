@@ -3,6 +3,7 @@ package com.smartexpenseai.app.utils
 import android.content.Context
 import com.smartexpenseai.app.data.entities.CategoryEntity
 import com.smartexpenseai.app.data.repository.ExpenseRepository
+import com.smartexpenseai.app.parsing.engine.MerchantRuleEngine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.Date
@@ -10,17 +11,20 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * CategoryManager - Single Source of Truth using Room Database
+ * CategoryManager - Single Source of Truth using Room Database + JSON Rules
  *
- * This class manages category operations using ONLY the Room Database.
+ * This class manages category operations using:
+ * 1. Room Database for merchant-category mappings
+ * 2. JSON-based rule engine for auto-categorization (merchant_rules.json)
+ *
  * All SharedPreferences usage has been removed for data consistency.
- *
  * Migration: CategoryMigrationHelper handles one-time migration from SharedPrefs to DB
  */
 @Singleton
 class CategoryManager @Inject constructor(
     private val context: Context,
-    private val repository: ExpenseRepository
+    private val repository: ExpenseRepository,
+    private val merchantRuleEngine: MerchantRuleEngine
 ) {
 
     /**
@@ -89,46 +93,22 @@ class CategoryManager @Inject constructor(
     }
 
     /**
-     * Rule-based merchant categorization (fallback when not in database)
+     * Rule-based merchant categorization using JSON rules (fallback when not in database)
+     *
+     * REFACTORED: Now uses MerchantRuleEngine with merchant_rules.json instead of hardcoded rules
+     * Benefits:
+     * - Easy to modify rules without code changes
+     * - Regex pattern support for advanced matching
+     * - Single source of truth for categorization logic
+     * - Eliminates code duplication with TransactionDataRepository
      */
     private fun categorizeMerchant(merchantName: String): String {
-        val upper = merchantName.uppercase()
-        return when {
-            upper.contains("SWIGGY") || upper.contains("ZOMATO") ||
-                    upper.contains("DOMINOES") || upper.contains("PIZZA") ||
-                    upper.contains("MCDONALD") || upper.contains("KFC") ||
-                    upper.contains("RESTAURANT") || upper.contains("CAFE") ||
-                    upper.contains("FOOD") || upper.contains("DINING") ||
-                    upper.contains("AKSHAYAKALPA") -> "Food & Dining"
+        // Initialize rule engine if needed
+        merchantRuleEngine.initialize()
 
-            upper.contains("UBER") || upper.contains("OLA") ||
-                    upper.contains("TAXI") || upper.contains("METRO") ||
-                    upper.contains("BUS") || upper.contains("TRANSPORT") -> "Transportation"
-
-            upper.contains("BIGBAZAAR") || upper.contains("DMART") ||
-                    upper.contains("RELIANCE") || upper.contains("GROCERY") ||
-                    upper.contains("SUPERMARKET") || upper.contains("FRESH") ||
-                    upper.contains("MART") -> "Groceries"
-
-            upper.contains("HOSPITAL") || upper.contains("CLINIC") ||
-                    upper.contains("PHARMACY") || upper.contains("MEDICAL") ||
-                    upper.contains("HEALTH") || upper.contains("DOCTOR") -> "Healthcare"
-
-            upper.contains("MOVIE") || upper.contains("CINEMA") ||
-                    upper.contains("THEATRE") || upper.contains("GAME") ||
-                    upper.contains("ENTERTAINMENT") || upper.contains("NETFLIX") ||
-                    upper.contains("SPOTIFY") -> "Entertainment"
-
-            upper.contains("AMAZON") || upper.contains("FLIPKART") ||
-                    upper.contains("MYNTRA") || upper.contains("AJIO") ||
-                    upper.contains("SHOPPING") || upper.contains("STORE") -> "Shopping"
-
-            upper.contains("ELECTRICITY") || upper.contains("WATER") ||
-                    upper.contains("GAS") || upper.contains("INTERNET") ||
-                    upper.contains("MOBILE") || upper.contains("RECHARGE") -> "Utilities"
-
-            else -> "Other"
-        }
+        // Use rule engine for categorization
+        val result = merchantRuleEngine.categorize(merchantName)
+        return result.categoryName
     }
 
     /**
