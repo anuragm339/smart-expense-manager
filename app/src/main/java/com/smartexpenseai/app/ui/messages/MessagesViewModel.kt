@@ -902,7 +902,10 @@ class MessagesViewModel @Inject constructor(
 
         // Log the first 3 groups to verify sorting
         logger.info("groupTransactionsByMerchant", "✅ Sort complete. First 3 groups: ${
-            sortedGroups.take(3).map { "${it.merchantName} (₹${String.format("%.0f", it.totalAmount)})" }.joinToString(", ")
+            sortedGroups.take(3).map {
+                val dateStr = SimpleDateFormat("MMM dd HH:mm", Locale.getDefault()).format(Date(it.latestTransactionDate))
+                "${it.merchantName} (₹${String.format("%.0f", it.totalAmount)}, latest: $dateStr)"
+            }.joinToString(", ")
         }")
 
         return sortedGroups
