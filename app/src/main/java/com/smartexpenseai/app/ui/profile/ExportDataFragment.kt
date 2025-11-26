@@ -42,6 +42,7 @@ class ExportDataFragment : Fragment() {
     private lateinit var categoryManager: CategoryManager
     private lateinit var repository: ExpenseRepository
     private lateinit var merchantAliasManager: com.smartexpenseai.app.utils.MerchantAliasManager
+    private lateinit var logExporter: com.smartexpenseai.app.utils.LogExporter
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -59,6 +60,7 @@ class ExportDataFragment : Fragment() {
         val merchantRuleEngine = com.smartexpenseai.app.parsing.engine.MerchantRuleEngine(requireContext())
         categoryManager = CategoryManager(requireContext(), repository, merchantRuleEngine)
         merchantAliasManager = com.smartexpenseai.app.utils.MerchantAliasManager(requireContext(), repository, categoryManager)
+        logExporter = com.smartexpenseai.app.utils.LogExporter(requireContext())
 
         // Check if current user is admin and show database export option
         checkAdminAccess()
@@ -71,6 +73,7 @@ class ExportDataFragment : Fragment() {
         val currentUser = FirebaseAuth.getInstance().currentUser
         val userEmail = currentUser?.email
         binding.cardExportDatabase.visibility = View.VISIBLE
+        binding.cardExportLogs.visibility = View.VISIBLE
     }
     
     private fun setupClickListeners() {
@@ -94,6 +97,10 @@ class ExportDataFragment : Fragment() {
 
         binding.cardExportDatabase.setOnClickListener {
             showDatabaseExportConfirmation()
+        }
+
+        binding.cardExportLogs.setOnClickListener {
+            showLogExportConfirmation()
         }
 
         binding.layoutDateRange.setOnClickListener {
@@ -903,6 +910,77 @@ class ExportDataFragment : Fragment() {
         FileInputStream(source).use { input ->
             FileOutputStream(dest).use { output ->
                 input.copyTo(output)
+            }
+        }
+    }
+
+    private fun showLogExportConfirmation() {
+        val logInfo = buildString {
+            append("📝 LOG EXPORT\n\n")
+            append("This will export application logs including:\n")
+            append("• App log file (android-app.log)\n")
+            append("• Recent logcat output (last 500 lines)\n")
+            append("• Device and app information\n\n")
+            append("The log file will be saved to your Downloads folder.\n\n")
+            append("This is useful for debugging issues that cannot be replicated in Android Emulator.\n\n")
+            append("Log file location:\n${logExporter.getAppLogFilePath()}")
+        }
+
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Export Application Logs")
+            .setMessage(logInfo)
+            .setPositiveButton("Export") { _, _ ->
+                exportLogs()
+            }
+            .setNegativeButton("Cancel") { dialog, _ ->
+                dialog.dismiss()
+            }
+            .show()
+    }
+
+    private fun exportLogs() {
+        lifecycleScope.launch {
+            try {
+                Toast.makeText(requireContext(), "Exporting logs...", Toast.LENGTH_SHORT).show()
+
+                val (success, message) = logExporter.exportLogs()
+
+                if (success) {
+                    // Success - show file location and share options
+                    val successMessage = buildString {
+                        append("Logs exported successfully!\n\n")
+                        append("Location: $message\n\n")
+                        append("The log file contains:\n")
+                        append("• App information\n")
+                        append("• App log file\n")
+                        append("• Recent logcat output\n")
+                    }
+
+                    MaterialAlertDialogBuilder(requireContext())
+                        .setTitle("Export Successful")
+                        .setMessage(successMessage)
+                        .setPositiveButton("Share") { _, _ ->
+                            val shareIntent = logExporter.createShareIntent(message)
+                            if (shareIntent != null) {
+                                startActivity(Intent.createChooser(shareIntent, "Share Logs"))
+                            } else {
+                                Toast.makeText(requireContext(), "Error creating share intent", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                        .setNeutralButton("Open Folder") { _, _ ->
+                            val file = File(message)
+                            shareFile(file, "Application Logs")
+                        }
+                        .setNegativeButton("Close", null)
+                        .show()
+
+                } else {
+                    // Error
+                    Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
+                }
+
+            } catch (e: Exception) {
+                Toast.makeText(requireContext(), "Log export failed: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
     }

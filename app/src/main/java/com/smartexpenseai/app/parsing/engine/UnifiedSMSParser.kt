@@ -84,7 +84,7 @@ class UnifiedSMSParser @Inject constructor(
                 bankRule = bankRule,
                 extractedAmount = amount,
                 extractedMerchant = merchant,
-                extractedDate = date?.toString(),
+                extractedDate = date.toString(),
                 extractedType = transactionType,
                 extractedReferenceNumber = referenceNumber,
                 smsBody = body
@@ -335,15 +335,35 @@ class UnifiedSMSParser @Inject constructor(
         val normalizedMerchant = merchantName.uppercase().replace(Regex("\\s+"), " ").trim()
         val now = Date()
 
+        // FIX: Combine parsed date (from SMS) with current system time for accurate timestamp
+        // - Date from SMS body: More accurate day/month/year (transaction date in SMS)
+        // - Time from system: Current time when processing (simpler and consistent)
+        val transactionDateTime = if (date != null) {
+            // Use parsed date (day/month/year) from SMS
+            val calendar = java.util.Calendar.getInstance()
+            calendar.time = date  // Set to parsed date (has 00:00:00 time)
+
+            // Get current system time
+            val currentTime = java.util.Calendar.getInstance()
+            calendar.set(java.util.Calendar.HOUR_OF_DAY, currentTime.get(java.util.Calendar.HOUR_OF_DAY))
+            calendar.set(java.util.Calendar.MINUTE, currentTime.get(java.util.Calendar.MINUTE))
+            calendar.set(java.util.Calendar.SECOND, currentTime.get(java.util.Calendar.SECOND))
+            calendar.set(java.util.Calendar.MILLISECOND, currentTime.get(java.util.Calendar.MILLISECOND))
+            calendar.time
+        } else {
+            // Fallback: Use current system time if no date parsed from SMS
+            Date()
+        }
+
         return TransactionEntity(
             id = 0, // Will be auto-generated
             smsId = TransactionEntity.generateSmsId(sender, body, timestamp, referenceNumber),
             amount = cleanAmount,
             rawMerchant = merchantName,
             normalizedMerchant = normalizedMerchant,
-            categoryId = 1L,  // Default to "Other" - will be set properly when merchant is created/linked
+            categoryId = 1L,  // Default to "Other" - will be set properly when merchant is created/link
             bankName = bankName ?: "Unknown Bank",
-            transactionDate = date ?: Date(timestamp),
+            transactionDate = transactionDateTime,
             rawSmsBody = body,
             confidenceScore = 0.0f, // Will be set by caller
             isDebit = transactionType?.lowercase()?.contains("credit") != true,

@@ -861,12 +861,26 @@ class MessagesViewModel @Inject constructor(
         // Sort groups based on current sort option
         logger.info("groupTransactionsByMerchant", "📊 Sorting ${groupsWithInclusionStates.size} merchant groups by field=${sortOption.field}, ascending=${sortOption.ascending}")
 
+        // Log sample of unsorted groups to debug
+        logger.debug("groupTransactionsByMerchant", "BEFORE SORT - Sample groups: ${
+            groupsWithInclusionStates.take(5).map {
+                val dateStr = SimpleDateFormat("MMM dd HH:mm", Locale.getDefault()).format(Date(it.latestTransactionDate))
+                "${it.merchantName}=$dateStr (${it.latestTransactionDate})"
+            }.joinToString(", ")
+        }")
+
         val sortedGroups = when (sortOption.field) {
             "date" -> {
                 if (sortOption.ascending) {
-                    groupsWithInclusionStates.sortedBy { it.latestTransactionDate }
+                    groupsWithInclusionStates.sortedWith(
+                        compareBy<MerchantGroup> { it.latestTransactionDate }
+                            .thenBy { it.merchantName } // Secondary sort for same-day transactions
+                    )
                 } else {
-                    groupsWithInclusionStates.sortedByDescending { it.latestTransactionDate }
+                    groupsWithInclusionStates.sortedWith(
+                        compareByDescending<MerchantGroup> { it.latestTransactionDate }
+                            .thenBy { it.merchantName } // Secondary sort for same-day transactions
+                    )
                 }
             }
             "amount" -> {
@@ -900,9 +914,12 @@ class MessagesViewModel @Inject constructor(
             else -> groupsWithInclusionStates.sortedByDescending { it.latestTransactionDate }
         }
 
-        // Log the first 3 groups to verify sorting
-        logger.info("groupTransactionsByMerchant", "✅ Sort complete. First 3 groups: ${
-            sortedGroups.take(3).map { "${it.merchantName} (₹${String.format("%.0f", it.totalAmount)})" }.joinToString(", ")
+        // Log the first 5 groups to verify sorting
+        logger.info("groupTransactionsByMerchant", "✅ AFTER SORT - First 5 groups: ${
+            sortedGroups.take(5).map {
+                val dateStr = SimpleDateFormat("MMM dd HH:mm", Locale.getDefault()).format(Date(it.latestTransactionDate))
+                "${it.merchantName}=$dateStr (${it.latestTransactionDate})"
+            }.joinToString(", ")
         }")
 
         return sortedGroups
