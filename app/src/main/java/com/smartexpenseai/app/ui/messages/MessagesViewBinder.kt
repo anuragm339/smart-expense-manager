@@ -26,6 +26,7 @@ class MessagesViewBinder(
     onTransactionClick: (MessageItem) -> Unit,
     onGroupToggle: (MerchantGroup, Boolean) -> Unit,
     onGroupEdit: (MerchantGroup) -> Unit,
+    onTransactionDelete: (MessageItem, MerchantGroup) -> Unit,
     private val onLoadMore: (() -> Unit)? = null
 ) {
     private val recyclerView = binding.recyclerMessages
@@ -51,7 +52,8 @@ class MessagesViewBinder(
     val groupedAdapter: GroupedMessagesAdapter = GroupedMessagesAdapter(
         onTransactionClick = onTransactionClick,
         onGroupToggle = onGroupToggle,
-        onGroupEdit = onGroupEdit
+        onGroupEdit = onGroupEdit,
+        onTransactionDelete = onTransactionDelete
     )
 
     init {

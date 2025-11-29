@@ -233,4 +233,9 @@ sealed class MessagesUIEvent {
         val merchantName: String,
         val newCategory: String
     ) : MessagesUIEvent()
+
+    data class DeleteTransaction(
+        val transaction: MessageItem,
+        val merchantGroup: MerchantGroup
+    ) : MessagesUIEvent()
 }

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="8dp"
+    android:clickable="false"
+    android:focusable="false"
+    android:background="#000000">
+
+    <!-- Amount Column -->
+    <TextView
+        android:id="@+id/tv_amount"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="0.4"
+        tools:text="₹354"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF" />
+
+    <!-- Date Column -->
+    <TextView
+        android:id="@+id/tv_date"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="0.35"
+        tools:text="Nov 16"
+        android:textSize="12sp"
+        android:textColor="#CCCCCC" />
+
+    <!-- Bank Column -->
+    <TextView
+        android:id="@+id/tv_bank"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="0.25"
+        tools:text="HDFC"
+        android:textSize="11sp"
+        android:textColor="#999999"
+        android:ellipsize="end"
+        android:maxLines="1" />
+
+</LinearLayout>
