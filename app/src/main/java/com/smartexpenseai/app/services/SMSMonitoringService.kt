@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.IBinder
+import android.content.pm.ServiceInfo
 import androidx.core.app.NotificationCompat
 import com.smartexpenseai.app.MainActivity
 import com.smartexpenseai.app.R
@@ -115,8 +116,16 @@ class SMSMonitoringService : Service() {
         // Create notification
         val notification = createNotification()
 
-        // Start foreground service
-        startForeground(NOTIFICATION_ID, notification)
+        // Start foreground service with dataSync type (Android 10+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
 
         logger.info(
             where = "onStartCommand",
