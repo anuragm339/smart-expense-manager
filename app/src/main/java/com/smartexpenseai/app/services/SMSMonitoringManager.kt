@@ -81,7 +81,7 @@ object SMSMonitoringManager {
             logger.error(
                 where = "startMonitoring",
                 what = "❌ Failed to start SMS monitoring",
-                error = e
+                throwable = e
             )
         }
     }
@@ -112,7 +112,7 @@ object SMSMonitoringManager {
             logger.error(
                 where = "stopMonitoring",
                 what = "❌ Failed to stop SMS monitoring",
-                error = e
+                throwable = e
             )
         }
     }
@@ -129,7 +129,7 @@ object SMSMonitoringManager {
             logger.error(
                 where = "isMonitoringActive",
                 what = "Error checking monitoring status",
-                error = e
+                throwable = e
             )
             false
         }

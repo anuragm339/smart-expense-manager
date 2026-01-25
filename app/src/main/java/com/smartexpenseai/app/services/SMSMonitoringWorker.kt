@@ -88,7 +88,7 @@ class SMSMonitoringWorker @AssistedInject constructor(
             logger.error(
                 where = "doWork",
                 what = "❌ Error during monitoring check",
-                error = e
+                throwable = e
             )
             // Retry the work
             return Result.retry()

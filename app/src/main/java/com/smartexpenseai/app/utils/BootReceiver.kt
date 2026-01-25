@@ -48,7 +48,7 @@ class BootReceiver : BroadcastReceiver() {
                 logger.error(
                     where = "onReceive",
                     what = "❌ Failed to start SMS monitoring after boot",
-                    error = e
+                    throwable = e
                 )
             }
 
