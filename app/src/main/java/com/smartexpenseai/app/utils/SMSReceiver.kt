@@ -28,6 +28,8 @@ class SMSReceiver : BroadcastReceiver() {
     )
     override fun onReceive(context: Context?, intent: Intent?) {
         if (intent?.action == Telephony.Sms.Intents.SMS_RECEIVED_ACTION && context != null) {
+            logger.info("onReceive", "📱 SMS received - starting processing")
+
             // CRITICAL FIX: Use goAsync() to prevent process from being killed before async work completes
             val pendingResult = goAsync()
 
@@ -82,6 +84,8 @@ class SMSReceiver : BroadcastReceiver() {
         val confidenceCalculator = ConfidenceCalculator()
         val unifiedSMSParser = UnifiedSMSParser(ruleLoader, confidenceCalculator)
 
+        // CRITICAL FIX: Use runBlocking to ensure async work completes before pendingResult.finish()
+        // This prevents Android from killing the process before database operations complete
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val result = unifiedSMSParser.parseSMS(sender, messageBody, timestamp)

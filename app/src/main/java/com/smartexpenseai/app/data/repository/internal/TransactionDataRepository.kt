@@ -241,8 +241,22 @@ internal class TransactionDataRepository(
             var duplicateCount = 0
 
             newTransactions.forEach { parsed ->
-                val entity = convertToTransactionEntity(parsed)
-                logger.debug("syncNewSms", "Processing entity: ${entity.rawMerchant} - Ref: ${entity.referenceNumber}")
+                // CRITICAL FIX: Generate consistent SMS ID using same logic as real-time receiver
+                // to prevent duplicates between real-time and incremental scans
+                val tempEntity = convertToTransactionEntity(parsed)
+
+                // Regenerate SMS ID with same algorithm used in SMSReceiver.kt:74-78
+                // Use sender address (e.g., "HDFCBK") instead of "hist_" prefix for consistency
+                val senderAddress = parsed.senderAddress ?: parsed.bankName
+                val consistentSmsId = TransactionEntity.generateSmsId(
+                    address = senderAddress,
+                    body = parsed.rawSMS,
+                    timestamp = parsed.date.time,
+                    referenceNumber = parsed.referenceNumber
+                )
+
+                val entity = tempEntity.copy(smsId = consistentSmsId)
+                logger.debug("syncNewSms", "Processing entity: ${entity.rawMerchant} - Ref: ${entity.referenceNumber} - SMS ID: ${entity.smsId} (from sender: $senderAddress)")
 
                 val existing = transactionDao.getTransactionBySmsId(entity.smsId)
 

@@ -102,7 +102,8 @@ class SMSParsingService @Inject constructor(
                             rawSMS = parseResult.transaction.rawSmsBody,
                             confidence = parseResult.confidence.overall,
                             isDebit = parseResult.transaction.isDebit,
-                            referenceNumber = parseResult.transaction.referenceNumber
+                            referenceNumber = parseResult.transaction.referenceNumber,
+                            senderAddress = sms.address  // CRITICAL: Pass SMS sender for consistent ID generation
                         )
 
                         // Only accept if confidence is reasonable

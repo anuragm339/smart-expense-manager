@@ -75,6 +75,10 @@ class ProfileFragment : Fragment() {
             findNavController().navigate(R.id.action_navigation_profile_to_navigation_export_data)
         }
 
+        binding.layoutCleanupDuplicates.setOnClickListener {
+            showCleanupDuplicatesDialog()
+        }
+
         binding.layoutAbout.setOnClickListener {
             Toast.makeText(requireContext(), "About Smart Expense Manager v1.0", Toast.LENGTH_SHORT).show()
         }
@@ -171,6 +175,11 @@ class ProfileFragment : Fragment() {
             .show()
     }
     
+    private fun showCleanupDuplicatesDialog() {
+        val dialog = com.smartexpenseai.app.ui.settings.CleanupDuplicatesDialog.newInstance()
+        dialog.show(childFragmentManager, com.smartexpenseai.app.ui.settings.CleanupDuplicatesDialog.TAG)
+    }
+
     private fun showLogoutConfirmation() {
         androidx.appcompat.app.AlertDialog.Builder(requireContext())
             .setTitle("Logout")

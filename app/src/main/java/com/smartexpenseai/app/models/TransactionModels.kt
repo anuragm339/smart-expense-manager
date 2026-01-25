@@ -19,7 +19,8 @@ data class ParsedTransaction(
     val date: Date,
     val confidence: Float,
     val rawSMS: String,
-    val referenceNumber: String? = null
+    val referenceNumber: String? = null,
+    val senderAddress: String? = null  // SMS sender address for consistent SMS ID generation
 ) {
     // Constructor for compatibility with different use cases
     constructor(
