@@ -116,8 +116,18 @@ class SMSMonitoringService : Service() {
         // Create notification
         val notification = createNotification()
 
-        // Start foreground service (no type specification needed for Android < 14)
-        startForeground(NOTIFICATION_ID, notification)
+        // Start foreground service with dataSync type (required for targetSdk 34+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            // Android 14+ (API 34) requires service type
+            startForeground(
+                NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+            )
+        } else {
+            // Android 13 and below
+            startForeground(NOTIFICATION_ID, notification)
+        }
 
         logger.info(
             where = "onStartCommand",
