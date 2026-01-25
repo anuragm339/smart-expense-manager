@@ -144,6 +144,9 @@ class MessagesFragment : Fragment() {
             onTransactionClick = { messageItem -> navigateToTransactionDetails(messageItem) },
             onGroupToggle = { group, isIncluded -> handleGroupToggle(group, isIncluded) },
             onGroupEdit = { group -> showMerchantGroupEditDialog(group) },
+            onTransactionDelete = { transaction, merchantGroup ->
+                messagesViewModel.handleEvent(MessagesUIEvent.DeleteTransaction(transaction, merchantGroup))
+            },
             onLoadMore = {
                 messagesViewModel.handleEvent(MessagesUIEvent.LoadMoreMessages)
             }

@@ -108,6 +108,7 @@ class MessagesViewModel @Inject constructor(
             is MessagesUIEvent.UpdateMerchantGroup -> updateMerchantGroup(event.merchantName, event.newDisplayName, event.newCategory)
             is MessagesUIEvent.ResetMerchantGroup -> resetMerchantGroupToOriginal(event.merchantName)
             is MessagesUIEvent.UpdateCategoryForMerchant -> updateCategoryForMerchant(event.merchantName, event.newCategory)
+            is MessagesUIEvent.DeleteTransaction -> deleteTransaction(event.transaction, event.merchantGroup)
             is MessagesUIEvent.ClearError -> clearError()
         }
     }
@@ -164,6 +165,7 @@ class MessagesViewModel @Inject constructor(
                             }
 
                             MessageItem(
+                                transactionId = transaction.id,
                                 amount = transaction.amount,
                                 merchant = displayName,
                                 bankName = transaction.bankName,
@@ -274,6 +276,7 @@ class MessagesViewModel @Inject constructor(
                             val aliasCategoryColor = merchantAliasManager.getMerchantCategoryColor(transaction.rawMerchant)
 
                             MessageItem(
+                                transactionId = transaction.id,
                                 amount = transaction.amount,
                                 merchant = displayName,
                                 bankName = transaction.bankName,
@@ -1374,5 +1377,32 @@ class MessagesViewModel @Inject constructor(
     fun refreshDataAfterExternalChanges() {
         logger.debug("invalidateMerchantAliasCache","Refreshing data after external changes")
         loadMessages()
+    }
+
+    /**
+     * Delete a transaction and refresh the UI
+     */
+    private fun deleteTransaction(transaction: MessageItem, merchantGroup: MerchantGroup) {
+        logger.info("deleteTransaction", "Deleting transaction: ID=${transaction.transactionId}, merchant=${transaction.merchant}, amount=₹${transaction.amount}")
+
+        viewModelScope.launch {
+            try {
+                // Delete from database
+                expenseRepository.deleteTransactionById(transaction.transactionId)
+                logger.info("deleteTransaction", "Successfully deleted transaction ID=${transaction.transactionId}")
+
+                // Refresh the data to reflect changes
+                loadMessages()
+
+                // Notify other screens (like Dashboard) that data has changed
+                notifyDataChanged()
+
+                logger.debug("deleteTransaction", "Transaction deleted and UI refreshed")
+
+            } catch (e: Exception) {
+                logger.error("deleteTransaction", "Failed to delete transaction ID=${transaction.transactionId}", e)
+                handleError("Failed to delete transaction: ${e.message ?: "Unknown error"}")
+            }
+        }
     }
 }

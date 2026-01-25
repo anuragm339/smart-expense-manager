@@ -1,19 +1,23 @@
 package com.smartexpenseai.app.ui.messages
 
 import android.graphics.Color
+import android.graphics.Canvas
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.smartexpenseai.app.databinding.ItemMerchantGroupBinding
 import com.smartexpenseai.app.utils.logging.StructuredLogger
+import android.content.Context
 
 class GroupedMessagesAdapter(
     private val onTransactionClick: (MessageItem) -> Unit,
     private val onGroupToggle: (MerchantGroup, Boolean) -> Unit,
-    private val onGroupEdit: (MerchantGroup) -> Unit
+    private val onGroupEdit: (MerchantGroup) -> Unit,
+    private val onTransactionDelete: (MessageItem, MerchantGroup) -> Unit
 ) : RecyclerView.Adapter<GroupedMessagesAdapter.MerchantGroupViewHolder>() {
     
     private var _merchantGroups = listOf<MerchantGroup>()
@@ -437,6 +441,12 @@ class GroupedMessagesAdapter(
             binding.recyclerTransactions.apply {
                 adapter = transactionsAdapter
                 layoutManager = LinearLayoutManager(context)
+
+                // Add ItemTouchHelper for swipe-to-delete
+                val itemTouchHelper = ItemTouchHelper(
+                    SwipeToDeleteCallback(context, transactionsAdapter, group, onTransactionDelete)
+                )
+                itemTouchHelper.attachToRecyclerView(this)
                 
                 // Enable nested scrolling for proper touch handling
                 isNestedScrollingEnabled = true
@@ -504,9 +514,11 @@ class GroupedMessagesAdapter(
 class TransactionItemAdapter(
     private val onTransactionClick: (MessageItem) -> Unit
 ) : RecyclerView.Adapter<TransactionItemAdapter.TransactionViewHolder>() {
-    
+
     private var transactions = listOf<MessageItem>()
-    
+
+    fun getTransactions(): List<MessageItem> = transactions
+
     fun submitList(items: List<MessageItem>) {
         val oldSize = transactions.size
         transactions = items
@@ -567,6 +579,80 @@ class TransactionItemAdapter(
                 }
             }
         }
+    }
+}
+
+/**
+ * SwipeToDeleteCallback for handling swipe-to-delete gestures
+ */
+private class SwipeToDeleteCallback(
+    private val context: Context,
+    private val adapter: TransactionItemAdapter,
+    private val merchantGroup: MerchantGroup,
+    private val onTransactionDelete: (MessageItem, MerchantGroup) -> Unit
+) : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT) {
+
+    private val logger = StructuredLogger("SwipeToDeleteCallback", "SwipeToDeleteCallback")
+
+    override fun onMove(
+        recyclerView: RecyclerView,
+        viewHolder: RecyclerView.ViewHolder,
+        target: RecyclerView.ViewHolder
+    ): Boolean {
+        return false // We don't support move
+    }
+
+    override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
+        val position = viewHolder.adapterPosition
+        if (position == RecyclerView.NO_POSITION || position >= adapter.getTransactions().size) {
+            logger.warn("onSwiped", "Invalid position: $position")
+            return
+        }
+
+        val transaction = adapter.getTransactions()[position]
+
+        // Show confirmation dialog
+        showDeleteConfirmationDialog(transaction, position)
+    }
+
+    private fun showDeleteConfirmationDialog(transaction: MessageItem, position: Int) {
+        android.app.AlertDialog.Builder(context)
+            .setTitle("Delete Transaction")
+            .setMessage("Are you sure you want to delete this transaction?\n\n₹${String.format("%.0f", transaction.amount)} at ${transaction.merchant}")
+            .setPositiveButton("Delete") { dialog, _ ->
+                // User confirmed deletion
+                logger.info("showDeleteConfirmationDialog", "User confirmed deletion of transaction: ${transaction.transactionId}")
+                onTransactionDelete(transaction, merchantGroup)
+                dialog.dismiss()
+            }
+            .setNegativeButton("Cancel") { dialog, _ ->
+                // User cancelled - restore the item
+                logger.debug("showDeleteConfirmationDialog", "User cancelled deletion")
+                adapter.notifyItemChanged(position)
+                dialog.dismiss()
+            }
+            .setOnCancelListener {
+                // Dialog dismissed - restore the item
+                adapter.notifyItemChanged(position)
+            }
+            .show()
+    }
+
+    override fun onChildDraw(
+        c: Canvas,
+        recyclerView: RecyclerView,
+        viewHolder: RecyclerView.ViewHolder,
+        dX: Float,
+        dY: Float,
+        actionState: Int,
+        isCurrentlyActive: Boolean
+    ) {
+        // Add visual feedback for swipe
+        if (actionState == ItemTouchHelper.ACTION_STATE_SWIPE) {
+            val alpha = 1.0f - Math.abs(dX) / viewHolder.itemView.width.toFloat()
+            viewHolder.itemView.alpha = alpha
+        }
+        super.onChildDraw(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive)
     }
 }
 
