@@ -654,36 +654,15 @@ class MainActivity : AppCompatActivity() {
      * - Prevents Android from killing the SMS receiver
      */
     private fun startSMSMonitoringService() {
-        try {
-            // Start WorkManager-based monitoring
-            // This schedules periodic health checks and ensures SMS monitoring stays active
-            com.smartexpenseai.app.services.SMSMonitoringManager.startMonitoring(this)
-
-            logger.info(
-                "startSMSMonitoringService",
-                "✅ SMS monitoring worker scheduled - background monitoring active"
-            )
-
-            // Show a brief toast to inform the user
-            Toast.makeText(
-                this,
-                "SMS monitoring is now active",
-                Toast.LENGTH_SHORT
-            ).show()
-
-        } catch (e: Exception) {
-            logger.error(
-                "startSMSMonitoringService",
-                "Failed to start SMS monitoring",
-                e
-            )
-
-            Toast.makeText(
-                this,
-                "Failed to start SMS monitoring",
-                Toast.LENGTH_SHORT
-            ).show()
-        }
+        // SMS monitoring is handled automatically by SMSReceiver (BroadcastReceiver)
+        // No foreground service or WorkManager needed - SMS receiver works 24/7
+        // as long as:
+        // 1. SMS permissions are granted
+        // 2. Battery optimization is disabled for the app
+        logger.info(
+            "startSMSMonitoringService",
+            "✅ SMS monitoring active via BroadcastReceiver - no service needed"
+        )
     }
 }
 

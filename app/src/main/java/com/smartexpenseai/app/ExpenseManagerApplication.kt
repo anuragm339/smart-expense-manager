@@ -1,8 +1,6 @@
 package com.smartexpenseai.app
 
 import android.app.Application
-import androidx.hilt.work.HiltWorkerFactory
-import androidx.work.Configuration
 import com.smartexpenseai.app.utils.logging.StructuredLogger
 import com.smartexpenseai.app.utils.logging.TimberFileTree
 import dagger.hilt.android.HiltAndroidApp
@@ -10,12 +8,9 @@ import javax.inject.Inject
 import timber.log.Timber
 
 @HiltAndroidApp
-class ExpenseManagerApplication : Application(), Configuration.Provider {
+class ExpenseManagerApplication : Application() {
     @Inject
     lateinit var timberFileTree: TimberFileTree
-
-    @Inject
-    lateinit var workerFactory: HiltWorkerFactory
 
     private val logger = StructuredLogger("APP", ExpenseManagerApplication::class.java.simpleName)
 
@@ -25,11 +20,6 @@ class ExpenseManagerApplication : Application(), Configuration.Provider {
         initializeTimber()
         logger.debug("onCreate","Timber logging system initialized successfully")
     }
-
-    override val workManagerConfiguration: Configuration
-        get() = Configuration.Builder()
-            .setWorkerFactory(workerFactory)
-            .build()
 
     /**
      * Initialize Timber logging system
