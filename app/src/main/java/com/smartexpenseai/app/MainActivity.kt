@@ -655,40 +655,32 @@ class MainActivity : AppCompatActivity() {
      */
     private fun startSMSMonitoringService() {
         try {
-            // Check if service is already running
-            if (com.smartexpenseai.app.services.SMSMonitoringService.isRunning(this)) {
-                logger.debug(
-                    "startSMSMonitoringService",
-                    "SMS Monitoring Service already running"
-                )
-                return
-            }
-
-            // Start the foreground service
-            com.smartexpenseai.app.services.SMSMonitoringService.start(this)
+            // Start WorkManager-based monitoring
+            // This schedules periodic health checks and ensures SMS monitoring stays active
+            com.smartexpenseai.app.services.SMSMonitoringManager.startMonitoring(this)
 
             logger.info(
                 "startSMSMonitoringService",
-                "✅ SMS Monitoring Foreground Service started - 24/7 monitoring active"
+                "✅ SMS monitoring worker scheduled - background monitoring active"
             )
 
             // Show a brief toast to inform the user
             Toast.makeText(
                 this,
-                "SMS monitoring is now active 24/7",
+                "SMS monitoring is now active",
                 Toast.LENGTH_SHORT
             ).show()
 
         } catch (e: Exception) {
             logger.error(
                 "startSMSMonitoringService",
-                "Failed to start SMS Monitoring Service",
+                "Failed to start SMS monitoring",
                 e
             )
 
             Toast.makeText(
                 this,
-                "Failed to start SMS monitoring service",
+                "Failed to start SMS monitoring",
                 Toast.LENGTH_SHORT
             ).show()
         }

@@ -3,18 +3,24 @@ package com.smartexpenseai.app.utils
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import com.smartexpenseai.app.services.SMSMonitoringManager
 import com.smartexpenseai.app.utils.logging.StructuredLogger
 
 /**
  * BootReceiver - Ensures SMS monitoring continues after device restart
  *
- * Android kills all app processes on reboot, which can stop BroadcastReceivers
- * from functioning. This receiver re-initializes the app when the device boots.
+ * Android kills all app processes on reboot, which can stop background tasks.
+ * This receiver re-initializes SMS monitoring using WorkManager when the device boots.
  *
  * Required for:
- * - Re-enabling SMS monitoring after device restart
+ * - Re-scheduling WorkManager tasks after device restart
  * - Ensuring SMSReceiver continues to work
  * - Maintaining notification functionality
+ *
+ * New Approach (WorkManager-based):
+ * - No foreground service required
+ * - WorkManager automatically persists across reboots (Android 6.0+)
+ * - Combined with battery optimization exemption for high reliability
  */
 class BootReceiver : BroadcastReceiver() {
 
@@ -27,28 +33,28 @@ class BootReceiver : BroadcastReceiver() {
         if (intent?.action == Intent.ACTION_BOOT_COMPLETED && context != null) {
             logger.info(
                 where = "onReceive",
-                what = "Device boot completed - SMS monitoring will continue"
+                what = "📱 Device boot completed - re-initializing SMS monitoring"
             )
 
-            // CRITICAL: Start the foreground service to ensure reliable SMS monitoring
-            // This keeps the app alive in background even after reboot
+            // Start WorkManager-based monitoring
+            // This schedules periodic health checks for SMS monitoring
             try {
-                com.smartexpenseai.app.services.SMSMonitoringService.start(context)
+                SMSMonitoringManager.startMonitoring(context)
                 logger.info(
                     where = "onReceive",
-                    what = "✅ SMS Monitoring Foreground Service started after boot"
+                    what = "✅ SMS monitoring worker scheduled after boot"
                 )
             } catch (e: Exception) {
                 logger.error(
                     where = "onReceive",
-                    what = "Failed to start SMS Monitoring Service after boot",
-                    throwable = e
+                    what = "❌ Failed to start SMS monitoring after boot",
+                    error = e
                 )
             }
 
             logger.debug(
                 where = "onReceive",
-                what = "BootReceiver triggered successfully - SMSReceiver is ready"
+                what = "BootReceiver completed - SMSReceiver is ready to receive SMS"
             )
         }
     }
