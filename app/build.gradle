@@ -18,7 +18,7 @@ android {
         // Automatic versioning derived from Git commit count.
         // Every commit bumps versionCode and versionName with zero manual work.
         // Only bump VERSION_BASE below for a major/minor release (e.g. "2.0").
-        def VERSION_BASE = "1.0"
+        def VERSION_BASE = "3.0"
         def gitCommitCount = 101  // fallback if git is unavailable
 
         try {
@@ -184,7 +184,7 @@ dependencies {
 // Task to print current version
 task printVersion {
     doLast {
-        def VERSION_BASE = "1.0"
+        def VERSION_BASE = "3.0"
         def vCode = 101
         try {
             def countResult = 'git rev-list --count HEAD'.execute()
