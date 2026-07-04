@@ -5,54 +5,63 @@ import com.smartexpenseai.app.data.entities.TransactionEntity
 import kotlinx.coroutines.flow.Flow
 import java.util.Date
 
+/**
+ * NOTE ON SOFT DELETE:
+ * Transactions are never removed by user-facing delete actions. They are marked
+ * is_active = 0 instead, so every query that feeds a screen filters on is_active = 1.
+ * Deduplication lookups (getTransactionBySmsId / findSimilarTransaction /
+ * countSimilarTransactions) intentionally DO NOT filter on is_active so that a
+ * deleted transaction is not re-imported by a future SMS scan.
+ */
 @Dao
 interface TransactionDao {
-    
-    @Query("SELECT * FROM transactions ORDER BY transaction_date DESC")
+
+    @Query("SELECT * FROM transactions WHERE is_active = 1 ORDER BY transaction_date DESC")
     fun getAllTransactions(): Flow<List<TransactionEntity>>
-    
-    @Query("SELECT * FROM transactions ORDER BY transaction_date DESC")
+
+    @Query("SELECT * FROM transactions WHERE is_active = 1 ORDER BY transaction_date DESC")
     suspend fun getAllTransactionsSync(): List<TransactionEntity>
-    
-    @Query("SELECT * FROM transactions WHERE transaction_date >= :startDate AND transaction_date <= :endDate ORDER BY transaction_date DESC")
+
+    @Query("SELECT * FROM transactions WHERE is_active = 1 AND transaction_date >= :startDate AND transaction_date <= :endDate ORDER BY transaction_date DESC")
     suspend fun getTransactionsByDateRange(startDate: Date, endDate: Date): List<TransactionEntity>
 
-    @Query("SELECT * FROM transactions WHERE transaction_date >= :startDate AND transaction_date <= :endDate ORDER BY transaction_date DESC LIMIT :limit OFFSET :offset")
+    @Query("SELECT * FROM transactions WHERE is_active = 1 AND transaction_date >= :startDate AND transaction_date <= :endDate ORDER BY transaction_date DESC LIMIT :limit OFFSET :offset")
     suspend fun getTransactionsByDateRangePaginated(startDate: Date, endDate: Date, limit: Int, offset: Int): List<TransactionEntity>
 
-    @Query("SELECT * FROM transactions WHERE normalized_merchant = :merchantName ORDER BY transaction_date DESC")
+    @Query("SELECT * FROM transactions WHERE is_active = 1 AND normalized_merchant = :merchantName ORDER BY transaction_date DESC")
     suspend fun getTransactionsByMerchant(merchantName: String): List<TransactionEntity>
 
-    @Query("SELECT COUNT(*) FROM transactions WHERE normalized_merchant = :merchantName")
+    @Query("SELECT COUNT(*) FROM transactions WHERE is_active = 1 AND normalized_merchant = :merchantName")
     suspend fun getTransactionCountByMerchant(merchantName: String): Int
 
-    @Query("SELECT * FROM transactions WHERE normalized_merchant LIKE '%' || :merchantName || '%' AND amount >= :minAmount ORDER BY transaction_date DESC")
+    @Query("SELECT * FROM transactions WHERE is_active = 1 AND normalized_merchant LIKE '%' || :merchantName || '%' AND amount >= :minAmount ORDER BY transaction_date DESC")
     suspend fun getTransactionsByMerchantAndAmount(merchantName: String, minAmount: Double): List<TransactionEntity>
-    
-    @Query("SELECT * FROM transactions WHERE bank_name = :bankName ORDER BY transaction_date DESC")
+
+    @Query("SELECT * FROM transactions WHERE is_active = 1 AND bank_name = :bankName ORDER BY transaction_date DESC")
     suspend fun getTransactionsByBank(bankName: String): List<TransactionEntity>
-    
+
     @Query("""
-        SELECT * FROM transactions 
-        WHERE (raw_merchant LIKE '%' || :query || '%' OR normalized_merchant LIKE '%' || :query || '%')
-        ORDER BY transaction_date DESC 
+        SELECT * FROM transactions
+        WHERE is_active = 1
+          AND (raw_merchant LIKE '%' || :query || '%' OR normalized_merchant LIKE '%' || :query || '%')
+        ORDER BY transaction_date DESC
         LIMIT :limit
     """)
     suspend fun searchTransactions(query: String, limit: Int = 50): List<TransactionEntity>
-    
-    @Query("SELECT COUNT(*) FROM transactions")
+
+    @Query("SELECT COUNT(*) FROM transactions WHERE is_active = 1")
     suspend fun getTransactionCount(): Int
-    
-    @Query("SELECT COUNT(*) FROM transactions WHERE transaction_date >= :startDate AND transaction_date <= :endDate")
+
+    @Query("SELECT COUNT(*) FROM transactions WHERE is_active = 1 AND transaction_date >= :startDate AND transaction_date <= :endDate")
     suspend fun getTransactionCountByDateRange(startDate: Date, endDate: Date): Int
-    
+
     // EXPENSE-SPECIFIC QUERIES (Only debit transactions)
-    @Query("SELECT * FROM transactions WHERE is_debit = 1 AND transaction_date >= :startDate AND transaction_date <= :endDate ORDER BY transaction_date DESC")
+    @Query("SELECT * FROM transactions WHERE is_active = 1 AND is_debit = 1 AND transaction_date >= :startDate AND transaction_date <= :endDate ORDER BY transaction_date DESC")
     suspend fun getExpenseTransactionsByDateRange(startDate: Date, endDate: Date): List<TransactionEntity>
-    
-    @Query("SELECT COUNT(*) FROM transactions WHERE is_debit = 1 AND transaction_date >= :startDate AND transaction_date <= :endDate")
+
+    @Query("SELECT COUNT(*) FROM transactions WHERE is_active = 1 AND is_debit = 1 AND transaction_date >= :startDate AND transaction_date <= :endDate")
     suspend fun getExpenseTransactionCount(startDate: Date, endDate: Date): Int
-    
+
     @Query("""
         SELECT SUM(t.amount)
         FROM transactions t
@@ -60,43 +69,46 @@ interface TransactionDao {
         WHERE t.transaction_date >= :startDate
           AND t.transaction_date <= :endDate
           AND t.is_debit = 1
+          AND t.is_active = 1
           AND (m.is_excluded_from_expense_tracking = 0 OR m.is_excluded_from_expense_tracking IS NULL)
     """)
     suspend fun getTotalSpentByDateRange(startDate: Date, endDate: Date): Double?
-    
+
     // Credit transaction queries for balance calculation
-    @Query("SELECT SUM(amount) FROM transactions WHERE transaction_date >= :startDate AND transaction_date <= :endDate AND is_debit = 0")
+    @Query("SELECT SUM(amount) FROM transactions WHERE is_active = 1 AND transaction_date >= :startDate AND transaction_date <= :endDate AND is_debit = 0")
     suspend fun getTotalCreditsOrIncomeByDateRange(startDate: Date, endDate: Date): Double?
-    
-    @Query("SELECT COUNT(*) FROM transactions WHERE is_debit = 0 AND transaction_date >= :startDate AND transaction_date <= :endDate")
+
+    @Query("SELECT COUNT(*) FROM transactions WHERE is_active = 1 AND is_debit = 0 AND transaction_date >= :startDate AND transaction_date <= :endDate")
     suspend fun getCreditTransactionCount(startDate: Date, endDate: Date): Int
-    
+
     // Salary-specific queries for monthly balance calculation
     @Query("""
-        SELECT * FROM transactions 
-        WHERE is_debit = 0 
-        AND (raw_sms_body LIKE '%salary%' OR raw_merchant LIKE '%SALARY%' 
+        SELECT * FROM transactions
+        WHERE is_active = 1
+        AND is_debit = 0
+        AND (raw_sms_body LIKE '%salary%' OR raw_merchant LIKE '%SALARY%'
              OR raw_sms_body LIKE '%sal %' OR raw_merchant LIKE '%SAL%'
              OR raw_sms_body LIKE '%wages%' OR raw_merchant LIKE '%WAGE%'
              OR raw_sms_body LIKE '%payroll%' OR raw_merchant LIKE '%PAYROLL%')
-        ORDER BY transaction_date DESC 
+        ORDER BY transaction_date DESC
         LIMIT 1
     """)
     suspend fun getLastSalaryTransaction(): TransactionEntity?
-    
+
     @Query("""
-        SELECT * FROM transactions 
-        WHERE is_debit = 0 
+        SELECT * FROM transactions
+        WHERE is_active = 1
+        AND is_debit = 0
         AND amount >= :minAmount
-        AND (raw_sms_body LIKE '%salary%' OR raw_merchant LIKE '%SALARY%' 
+        AND (raw_sms_body LIKE '%salary%' OR raw_merchant LIKE '%SALARY%'
              OR raw_sms_body LIKE '%sal %' OR raw_merchant LIKE '%SAL%'
              OR raw_sms_body LIKE '%wages%' OR raw_merchant LIKE '%WAGE%'
              OR raw_sms_body LIKE '%payroll%' OR raw_merchant LIKE '%PAYROLL%')
-        ORDER BY transaction_date DESC 
+        ORDER BY transaction_date DESC
         LIMIT :limit
     """)
     suspend fun getSalaryTransactions(minAmount: Double = 10000.0, limit: Int = 10): List<TransactionEntity>
-    
+
     @Query("""
         SELECT
             COALESCE(m.display_name, t.normalized_merchant) as normalized_merchant,
@@ -109,30 +121,34 @@ interface TransactionDao {
         LEFT JOIN categories c ON t.category_id = c.id
         WHERE t.transaction_date >= :startDate AND t.transaction_date <= :endDate
           AND t.is_debit = 1
+          AND t.is_active = 1
           AND (m.is_excluded_from_expense_tracking = 0 OR m.is_excluded_from_expense_tracking IS NULL)
         GROUP BY COALESCE(m.display_name, t.normalized_merchant), c.name, c.color
         ORDER BY total_amount DESC
         LIMIT :limit
     """)
     suspend fun getTopMerchantsBySpending(startDate: Date, endDate: Date, limit: Int = 10): List<MerchantSpendingWithCategory>
-    
+
     @Query("""
-        SELECT MAX(transaction_date) as last_sync_date, MAX(sms_id) as last_sms_id 
+        SELECT MAX(transaction_date) as last_sync_date, MAX(sms_id) as last_sms_id
         FROM transactions
     """)
     suspend fun getLastSyncInfo(): SyncInfo?
-    
+
+    // Deliberately includes inactive rows: a soft-deleted transaction must keep
+    // blocking re-import of the same SMS during rescans
     @Query("SELECT * FROM transactions WHERE sms_id = :smsId")
     suspend fun getTransactionBySmsId(smsId: String): TransactionEntity?
 
     @Query("SELECT * FROM transactions WHERE id = :transactionId LIMIT 1")
     suspend fun getTransactionById(transactionId: Long): TransactionEntity?
 
+    // Deliberately includes inactive rows (see getTransactionBySmsId)
     @Query("""
-        SELECT * FROM transactions 
-        WHERE normalized_merchant = :normalizedMerchant 
-          AND amount BETWEEN :minAmount AND :maxAmount 
-          AND transaction_date BETWEEN :startDate AND :endDate 
+        SELECT * FROM transactions
+        WHERE normalized_merchant = :normalizedMerchant
+          AND amount BETWEEN :minAmount AND :maxAmount
+          AND transaction_date BETWEEN :startDate AND :endDate
           AND bank_name = :bankName
         LIMIT 1
     """)
@@ -144,33 +160,61 @@ interface TransactionDao {
         endDate: Date,
         bankName: String
     ): TransactionEntity?
-    
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertTransaction(transaction: TransactionEntity): Long
-    
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertTransactions(transactions: List<TransactionEntity>): List<Long>
-    
+
     @Update
     suspend fun updateTransaction(transaction: TransactionEntity)
-    
-    @Delete
-    suspend fun deleteTransaction(transaction: TransactionEntity)
-    
-    @Query("DELETE FROM transactions WHERE id = :transactionId")
-    suspend fun deleteTransactionById(transactionId: Long)
-    
+
+    /**
+     * Soft delete: mark the transaction inactive instead of removing the row.
+     * It disappears from all screens but stays in the table for dedup purposes.
+     */
+    @Query("UPDATE transactions SET is_active = 0, updated_at = :updatedAt WHERE id = :transactionId")
+    suspend fun softDeleteTransactionById(transactionId: Long, updatedAt: Date)
+
+    /**
+     * Soft delete every active transaction of a merchant (used when the user
+     * deletes a merchant group from the Messages screen).
+     */
+    @Query("UPDATE transactions SET is_active = 0, updated_at = :updatedAt WHERE normalized_merchant = :normalizedMerchant AND is_active = 1")
+    suspend fun softDeleteTransactionsByMerchant(normalizedMerchant: String, updatedAt: Date): Int
+
+    /**
+     * Move all transactions from one category to another (used when a category
+     * is deleted, so its transactions don't point at a nonexistent category).
+     */
+    @Query("UPDATE transactions SET category_id = :newCategoryId WHERE category_id = :oldCategoryId")
+    suspend fun reassignTransactionsCategory(oldCategoryId: Long, newCategoryId: Long): Int
+
+    /**
+     * All soft-deleted transactions, for the DELETED tab / restore screen
+     */
+    @Query("SELECT * FROM transactions WHERE is_active = 0 ORDER BY transaction_date DESC")
+    suspend fun getInactiveTransactionsSync(): List<TransactionEntity>
+
+    /**
+     * Restore all soft-deleted transactions of a merchant (undo of softDeleteTransactionsByMerchant)
+     */
+    @Query("UPDATE transactions SET is_active = 1, updated_at = :updatedAt WHERE normalized_merchant = :normalizedMerchant AND is_active = 0")
+    suspend fun restoreTransactionsByMerchant(normalizedMerchant: String, updatedAt: Date): Int
+
     @Query("DELETE FROM transactions")
     suspend fun deleteAllTransactions()
-    
+
     /**
      * Find transactions that might be duplicates based on business logic
      * Used for deduplication when SMS IDs might differ but transactions are identical
+     * Deliberately includes inactive rows (see getTransactionBySmsId)
      */
     @Query("""
-        SELECT COUNT(*) FROM transactions 
-        WHERE normalized_merchant = :normalizedMerchant 
-        AND amount = :amount 
+        SELECT COUNT(*) FROM transactions
+        WHERE normalized_merchant = :normalizedMerchant
+        AND amount = :amount
         AND DATE(transaction_date) = :transactionDateStr
         AND bank_name = :bankName
     """)
@@ -180,7 +224,7 @@ interface TransactionDao {
         transactionDateStr: String,
         bankName: String
     ): Int
-    
+
     // For dashboard category breakdown - uses direct category_id from transactions
     @Query("""
         SELECT t.category_id, c.name as category_name, c.color,
@@ -191,6 +235,7 @@ interface TransactionDao {
         LEFT JOIN merchants m ON t.normalized_merchant = m.normalized_name
         WHERE t.transaction_date >= :startDate AND t.transaction_date <= :endDate
           AND t.is_debit = 1
+          AND t.is_active = 1
           AND (m.is_excluded_from_expense_tracking = 0 OR m.is_excluded_from_expense_tracking IS NULL)
         GROUP BY t.category_id, c.name, c.color
         ORDER BY total_amount DESC
@@ -210,6 +255,7 @@ interface TransactionDao {
         LEFT JOIN merchants m ON t.normalized_merchant = m.normalized_name
         WHERE t.category_id = :categoryId
           AND t.is_debit = 1
+          AND t.is_active = 1
           AND (m.is_excluded_from_expense_tracking = 0 OR m.is_excluded_from_expense_tracking IS NULL)
         GROUP BY t.normalized_merchant
         HAVING transactionCount > 0

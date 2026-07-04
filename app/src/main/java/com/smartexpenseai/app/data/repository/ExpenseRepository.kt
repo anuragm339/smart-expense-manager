@@ -199,6 +199,32 @@ class ExpenseRepository @Inject constructor(
         transactionRepository.deleteTransactionById(transactionId)
     }
 
+    /**
+     * Delete a merchant group: soft-deletes all its transactions and flags the
+     * merchant so future SMS from it are hidden automatically.
+     */
+    suspend fun deleteMerchantTransactions(normalizedMerchant: String): Int =
+        transactionRepository.deleteMerchantTransactions(normalizedMerchant)
+
+    suspend fun isMerchantDeleted(normalizedMerchant: String): Boolean =
+        transactionRepository.isMerchantDeleted(normalizedMerchant)
+
+    suspend fun getInactiveTransactionsSync(): List<TransactionEntity> =
+        transactionRepository.inactiveTransactions()
+
+    /**
+     * Undo of deleteMerchantTransactions: reactivates the merchant's transactions
+     * and future SMS from it are tracked again.
+     */
+    suspend fun restoreMerchantTransactions(normalizedMerchant: String): Int =
+        transactionRepository.restoreMerchantTransactions(normalizedMerchant)
+
+    /**
+     * Move all transactions from one category to another (category deletion support)
+     */
+    suspend fun reassignTransactionsCategory(oldCategoryId: Long, newCategoryId: Long): Int =
+        transactionDao.reassignTransactionsCategory(oldCategoryId, newCategoryId)
+
     override suspend fun deleteAllTransactions(): Int = withContext(Dispatchers.IO) {
         try {
             // Get count before deletion

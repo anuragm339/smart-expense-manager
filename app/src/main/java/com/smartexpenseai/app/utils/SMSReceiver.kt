@@ -106,7 +106,14 @@ class SMSReceiver : BroadcastReceiver() {
                             repository.getTransactionBySmsId(transactionEntity.smsId)
 
                         // Check for duplicate by SMS ID only (reference number is already part of SMS ID)
-                        if (existingTransaction == null) {
+                        if (existingTransaction != null) {
+                            logger.warn("processBankSMS","Duplicate transaction detected (SMS ID already exists), skipping: ${transactionEntity.smsId}")
+                        } else if (repository.isMerchantDeleted(transactionEntity.normalizedMerchant)) {
+                            // Merchant previously deleted by the user: store the transaction
+                            // as inactive silently - no notification, no broadcast
+                            repository.insertTransaction(transactionEntity.copy(isActive = false))
+                            logger.debug("processBankSMS", "[AUTO-HIDDEN] Transaction from deleted merchant '${transactionEntity.normalizedMerchant}' stored inactive")
+                        } else {
                             val insertedId = repository.insertTransaction(transactionEntity)
 
                             if (insertedId > 0) {
@@ -147,8 +154,6 @@ class SMSReceiver : BroadcastReceiver() {
                             } else {
                                 logger.warn("processBankSMS","Failed to insert transaction into database",null)
                             }
-                        } else {
-                            logger.warn("processBankSMS","Duplicate transaction detected (SMS ID already exists), skipping: ${transactionEntity.smsId}")
                         }
 
                     } catch (e: Exception) {

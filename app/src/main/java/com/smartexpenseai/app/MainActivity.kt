@@ -67,6 +67,9 @@ class MainActivity : AppCompatActivity() {
             checkBatteryOptimization()
             // CRITICAL: Start foreground service for 100% reliable SMS monitoring
             startSMSMonitoringService()
+            // Silently import any SMS received since the last sync (catches messages
+            // that arrived while the app was closed or the receiver was not running)
+            performIncrementalSmsSync()
         } else {
             logger.debug("onCreate","SMS permissions not granted, will request notification permission after SMS is granted")
         }
@@ -320,6 +323,30 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
     
+    /**
+     * Background incremental sync on app open: scans only SMS newer than the last sync
+     * date and inserts anything new. No dialogs — just a toast when something was added.
+     */
+    private fun performIncrementalSmsSync() {
+        lifecycleScope.launch {
+            try {
+                val insertedCount = transactionRepository.syncNewSMS()
+                logger.debug("performIncrementalSmsSync", "Incremental sync inserted $insertedCount transactions")
+
+                if (insertedCount > 0) {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Imported $insertedCount new transaction${if (insertedCount == 1) "" else "s"} from SMS",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            } catch (e: Exception) {
+                // Never interrupt app startup for a background sync failure
+                logger.error("performIncrementalSmsSync", "Incremental SMS sync failed", e)
+            }
+        }
+    }
+
     private fun scanHistoricalSMS() {
         lifecycleScope.launch {
             var progressDialog: AlertDialog? = null

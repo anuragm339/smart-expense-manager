@@ -668,11 +668,12 @@ class MessagesViewModel @Inject constructor(
         viewModelScope.launch {
             val currentState = _uiState.value
             
-            // Apply filter tab logic first (ALL/INCLUDED/EXCLUDED)
+            // Apply filter tab logic first (ALL/INCLUDED/EXCLUDED/DELETED)
             var filtered = when (currentState.currentFilterTab) {
                 TransactionFilterTab.ALL -> currentState.allMessages
                 TransactionFilterTab.INCLUDED -> transactionFilterService.getIncludedMessageItems(currentState.allMessages)
                 TransactionFilterTab.EXCLUDED -> transactionFilterService.getExcludedMessageItems(currentState.allMessages)
+                TransactionFilterTab.DELETED -> fetchDeletedMessageItems()
             }.toList()
 
             logger.debug("applyFiltersAndSort","Applied filter tab ${currentState.currentFilterTab.displayName}: ${currentState.allMessages.size} -> ${filtered.size} items")
@@ -1380,16 +1381,107 @@ class MessagesViewModel @Inject constructor(
     }
 
     /**
-     * Delete a transaction and refresh the UI
+     * Load soft-deleted transactions for the DELETED tab, mapped the same way
+     * as active messages so grouping/sorting work unchanged
      */
-    private fun deleteTransaction(transaction: MessageItem, merchantGroup: MerchantGroup) {
-        logger.info("deleteTransaction", "Deleting transaction: ID=${transaction.transactionId}, merchant=${transaction.merchant}, amount=₹${transaction.amount}")
+    private suspend fun fetchDeletedMessageItems(): List<MessageItem> {
+        return try {
+            expenseRepository.getInactiveTransactionsSync().mapNotNull { transaction ->
+                try {
+                    MessageItem(
+                        transactionId = transaction.id,
+                        amount = transaction.amount,
+                        merchant = merchantAliasManager.getDisplayName(transaction.rawMerchant),
+                        bankName = transaction.bankName,
+                        category = merchantAliasManager.getMerchantCategory(transaction.rawMerchant),
+                        categoryColor = merchantAliasManager.getMerchantCategoryColor(transaction.rawMerchant),
+                        confidence = (transaction.confidenceScore * 100).toInt(),
+                        dateTime = formatDate(transaction.transactionDate),
+                        rawSMS = transaction.rawSmsBody,
+                        isDebit = transaction.isDebit,
+                        rawMerchant = transaction.rawMerchant,
+                        actualDate = transaction.transactionDate
+                    )
+                } catch (e: Exception) {
+                    logger.error("fetchDeletedMessageItems", "Error converting deleted transaction", e)
+                    null
+                }
+            }.filter { it.merchant.isNotBlank() && it.merchant != "." }
+        } catch (e: Exception) {
+            logger.error("fetchDeletedMessageItems", "Failed to load deleted transactions", e)
+            emptyList()
+        }
+    }
+
+    /**
+     * Restore a deleted merchant group: reactivates all its transactions and
+     * clears the merchant's deleted flag so future SMS are tracked again.
+     */
+    private fun restoreMerchantGroup(transaction: MessageItem, merchantGroup: MerchantGroup) {
+        logger.info("restoreMerchantGroup", "Restoring merchant group '${merchantGroup.merchantName}'")
 
         viewModelScope.launch {
             try {
-                // Delete from database
-                expenseRepository.deleteTransactionById(transaction.transactionId)
-                logger.info("deleteTransaction", "Successfully deleted transaction ID=${transaction.transactionId}")
+                val sampleTransactionIds = merchantGroup.transactions
+                    .distinctBy { it.rawMerchant }
+                    .map { it.transactionId }
+                    .filter { it > 0 }
+                    .ifEmpty { listOf(transaction.transactionId) }
+
+                val normalizedMerchants = sampleTransactionIds
+                    .mapNotNull { expenseRepository.getTransactionById(it)?.normalizedMerchant }
+                    .toSet()
+
+                var restoredCount = 0
+                normalizedMerchants.forEach { merchant ->
+                    restoredCount += expenseRepository.restoreMerchantTransactions(merchant)
+                }
+
+                logger.info("restoreMerchantGroup", "Restored $restoredCount transactions across ${normalizedMerchants.size} merchant(s)")
+
+                loadMessages()
+                notifyDataChanged()
+            } catch (e: Exception) {
+                logger.error("restoreMerchantGroup", "Failed to restore merchant group '${merchantGroup.merchantName}'", e)
+                handleError("Failed to restore transactions: ${e.message ?: "Unknown error"}")
+            }
+        }
+    }
+
+    /**
+     * Delete the whole merchant group: soft-deletes ALL transactions of this
+     * merchant/custom name (not just the swiped one) and flags the merchant so
+     * future SMS from it are hidden automatically without user interaction.
+     *
+     * On the DELETED tab the same swipe gesture restores instead.
+     */
+    private fun deleteTransaction(transaction: MessageItem, merchantGroup: MerchantGroup) {
+        if (_uiState.value.currentFilterTab == TransactionFilterTab.DELETED) {
+            restoreMerchantGroup(transaction, merchantGroup)
+            return
+        }
+        logger.info("deleteTransaction", "Deleting merchant group '${merchantGroup.merchantName}' (triggered by transaction ID=${transaction.transactionId})")
+
+        viewModelScope.launch {
+            try {
+                // Resolve the distinct normalized merchants backing this group - a
+                // custom display name (alias) can span several raw merchant names
+                val sampleTransactionIds = merchantGroup.transactions
+                    .distinctBy { it.rawMerchant }
+                    .map { it.transactionId }
+                    .filter { it > 0 }
+                    .ifEmpty { listOf(transaction.transactionId) }
+
+                val normalizedMerchants = sampleTransactionIds
+                    .mapNotNull { expenseRepository.getTransactionById(it)?.normalizedMerchant }
+                    .toSet()
+
+                var hiddenCount = 0
+                normalizedMerchants.forEach { merchant ->
+                    hiddenCount += expenseRepository.deleteMerchantTransactions(merchant)
+                }
+
+                logger.info("deleteTransaction", "Soft-deleted $hiddenCount transactions across ${normalizedMerchants.size} merchant(s) for group '${merchantGroup.merchantName}'")
 
                 // Refresh the data to reflect changes
                 loadMessages()
@@ -1397,11 +1489,9 @@ class MessagesViewModel @Inject constructor(
                 // Notify other screens (like Dashboard) that data has changed
                 notifyDataChanged()
 
-                logger.debug("deleteTransaction", "Transaction deleted and UI refreshed")
-
             } catch (e: Exception) {
-                logger.error("deleteTransaction", "Failed to delete transaction ID=${transaction.transactionId}", e)
-                handleError("Failed to delete transaction: ${e.message ?: "Unknown error"}")
+                logger.error("deleteTransaction", "Failed to delete merchant group '${merchantGroup.merchantName}'", e)
+                handleError("Failed to delete transactions: ${e.message ?: "Unknown error"}")
             }
         }
     }

@@ -49,7 +49,7 @@ internal class DatabaseMaintenanceOperations(
                 val toRemove = duplicates.filter { it.id != toKeep?.id }
 
                 for (duplicate in toRemove) {
-                    transactionDao.deleteTransaction(duplicate)
+                    transactionDao.softDeleteTransactionById(duplicate.id, java.util.Date())
                     removedCount++
                     logger.debug(
                         where = "cleanupDuplicateTransactions",
