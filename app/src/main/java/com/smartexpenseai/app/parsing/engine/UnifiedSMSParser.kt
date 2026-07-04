@@ -60,7 +60,16 @@ class UnifiedSMSParser @Inject constructor(
             "UPI collect request" to Regex("has\\s+requested|requested\\s+money|payment\\s+request|collect\\s+request", RegexOption.IGNORE_CASE),
             "OTP message" to Regex("\\botp\\b|one\\s*time\\s*password", RegexOption.IGNORE_CASE),
             "bill/due reminder" to Regex("payment\\s+due|min(?:imum)?\\s+(?:amount\\s+)?due|due\\s+on|is\\s+due", RegexOption.IGNORE_CASE),
-            "declined transaction" to Regex("insufficient\\s+balance|transaction\\s+(?:declined|failed)", RegexOption.IGNORE_CASE)
+            "declined transaction" to Regex("insufficient\\s+balance|transaction\\s+(?:declined|failed)", RegexOption.IGNORE_CASE),
+            // Promotional offers name an amount and a card but are not spends. Markers
+            // (voucher / coupon / reward points / "T&C" / "by doing N Trxns") do not
+            // appear in genuine debit alerts, so this will not drop real transactions.
+            "promotional offer" to Regex(
+                "\\b(?:e-?voucher|voucher|gift\\s*card|coupon|reward\\s*points?)\\b" +
+                    "|\\bt&c\\b|\\bterms\\s+(?:and|&)\\s+conditions\\b" +
+                    "|\\bby\\s+doing\\s+\\d+\\s+(?:txn|trxn|transaction)s?\\b",
+                RegexOption.IGNORE_CASE
+            )
         )
     }
 
@@ -351,16 +360,9 @@ class UnifiedSMSParser @Inject constructor(
      * Clean merchant name (remove extra spaces, special chars)
      */
     private fun cleanMerchantName(merchant: String): String {
-        val collapsed = merchant.trim().replace(Regex("\\s+"), " ")
-        // UPI VPAs ("merchant@ybl") must keep their @ and dots or they collapse
-        // into unreadable strings; everything else is stripped to plain text
-        val trim = if (collapsed.contains("@")) {
-            collapsed.replace(Regex("[^A-Za-z0-9.@_\\s-]"), "").trim()
-        } else {
-            collapsed.replace(Regex("[^A-Za-z0-9\\s&'-]"), "").trim()
-        }
-        logger.debug("cleanMerchantName","$trim actual merchant name $merchant")
-        return trim
+        val cleaned = MerchantNameCleaner.clean(merchant)
+        logger.debug("cleanMerchantName","$cleaned actual merchant name $merchant")
+        return cleaned
     }
 
     /**

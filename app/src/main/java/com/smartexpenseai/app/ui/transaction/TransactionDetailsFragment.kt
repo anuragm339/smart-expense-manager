@@ -209,8 +209,8 @@ class TransactionDetailsFragment : Fragment() {
                 viewModel.handleEvent(TransactionDetailsUIEvent.SaveTransaction)
             }
             
-            // Close button
-            btnClose.setOnClickListener {
+            // Toolbar back navigation
+            toolbar.setNavigationOnClickListener {
                 viewModel.handleEvent(TransactionDetailsUIEvent.NavigateBack)
                 findNavController().navigateUp()
             }

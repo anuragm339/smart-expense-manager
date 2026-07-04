@@ -1,7 +1,7 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- `app/` is the primary Android module; Kotlin sources live under `app/src/main/java/com/expensemanager/app`, resources in `app/src/main/res`, and dependency injection wiring under `app/src/main/java/.../di`.
+- `app/` is the primary Android module; Kotlin sources live under `app/src/main/java/com/smartexpenseai/app`, resources in `app/src/main/res`, and dependency injection wiring under `app/src/main/java/.../di`.
 - Unit tests sit in `app/src/test`, instrumentation tests in `app/src/androidTest`, and shared fixtures like `test_sms_samples.kt` aid SMS parsing scenarios.
 - `codebase/` contains the maintained architecture book and feature-flow documentation. Helper scripts such as `convert_timber_to_log.sh` and `convert_to_structured_logger.py` support ongoing logging refactors.
 
@@ -28,4 +28,4 @@
 
 ## Configuration Tips
 - Keep `google-services.json` and other secrets out of version control; rely on the provided stub for local testing.
-- Update build config flags in `app/src/main/java/com/expensemanager/app/core` in tandem with environment changes to avoid runtime mismatches.
+- Update build config flags in `app/src/main/java/com/smartexpenseai/app/core` in tandem with environment changes to avoid runtime mismatches.

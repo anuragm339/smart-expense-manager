@@ -171,6 +171,13 @@ interface TransactionDao {
     suspend fun updateTransaction(transaction: TransactionEntity)
 
     /**
+     * Re-normalize a transaction's merchant name in place. Used by the one-time
+     * merchant-name cleanup to strip embedded dates/refs from legacy rows.
+     */
+    @Query("UPDATE transactions SET raw_merchant = :rawMerchant, normalized_merchant = :normalizedMerchant WHERE id = :id")
+    suspend fun updateMerchantNames(id: Long, rawMerchant: String, normalizedMerchant: String)
+
+    /**
      * Soft delete: mark the transaction inactive instead of removing the row.
      * It disappears from all screens but stays in the table for dedup purposes.
      */
