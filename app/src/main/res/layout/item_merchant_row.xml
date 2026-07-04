@@ -3,17 +3,18 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
-    android:padding="12dp"
+    android:paddingVertical="10dp"
     android:gravity="center_vertical"
     android:clickable="true"
     android:focusable="true"
     android:background="?attr/selectableItemBackground">
 
-    <!-- Emoji Icon -->
+    <!-- Emoji Icon in rounded chip -->
     <TextView
         android:id="@+id/tv_merchant_emoji"
-        android:layout_width="32dp"
-        android:layout_height="32dp"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="@drawable/bg_icon_chip"
         android:gravity="center"
         android:text="🛒"
         android:textSize="18sp"
@@ -52,6 +53,7 @@
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
         android:orientation="vertical"
         android:gravity="end">
 
@@ -62,7 +64,7 @@
             android:text="₹1,250"
             android:textSize="14sp"
             android:textStyle="bold"
-            android:textColor="@color/error" />
+            android:textColor="@color/text_primary" />
 
         <TextView
             android:id="@+id/tv_merchant_count"

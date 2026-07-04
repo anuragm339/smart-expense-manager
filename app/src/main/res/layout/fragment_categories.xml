@@ -28,7 +28,8 @@
             android:text="Sort"
             android:textSize="14sp"
             style="@style/Widget.Material3.Button.OutlinedButton"
-            app:strokeColor="@color/primary"
+            android:textColor="@color/text_primary"
+            app:strokeColor="@color/card_stroke"
             app:strokeWidth="1dp"
             app:cornerRadius="20dp"
             android:drawableStart="@android:drawable/ic_menu_sort_by_size"
@@ -43,7 +44,8 @@
             android:text="Filter"
             android:textSize="14sp"
             style="@style/Widget.Material3.Button.OutlinedButton"
-            app:strokeColor="@color/primary"
+            android:textColor="@color/text_primary"
+            app:strokeColor="@color/card_stroke"
             app:strokeWidth="1dp"
             app:cornerRadius="20dp"
             android:drawableStart="@android:drawable/ic_menu_search"
@@ -58,10 +60,11 @@
         android:layout_height="wrap_content"
         android:layout_marginHorizontal="16dp"
         android:layout_marginBottom="8dp"
-        app:cardElevation="1dp"
+        app:cardElevation="0dp"
         app:cardCornerRadius="20dp"
+        app:cardBackgroundColor="@color/card_background"
         app:strokeWidth="1dp"
-        app:strokeColor="@color/divider">
+        app:strokeColor="@color/card_stroke">
 
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/til_search_categories"
@@ -95,16 +98,16 @@
         android:layout_height="wrap_content"
         android:layout_marginHorizontal="16dp"
         android:layout_marginBottom="8dp"
-        app:cardElevation="1dp"
-        app:cardCornerRadius="16dp"
-        app:strokeWidth="1dp"
-        app:strokeColor="@color/divider"
-        app:cardBackgroundColor="@color/primary_light">
+        app:cardElevation="0dp"
+        app:cardCornerRadius="24dp"
+        app:cardBackgroundColor="@android:color/transparent"
+        app:strokeWidth="0dp">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
+            android:background="@drawable/bg_balance_gradient"
             android:padding="20dp"
             android:gravity="center">
 
@@ -176,10 +179,11 @@
         android:layout_height="wrap_content"
         android:layout_marginHorizontal="16dp"
         android:layout_marginBottom="8dp"
-        app:cardElevation="1dp"
+        app:cardElevation="0dp"
         app:cardCornerRadius="16dp"
+        app:cardBackgroundColor="@color/card_background"
         app:strokeWidth="1dp"
-        app:strokeColor="@color/divider">
+        app:strokeColor="@color/card_stroke">
 
         <com.google.android.material.tabs.TabLayout
             android:id="@+id/tab_layout_category_filter"
@@ -188,9 +192,9 @@
             android:background="@android:color/transparent"
             app:tabGravity="fill"
             app:tabMode="fixed"
-            app:tabSelectedTextColor="@color/primary"
+            app:tabSelectedTextColor="@color/primary_light"
             app:tabTextColor="@color/text_secondary"
-            app:tabIndicatorColor="@color/primary"
+            app:tabIndicatorColor="@color/primary_light"
             app:tabIndicatorHeight="3dp"
             app:tabRippleColor="@color/primary_light">
 

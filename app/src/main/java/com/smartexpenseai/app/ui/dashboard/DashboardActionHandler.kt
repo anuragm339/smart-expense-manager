@@ -61,10 +61,6 @@ class DashboardActionHandler(
             fragment.findNavController().navigate(R.id.navigation_export_data)
         }
 
-        binding.btnViewInsights.setOnClickListener {
-            fragment.findNavController().navigate(R.id.navigation_insights)
-        }
-
         binding.layoutTransactionCount.setOnClickListener {
             fragment.findNavController().navigate(R.id.navigation_messages)
         }

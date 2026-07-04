@@ -67,10 +67,6 @@ class ProfileFragment : Fragment() {
             findNavController().navigate(R.id.action_navigation_profile_to_navigation_notifications_settings)
         }
 
-        binding.layoutPrivacy.setOnClickListener {
-            Toast.makeText(requireContext(), "Privacy & Security", Toast.LENGTH_SHORT).show()
-        }
-
         binding.layoutExport.setOnClickListener {
             findNavController().navigate(R.id.action_navigation_profile_to_navigation_export_data)
         }
@@ -80,16 +76,31 @@ class ProfileFragment : Fragment() {
         }
 
         binding.layoutAbout.setOnClickListener {
-            Toast.makeText(requireContext(), "About Smart Expense Manager v1.0", Toast.LENGTH_SHORT).show()
-        }
-
-        binding.btnBackupData.setOnClickListener {
-            Toast.makeText(requireContext(), "Backup started...", Toast.LENGTH_SHORT).show()
+            showAboutDialog()
         }
 
         binding.btnLogout.setOnClickListener {
             showLogoutConfirmation()
         }
+    }
+
+    private fun showAboutDialog() {
+        val versionName = try {
+            requireContext().packageManager
+                .getPackageInfo(requireContext().packageName, 0).versionName
+        } catch (e: Exception) {
+            "unknown"
+        }
+
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Smart Expense Manager")
+            .setMessage(
+                "Version $versionName\n\n" +
+                    "Automatically tracks expenses from your bank SMS using on-device parsing. " +
+                    "All transaction data stays local on your phone - nothing is uploaded."
+            )
+            .setPositiveButton("OK", null)
+            .show()
     }
 
     private fun observeViewModel() {
