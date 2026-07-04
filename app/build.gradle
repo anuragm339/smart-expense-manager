@@ -15,9 +15,11 @@ android {
         minSdk 23
         targetSdk 35
 
-        // Get version from Git
-        def gitCommitCount = 101  // fallback
-        def gitVersionName = "1.0.2"  // fallback
+        // Automatic versioning derived from Git commit count.
+        // Every commit bumps versionCode and versionName with zero manual work.
+        // Only bump VERSION_BASE below for a major/minor release (e.g. "2.0").
+        def VERSION_BASE = "1.0"
+        def gitCommitCount = 101  // fallback if git is unavailable
 
         try {
             def countResult = 'git rev-list --count HEAD'.execute()
@@ -25,21 +27,11 @@ android {
             if (countResult.exitValue() == 0) {
                 gitCommitCount = Integer.parseInt(countResult.text.trim())
             }
-
-            def descResult = 'git describe --tags --always --dirty'.execute()
-            descResult.waitFor()
-            if (descResult.exitValue() == 0) {
-                def desc = descResult.text.trim()
-                // Remove 'v' prefix and '-dirty' suffix
-                gitVersionName = desc.replaceFirst('^v', '').replaceFirst('-dirty$', '')
-                // If no tags, use commit count
-                if (!desc.contains('-') && !desc.startsWith('v')) {
-                    gitVersionName = "1.0.${gitCommitCount}"
-                }
-            }
         } catch (Exception e) {
-            println "Warning: Git version detection failed, using fallback values"
+            println "Warning: Git version detection failed, using fallback versionCode ${gitCommitCount}"
         }
+
+        def gitVersionName = "${VERSION_BASE}.${gitCommitCount}"
 
         versionCode gitCommitCount
         versionName gitVersionName
@@ -192,22 +184,18 @@ dependencies {
 // Task to print current version
 task printVersion {
     doLast {
-        def vCode = 92
-        def vName = "1.0.2"
+        def VERSION_BASE = "1.0"
+        def vCode = 101
         try {
             def countResult = 'git rev-list --count HEAD'.execute()
             countResult.waitFor()
             if (countResult.exitValue() == 0) {
                 vCode = Integer.parseInt(countResult.text.trim())
             }
-            def descResult = 'git describe --tags --always --dirty'.execute()
-            descResult.waitFor()
-            if (descResult.exitValue() == 0) {
-                vName = descResult.text.trim().replaceFirst('^v', '').replaceFirst('-dirty$', '')
-            }
         } catch (Exception e) {
             println "Warning: Could not get Git version"
         }
+        def vName = "${VERSION_BASE}.${vCode}"
 
         println "============================================"
         println "App Version Information"
@@ -215,7 +203,6 @@ task printVersion {
         println "Version Name: ${vName}"
         println "Version Code: ${vCode}"
         println "Git Commits:  ${vCode}"
-        println "Git Describe: ${vName}"
         println "============================================"
     }
 }
