@@ -180,7 +180,8 @@ class SMSHistoryReader @Inject constructor(
                         date = sms.date,
                         rawSMS = sms.body,
                         confidence = result.transaction.confidenceScore,
-                        referenceNumber = result.transaction.referenceNumber
+                        referenceNumber = result.transaction.referenceNumber,
+                        senderAddress = sms.address  // CRITICAL: Pass SMS sender for consistent ID generation
                     )
 
                     logger.debug("parseTransactionFromSMS", "ParsedTransaction ref: ${parsed.referenceNumber}")

@@ -31,6 +31,18 @@ interface MerchantDao {
     """)
     suspend fun getMerchantWithCategory(normalizedName: String): MerchantWithCategory?
     
+    /**
+     * Flag a merchant as deleted: future SMS from it are auto-stored inactive
+     */
+    @Query("UPDATE merchants SET is_deleted = 1 WHERE normalized_name = :normalizedName")
+    suspend fun markMerchantDeleted(normalizedName: String)
+
+    @Query("SELECT is_deleted FROM merchants WHERE normalized_name = :normalizedName")
+    suspend fun isMerchantDeleted(normalizedName: String): Boolean?
+
+    @Query("UPDATE merchants SET is_deleted = 0 WHERE normalized_name = :normalizedName")
+    suspend fun unmarkMerchantDeleted(normalizedName: String)
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertMerchant(merchant: MerchantEntity): Long
     

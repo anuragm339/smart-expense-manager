@@ -141,14 +141,21 @@ class DashboardViewBinder(
         // Clear existing views
         binding.layoutTopCategoriesTable.removeAllViews()
 
+        // Share bars are proportional to the biggest visible category
+        val maxAmount = items.take(4).maxOfOrNull { it.amount } ?: 0.0
+
         // Add category rows dynamically
         items.take(4).forEach { category ->
-            val categoryRow = createCategoryRow(category, colorMap)
+            val categoryRow = createCategoryRow(category, colorMap, maxAmount)
             binding.layoutTopCategoriesTable.addView(categoryRow)
         }
     }
 
-    private fun createCategoryRow(category: CategorySpending, colorMap: Map<String, Int>): android.view.View {
+    private fun createCategoryRow(
+        category: CategorySpending,
+        colorMap: Map<String, Int>,
+        maxAmount: Double
+    ): android.view.View {
         val inflater = android.view.LayoutInflater.from(context)
         val rowView = inflater.inflate(R.layout.item_category_row, binding.layoutTopCategoriesTable, false)
 
@@ -156,11 +163,20 @@ class DashboardViewBinder(
         val name = rowView.findViewById<android.widget.TextView>(R.id.tv_category_name)
         val amount = rowView.findViewById<android.widget.TextView>(R.id.tv_category_amount)
         val count = rowView.findViewById<android.widget.TextView>(R.id.tv_category_count)
+        val shareBar = rowView.findViewById<android.widget.ProgressBar>(R.id.progress_category_share)
 
-        colorIndicator.setBackgroundColor(colorMap[category.categoryName] ?: color(R.color.category_other))
+        val categoryColor = colorMap[category.categoryName] ?: color(R.color.category_other)
+        colorIndicator.background?.setTint(categoryColor)
         name.text = category.categoryName
         amount.text = "₹${category.amount.formatAsMoney()}"
         count.text = "${category.count} transactions"
+
+        shareBar.progressTintList = android.content.res.ColorStateList.valueOf(categoryColor)
+        shareBar.progress = if (maxAmount > 0) {
+            ((category.amount / maxAmount) * 100).toInt().coerceIn(2, 100)
+        } else {
+            0
+        }
 
         rowView.setOnClickListener {
             onCategorySelected(category.categoryName)

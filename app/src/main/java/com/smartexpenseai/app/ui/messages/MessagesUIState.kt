@@ -6,7 +6,8 @@ package com.smartexpenseai.app.ui.messages
 enum class TransactionFilterTab(val index: Int, val displayName: String) {
     ALL(0, "ALL"),
     INCLUDED(1, "INCLUDED"),
-    EXCLUDED(2, "EXCLUDED");
+    EXCLUDED(2, "EXCLUDED"),
+    DELETED(3, "DELETED");
     
     companion object {
         fun fromIndex(index: Int): TransactionFilterTab {

@@ -1,0 +1,64 @@
+📊 Smart Expense Manager - Your AI-Powered Financial Assistant
+
+Take control of your finances with Smart Expense Manager, the intelligent app that automatically tracks and categorizes your expenses from bank SMS messages. Say goodbye to manual expense entry!
+
+✨ KEY FEATURES:
+
+🤖 AI-Powered Automatic Tracking
+• Automatically reads and parses bank transaction SMS
+• Intelligently categorizes expenses (shopping, food, transport, etc.)
+• Supports major Indian banks (HDFC, ICICI, SBI, Axis, and more)
+• No manual entry required
+
+💰 Smart Budget Management
+• Set monthly budgets for different categories
+• Real-time spending alerts and notifications
+• Track expenses vs budget with visual charts
+• AI-powered spending insights
+
+📈 Analytics & Insights
+• Beautiful charts showing spending patterns
+• Month-over-month comparisons
+• Category-wise expense breakdown
+• Merchant-level transaction tracking
+
+🏷️ Intelligent Categorization
+• AI automatically categorizes merchants
+• Custom category creation
+• Easy recategorization
+
+🔒 Privacy & Security
+• All data stored locally on your device
+• No cloud sync - complete privacy
+• No data shared with third parties
+
+📱 Modern Design
+• Clean, intuitive interface
+• Dark mode support
+• Easy navigation
+
+💡 Smart Features:
+• Transaction deduplication
+• Support for debit and credit transactions
+• Date range filtering
+• Export transaction data
+
+🎯 Perfect For:
+• Personal expense tracking
+• Budget-conscious users
+• Anyone receiving bank transaction SMS
+
+Why Choose Smart Expense Manager?
+
+Unlike traditional expense trackers requiring manual entry, Smart Expense Manager uses AI to automatically capture and categorize transactions from bank SMS. Zero data entry - just install, grant SMS permissions, and let the app work!
+
+Our intelligent engine learns from your spending patterns and accurately assigns transactions to categories. Review, adjust, and customize to match your budgeting style.
+
+Privacy First:
+All financial data stays on your device - we never upload transactions to the cloud or share with third parties. You have complete control.
+
+Download Smart Expense Manager today and take the first step toward better financial management!
+
+PERMISSIONS:
+• SMS: Read bank transaction messages for automatic tracking
+• Internet: Optional AI-powered insights (data stays on device)

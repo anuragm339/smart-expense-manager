@@ -260,6 +260,12 @@ class CategoriesViewModel @Inject constructor(
                     // Move all merchants with this category to "Other"
                     val movedCount = repository.updateMerchantsByCategory(categoryEntity.id, otherCategory.id)
                     logger.debug("deleteCategory","Moved $movedCount merchants from '$categoryName' to 'Other'")
+
+                    // Move the transactions too - they carry a denormalized category_id
+                    // and would otherwise point at a deleted category and disappear
+                    // from every category breakdown
+                    val movedTxns = repository.reassignTransactionsCategory(categoryEntity.id, otherCategory.id)
+                    logger.debug("deleteCategory","Reassigned $movedTxns transactions from '$categoryName' to 'Other'")
                 }
 
                 // Delete the category from database (single operation!)

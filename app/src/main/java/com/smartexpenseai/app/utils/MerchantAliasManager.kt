@@ -219,12 +219,35 @@ class MerchantAliasManager @Inject constructor(
             if (merchantsWithSameDisplayName.isNotEmpty()) {
                 logger.debug("checkAliasConflict","Found ${merchantsWithSameDisplayName.size} merchants with display name '$cleanDisplayName'")
 
-                // Get unique categories
-                val categories = merchantsWithSameDisplayName.map { it.categoryId }.distinct()
+                // Enforce one-custom-name-one-category: if the existing group with this
+                // display name lives in a DIFFERENT category, surface the mismatch so
+                // the UI can offer to merge instead of silently splitting the group
+                // (a split shows duplicate merchant rows on the dashboard and an
+                // arbitrary category label on the Messages card)
+                val existingCategoryName = repository.getMerchantWithCategory(
+                    merchantsWithSameDisplayName.first().normalizedName
+                )?.category_name
 
-                // For simplicity, we'll allow grouping
-                // Note: We can't easily check category name without loading all categories
-                logger.debug("checkAliasConflict","NONE - grouping allowed")
+                // The requested category may arrive with an emoji prefix ("🍽️ Food & Dining")
+                val requestedCategoryName = cleanCategory
+                    .replace(Regex("^[^\\p{L}]+"), "")
+                    .trim()
+
+                if (existingCategoryName != null &&
+                    !existingCategoryName.equals(requestedCategoryName, ignoreCase = true)
+                ) {
+                    logger.debug("checkAliasConflict","CATEGORY_MISMATCH - '$cleanDisplayName' exists in '$existingCategoryName', requested '$requestedCategoryName'")
+                    return@runBlocking AliasConflict(
+                        type = ConflictType.CATEGORY_MISMATCH,
+                        existingDisplayName = cleanDisplayName,
+                        existingCategory = existingCategoryName,
+                        newDisplayName = cleanDisplayName,
+                        newCategory = cleanCategory,
+                        affectedMerchants = merchantsWithSameDisplayName.map { it.normalizedName }
+                    )
+                }
+
+                logger.debug("checkAliasConflict","NONE - grouping allowed (same category)")
                 return@runBlocking AliasConflict(
                     type = ConflictType.NONE,
                     existingDisplayName = null,

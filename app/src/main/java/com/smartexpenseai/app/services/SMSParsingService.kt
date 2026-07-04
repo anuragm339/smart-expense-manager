@@ -32,8 +32,12 @@ class SMSParsingService @Inject constructor(
     /**
      * Main method to scan historical SMS and extract valid transactions
      * This replaces both SMSHistoryReader.scanHistoricalSMS() and ExpenseRepository.readSMSTransactionsDirectly()
+     *
+     * @param sinceDate when provided, only SMS received after this date are read from the
+     *                  content provider (incremental scan). Defaults to the last 6 months.
      */
     suspend fun scanHistoricalSMS(
+        sinceDate: Date? = null,
         progressCallback: ((current: Int, total: Int, status: String) -> Unit)? = null
     ): List<ParsedTransaction> = withContext(Dispatchers.IO) {
         val transactions = mutableListOf<ParsedTransaction>()
@@ -49,7 +53,7 @@ class SMSParsingService @Inject constructor(
             )
             progressCallback?.invoke(0, 100, "Reading SMS history...")
             
-            val historicalSMS = readSMSHistory()
+            val historicalSMS = readSMSHistory(sinceDate)
             logger.debug(
                 where = "scanHistoricalSMS",
                 what = "[UNIFIED] Found ${historicalSMS.size} historical SMS messages (limited to $MAX_SMS_TO_PROCESS)"
@@ -102,7 +106,8 @@ class SMSParsingService @Inject constructor(
                             rawSMS = parseResult.transaction.rawSmsBody,
                             confidence = parseResult.confidence.overall,
                             isDebit = parseResult.transaction.isDebit,
-                            referenceNumber = parseResult.transaction.referenceNumber
+                            referenceNumber = parseResult.transaction.referenceNumber,
+                            senderAddress = sms.address  // CRITICAL: Pass SMS sender for consistent ID generation
                         )
 
                         // Only accept if confidence is reasonable
@@ -161,13 +166,15 @@ class SMSParsingService @Inject constructor(
     /**
      * Read SMS history from device content provider
      */
-    private fun readSMSHistory(): List<HistoricalSMS> {
+    private fun readSMSHistory(sinceDate: Date? = null): List<HistoricalSMS> {
         val smsList = mutableListOf<HistoricalSMS>()
-        
-        // Calculate date range (last 6 months)
+
+        // Default range: last 6 months. Incremental scans pass the last sync date so the
+        // content provider only returns SMS newer than what is already in the database.
         val calendar = Calendar.getInstance()
         calendar.add(Calendar.MONTH, -MONTHS_TO_SCAN)
-        val startDate = calendar.timeInMillis
+        val sixMonthsAgo = calendar.timeInMillis
+        val startDate = sinceDate?.time?.coerceAtLeast(sixMonthsAgo) ?: sixMonthsAgo
         
         val uri = Telephony.Sms.CONTENT_URI
         val projection = arrayOf(
@@ -189,7 +196,7 @@ class SMSParsingService @Inject constructor(
         try {
             logger.debug(
                 where = "readSMSHistory",
-                what = "[UNIFIED] Querying SMS from last $MONTHS_TO_SCAN months (max $MAX_SMS_TO_PROCESS messages)"
+                what = "[UNIFIED] Querying SMS newer than ${Date(startDate)} (max $MAX_SMS_TO_PROCESS messages)"
             )
             cursor = context.contentResolver.query(
                 uri, projection, selection, selectionArgs, sortOrder

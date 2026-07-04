@@ -2,10 +2,14 @@
 <com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
-    style="@style/CardStyle"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginVertical="2dp"
+    android:layout_marginVertical="5dp"
+    app:cardCornerRadius="16dp"
+    app:cardElevation="0dp"
+    app:cardBackgroundColor="@color/card_background"
+    app:strokeColor="@color/card_stroke"
+    app:strokeWidth="1dp"
     android:clickable="true"
     android:focusable="true"
     android:foreground="?android:attr/selectableItemBackground">
@@ -14,33 +18,32 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:padding="12dp"
+        android:padding="14dp"
         android:gravity="center_vertical">
 
         <!-- Category Icon & Color -->
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:gravity="center"
+        <FrameLayout
+            android:layout_width="44dp"
+            android:layout_height="44dp"
             android:layout_marginEnd="12dp">
 
             <View
                 android:id="@+id/view_category_icon"
-                android:layout_width="28dp"
-                android:layout_height="28dp"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:alpha="0.25"
                 android:background="@drawable/circle_shape" />
 
             <TextView
                 android:id="@+id/tv_category_emoji"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="-22dp"
+                android:layout_gravity="center"
                 android:text="🍽️"
-                android:textSize="16sp"
+                android:textSize="20sp"
                 android:gravity="center" />
 
-        </LinearLayout>
+        </FrameLayout>
 
         <!-- Category Info -->
         <LinearLayout
@@ -54,7 +57,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Food &amp; Dining"
-                android:textSize="16sp"
+                android:textSize="15sp"
                 android:textStyle="bold"
                 android:textColor="@color/text_primary" />
 
@@ -62,7 +65,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:layout_marginTop="4dp">
+                android:layout_marginTop="3dp">
 
                 <TextView
                     android:id="@+id/tv_transaction_count"
@@ -94,13 +97,13 @@
             <ProgressBar
                 android:id="@+id/progress_spending"
                 android:layout_width="match_parent"
-                android:layout_height="3dp"
-                android:layout_marginTop="6dp"
+                android:layout_height="6dp"
+                android:layout_marginTop="8dp"
                 android:layout_marginEnd="12dp"
                 style="?android:attr/progressBarStyleHorizontal"
+                android:max="100"
                 android:progress="65"
-                android:progressTint="@color/category_food"
-                android:progressBackgroundTint="@color/text_hint" />
+                android:progressDrawable="@drawable/bg_progress_track" />
 
         </LinearLayout>
 
@@ -113,11 +116,13 @@
 
             <TextView
                 android:id="@+id/tv_category_amount"
-                style="@style/AmountTextStyle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="₹4,250"
-                android:textColor="@color/error" />
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-medium"
+                android:textColor="@color/text_primary" />
 
             <TextView
                 android:id="@+id/tv_percentage"
@@ -133,17 +138,19 @@
                 android:id="@+id/btn_view_merchants"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text="View Merchants"
-                android:textSize="9sp"
+                android:layout_marginTop="4dp"
+                android:text="Merchants"
+                android:textSize="11sp"
+                android:textColor="@color/primary_light"
                 android:minWidth="0dp"
                 android:minHeight="0dp"
-                android:paddingHorizontal="6dp"
-                android:paddingVertical="2dp"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="3dp"
                 style="@style/Widget.Material3.Button.TextButton"
                 app:cornerRadius="10dp"
                 app:icon="@drawable/ic_store"
-                app:iconSize="10dp" />
+                app:iconSize="12dp"
+                app:iconTint="@color/primary_light" />
 
         </LinearLayout>
 

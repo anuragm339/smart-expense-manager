@@ -41,16 +41,22 @@ class DashboardTrendBinder(
             setScaleEnabled(false)
             setPinchZoom(false)
             legend.isEnabled = false
+            setNoDataTextColor(ContextCompat.getColor(context, R.color.text_secondary))
+
+            setExtraOffsets(0f, 8f, 0f, 4f)
 
             xAxis.apply {
                 position = XAxis.XAxisPosition.BOTTOM
                 setDrawGridLines(false)
+                setDrawAxisLine(false)
                 textColor = ContextCompat.getColor(context, R.color.text_secondary)
                 textSize = 10f
             }
 
             axisLeft.apply {
                 setDrawGridLines(true)
+                enableGridDashedLine(8f, 8f, 0f)
+                setDrawAxisLine(false)
                 gridColor = ContextCompat.getColor(context, R.color.divider)
                 textColor = ContextCompat.getColor(context, R.color.text_secondary)
                 textSize = 10f
@@ -67,6 +73,7 @@ class DashboardTrendBinder(
      */
     suspend fun updateTrend(startDate: Date, endDate: Date) {
         try {
+            logger.info("updateTrend", "🔵 TREND UPDATE CALLED - start: $startDate, end: $endDate")
             logger.debug("updateTrend", "Updating chart for range: $startDate to $endDate")
 
             // Always show last 7 days ending at endDate
@@ -167,12 +174,20 @@ class DashboardTrendBinder(
     private fun renderChart(chartData: List<ChartDataPoint>) {
         val chart = binding.chartWeeklyTrend
 
+        logger.debug("renderChart", "CHART RENDER CALLED: chartData.size = ${chartData.size}")
+
         if (chartData.isEmpty()) {
+            logger.warn("renderChart", "Chart data is empty - showing empty state")
             showEmptyChart("No Data Available")
             return
         }
 
         logger.debug("renderChart", "Updating chart with ${chartData.size} data points")
+
+        // Log each data point
+        chartData.forEachIndexed { index, point ->
+            logger.debug("renderChart", "  Point $index: ${point.label} = ₹${point.value}")
+        }
 
         val entries = chartData.map { Entry(it.index, it.value) }
 
@@ -181,17 +196,21 @@ class DashboardTrendBinder(
         val yAxisMax = if (maxValue > 0) maxValue * 1.2f else 100f // Add 20% padding
 
         val dataSet = LineDataSet(entries, "Spending Trend").apply {
-            color = ContextCompat.getColor(context, R.color.primary)
-            lineWidth = 2f
-            setCircleColor(ContextCompat.getColor(context, R.color.primary))
+            color = ContextCompat.getColor(context, R.color.primary_light)
+            lineWidth = 2.5f
+            setCircleColor(ContextCompat.getColor(context, R.color.primary_light))
             circleRadius = 4f
+            circleHoleColor = ContextCompat.getColor(context, R.color.card_background)
+            circleHoleRadius = 2f
             setDrawValues(true) // Enable value labels
-            valueTextColor = ContextCompat.getColor(context, R.color.text_primary)
-            valueTextSize = 10f
-            mode = LineDataSet.Mode.LINEAR
+            valueTextColor = ContextCompat.getColor(context, R.color.text_secondary)
+            valueTextSize = 9f
+            mode = LineDataSet.Mode.CUBIC_BEZIER
+            cubicIntensity = 0.18f
             setDrawFilled(true)
-            fillColor = ContextCompat.getColor(context, R.color.primary_light)
-            fillAlpha = 50
+            fillDrawable = ContextCompat.getDrawable(context, R.drawable.chart_fill_gradient)
+            setDrawHorizontalHighlightIndicator(false)
+            highLightColor = ContextCompat.getColor(context, R.color.primary_light)
 
             // Custom value formatter to show ₹ symbol and hide ₹0
             valueFormatter = object : ValueFormatter() {
@@ -218,6 +237,7 @@ class DashboardTrendBinder(
         }
 
         chart.data = LineData(dataSet)
+        chart.animateY(500)
         chart.invalidate()
 
         logger.debug("renderChart", "Chart rendered successfully with Y-axis range: 0 to ₹${yAxisMax.toInt()}")

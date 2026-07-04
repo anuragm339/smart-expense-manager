@@ -37,7 +37,13 @@ data class MerchantEntity(
     
     @ColumnInfo(name = "is_excluded_from_expense_tracking")
     val isExcludedFromExpenseTracking: Boolean = false,
-    
+
+    // Set when the user deletes this merchant's transactions from the Messages screen.
+    // Future SMS from a deleted merchant are stored as inactive automatically,
+    // so they never reappear without user action.
+    @ColumnInfo(name = "is_deleted")
+    val isDeleted: Boolean = false,
+
     @ColumnInfo(name = "created_at")
     val createdAt: Date
 )

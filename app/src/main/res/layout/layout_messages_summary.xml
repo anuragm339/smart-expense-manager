@@ -5,28 +5,27 @@
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:layout_marginHorizontal="16dp"
-    android:layout_marginBottom="6dp">
+    android:layout_marginBottom="8dp">
 
     <!-- Compact Summary Card -->
     <com.google.android.material.card.MaterialCardView
         style="@style/CardStyle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:cardElevation="2dp"
-        app:cardCornerRadius="12dp">
+        app:cardCornerRadius="16dp">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="8dp">
+            android:padding="14dp">
 
             <!-- Main Stats Row - Horizontal -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:layout_marginBottom="6dp">
+                android:layout_marginBottom="10dp">
 
                 <!-- Transaction Count -->
                 <LinearLayout
@@ -41,15 +40,16 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="0"
-                        android:textSize="16sp"
+                        android:textSize="18sp"
                         android:textStyle="bold"
-                        android:textColor="@color/primary" />
+                        android:textColor="@color/text_primary" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
                         android:text="Transactions"
-                        android:textSize="9sp"
+                        android:textSize="11sp"
                         android:textColor="@color/text_secondary" />
 
                 </LinearLayout>
@@ -74,15 +74,16 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="0"
-                        android:textSize="16sp"
+                        android:textSize="18sp"
                         android:textStyle="bold"
                         android:textColor="@color/success" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
                         android:text="Auto-categorized"
-                        android:textSize="9sp"
+                        android:textSize="11sp"
                         android:textColor="@color/text_secondary" />
 
                 </LinearLayout>
@@ -107,15 +108,16 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="0"
-                        android:textSize="16sp"
+                        android:textSize="18sp"
                         android:textStyle="bold"
-                        android:textColor="@color/success" />
+                        android:textColor="@color/primary_light" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
                         android:text="Accuracy"
-                        android:textSize="9sp"
+                        android:textSize="11sp"
                         android:textColor="@color/text_secondary" />
 
                 </LinearLayout>
@@ -127,7 +129,9 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:gravity="center_vertical">
+                android:gravity="center_vertical"
+                android:background="@drawable/bg_inner_panel"
+                android:paddingVertical="8dp">
 
                 <!-- Merchants -->
                 <LinearLayout
@@ -152,13 +156,13 @@
                         android:textSize="12sp"
                         android:textStyle="bold"
                         android:textColor="@color/text_primary"
-                        android:layout_marginEnd="2dp" />
+                        android:layout_marginEnd="3dp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="merchants"
-                        android:textSize="9sp"
+                        android:textSize="11sp"
                         android:textColor="@color/text_secondary" />
 
                 </LinearLayout>
@@ -186,40 +190,14 @@
                         android:textSize="12sp"
                         android:textStyle="bold"
                         android:textColor="@color/text_primary"
-                        android:layout_marginEnd="2dp" />
+                        android:layout_marginEnd="3dp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="banks"
-                        android:textSize="9sp"
+                        android:textSize="11sp"
                         android:textColor="@color/text_secondary" />
-
-                </LinearLayout>
-
-                <!-- Trend Indicator -->
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="horizontal"
-                    android:gravity="center">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="↗"
-                        android:textSize="12sp"
-                        android:textColor="@color/success"
-                        android:layout_marginEnd="2dp" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text=""
-                        android:textSize="9sp"
-                        android:textColor="@color/success"
-                        android:textStyle="bold" />
 
                 </LinearLayout>
 

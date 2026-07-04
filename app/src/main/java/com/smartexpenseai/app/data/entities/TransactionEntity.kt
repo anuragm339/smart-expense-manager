@@ -49,6 +49,11 @@ data class TransactionEntity(
     @ColumnInfo(name = "reference_number")
     val referenceNumber: String? = null,
 
+    // Soft-delete flag: deleted transactions are marked inactive instead of being
+    // removed so they stay hidden from screens but still block re-import on rescan
+    @ColumnInfo(name = "is_active")
+    val isActive: Boolean = true,
+
     @ColumnInfo(name = "created_at")
     val createdAt: Date,
 
@@ -56,6 +61,15 @@ data class TransactionEntity(
     val updatedAt: Date
 ) {
     companion object {
+        /**
+         * True for pseudo-references synthesized by the parser for card SMS that
+         * carry no real reference number ("CARD1234H<bodyHash>", older "CARD1234T<ts>").
+         * Synthetic refs are NOT authoritative for dedup: two different synthetic
+         * refs can still describe the same transaction.
+         */
+        fun isSyntheticReference(referenceNumber: String?): Boolean =
+            referenceNumber != null && referenceNumber.matches(Regex("CARD\\d{4}[TH].*"))
+
         /**
          * Generate a consistent SMS ID from SMS content to prevent duplicates
          * Priority: reference_number > (sender + body + timestamp)

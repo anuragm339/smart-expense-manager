@@ -353,6 +353,18 @@ internal class MerchantCategoryOperations(
                     merchantDao.updateMerchant(updatedMerchant)
                 }
 
+                // Also move the transactions themselves - they carry a denormalized
+                // category_id and would otherwise point at a deleted category and
+                // vanish from every category breakdown
+                val movedTransactions = transactionDao.reassignTransactionsCategory(
+                    categoryToDelete.id,
+                    reassignCategory.id
+                )
+                logger.debug(
+                    where = "deleteCategory",
+                    what = "Reassigned $movedTransactions transactions from '$categoryName' to '$reassignToCategoryName'"
+                )
+
                 categoryDao.deleteCategory(categoryToDelete)
 
                 logger.debug(

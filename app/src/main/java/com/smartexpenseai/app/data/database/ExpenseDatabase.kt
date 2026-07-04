@@ -22,7 +22,7 @@ import com.smartexpenseai.app.data.dao.*
         com.smartexpenseai.app.data.models.AICallTracker::class,
         UserEntity::class
     ],
-    version = 12,
+    version = 14,
     exportSchema = false
 )
 @TypeConverters(DateConverter::class)
@@ -59,7 +59,9 @@ abstract class ExpenseDatabase : RoomDatabase() {
                     MIGRATION_8_9,   // Add category_id to transactions
                     MIGRATION_9_10,  // Fix "Other" category to have id=1
                     MIGRATION_10_11, // Remove unused category_spending_cache table
-                    MIGRATION_11_12  // Fix inconsistent transaction category_ids
+                    MIGRATION_11_12, // Fix inconsistent transaction category_ids
+                    MIGRATION_12_13, // Add is_active flag for soft-delete support
+                    MIGRATION_13_14  // Add is_deleted flag to merchants for auto-hiding future SMS
                 )
                 .build()
                 INSTANCE = instance
@@ -366,6 +368,28 @@ abstract class ExpenseDatabase : RoomDatabase() {
                     if (cursor.moveToFirst()) cursor.getInt(0) else 0
                 }
                 android.util.Log.i("MIGRATION_11_12", "✅ Migration complete. Fixed $beforeStats transactions. Remaining inconsistencies: $afterStats")
+            }
+        }
+
+        // Migration from version 12 to 13: Add is_active flag to transactions for soft delete.
+        // Deleting a transaction now marks it inactive instead of removing the row, so it
+        // disappears from all screens but cannot be re-imported by a future SMS scan.
+        val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "ALTER TABLE transactions ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1"
+                )
+            }
+        }
+
+        // Migration from version 13 to 14: Add is_deleted flag to merchants.
+        // When the user deletes a merchant's transactions, the merchant is flagged so
+        // future SMS from it are auto-stored as inactive (hidden without interaction).
+        val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "ALTER TABLE merchants ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0"
+                )
             }
         }
     }

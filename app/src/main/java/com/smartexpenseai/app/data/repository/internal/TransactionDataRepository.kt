@@ -86,12 +86,67 @@ internal class TransactionDataRepository(
         transactionDao.updateTransaction(transaction)
     }
 
+    // Soft delete: rows are marked inactive so they vanish from the UI but keep
+    // blocking re-import of the same SMS during rescans
     suspend fun deleteTransaction(transaction: TransactionEntity) {
-        transactionDao.deleteTransaction(transaction)
+        transactionDao.softDeleteTransactionById(transaction.id, Date())
     }
 
     suspend fun deleteTransactionById(transactionId: Long) {
-        transactionDao.deleteTransactionById(transactionId)
+        transactionDao.softDeleteTransactionById(transactionId, Date())
+    }
+
+    /**
+     * Delete a whole merchant: soft-deletes all its active transactions and flags
+     * the merchant so future SMS from it are stored inactive automatically.
+     * Returns the number of transactions hidden.
+     */
+    suspend fun deleteMerchantTransactions(normalizedMerchant: String): Int {
+        val hidden = transactionDao.softDeleteTransactionsByMerchant(normalizedMerchant, Date())
+
+        // Flag the merchant so future SMS are auto-hidden. If no merchant row exists
+        // yet (parser/repository normalization can differ), create one pre-flagged.
+        val existingMerchant = merchantDao.getMerchantByNormalizedName(normalizedMerchant)
+        if (existingMerchant != null) {
+            merchantDao.markMerchantDeleted(normalizedMerchant)
+        } else {
+            merchantDao.insertMerchant(
+                MerchantEntity(
+                    normalizedName = normalizedMerchant,
+                    displayName = normalizedMerchant,
+                    categoryId = 1L, // "Other"
+                    isUserDefined = false,
+                    isDeleted = true,
+                    createdAt = Date()
+                )
+            )
+        }
+
+        logger.info(
+            where = "deleteMerchantTransactions",
+            what = "Soft-deleted $hidden transactions for '$normalizedMerchant' and flagged merchant as deleted"
+        )
+        return hidden
+    }
+
+    suspend fun isMerchantDeleted(normalizedMerchant: String): Boolean =
+        merchantDao.isMerchantDeleted(normalizedMerchant) ?: false
+
+    suspend fun inactiveTransactions(): List<TransactionEntity> =
+        transactionDao.getInactiveTransactionsSync()
+
+    /**
+     * Undo of deleteMerchantTransactions: reactivates the merchant's transactions
+     * and clears the deleted flag so future SMS are tracked again.
+     */
+    suspend fun restoreMerchantTransactions(normalizedMerchant: String): Int {
+        val restored = transactionDao.restoreTransactionsByMerchant(normalizedMerchant, Date())
+        merchantDao.unmarkMerchantDeleted(normalizedMerchant)
+        logger.info(
+            where = "restoreMerchantTransactions",
+            what = "Restored $restored transactions for '$normalizedMerchant' and cleared deleted flag"
+        )
+        return restored
     }
 
     // ---------------------------------------------------------------------
@@ -233,7 +288,15 @@ internal class TransactionDataRepository(
 
             syncStateDao.updateSyncStatus("IN_PROGRESS")
 
-            val allTransactions = smsParsingService.scanHistoricalSMS { _, _, _ -> }
+            // Incremental scan: only read SMS newer than the last sync, with a 24h overlap
+            // as a safety net (dedup below discards anything already imported)
+            val scanSinceDate = if (lastSyncTimestamp.time > 0) {
+                Date(lastSyncTimestamp.time - TimeUnit.HOURS.toMillis(24))
+            } else {
+                null
+            }
+
+            val allTransactions = smsParsingService.scanHistoricalSMS(sinceDate = scanSinceDate) { _, _, _ -> }
 
             val newTransactions = allTransactions.filter { it.date.after(lastSyncTimestamp) }
 
@@ -241,8 +304,22 @@ internal class TransactionDataRepository(
             var duplicateCount = 0
 
             newTransactions.forEach { parsed ->
-                val entity = convertToTransactionEntity(parsed)
-                logger.debug("syncNewSms", "Processing entity: ${entity.rawMerchant} - Ref: ${entity.referenceNumber}")
+                // CRITICAL FIX: Generate consistent SMS ID using same logic as real-time receiver
+                // to prevent duplicates between real-time and incremental scans
+                val tempEntity = convertToTransactionEntity(parsed)
+
+                // Regenerate SMS ID with same algorithm used in SMSReceiver.kt:74-78
+                // Use sender address (e.g., "HDFCBK") instead of "hist_" prefix for consistency
+                val senderAddress = parsed.senderAddress ?: parsed.bankName
+                val consistentSmsId = TransactionEntity.generateSmsId(
+                    address = senderAddress,
+                    body = parsed.rawSMS,
+                    timestamp = parsed.date.time,
+                    referenceNumber = parsed.referenceNumber
+                )
+
+                val entity = tempEntity.copy(smsId = consistentSmsId)
+                logger.debug("syncNewSms", "Processing entity: ${entity.rawMerchant} - Ref: ${entity.referenceNumber} - SMS ID: ${entity.smsId} (from sender: $senderAddress)")
 
                 val existing = transactionDao.getTransactionBySmsId(entity.smsId)
 
@@ -252,10 +329,17 @@ internal class TransactionDataRepository(
                 }
 
                 if (existing == null && similar == null) {
-                    val insertedId=transactionDao.insertTransaction(entity);
-                    if (insertedId > 0) {
+                    // Merchant previously deleted by the user: store the transaction
+                    // inactive so it stays hidden and is never re-imported
+                    val merchantDeleted = merchantDao.isMerchantDeleted(entity.normalizedMerchant) ?: false
+                    val toInsert = if (merchantDeleted) entity.copy(isActive = false) else entity
+
+                    val insertedId = transactionDao.insertTransaction(toInsert)
+                    if (insertedId > 0 && !merchantDeleted) {
                         repository.autoCategorizeTransaction(insertedId)
                         insertedCount++
+                    } else if (merchantDeleted) {
+                        logger.debug("syncNewSms", "Auto-hidden transaction from deleted merchant '${entity.normalizedMerchant}'")
                     }
                 } else {
                     duplicateCount++
@@ -368,14 +452,18 @@ internal class TransactionDataRepository(
         )
 
         // Additional check: If both transactions have reference numbers and they are DIFFERENT,
-        // then they are NOT duplicates (even if merchant, amount, time, and bank match)
+        // then they are NOT duplicates (even if merchant, amount, time, and bank match).
+        // EXCEPTION: synthetic card pseudo-refs are not authoritative - two different
+        // synthetic refs can describe the same swipe, so the similarity verdict stands.
         if (similarTransaction != null) {
             val newRefNumber = entity.referenceNumber?.trim()
             val existingRefNumber = similarTransaction.referenceNumber?.trim()
 
-            // If both have reference numbers and they're different, this is NOT a duplicate
             if (!newRefNumber.isNullOrBlank() && !existingRefNumber.isNullOrBlank()) {
-                if (newRefNumber != existingRefNumber) {
+                val eitherSynthetic = TransactionEntity.isSyntheticReference(newRefNumber) ||
+                    TransactionEntity.isSyntheticReference(existingRefNumber)
+
+                if (!eitherSynthetic && newRefNumber != existingRefNumber) {
                     logger.debug("findSimilarTransaction",
                         "Different reference numbers - NOT a duplicate (New: $newRefNumber vs Existing: $existingRefNumber)")
                     return null

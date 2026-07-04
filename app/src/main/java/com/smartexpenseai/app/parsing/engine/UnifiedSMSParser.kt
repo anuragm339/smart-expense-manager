@@ -29,9 +29,38 @@ class UnifiedSMSParser @Inject constructor(
             "dd-MM-yy",      // Try 2-digit patterns first
             "dd/MM/yy",
             "dd.MM.yy",
+            "dd-MMM-yy",     // Alpha-month 2-digit ("04-Jul-25", common in SBI/HDFC/ICICI)
+            "dd/MMM/yy",
+            "dd MMM yy",
             "dd-MM-yyyy",    // Then 4-digit patterns
             "dd/MM/yyyy",
+            "dd-MMM-yyyy",
+            "dd/MMM/yyyy",
             "dd MMM yyyy"
+        )
+
+        // Alpha-month dates ("04-Jul-25") that the numeric bank date regexes miss
+        private val ALPHA_MONTH_DATE_REGEX = Regex(
+            "\\b(\\d{1,2}[-/ ](?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[-/ ]\\d{2,4})\\b",
+            RegexOption.IGNORE_CASE
+        )
+
+        // Card identifier ("Card x1234" / "Card ending 1234" / "Card **1234") used to
+        // accept card-present transactions that carry no reference number
+        private val CARD_LAST4_REGEX = Regex(
+            "(?:card|crd)\\s*(?:no\\.?\\s*)?(?:number\\s*)?(?:ending(?:\\s+in)?\\s*|[xX*]+\\s*)?(\\d{4})\\b",
+            RegexOption.IGNORE_CASE
+        )
+
+        // SMS that mention amounts but are not completed transactions. Checked before
+        // extraction so future-autopay notices, UPI collect requests, bill reminders,
+        // OTPs and declined payments never enter the database.
+        private val NON_TRANSACTION_PATTERNS = listOf(
+            "future autopay notice" to Regex("will\\s+be\\s+debited", RegexOption.IGNORE_CASE),
+            "UPI collect request" to Regex("has\\s+requested|requested\\s+money|payment\\s+request|collect\\s+request", RegexOption.IGNORE_CASE),
+            "OTP message" to Regex("\\botp\\b|one\\s*time\\s*password", RegexOption.IGNORE_CASE),
+            "bill/due reminder" to Regex("payment\\s+due|min(?:imum)?\\s+(?:amount\\s+)?due|due\\s+on|is\\s+due", RegexOption.IGNORE_CASE),
+            "declined transaction" to Regex("insufficient\\s+balance|transaction\\s+(?:declined|failed)", RegexOption.IGNORE_CASE)
         )
     }
 
@@ -53,16 +82,27 @@ class UnifiedSMSParser @Inject constructor(
 
             val rules = rulesResult.getOrNull()!!
 
+            // 0. Reject non-transactional SMS early (future autopay notices, UPI collect
+            // requests, OTPs, bill reminders) - these contain amounts but are not spends
+            NON_TRANSACTION_PATTERNS.forEach { (reason, pattern) ->
+                if (pattern.containsMatchIn(body)) {
+                    logger.debug("parseSMS", "Rejected non-transactional SMS ($reason): ${body.take(50)}...")
+                    return@withContext ParseResult.Failed("Non-transactional SMS: $reason")
+                }
+            }
+
             // 1. Try to match sender to a bank
             val bankRule = findMatchingBank(sender, rules)
             val senderMatched = bankRule != null
 
             // 2. Extract transaction fields
+            // NOTE: merchant extraction uses the RAW body - UPI VPA patterns ("merchant@ybl")
+            // need the '@' that the old special-character stripping removed
             val amount = extractAmount(body, bankRule, rules)
-            val merchant = extractMerchant(body.replace(Regex("[^A-Za-z0-9\\s]"), " ").trim(), bankRule, rules)
+            val merchant = extractMerchant(body, bankRule, rules)
             val date = extractDate(body, bankRule, timestamp)
             val transactionType = extractTransactionType(body.replace(Regex("[^A-Za-z0-9\\s]"), " ").trim(), bankRule, rules)
-            val referenceNumber = extractReferenceNumber(body, bankRule, rules)
+            var referenceNumber = extractReferenceNumber(body, bankRule, rules)
 
             logger.debug("parseSMS", "Extracted referenceNumber: $referenceNumber for amount: $amount, merchant: $merchant")
 
@@ -70,6 +110,31 @@ class UnifiedSMSParser @Inject constructor(
             if (amount == null) {
                 logger.warn("parseSMS", "No amount found in SMS: ${body.take(50)}...")
                 return@withContext ParseResult.Failed("Amount not found")
+            }
+
+            // Zero/negative amounts are noise (fee reversals of 0, malformed SMS)
+            val numericAmount = amount.replace(",", "").toDoubleOrNull()
+            if (numericAmount == null || numericAmount <= 0.0) {
+                logger.warn("parseSMS", "Invalid amount '$amount' in SMS: ${body.take(50)}...")
+                return@withContext ParseResult.Failed("Invalid amount: $amount")
+            }
+
+            // Card-present (POS) transactions frequently carry no reference number.
+            // If the SMS names a card AND uses an explicit debit/credit keyword,
+            // synthesize a pseudo-reference instead of rejecting it as promotional.
+            // IMPORTANT: derived from the SMS body hash, NOT the arrival timestamp,
+            // so the same SMS always produces the same ref and dedup keeps working
+            // across re-delivery and history rescans.
+            if (referenceNumber == null) {
+                val cardLast4 = CARD_LAST4_REGEX.find(body)?.groupValues?.get(1)
+                val bodyLower = body.lowercase()
+                val hasTxnKeyword = rules.fallbackPatterns.debitKeywords.any { bodyLower.contains(it) } ||
+                    rules.fallbackPatterns.creditKeywords.any { bodyLower.contains(it) }
+                if (cardLast4 != null && hasTxnKeyword) {
+                    val bodyHash = Integer.toHexString(body.trim().hashCode())
+                    referenceNumber = "CARD${cardLast4}H$bodyHash"
+                    logger.debug("parseSMS", "Card SMS without ref number - synthesized pseudo-ref $referenceNumber")
+                }
             }
 
             // CRITICAL: Reference number is MANDATORY for transaction SMS
@@ -202,6 +267,11 @@ class UnifiedSMSParser @Inject constructor(
             }
         }
 
+        // Alpha-month dates ("04-Jul-25") - the per-bank regexes are numeric-only
+        ALPHA_MONTH_DATE_REGEX.find(body)?.groupValues?.get(1)?.let { dateStr ->
+            tryParseDate(dateStr)?.let { return it }
+        }
+
         // Default to SMS timestamp
         return Date(defaultTimestamp)
     }
@@ -281,13 +351,16 @@ class UnifiedSMSParser @Inject constructor(
      * Clean merchant name (remove extra spaces, special chars)
      */
     private fun cleanMerchantName(merchant: String): String {
-        val trim = merchant
-            .trim()
-            .replace(Regex("\\s+"), " ")
-            .replace(Regex("[^A-Za-z0-9\\s&'-]"), "")
-            .trim()
+        val collapsed = merchant.trim().replace(Regex("\\s+"), " ")
+        // UPI VPAs ("merchant@ybl") must keep their @ and dots or they collapse
+        // into unreadable strings; everything else is stripped to plain text
+        val trim = if (collapsed.contains("@")) {
+            collapsed.replace(Regex("[^A-Za-z0-9.@_\\s-]"), "").trim()
+        } else {
+            collapsed.replace(Regex("[^A-Za-z0-9\\s&'-]"), "").trim()
+        }
         logger.debug("cleanMerchantName","$trim actual merchant name $merchant")
-        return trim;
+        return trim
     }
 
     /**
@@ -300,16 +373,25 @@ class UnifiedSMSParser @Inject constructor(
         calendar.set(2000, 0, 1) // Jan 1, 2000
         val yearStartDate = calendar.time
 
-        DATE_FORMATS.forEach { pattern ->
-            try {
-                // Create new SimpleDateFormat for thread safety
-                val format = SimpleDateFormat(pattern, Locale.ENGLISH)
-                format.isLenient = false
-                // Set 2-digit year start to interpret "yy" as 2000-2099
-                format.set2DigitYearStart(yearStartDate)
-                return format.parse(dateStr)
-            } catch (e: Exception) {
-                // Try next format
+        // Title-case alpha months ("04-JUL-25" -> "04-Jul-25") so SimpleDateFormat
+        // matches them reliably, and normalize "/" or space separators to "-"
+        val normalized = dateStr.replace(
+            Regex("(?i)\\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)")
+        ) { m -> m.value.lowercase().replaceFirstChar { it.uppercase() } }
+        val candidates = if (normalized == dateStr) listOf(dateStr) else listOf(dateStr, normalized)
+
+        candidates.forEach { candidate ->
+            DATE_FORMATS.forEach { pattern ->
+                try {
+                    // Create new SimpleDateFormat for thread safety
+                    val format = SimpleDateFormat(pattern, Locale.ENGLISH)
+                    format.isLenient = false
+                    // Set 2-digit year start to interpret "yy" as 2000-2099
+                    format.set2DigitYearStart(yearStartDate)
+                    return format.parse(candidate)
+                } catch (e: Exception) {
+                    // Try next format
+                }
             }
         }
         return null

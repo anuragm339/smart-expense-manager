@@ -225,7 +225,8 @@ class GroupedMessagesAdapter(
                 // Set category color
                 try {
                     val parsedColor = Color.parseColor(group.categoryColor)
-                    viewCategoryColor.setBackgroundColor(parsedColor)
+                    // Tint instead of setBackgroundColor so the circle shape is preserved
+                    viewCategoryColor.background?.setTint(parsedColor)
                     logger.debug(
                         where = "bind",
                         what = "[COLOR] Applied color '${group.categoryColor}' to merchant '${group.merchantName}' category '${group.category}'"
@@ -236,7 +237,7 @@ class GroupedMessagesAdapter(
                         what = "[COLOR] Failed to parse color '${group.categoryColor}' for merchant '${group.merchantName}': ${e.message}"
                     )
                     // Fallback to default color
-                    viewCategoryColor.setBackgroundColor(Color.parseColor("#9e9e9e"))
+                    viewCategoryColor.background?.setTint(Color.parseColor("#9e9e9e"))
                 }
                 
                 // Show date range
@@ -262,6 +263,7 @@ class GroupedMessagesAdapter(
                     TransactionFilterTab.ALL -> group.isIncludedInCalculations // Normal behavior
                     TransactionFilterTab.INCLUDED -> true // Always ON for included items
                     TransactionFilterTab.EXCLUDED -> false // Always OFF for excluded items
+                    TransactionFilterTab.DELETED -> false // Deleted groups are never counted
                 }
                 switchIncludeGroup.isChecked = toggleState
                 
@@ -269,6 +271,12 @@ class GroupedMessagesAdapter(
                     try {
                         // Handle toggle behavior based on filter tab context
                         when (currentFilterTab) {
+                            TransactionFilterTab.DELETED -> {
+                                // Include/exclude has no meaning for deleted groups -
+                                // swipe a transaction to restore instead
+                                switchIncludeGroup.isChecked = false
+                            }
+
                             TransactionFilterTab.ALL -> {
                                 // Normal behavior - toggle the actual inclusion state
                                 group.isIncludedInCalculations = isChecked
@@ -442,9 +450,9 @@ class GroupedMessagesAdapter(
                 adapter = transactionsAdapter
                 layoutManager = LinearLayoutManager(context)
 
-                // Add ItemTouchHelper for swipe-to-delete
+                // Add ItemTouchHelper for swipe-to-delete (or swipe-to-restore on the DELETED tab)
                 val itemTouchHelper = ItemTouchHelper(
-                    SwipeToDeleteCallback(context, transactionsAdapter, group, onTransactionDelete)
+                    SwipeToDeleteCallback(context, transactionsAdapter, group, onTransactionDelete) { currentFilterTab }
                 )
                 itemTouchHelper.attachToRecyclerView(this)
                 
@@ -589,7 +597,8 @@ private class SwipeToDeleteCallback(
     private val context: Context,
     private val adapter: TransactionItemAdapter,
     private val merchantGroup: MerchantGroup,
-    private val onTransactionDelete: (MessageItem, MerchantGroup) -> Unit
+    private val onTransactionDelete: (MessageItem, MerchantGroup) -> Unit,
+    private val filterTabProvider: () -> TransactionFilterTab
 ) : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT) {
 
     private val logger = StructuredLogger("SwipeToDeleteCallback", "SwipeToDeleteCallback")
@@ -616,12 +625,26 @@ private class SwipeToDeleteCallback(
     }
 
     private fun showDeleteConfirmationDialog(transaction: MessageItem, position: Int) {
-        android.app.AlertDialog.Builder(context)
-            .setTitle("Delete Transaction")
-            .setMessage("Are you sure you want to delete this transaction?\n\n₹${String.format("%.0f", transaction.amount)} at ${transaction.merchant}")
-            .setPositiveButton("Delete") { dialog, _ ->
-                // User confirmed deletion
-                logger.info("showDeleteConfirmationDialog", "User confirmed deletion of transaction: ${transaction.transactionId}")
+        val count = merchantGroup.transactions.size
+        val isRestore = filterTabProvider() == TransactionFilterTab.DELETED
+
+        val title = if (isRestore) "Restore ${merchantGroup.merchantName}?" else "Delete ${merchantGroup.merchantName}?"
+        val message = if (isRestore) {
+            "This will restore all $count transaction${if (count == 1) "" else "s"} from " +
+                "\"${merchantGroup.merchantName}\".\n\n" +
+                "Future SMS from this merchant will be tracked again."
+        } else {
+            "This will remove all $count transaction${if (count == 1) "" else "s"} from " +
+                "\"${merchantGroup.merchantName}\".\n\n" +
+                "Future SMS from this merchant will also be hidden automatically. " +
+                "You can restore it later from the DELETED tab."
+        }
+
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(context)
+            .setTitle(title)
+            .setMessage(message)
+            .setPositiveButton(if (isRestore) "Restore All" else "Delete All") { dialog, _ ->
+                logger.info("showDeleteConfirmationDialog", "User confirmed ${if (isRestore) "restore" else "deletion"} of merchant group: ${merchantGroup.merchantName} ($count transactions)")
                 onTransactionDelete(transaction, merchantGroup)
                 dialog.dismiss()
             }
