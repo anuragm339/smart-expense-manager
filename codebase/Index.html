@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Smart Expense AI codebase and application flow documentation">
+    <title>Smart Expense AI | Codebase Book</title>
+    <link rel="stylesheet" href="book.css">
+</head>
+<body>
+    <header class="topbar">
+        <a class="brand" href="#readme" aria-label="Codebase book home">
+            <img src="../app_icon_512.png" alt="Smart Expense AI">
+            <span>
+                <strong>Smart Expense AI</strong>
+                <small>Codebase book</small>
+            </span>
+        </a>
+        <div class="book-status">
+            <span id="chapterPosition">Chapter 1 of 15</span>
+            <div class="progress-track" aria-hidden="true">
+                <span id="progressBar"></span>
+            </div>
+        </div>
+    </header>
+
+    <div class="book-layout">
+        <aside class="chapter-rail" aria-label="Book chapters">
+            <label class="search-field">
+                <span>Find a chapter</span>
+                <input id="chapterSearch" type="search" placeholder="Search flows" autocomplete="off">
+            </label>
+            <nav id="chapterNav" class="chapter-list"></nav>
+            <div class="rail-note">
+                <span class="status-dot"></span>
+                Based on the current repository
+            </div>
+        </aside>
+
+        <main class="reading-area">
+            <article id="chapterContent" class="paper" aria-live="polite">
+                <div class="loading-state">Opening the book...</div>
+            </article>
+
+            <nav class="page-turner" aria-label="Chapter navigation">
+                <a id="previousChapter" class="page-link previous" href="#">
+                    <span class="page-direction">Previous</span>
+                    <strong></strong>
+                </a>
+                <a id="sourceChapter" class="source-link" href="README.md">View Markdown</a>
+                <a id="nextChapter" class="page-link next" href="#">
+                    <span class="page-direction">Next</span>
+                    <strong></strong>
+                </a>
+            </nav>
+        </main>
+    </div>
+
+    <script src="book.js"></script>
+</body>
+</html>

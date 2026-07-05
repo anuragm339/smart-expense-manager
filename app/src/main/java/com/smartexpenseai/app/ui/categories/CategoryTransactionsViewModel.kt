@@ -361,12 +361,25 @@ class CategoryTransactionsViewModel @Inject constructor(
             val dateFormatter = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
             logger.debug("loadCategoryTransactionsFromRepository","Loading category transactions from start of month: ${dateFormatter.format(startDate)}")
             
+            // Resolve the target category once. Membership is decided by the
+            // transaction's own category_id - the SAME source of truth the category
+            // cards use (getCategorySpendingBreakdown groups by t.category_id). The
+            // merchant's category is only used for display (name/colour), so a single
+            // recategorized transaction no longer lands in a different bucket here than
+            // it does on the card.
+            val targetCategory = repository.getCategoryByName(categoryName)
+
             // Load transactions from repository
             val allDbTransactions = repository.getTransactionsByDateRange(startDate, endDate)
             logger.debug("loadCategoryTransactionsFromRepository","Found ${allDbTransactions.size} total transactions")
-            
+
             // Filter transactions by category
             val categoryTransactions = allDbTransactions.mapNotNull { transaction ->
+                // Membership by the transaction's own category_id
+                if (transaction.categoryId != targetCategory?.id) {
+                    return@mapNotNull null
+                }
+
                 val merchantWithCategory = repository.getMerchantWithCategory(transaction.normalizedMerchant)
 
                 // Filter out excluded merchants
@@ -374,25 +387,21 @@ class CategoryTransactionsViewModel @Inject constructor(
                     return@mapNotNull null
                 }
 
-                val transactionCategory = merchantWithCategory?.category_name ?: "Other"
+                logger.debug("loadCategoryTransactionsFromRepository","Transaction ${transaction.rawMerchant} -> normalized: ${transaction.normalizedMerchant} -> categoryId: ${transaction.categoryId} matches $categoryName")
 
-                logger.debug("loadCategoryTransactionsFromRepository","Transaction ${transaction.rawMerchant} -> normalized: ${transaction.normalizedMerchant} -> category: $transactionCategory")
-                
-                if (transactionCategory == categoryName) {
-                    MessageItem(
-                        transactionId = transaction.id,  // Add transaction ID for direct updates
-                        amount = transaction.amount,
-                        merchant = merchantWithCategory?.display_name ?: transaction.rawMerchant, // Use display name from DB
-                        bankName = transaction.bankName,
-                        category = transactionCategory,
-                        categoryColor = merchantWithCategory?.category_color ?: "#888888",
-                        confidence = (transaction.confidenceScore * 100).toInt(),
-                        dateTime = formatDate(transaction.transactionDate),
-                        rawSMS = transaction.rawSmsBody,
-                        isDebit = transaction.isDebit,
-                        rawMerchant = transaction.rawMerchant // Pass the original raw merchant name
-                    )
-                } else null
+                MessageItem(
+                    transactionId = transaction.id,  // Add transaction ID for direct updates
+                    amount = transaction.amount,
+                    merchant = merchantWithCategory?.display_name ?: transaction.rawMerchant, // Use display name from DB
+                    bankName = transaction.bankName,
+                    category = categoryName,
+                    categoryColor = merchantWithCategory?.category_color ?: targetCategory.color ?: "#888888",
+                    confidence = (transaction.confidenceScore * 100).toInt(),
+                    dateTime = formatDate(transaction.transactionDate),
+                    rawSMS = transaction.rawSmsBody,
+                    isDebit = transaction.isDebit,
+                    rawMerchant = transaction.rawMerchant // Pass the original raw merchant name
+                )
             }
 
             logger.debug("loadCategoryTransactionsFromRepository","Filtered to ${categoryTransactions.size} transactions for $categoryName")

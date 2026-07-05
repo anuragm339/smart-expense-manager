@@ -13,6 +13,9 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
@@ -39,6 +42,9 @@ class MainActivity : AppCompatActivity() {
     @Inject
     lateinit var smsParsingService: SMSParsingService
 
+    @Inject
+    lateinit var merchantNameCleanupHelper: com.smartexpenseai.app.utils.MerchantNameCleanupHelper
+
     private lateinit var binding: ActivityMainBinding
     private val logger = StructuredLogger("MainActivity","MainActivity")
         companion object {
@@ -54,7 +60,12 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        
+
+        applySystemBarInsets()
+
+        // One-time cleanup of legacy merchant names that embedded dates/refs.
+        lifecycleScope.launch { merchantNameCleanupHelper.runIfNeeded() }
+
         setupNavigation()
         handleNotificationIntent(intent)
         checkAndRequestPermissions()
@@ -75,6 +86,21 @@ class MainActivity : AppCompatActivity() {
         }
     }
     
+    /**
+     * From Android 15 (targetSdk 35) the system enforces edge-to-edge, so content draws behind
+     * the transparent status and navigation bars and the legacy statusBarColor is ignored.
+     * Pad the content down by the status-bar height and the bottom nav up by the gesture-bar
+     * height so nothing overlaps the phone's system icons.
+     */
+    private fun applySystemBarInsets() {
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            binding.navHostFragment.updatePadding(top = bars.top)
+            binding.bottomNavigation.updatePadding(bottom = bars.bottom)
+            insets
+        }
+    }
+
     private fun setupNavigation() {
         val navHostFragment = supportFragmentManager
             .findFragmentById(R.id.nav_host_fragment) as NavHostFragment
