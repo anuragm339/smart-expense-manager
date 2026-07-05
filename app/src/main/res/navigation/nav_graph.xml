@@ -97,7 +97,16 @@
         <action
             android:id="@+id/action_navigation_settings_to_navigation_budget_goals"
             app:destination="@id/navigation_budget_goals" />
+        <action
+            android:id="@+id/action_navigation_settings_to_navigation_tag_management"
+            app:destination="@id/navigation_tag_management" />
     </fragment>
+
+    <fragment
+        android:id="@+id/navigation_tag_management"
+        android:name="com.smartexpenseai.app.ui.tags.TagManagementFragment"
+        android:label="Manage Tags"
+        tools:layout="@layout/fragment_tag_management" />
 
     <fragment
         android:id="@+id/navigation_budget_goals"

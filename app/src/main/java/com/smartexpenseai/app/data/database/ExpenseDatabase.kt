@@ -20,9 +20,11 @@ import com.smartexpenseai.app.data.dao.*
         SyncStateEntity::class,
         BudgetEntity::class,
         com.smartexpenseai.app.data.models.AICallTracker::class,
-        UserEntity::class
+        UserEntity::class,
+        TagEntity::class,
+        TransactionTagEntity::class
     ],
-    version = 14,
+    version = 15,
     exportSchema = false
 )
 @TypeConverters(DateConverter::class)
@@ -35,6 +37,7 @@ abstract class ExpenseDatabase : RoomDatabase() {
     abstract fun budgetDao(): BudgetDao
     abstract fun aiCallDao(): AICallDao
     abstract fun userDao(): UserDao
+    abstract fun tagDao(): TagDao
     
     companion object {
         @Volatile
@@ -61,7 +64,8 @@ abstract class ExpenseDatabase : RoomDatabase() {
                     MIGRATION_10_11, // Remove unused category_spending_cache table
                     MIGRATION_11_12, // Fix inconsistent transaction category_ids
                     MIGRATION_12_13, // Add is_active flag for soft-delete support
-                    MIGRATION_13_14  // Add is_deleted flag to merchants for auto-hiding future SMS
+                    MIGRATION_13_14, // Add is_deleted flag to merchants for auto-hiding future SMS
+                    MIGRATION_14_15  // Add tags + transaction_tags tables (many-to-many tagging)
                 )
                 .build()
                 INSTANCE = instance
@@ -389,6 +393,34 @@ abstract class ExpenseDatabase : RoomDatabase() {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL(
                     "ALTER TABLE merchants ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0"
+                )
+            }
+        }
+
+        // Migration from version 14 to 15: Add user-defined tags with a
+        // many-to-many association to transactions. Purely additive; no backfill.
+        val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "CREATE TABLE IF NOT EXISTS tags (" +
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "name TEXT NOT NULL, " +
+                        "color TEXT NOT NULL, " +
+                        "created_at INTEGER NOT NULL)"
+                )
+                database.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS index_tags_name ON tags(name)"
+                )
+                database.execSQL(
+                    "CREATE TABLE IF NOT EXISTS transaction_tags (" +
+                        "transaction_id INTEGER NOT NULL, " +
+                        "tag_id INTEGER NOT NULL, " +
+                        "PRIMARY KEY(transaction_id, tag_id), " +
+                        "FOREIGN KEY(transaction_id) REFERENCES transactions(id) ON DELETE CASCADE, " +
+                        "FOREIGN KEY(tag_id) REFERENCES tags(id) ON DELETE CASCADE)"
+                )
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_transaction_tags_tag_id ON transaction_tags(tag_id)"
                 )
             }
         }

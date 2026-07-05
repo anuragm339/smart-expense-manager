@@ -571,7 +571,9 @@ class TransactionItemAdapter(
 
             amountBankText.text = "$typeIndicator₹${String.format("%.0f", transaction.amount)} • ${transaction.bankName} • $transactionType"
             dateConfidenceText.text = "${transaction.dateTime} • ${transaction.confidence}% confidence"
-            
+
+            bindTags(transaction)
+
             // Color coding for debit/credit
             if (transaction.isDebit) {
                 amountBankText.setTextColor(itemView.context.getColor(com.smartexpenseai.app.R.color.debit_red))
@@ -585,6 +587,35 @@ class TransactionItemAdapter(
                 } catch (e: Exception) {
                     logger.error("bind", "Error handling transaction click",e)
                 }
+            }
+        }
+
+        /** Render compact, read-only tag chips; hide the group when there are none. */
+        private fun bindTags(transaction: MessageItem) {
+            val chipGroup = itemView.findViewById<com.google.android.material.chip.ChipGroup>(
+                com.smartexpenseai.app.R.id.chip_group_item_tags
+            ) ?: return
+            chipGroup.removeAllViews()
+            if (transaction.tags.isEmpty()) {
+                chipGroup.visibility = View.GONE
+                return
+            }
+            chipGroup.visibility = View.VISIBLE
+            transaction.tags.forEach { tag ->
+                val chip = com.google.android.material.chip.Chip(itemView.context).apply {
+                    text = tag.name
+                    isClickable = false
+                    isCheckable = false
+                    setEnsureMinTouchTargetSize(false)
+                    chipMinHeight = itemView.resources.displayMetrics.density * 24
+                    textSize = 11f
+                    try {
+                        chipBackgroundColor = android.content.res.ColorStateList.valueOf(
+                            android.graphics.Color.parseColor(tag.color)
+                        )
+                    } catch (_: Exception) { }
+                }
+                chipGroup.addView(chip)
             }
         }
     }

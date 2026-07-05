@@ -85,6 +85,10 @@ class SettingsFragment : Fragment() {
         binding.btnBudgetGoals.setOnClickListener {
             findNavController().navigate(R.id.action_navigation_settings_to_navigation_budget_goals)
         }
+
+        binding.layoutManageTags.setOnClickListener {
+            findNavController().navigate(R.id.action_navigation_settings_to_navigation_tag_management)
+        }
     }
     
     private fun loadSettings() {

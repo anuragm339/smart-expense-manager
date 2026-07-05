@@ -72,6 +72,7 @@ class MerchantTransactionsFragment : Fragment() {
         transactionsAdapter = MerchantTransactionsAdapter { transaction ->
             // Navigate to transaction details
             val bundle = Bundle().apply {
+                putLong("transactionId", transaction.id)
                 putFloat("amount", transaction.amount.toFloat())
                 putString("merchant", merchantName)
                 putString("bankName", transaction.bankName)

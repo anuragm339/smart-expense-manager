@@ -134,6 +134,43 @@
             app:chipSpacingHorizontal="8dp"
             app:chipSpacingVertical="4dp" />
 
+        <!-- Tag Filter -->
+        <TextView
+            android:id="@+id/tv_tags_header"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🏷️ Tags"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="?attr/colorOnSurface"
+            android:layout_marginBottom="8dp" />
+
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/chip_group_tags"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            app:chipSpacingHorizontal="8dp"
+            app:chipSpacingVertical="4dp" />
+
+        <TextView
+            android:id="@+id/tv_no_tags"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="No tags yet. Add tags from a transaction's details."
+            android:textSize="12sp"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:layout_marginBottom="8dp"
+            android:visibility="gone" />
+
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/switch_match_all_tags"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Match all selected tags"
+            android:textColor="?attr/colorOnSurface"
+            android:layout_marginBottom="16dp" />
+
         <!-- Instructions -->
         <TextView
             android:layout_width="match_parent"

@@ -57,6 +57,9 @@ class MessagesFragment : Fragment() {
     @Inject
     lateinit var smsHistoryReader: SMSHistoryReader
 
+    @Inject
+    lateinit var tagRepository: com.smartexpenseai.app.data.repository.TagRepository
+
     private val logger = StructuredLogger("UI", MessagesFragment::class.java.simpleName)
     private lateinit var categoryManager: CategoryManager
     private lateinit var merchantAliasManager: com.smartexpenseai.app.utils.MerchantAliasManager
@@ -431,7 +434,33 @@ class MessagesFragment : Fragment() {
         val etDateFrom = dialogView.findViewById<TextInputEditText>(R.id.et_date_from)
         val etDateTo = dialogView.findViewById<TextInputEditText>(R.id.et_date_to)
         val chipGroupBanks = dialogView.findViewById<com.google.android.material.chip.ChipGroup>(R.id.chip_group_banks)
-        
+        val chipGroupTags = dialogView.findViewById<com.google.android.material.chip.ChipGroup>(R.id.chip_group_tags)
+        val tvNoTags = dialogView.findViewById<android.widget.TextView>(R.id.tv_no_tags)
+        val switchMatchAllTags = dialogView.findViewById<com.google.android.material.switchmaterial.SwitchMaterial>(R.id.switch_match_all_tags)
+
+        // Populate tag chips from all defined tags, pre-checking the current selection.
+        val currentTagFilter = messagesViewModel.uiState.value.currentFilterOptions
+        switchMatchAllTags.isChecked =
+            currentTagFilter.tagMatchMode == com.smartexpenseai.app.data.repository.TagMatchMode.ALL
+        viewLifecycleOwner.lifecycleScope.launch {
+            val tags = tagRepository.getAllTagsSync()
+            chipGroupTags.removeAllViews()
+            if (tags.isEmpty()) {
+                tvNoTags.visibility = View.VISIBLE
+                switchMatchAllTags.visibility = View.GONE
+            } else {
+                tvNoTags.visibility = View.GONE
+                tags.forEach { tag ->
+                    val chip = com.google.android.material.chip.Chip(requireContext())
+                    chip.text = tag.name
+                    chip.isCheckable = true
+                    chip.tag = tag.id
+                    chip.isChecked = currentTagFilter.selectedTagIds.contains(tag.id)
+                    chipGroupTags.addView(chip)
+                }
+            }
+        }
+
         // Set current values
         etMinAmount.setText(currentFilterOptions.minAmount?.toString() ?: "")
         etMaxAmount.setText(currentFilterOptions.maxAmount?.toString() ?: "")
@@ -478,13 +507,27 @@ class MessagesFragment : Fragment() {
                     }
                 }
 
+                // Collect selected tag ids
+                val selectedTagIds = mutableSetOf<Long>()
+                for (i in 0 until chipGroupTags.childCount) {
+                    val chip = chipGroupTags.getChildAt(i) as com.google.android.material.chip.Chip
+                    if (chip.isChecked) (chip.tag as? Long)?.let { selectedTagIds.add(it) }
+                }
+                val tagMatchMode = if (switchMatchAllTags.isChecked) {
+                    com.smartexpenseai.app.data.repository.TagMatchMode.ALL
+                } else {
+                    com.smartexpenseai.app.data.repository.TagMatchMode.ANY
+                }
+
                 // Create filter options
                 val filterOptions = com.smartexpenseai.app.ui.messages.FilterOptions(
                     minAmount = etMinAmount.text.toString().toDoubleOrNull(),
                     maxAmount = etMaxAmount.text.toString().toDoubleOrNull(),
                     selectedBanks = selectedBanks,
                     dateFrom = etDateFrom.text.toString().takeIf { it.isNotEmpty() },
-                    dateTo = etDateTo.text.toString().takeIf { it.isNotEmpty() }
+                    dateTo = etDateTo.text.toString().takeIf { it.isNotEmpty() },
+                    selectedTagIds = selectedTagIds,
+                    tagMatchMode = tagMatchMode
                 )
 
                 // Use ViewModel to apply filters - ViewModel is the single source of truth
@@ -522,6 +565,13 @@ class MessagesFragment : Fragment() {
                 val chip = chipGroupBanks.getChildAt(i) as com.google.android.material.chip.Chip
                 chip.isChecked = false
             }
+
+            // Uncheck all tag chips and reset match mode
+            for (i in 0 until chipGroupTags.childCount) {
+                val chip = chipGroupTags.getChildAt(i) as com.google.android.material.chip.Chip
+                chip.isChecked = false
+            }
+            switchMatchAllTags.isChecked = false
 
             logger.debug("showFilterDialog", "Reset filter fields to current month: $firstDayOfMonth to $lastDayOfMonth")
 
@@ -2310,6 +2360,7 @@ class MessagesFragment : Fragment() {
     
     private fun navigateToTransactionDetails(messageItem: MessageItem) {
         val bundle = Bundle().apply {
+            putLong("transactionId", messageItem.transactionId)
             putFloat("amount", messageItem.amount.toFloat())
             putString("merchant", messageItem.merchant)
             putString("bankName", messageItem.bankName)
