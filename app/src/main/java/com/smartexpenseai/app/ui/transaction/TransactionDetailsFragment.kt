@@ -18,6 +18,7 @@ import com.smartexpenseai.app.databinding.FragmentTransactionDetailsBinding
 import com.smartexpenseai.app.utils.CategoryManager
 import com.smartexpenseai.app.data.entities.TagEntity
 import com.smartexpenseai.app.data.repository.TagRepository
+import com.smartexpenseai.app.data.repository.TagAutoApplyService
 import com.google.android.material.chip.Chip
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
@@ -39,6 +40,7 @@ class TransactionDetailsFragment : Fragment() {
     private lateinit var categoryManager: CategoryManager
 
     @Inject lateinit var tagRepository: TagRepository
+    @Inject lateinit var tagAutoApplyService: TagAutoApplyService
 
     // Persistent row id used for tag associations (0 when unknown/legacy nav)
     private var transactionId: Long = 0L
@@ -254,14 +256,17 @@ class TransactionDetailsFragment : Fragment() {
                 .setNeutralButton("New tag…") { _, _ -> showCreateTagDialog() }
                 .setPositiveButton("Done") { _, _ ->
                     viewLifecycleOwner.lifecycleScope.launch {
+                        val newlyAdded = mutableListOf<Long>()
                         allTags.forEachIndexed { index, tag ->
                             val wasAttached = attachedIds.contains(tag.id)
                             if (checked[index] && !wasAttached) {
                                 tagRepository.addTagToTransaction(transactionId, tag.id)
+                                newlyAdded.add(tag.id)
                             } else if (!checked[index] && wasAttached) {
                                 tagRepository.removeTagFromTransaction(transactionId, tag.id)
                             }
                         }
+                        offerApplyToMatching(newlyAdded)
                     }
                 }
                 .setNegativeButton("Cancel", null)
@@ -283,10 +288,35 @@ class TransactionDetailsFragment : Fragment() {
                 viewLifecycleOwner.lifecycleScope.launch {
                     val tag = tagRepository.getOrCreateTag(name)
                     tagRepository.addTagToTransaction(transactionId, tag.id)
+                    offerApplyToMatching(listOf(tag.id))
                 }
             }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+
+    /**
+     * After a manual tag, offer to backfill existing transactions with the same
+     * signature (merchant + amount + time-of-day ±30 min). One-time, opt-in.
+     */
+    private fun offerApplyToMatching(addedTagIds: List<Long>) {
+        if (addedTagIds.isEmpty() || transactionId <= 0L) return
+        viewLifecycleOwner.lifecycleScope.launch {
+            val count = tagAutoApplyService.countMatchingTransactions(transactionId)
+            if (count <= 0) return@launch
+            val plural = if (count == 1) "transaction" else "transactions"
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Apply to similar?")
+                .setMessage("Found $count other $plural with the same merchant, amount, and time of day. Tag them too?")
+                .setPositiveButton("Apply to all") { _, _ ->
+                    viewLifecycleOwner.lifecycleScope.launch {
+                        val affected = tagAutoApplyService.applyTagsToMatching(transactionId, addedTagIds)
+                        Toast.makeText(requireContext(), "Tagged $affected $plural", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                .setNegativeButton("Just this one", null)
+                .show()
+        }
     }
 
     private fun setupUI() {

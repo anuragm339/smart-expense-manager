@@ -129,7 +129,53 @@ interface TagDao {
            HAVING COUNT(DISTINCT tt.tag_id) = :tagCount"""
     )
     suspend fun getTransactionIdsWithAllTags(tagIds: List<Long>, tagCount: Int): List<Long>
+
+    // ----- Auto-tag: sibling matching (same merchant + amount) -----
+
+    /**
+     * Tag ids attached to active transactions with the same merchant and amount as
+     * a target (excluding the target itself). Callers still filter by time-of-day.
+     */
+    @Query(
+        """SELECT tt.tag_id AS tagId, tx.transaction_date AS transaction_date
+           FROM transactions tx
+           JOIN transaction_tags tt ON tx.id = tt.transaction_id
+           WHERE tx.normalized_merchant = :merchant AND tx.amount = :amount
+             AND tx.is_active = 1 AND tx.id != :excludeId"""
+    )
+    suspend fun getSiblingTagCandidates(
+        merchant: String,
+        amount: Double,
+        excludeId: Long
+    ): List<SiblingTagRow>
+
+    /**
+     * Active transactions with the same merchant and amount as a target
+     * (excluding it), tagged or not. Callers filter by time-of-day.
+     */
+    @Query(
+        """SELECT id, transaction_date FROM transactions
+           WHERE normalized_merchant = :merchant AND amount = :amount
+             AND is_active = 1 AND id != :excludeId"""
+    )
+    suspend fun getSiblingTransactions(
+        merchant: String,
+        amount: Double,
+        excludeId: Long
+    ): List<SiblingTransaction>
 }
+
+/** A candidate tag from a sibling transaction, with that sibling's timestamp. */
+data class SiblingTagRow(
+    val tagId: Long,
+    @ColumnInfo(name = "transaction_date") val transactionDate: java.util.Date
+)
+
+/** A sibling transaction id with its timestamp (for time-of-day filtering). */
+data class SiblingTransaction(
+    val id: Long,
+    @ColumnInfo(name = "transaction_date") val transactionDate: java.util.Date
+)
 
 /**
  * Flat row for [TagDao.getTagsForTransactions]: a tag plus the transaction id it
