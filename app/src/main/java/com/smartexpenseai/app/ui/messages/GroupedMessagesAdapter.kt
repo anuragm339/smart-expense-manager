@@ -216,6 +216,9 @@ class GroupedMessagesAdapter(
                 tvMerchantName.text = group.merchantName
                 tvTransactionCount.text = "${group.transactions.size} transactions"
                 tvCategory.text = group.category
+
+                // Tags across the group's transactions (union), shown on the header
+                bindGroupTags(group)
                 
                 // Set amount with visual indication of inclusion status
                 val amountText = "₹${String.format("%.0f", group.totalAmount)}"
@@ -443,7 +446,35 @@ class GroupedMessagesAdapter(
                 }
             }
         }
-        
+
+        /** Render the union of tags across the group's transactions as compact chips. */
+        private fun bindGroupTags(group: MerchantGroup) {
+            val chipGroup = binding.chipGroupGroupTags
+            chipGroup.removeAllViews()
+            val tags = group.transactions.flatMap { it.tags }.distinctBy { it.id }
+            if (tags.isEmpty()) {
+                chipGroup.visibility = View.GONE
+                return
+            }
+            chipGroup.visibility = View.VISIBLE
+            tags.forEach { tag ->
+                val chip = com.google.android.material.chip.Chip(chipGroup.context).apply {
+                    text = tag.name
+                    isClickable = false
+                    isCheckable = false
+                    setEnsureMinTouchTargetSize(false)
+                    chipMinHeight = chipGroup.resources.displayMetrics.density * 24
+                    textSize = 11f
+                    try {
+                        chipBackgroundColor = android.content.res.ColorStateList.valueOf(
+                            android.graphics.Color.parseColor(tag.color)
+                        )
+                    } catch (_: Exception) { }
+                }
+                chipGroup.addView(chip)
+            }
+        }
+
         private fun setupTransactionsRecyclerView(group: MerchantGroup) {
             transactionsAdapter = TransactionItemAdapter(onTransactionClick)
             binding.recyclerTransactions.apply {

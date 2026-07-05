@@ -107,6 +107,17 @@
                     android:textColor="@color/text_hint"
                     android:layout_marginTop="2dp" />
 
+                <!-- Tags across this merchant group (union); hidden when none -->
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/chip_group_group_tags"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:visibility="gone"
+                    app:chipSpacingHorizontal="4dp"
+                    app:chipSpacingVertical="2dp"
+                    app:singleLine="false" />
+
             </LinearLayout>
 
             <!-- Amount, Toggle, and Expand Icon -->
