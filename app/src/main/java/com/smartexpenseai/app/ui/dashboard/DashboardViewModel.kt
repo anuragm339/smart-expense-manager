@@ -65,7 +65,8 @@ class DashboardViewModel @Inject constructor(
         } catch (e: Exception) {
             logger.error("init", "Failed to register data change receiver", e)
         }
-        
+
+        restoreComparisonState()
         loadDashboardData()
     }
     
@@ -501,6 +502,7 @@ class DashboardViewModel @Inject constructor(
 
     fun setComparisonMode(mode: ComparisonMode) {
         _uiState.value = _uiState.value.copy(comparisonMode = mode)
+        trackedPrefs().edit().putString("comparison_mode", mode.name).apply()
         updateComparison()
     }
 
@@ -510,7 +512,34 @@ class DashboardViewModel @Inject constructor(
             customRangeA = aStart to aEnd,
             customRangeB = bStart to bEnd
         )
+        trackedPrefs().edit()
+            .putString("comparison_mode", ComparisonMode.CUSTOM.name)
+            .putLong("cmp_a_start", aStart.time).putLong("cmp_a_end", aEnd.time)
+            .putLong("cmp_b_start", bStart.time).putLong("cmp_b_end", bEnd.time)
+            .apply()
         updateComparison()
+    }
+
+    /** Restore the persisted comparison mode/ranges (called once at init). */
+    private fun restoreComparisonState() {
+        val prefs = trackedPrefs()
+        val mode = prefs.getString("comparison_mode", null)
+            ?.let { runCatching { ComparisonMode.valueOf(it) }.getOrNull() }
+            ?: return
+        if (mode == ComparisonMode.CUSTOM) {
+            val aS = prefs.getLong("cmp_a_start", -1)
+            val aE = prefs.getLong("cmp_a_end", -1)
+            val bS = prefs.getLong("cmp_b_start", -1)
+            val bE = prefs.getLong("cmp_b_end", -1)
+            if (aS < 0 || aE < 0 || bS < 0 || bE < 0) return
+            _uiState.value = _uiState.value.copy(
+                comparisonMode = mode,
+                customRangeA = Date(aS) to Date(aE),
+                customRangeB = Date(bS) to Date(bE)
+            )
+        } else {
+            _uiState.value = _uiState.value.copy(comparisonMode = mode)
+        }
     }
 
     /**

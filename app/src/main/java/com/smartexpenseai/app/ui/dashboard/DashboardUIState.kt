@@ -95,10 +95,18 @@ data class MonthlyComparison(
         get() = when {
             previousAmount == 0.0 && currentAmount > 0 -> "New spending (no previous data)"
             previousAmount == 0.0 && currentAmount == 0.0 -> "No data available"
+            // Guard against absurd percentages when the previous period is tiny:
+            // a % off a near-zero base isn't meaningful, so show direction instead.
+            hasIncrease && percentageChange >= HUGE_CHANGE_PCT -> "↑ Much more than last period"
             hasIncrease -> "↑ ${String.format("%.1f", percentageChange)}% more spending"
             hasDecrease -> "↓ ${String.format("%.1f", kotlin.math.abs(percentageChange))}% less spending"
             else -> "📊 Spending stable"
         }
+
+    companion object {
+        // Above this, the percentage is dominated by a near-zero baseline and unhelpful.
+        private const val HUGE_CHANGE_PCT = 1000.0
+    }
 }
 
 /**
