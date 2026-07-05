@@ -17,6 +17,7 @@ data class DashboardUIState(
     val monthlyComparison: MonthlyComparison? = null,
     val categoryMovers: List<CategoryMover> = emptyList(),
     val tagSpending: List<com.smartexpenseai.app.data.dao.TagSpending> = emptyList(),
+    val trackedTagMovers: List<CategoryMover> = emptyList(),
     val trendData: TrendData? = null,
     val customMonthComparison: CustomMonthComparison? = null,
     val monthlyBudget: Double = 0.0,
@@ -98,11 +99,11 @@ data class MonthlyComparison(
 }
 
 /**
- * A category's change between the current period and the previous one.
- * Drives the "top movers by category" list under the monthly comparison.
+ * A labelled thing's spend change between the current period and the previous one.
+ * Drives the "top movers by category" list and the tracked-tag comparison.
  */
 data class CategoryMover(
-    val categoryName: String,
+    val label: String,
     val color: String,
     val currentAmount: Double,
     val previousAmount: Double

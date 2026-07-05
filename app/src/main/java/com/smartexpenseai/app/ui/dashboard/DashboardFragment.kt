@@ -195,6 +195,7 @@ class DashboardFragment : Fragment() {
             onCategorySelected = { category -> navigateToCategoryTransactions(category) }
         )
         viewBinder.initialize()
+        viewBinder.setOnEditTrackedTags { showTrackedTagPicker() }
 
         trendBinder = DashboardTrendBinder(binding, requireContext(), repository, logger)
         trendBinder.setupChart()
@@ -310,6 +311,36 @@ class DashboardFragment : Fragment() {
             R.id.action_dashboard_to_merchant_transactions,
             bundle
         )
+    }
+
+    /** Multi-select dialog to choose which tags the Tag Trends card compares. */
+    private fun showTrackedTagPicker() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val tags = viewModel.getAllTagsForPicker()
+            if (tags.isEmpty()) {
+                Toast.makeText(
+                    requireContext(),
+                    "No tags yet — add tags to transactions first.",
+                    Toast.LENGTH_SHORT
+                ).show()
+                return@launch
+            }
+            val tracked = viewModel.getTrackedTagIds()
+            val names = tags.map { it.name }.toTypedArray()
+            val checked = tags.map { tracked.contains(it.id) }.toBooleanArray()
+
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Track tags")
+                .setMultiChoiceItems(names, checked) { _, which, isChecked ->
+                    checked[which] = isChecked
+                }
+                .setPositiveButton("Save") { _, _ ->
+                    val ids = tags.filterIndexed { i, _ -> checked[i] }.map { it.id }.toSet()
+                    viewModel.setTrackedTagIds(ids)
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
     }
 
     private fun navigateToCategoryTransactions(categoryName: String) {

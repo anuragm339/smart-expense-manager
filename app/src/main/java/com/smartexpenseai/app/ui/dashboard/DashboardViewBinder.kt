@@ -85,6 +85,10 @@ class DashboardViewBinder(
         renderMonthlyComparison(state.monthlyComparison)
         renderCategoryMovers(state.categoryMovers)
         renderTagSpending(state.tagSpending)
+        renderTrackedTagMovers(
+            state.trackedTagMovers,
+            showCard = state.tagSpending.isNotEmpty() || state.trackedTagMovers.isNotEmpty()
+        )
     }
 
     fun showSyncToast(count: Int) {
@@ -294,6 +298,46 @@ class DashboardViewBinder(
         }
     }
 
+    /** Month-over-month comparison for the user's tracked tags. */
+    fun renderTrackedTagMovers(movers: List<CategoryMover>, showCard: Boolean) {
+        val card = binding.cardTagTrends
+        if (!showCard) {
+            card.visibility = View.GONE
+            return
+        }
+        card.visibility = View.VISIBLE
+        val container = binding.layoutTrackedTags
+        val empty = binding.tvTrackedTagsEmpty
+        container.removeAllViews()
+        if (movers.isEmpty()) {
+            empty.visibility = View.VISIBLE
+            return
+        }
+        empty.visibility = View.GONE
+        val inflater = LayoutInflater.from(context)
+        movers.forEach { mover ->
+            val row = inflater.inflate(R.layout.item_category_mover, container, false)
+            row.findViewById<TextView>(R.id.tv_mover_name).text = mover.label
+            row.findViewById<TextView>(R.id.tv_mover_current).text =
+                "₹${mover.currentAmount.formatAsMoney()}"
+            val delta = row.findViewById<TextView>(R.id.tv_mover_delta)
+            delta.text = mover.deltaText
+            delta.setTextColor(if (mover.isIncrease) color(R.color.error) else color(R.color.success))
+            val dot = row.findViewById<View>(R.id.view_mover_color)
+            try {
+                dot.background?.setTint(android.graphics.Color.parseColor(mover.color))
+            } catch (_: Exception) {
+                dot.background?.setTint(color(R.color.text_secondary))
+            }
+            container.addView(row)
+        }
+    }
+
+    /** Wire the "Edit" affordance on the Tag Trends card. */
+    fun setOnEditTrackedTags(action: () -> Unit) {
+        binding.tvEditTrackedTags.setOnClickListener { action() }
+    }
+
     fun renderCategoryMovers(movers: List<CategoryMover>) {
         val container = binding.layoutCategoryMovers
         val header = binding.tvCategoryMoversHeader
@@ -308,7 +352,7 @@ class DashboardViewBinder(
         val inflater = LayoutInflater.from(context)
         movers.forEach { mover ->
             val row = inflater.inflate(R.layout.item_category_mover, container, false)
-            row.findViewById<TextView>(R.id.tv_mover_name).text = mover.categoryName
+            row.findViewById<TextView>(R.id.tv_mover_name).text = mover.label
             row.findViewById<TextView>(R.id.tv_mover_current).text =
                 "₹${mover.currentAmount.formatAsMoney()}"
             val delta = row.findViewById<TextView>(R.id.tv_mover_delta)

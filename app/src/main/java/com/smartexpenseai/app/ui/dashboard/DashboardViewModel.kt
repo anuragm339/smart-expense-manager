@@ -522,6 +522,9 @@ class DashboardViewModel @Inject constructor(
                             monthlyComparison = comparison,
                             categoryMovers = computeCategoryMovers(
                                 currentStart, currentEnd, previousStart, previousEnd
+                            ),
+                            trackedTagMovers = computeTrackedTagMovers(
+                                currentStart, currentEnd, previousStart, previousEnd
                             )
                         )
                     },
@@ -535,6 +538,61 @@ class DashboardViewModel @Inject constructor(
         }
     }
     
+    // ----- Tracked tags (month-over-month comparison of user-selected tags) -----
+
+    private fun trackedPrefs() =
+        context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+
+    fun getTrackedTagIds(): Set<Long> =
+        trackedPrefs().getString("tracked_tag_ids", "").orEmpty()
+            .split(",").mapNotNull { it.trim().toLongOrNull() }.toSet()
+
+    suspend fun getAllTagsForPicker(): List<com.smartexpenseai.app.data.entities.TagEntity> =
+        tagRepository.getAllTagsSync()
+
+    /** Persist the tracked-tag selection and recompute the comparison. */
+    fun setTrackedTagIds(ids: Set<Long>) {
+        trackedPrefs().edit().putString("tracked_tag_ids", ids.joinToString(",")).apply()
+        viewModelScope.launch {
+            val period = _uiState.value.dashboardPeriod
+            val (cs, ce) = getDateRangeForPeriod(period)
+            val (ps, pe) = getPreviousPeriodRange(period)
+            _uiState.value = _uiState.value.copy(
+                trackedTagMovers = computeTrackedTagMovers(cs, ce, ps, pe)
+            )
+        }
+    }
+
+    private suspend fun computeTrackedTagMovers(
+        currentStart: Date,
+        currentEnd: Date,
+        previousStart: Date,
+        previousEnd: Date
+    ): List<CategoryMover> {
+        val tracked = getTrackedTagIds()
+        if (tracked.isEmpty()) return emptyList()
+        return try {
+            val current = tagRepository.getSpendByTag(currentStart, currentEnd).filter { it.tagId in tracked }
+            val previous = tagRepository.getSpendByTag(previousStart, previousEnd).filter { it.tagId in tracked }
+            val currentById = current.associateBy { it.tagId }
+            val previousById = previous.associateBy { it.tagId }
+            tracked.mapNotNull { id ->
+                val c = currentById[id]
+                val p = previousById[id]
+                if (c == null && p == null) null
+                else CategoryMover(
+                    label = c?.name ?: p?.name ?: "",
+                    color = c?.color ?: p?.color ?: "#607D8B",
+                    currentAmount = c?.totalAmount ?: 0.0,
+                    previousAmount = p?.totalAmount ?: 0.0
+                )
+            }.sortedByDescending { it.currentAmount }
+        } catch (e: Exception) {
+            logger.warn("computeTrackedTagMovers", "Error computing tracked tag movers: ${e.message}")
+            emptyList()
+        }
+    }
+
     /**
      * Load ranked spend-by-tag for the current period into state.
      */
@@ -571,7 +629,7 @@ class DashboardViewModel @Inject constructor(
                 val c = currentById[id]
                 val p = previousById[id]
                 CategoryMover(
-                    categoryName = c?.category_name ?: p?.category_name ?: "Other",
+                    label = c?.category_name ?: p?.category_name ?: "Other",
                     color = c?.color ?: p?.color ?: "#9e9e9e",
                     currentAmount = c?.total_amount ?: 0.0,
                     previousAmount = p?.total_amount ?: 0.0
