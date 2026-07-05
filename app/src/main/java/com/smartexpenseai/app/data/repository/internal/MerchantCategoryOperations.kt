@@ -190,7 +190,11 @@ internal class MerchantCategoryOperations(
         }
     }
 
-    suspend fun getMerchantsInCategory(categoryName: String): List<com.smartexpenseai.app.ui.categories.MerchantInCategory> {
+    suspend fun getMerchantsInCategory(
+        categoryName: String,
+        startDate: java.util.Date,
+        endDate: java.util.Date
+    ): List<com.smartexpenseai.app.ui.categories.MerchantInCategory> {
         return withContext(Dispatchers.IO) {
             try {
                 val category = categoryDao.getCategoryByName(categoryName)
@@ -202,7 +206,7 @@ internal class MerchantCategoryOperations(
                     return@withContext emptyList()
                 }
 
-                val merchantsWithStats = transactionDao.getMerchantsInCategoryWithStats(category.id)
+                val merchantsWithStats = transactionDao.getMerchantsInCategoryWithStats(category.id, startDate, endDate)
                 val totalCategorySpending = merchantsWithStats.sumOf { it.totalAmount }
 
                 merchantsWithStats.map { merchantStats ->

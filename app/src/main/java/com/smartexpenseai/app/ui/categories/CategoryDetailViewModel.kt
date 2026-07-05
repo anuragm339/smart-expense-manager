@@ -26,6 +26,17 @@ class CategoryDetailViewModel @Inject constructor(
         private const val TAG = "CategoryDetailViewModel"
     }
 
+    /** Start of the current month (00:00) to now - matches the other category screens. */
+    private fun currentMonthRange(): Pair<java.util.Date, java.util.Date> {
+        val calendar = java.util.Calendar.getInstance()
+        calendar.set(java.util.Calendar.DAY_OF_MONTH, 1)
+        calendar.set(java.util.Calendar.HOUR_OF_DAY, 0)
+        calendar.set(java.util.Calendar.MINUTE, 0)
+        calendar.set(java.util.Calendar.SECOND, 0)
+        calendar.set(java.util.Calendar.MILLISECOND, 0)
+        return Pair(calendar.time, java.util.Date())
+    }
+
     fun loadCategoryDetail(categoryName: String) {
         if (currentCategoryName == categoryName && _uiState.value.merchants.isNotEmpty()) {
             // Already loaded this category
@@ -41,8 +52,12 @@ class CategoryDetailViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
+                // Restrict to the current month so the merchant totals match the rest of
+                // the app (Dashboard, Messages, category cards and drill-down all use it).
+                val (startDate, endDate) = currentMonthRange()
+
                 // Get merchants in this category
-                val merchants = repository.getMerchantsInCategory(categoryName)
+                val merchants = repository.getMerchantsInCategory(categoryName, startDate, endDate)
 
                 // Get category details
                 val category = repository.getCategoryByName(categoryName)

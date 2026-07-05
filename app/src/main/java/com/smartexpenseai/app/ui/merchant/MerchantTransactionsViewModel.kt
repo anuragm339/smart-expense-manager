@@ -33,17 +33,37 @@ class MerchantTransactionsViewModel @Inject constructor(
     private val _events = MutableStateFlow<MerchantTransactionsEvent?>(null)
     val events: StateFlow<MerchantTransactionsEvent?> = _events.asStateFlow()
 
+    /** Start of the current month (00:00) to now - matches the other transaction screens. */
+    private fun currentMonthRange(): Pair<java.util.Date, java.util.Date> {
+        val calendar = java.util.Calendar.getInstance()
+        calendar.set(java.util.Calendar.DAY_OF_MONTH, 1)
+        calendar.set(java.util.Calendar.HOUR_OF_DAY, 0)
+        calendar.set(java.util.Calendar.MINUTE, 0)
+        calendar.set(java.util.Calendar.SECOND, 0)
+        calendar.set(java.util.Calendar.MILLISECOND, 0)
+        return Pair(calendar.time, java.util.Date())
+    }
+
     fun loadMerchantTransactions(merchantName: String) {
         viewModelScope.launch {
             try {
                 _uiState.value = _uiState.value.copy(isLoading = true, error = null)
 
                 logger.debug("loadMerchantTransactions","Loading transactions for merchant: $merchantName")
-                
-                // Get all transactions for this merchant
-                val transactions = repository.searchTransactions(merchantName.lowercase(), 1000)
-                    .filter { it.normalizedMerchant.contains(merchantName.lowercase()) || 
-                             it.rawMerchant.contains(merchantName, ignoreCase = true) }
+
+                // Restrict to the current month so the total/count/list match the
+                // Dashboard and Category screens this is opened from (which are month-scoped).
+                val (startDate, endDate) = currentMonthRange()
+                val target = merchantName.trim()
+
+                val transactions = repository.searchTransactions(target.lowercase(), 1000)
+                    .filter { txn ->
+                        // Exact merchant match so "AMAZON" does not also pull in "AMAZON PAY"
+                        (txn.rawMerchant.equals(target, ignoreCase = true) ||
+                            txn.normalizedMerchant.equals(target, ignoreCase = true)) &&
+                            // Current month only
+                            txn.transactionDate >= startDate && txn.transactionDate <= endDate
+                    }
 
                 logger.debug("loadMerchantTransactions","Found ${transactions.size} transactions for $merchantName")
                 

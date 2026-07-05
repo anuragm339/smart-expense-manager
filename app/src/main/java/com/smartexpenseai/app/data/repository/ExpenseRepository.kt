@@ -708,8 +708,12 @@ class ExpenseRepository @Inject constructor(
     /**
      * Get all merchants within a specific category with their transaction statistics
      */
-    suspend fun getMerchantsInCategory(categoryName: String): List<com.smartexpenseai.app.ui.categories.MerchantInCategory> =
-        merchantCategoryOperations.getMerchantsInCategory(categoryName)
+    suspend fun getMerchantsInCategory(
+        categoryName: String,
+        startDate: java.util.Date,
+        endDate: java.util.Date
+    ): List<com.smartexpenseai.app.ui.categories.MerchantInCategory> =
+        merchantCategoryOperations.getMerchantsInCategory(categoryName, startDate, endDate)
 
     /**
      * Change a merchant's category

@@ -263,12 +263,13 @@ interface TransactionDao {
         WHERE t.category_id = :categoryId
           AND t.is_debit = 1
           AND t.is_active = 1
+          AND t.transaction_date >= :startDate AND t.transaction_date <= :endDate
           AND (m.is_excluded_from_expense_tracking = 0 OR m.is_excluded_from_expense_tracking IS NULL)
         GROUP BY t.normalized_merchant
         HAVING transactionCount > 0
         ORDER BY totalAmount DESC
     """)
-    suspend fun getMerchantsInCategoryWithStats(categoryId: Long): List<MerchantCategoryStats>
+    suspend fun getMerchantsInCategoryWithStats(categoryId: Long, startDate: Date, endDate: Date): List<MerchantCategoryStats>
 
     /**
      * Update category_id for all transactions with a specific merchant
