@@ -438,9 +438,8 @@ class DashboardViewModel @Inject constructor(
                         lastRefreshTime = System.currentTimeMillis()
                     )
 
-                    // Update monthly comparison
-                    updateMonthlyComparison()
-                    // Update spend-by-tag for the current period
+                    // Update comparison card (mode-driven) + spend-by-tag
+                    updateComparison()
                     updateTagSpending()
                 }
             },
@@ -490,52 +489,121 @@ class DashboardViewModel @Inject constructor(
         )
     }
     
+    // ----- Comparison card (This Month / This Week / Custom A-vs-B) -----
+
+    private data class ComparisonRanges(
+        val aStart: Date, val aEnd: Date,
+        val bStart: Date, val bEnd: Date,
+        val currentLabel: String, val previousLabel: String
+    )
+
+    fun getComparisonMode(): ComparisonMode = _uiState.value.comparisonMode
+
+    fun setComparisonMode(mode: ComparisonMode) {
+        _uiState.value = _uiState.value.copy(comparisonMode = mode)
+        updateComparison()
+    }
+
+    fun setCustomComparison(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) {
+        _uiState.value = _uiState.value.copy(
+            comparisonMode = ComparisonMode.CUSTOM,
+            customRangeA = aStart to aEnd,
+            customRangeB = bStart to bEnd
+        )
+        updateComparison()
+    }
+
     /**
-     * Update monthly comparison data
+     * Resolve the two comparison ranges from the selected mode. Presets use full
+     * period vs full previous period; CUSTOM uses the two user-chosen ranges.
      */
-    private fun updateMonthlyComparison() {
-        viewModelScope.launch {
-            try {
-                val currentState = _uiState.value
-                val currentPeriod = currentState.dashboardPeriod
-                
-                val (currentStart, currentEnd) = getDateRangeForPeriod(currentPeriod)
-                val (previousStart, previousEnd) = getPreviousPeriodRange(currentPeriod)
-                
-                // Get previous period data
-                val previousResult = getDashboardDataUseCase.execute(previousStart, previousEnd)
-                
-                previousResult.fold(
-                    onSuccess = { previousData ->
-                        val currentAmount = currentState.dashboardData?.totalSpent ?: 0.0
-                        val previousAmount = previousData.totalSpent
-                        
-                        val comparison = MonthlyComparison(
-                            currentLabel = getCurrentPeriodLabel(currentPeriod),
-                            previousLabel = getPreviousPeriodLabel(currentPeriod),
-                            currentAmount = currentAmount,
-                            previousAmount = previousAmount,
-                            percentageChange = calculatePercentageChange(currentAmount, previousAmount)
-                        )
-                        
-                        _uiState.value = _uiState.value.copy(
-                            monthlyComparison = comparison,
-                            categoryMovers = computeCategoryMovers(
-                                currentStart, currentEnd, previousStart, previousEnd
-                            ),
-                            trackedTagMovers = computeTrackedTagMovers(
-                                currentStart, currentEnd, previousStart, previousEnd
-                            )
-                        )
-                    },
-                    onFailure = { error ->
-                        logger.warn("updateMonthlyComparison", "Error updating monthly comparison: ${error.message}")
-                    }
-                )
-            } catch (e: Exception) {
-                logger.error("updateMonthlyComparison", "Error in monthly comparison update", e)
+    private fun resolveComparisonRanges(): ComparisonRanges {
+        val state = _uiState.value
+        return when (state.comparisonMode) {
+            ComparisonMode.THIS_MONTH -> {
+                val (aS, aE) = fullMonthRange(0)
+                val (bS, bE) = fullMonthRange(-1)
+                ComparisonRanges(aS, aE, bS, bE, "This Month", "Last Month")
+            }
+            ComparisonMode.THIS_WEEK -> {
+                val (aS, aE) = fullWeekRange(0)
+                val (bS, bE) = fullWeekRange(-1)
+                ComparisonRanges(aS, aE, bS, bE, "This Week", "Last Week")
+            }
+            ComparisonMode.CUSTOM -> {
+                val a = state.customRangeA
+                val b = state.customRangeB
+                if (a == null || b == null) {
+                    val (aS, aE) = fullMonthRange(0)
+                    val (bS, bE) = fullMonthRange(-1)
+                    ComparisonRanges(aS, aE, bS, bE, "This Month", "Last Month")
+                } else {
+                    ComparisonRanges(
+                        a.first, a.second, b.first, b.second,
+                        formatRange(a.first, a.second), formatRange(b.first, b.second)
+                    )
+                }
             }
         }
+    }
+
+    private fun updateComparison() {
+        viewModelScope.launch {
+            try {
+                val r = resolveComparisonRanges()
+                val currentAmount = getDashboardDataUseCase.execute(r.aStart, r.aEnd).getOrNull()?.totalSpent ?: 0.0
+                val previousAmount = getDashboardDataUseCase.execute(r.bStart, r.bEnd).getOrNull()?.totalSpent ?: 0.0
+
+                val comparison = MonthlyComparison(
+                    currentLabel = r.currentLabel,
+                    previousLabel = r.previousLabel,
+                    currentAmount = currentAmount,
+                    previousAmount = previousAmount,
+                    percentageChange = calculatePercentageChange(currentAmount, previousAmount)
+                )
+
+                _uiState.value = _uiState.value.copy(
+                    monthlyComparison = comparison,
+                    categoryMovers = computeCategoryMovers(r.aStart, r.aEnd, r.bStart, r.bEnd),
+                    trackedTagMovers = computeTrackedTagMovers(r.aStart, r.aEnd, r.bStart, r.bEnd)
+                )
+            } catch (e: Exception) {
+                logger.error("updateComparison", "Error updating comparison", e)
+            }
+        }
+    }
+
+    private fun fullMonthRange(monthOffset: Int): Pair<Date, Date> {
+        val cal = Calendar.getInstance()
+        cal.add(Calendar.MONTH, monthOffset)
+        cal.set(Calendar.DAY_OF_MONTH, 1); startOfDay(cal)
+        val start = cal.time
+        cal.set(Calendar.DAY_OF_MONTH, cal.getActualMaximum(Calendar.DAY_OF_MONTH)); endOfDay(cal)
+        return start to cal.time
+    }
+
+    private fun fullWeekRange(weekOffset: Int): Pair<Date, Date> {
+        val cal = Calendar.getInstance()
+        cal.add(Calendar.WEEK_OF_YEAR, weekOffset)
+        cal.set(Calendar.DAY_OF_WEEK, cal.firstDayOfWeek); startOfDay(cal)
+        val start = cal.time
+        cal.add(Calendar.DAY_OF_YEAR, 6); endOfDay(cal)
+        return start to cal.time
+    }
+
+    private fun startOfDay(cal: Calendar) {
+        cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISECOND, 0)
+    }
+
+    private fun endOfDay(cal: Calendar) {
+        cal.set(Calendar.HOUR_OF_DAY, 23); cal.set(Calendar.MINUTE, 59)
+        cal.set(Calendar.SECOND, 59); cal.set(Calendar.MILLISECOND, 999)
+    }
+
+    private fun formatRange(start: Date, end: Date): String {
+        val fmt = java.text.SimpleDateFormat("d MMM", java.util.Locale.getDefault())
+        return "${fmt.format(start)} – ${fmt.format(end)}"
     }
     
     // ----- Tracked tags (month-over-month comparison of user-selected tags) -----

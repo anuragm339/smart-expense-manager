@@ -89,6 +89,11 @@ class DashboardViewBinder(
             state.trackedTagMovers,
             showCard = state.tagSpending.isNotEmpty() || state.trackedTagMovers.isNotEmpty()
         )
+        binding.tvComparisonMode.text = "${state.comparisonMode.selectorLabel} ▾"
+    }
+
+    fun setOnComparisonModeClick(action: () -> Unit) {
+        binding.tvComparisonMode.setOnClickListener { action() }
     }
 
     fun showSyncToast(count: Int) {
@@ -207,6 +212,8 @@ class DashboardViewBinder(
 
         thisMonthView?.text = "₹${comparison.currentAmount.formatAsMoney()}"
         lastMonthView?.text = "₹${comparison.previousAmount.formatAsMoney()}"
+        binding.tvComparisonCurrentLabel.text = comparison.currentLabel
+        binding.tvComparisonPreviousLabel.text = comparison.previousLabel
         comparisonView?.text = comparison.changeText
         comparisonView?.setTextColor(
             when {

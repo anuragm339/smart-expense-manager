@@ -18,6 +18,9 @@ data class DashboardUIState(
     val categoryMovers: List<CategoryMover> = emptyList(),
     val tagSpending: List<com.smartexpenseai.app.data.dao.TagSpending> = emptyList(),
     val trackedTagMovers: List<CategoryMover> = emptyList(),
+    val comparisonMode: ComparisonMode = ComparisonMode.THIS_MONTH,
+    val customRangeA: Pair<java.util.Date, java.util.Date>? = null,
+    val customRangeB: Pair<java.util.Date, java.util.Date>? = null,
     val trendData: TrendData? = null,
     val customMonthComparison: CustomMonthComparison? = null,
     val monthlyBudget: Double = 0.0,
@@ -96,6 +99,17 @@ data class MonthlyComparison(
             hasDecrease -> "↓ ${String.format("%.1f", kotlin.math.abs(percentageChange))}% less spending"
             else -> "📊 Spending stable"
         }
+}
+
+/**
+ * How the comparison card pairs its two periods.
+ * Presets compare full period vs full previous period; CUSTOM compares two
+ * independent user-chosen ranges (A vs B).
+ */
+enum class ComparisonMode(val menuLabel: String, val selectorLabel: String) {
+    THIS_MONTH("This Month vs Last Month", "This Month"),
+    THIS_WEEK("This Week vs Last Week", "This Week"),
+    CUSTOM("Custom range…", "Custom")
 }
 
 /**
