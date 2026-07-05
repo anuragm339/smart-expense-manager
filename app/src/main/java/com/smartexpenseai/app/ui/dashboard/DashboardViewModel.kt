@@ -26,7 +26,8 @@ class DashboardViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val getDashboardDataUseCase: GetDashboardDataUseCase,
     private val repository: com.smartexpenseai.app.data.repository.ExpenseRepository,
-    private val syncSMSTransactionsUseCase: com.smartexpenseai.app.domain.usecase.sms.SyncSMSTransactionsUseCase
+    private val syncSMSTransactionsUseCase: com.smartexpenseai.app.domain.usecase.sms.SyncSMSTransactionsUseCase,
+    private val tagRepository: com.smartexpenseai.app.data.repository.TagRepository
 ) : ViewModel() {
 
     private val logger = StructuredLogger("DASHBOARD", "DashboardViewModel")
@@ -42,8 +43,9 @@ class DashboardViewModel @Inject constructor(
     }
 
     companion object {
+        private const val MAX_CATEGORY_MOVERS = 4
     }
-    
+
     // Private mutable state
     private val _uiState = MutableStateFlow(DashboardUIState())
     
@@ -438,6 +440,8 @@ class DashboardViewModel @Inject constructor(
 
                     // Update monthly comparison
                     updateMonthlyComparison()
+                    // Update spend-by-tag for the current period
+                    updateTagSpending()
                 }
             },
             onFailure = { throwable ->
@@ -515,7 +519,10 @@ class DashboardViewModel @Inject constructor(
                         )
                         
                         _uiState.value = _uiState.value.copy(
-                            monthlyComparison = comparison
+                            monthlyComparison = comparison,
+                            categoryMovers = computeCategoryMovers(
+                                currentStart, currentEnd, previousStart, previousEnd
+                            )
                         )
                     },
                     onFailure = { error ->
@@ -528,6 +535,57 @@ class DashboardViewModel @Inject constructor(
         }
     }
     
+    /**
+     * Load ranked spend-by-tag for the current period into state.
+     */
+    private fun updateTagSpending() {
+        viewModelScope.launch {
+            try {
+                val period = _uiState.value.dashboardPeriod
+                val (start, end) = getDateRangeForPeriod(period)
+                val spend = tagRepository.getSpendByTag(start, end)
+                _uiState.value = _uiState.value.copy(tagSpending = spend)
+            } catch (e: Exception) {
+                logger.warn("updateTagSpending", "Error loading spend by tag: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * Build the "top movers by category" list: categories whose spend changed most
+     * between the current and previous periods, biggest absolute change first.
+     */
+    private suspend fun computeCategoryMovers(
+        currentStart: Date,
+        currentEnd: Date,
+        previousStart: Date,
+        previousEnd: Date
+    ): List<CategoryMover> {
+        return try {
+            val current = repository.getCategorySpending(currentStart, currentEnd)
+            val previous = repository.getCategorySpending(previousStart, previousEnd)
+            val previousById = previous.associateBy { it.category_id }
+            val currentById = current.associateBy { it.category_id }
+
+            (currentById.keys + previousById.keys).distinct().map { id ->
+                val c = currentById[id]
+                val p = previousById[id]
+                CategoryMover(
+                    categoryName = c?.category_name ?: p?.category_name ?: "Other",
+                    color = c?.color ?: p?.color ?: "#9e9e9e",
+                    currentAmount = c?.total_amount ?: 0.0,
+                    previousAmount = p?.total_amount ?: 0.0
+                )
+            }
+                .filter { kotlin.math.abs(it.delta) >= 1.0 } // ignore rounding noise
+                .sortedByDescending { kotlin.math.abs(it.delta) }
+                .take(MAX_CATEGORY_MOVERS)
+        } catch (e: Exception) {
+            logger.warn("computeCategoryMovers", "Error computing category movers: ${e.message}")
+            emptyList()
+        }
+    }
+
     /**
      * Calculate percentage change between two amounts
      */

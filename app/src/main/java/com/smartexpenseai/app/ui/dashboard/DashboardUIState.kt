@@ -15,6 +15,8 @@ data class DashboardUIState(
     // Data
     val dashboardData: DashboardData? = null,
     val monthlyComparison: MonthlyComparison? = null,
+    val categoryMovers: List<CategoryMover> = emptyList(),
+    val tagSpending: List<com.smartexpenseai.app.data.dao.TagSpending> = emptyList(),
     val trendData: TrendData? = null,
     val customMonthComparison: CustomMonthComparison? = null,
     val monthlyBudget: Double = 0.0,
@@ -92,6 +94,34 @@ data class MonthlyComparison(
             hasIncrease -> "↑ ${String.format("%.1f", percentageChange)}% more spending"
             hasDecrease -> "↓ ${String.format("%.1f", kotlin.math.abs(percentageChange))}% less spending"
             else -> "📊 Spending stable"
+        }
+}
+
+/**
+ * A category's change between the current period and the previous one.
+ * Drives the "top movers by category" list under the monthly comparison.
+ */
+data class CategoryMover(
+    val categoryName: String,
+    val color: String,
+    val currentAmount: Double,
+    val previousAmount: Double
+) {
+    val delta: Double get() = currentAmount - previousAmount
+    val isIncrease: Boolean get() = delta > 0
+
+    val percentageChange: Double
+        get() = when {
+            previousAmount > 0 -> (delta / previousAmount) * 100
+            currentAmount > 0 -> 100.0
+            else -> 0.0
+        }
+
+    /** e.g. "+₹4,200" / "−₹1,100". */
+    val deltaText: String
+        get() {
+            val sign = if (delta >= 0) "+" else "−"
+            return "$sign₹${kotlin.math.abs(delta).let { java.text.DecimalFormat("#,##0").format(it) }}"
         }
 }
 

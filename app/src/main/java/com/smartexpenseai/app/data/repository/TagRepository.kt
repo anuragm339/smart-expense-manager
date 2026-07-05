@@ -37,6 +37,10 @@ class TagRepository @Inject constructor(
 
     fun getTagsWithCounts(): Flow<List<TagWithCount>> = tagDao.getTagsWithCounts()
 
+    /** Ranked debit spend per tag over a period (descending). */
+    suspend fun getSpendByTag(start: Date, end: Date): List<com.smartexpenseai.app.data.dao.TagSpending> =
+        withContext(Dispatchers.IO) { tagDao.getSpendByTag(start, end) }
+
     fun getTagsForTransaction(transactionId: Long): Flow<List<TagEntity>> =
         tagDao.getTagsForTransaction(transactionId)
 

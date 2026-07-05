@@ -163,7 +163,39 @@ interface TagDao {
         amount: Double,
         excludeId: Long
     ): List<SiblingTransaction>
+
+    // ----- Analytics: spend by tag -----
+
+    /**
+     * Total debit spend per tag over a date range (active, non-excluded merchants).
+     * Tags overlap and don't partition spend, so callers present this as a ranked
+     * list, never a share-of-whole.
+     */
+    @Query(
+        """SELECT t.id AS tagId, t.name AS name, t.color AS color,
+                  SUM(tx.amount) AS totalAmount, COUNT(DISTINCT tx.id) AS transactionCount
+           FROM tags t
+           JOIN transaction_tags tt ON tt.tag_id = t.id
+           JOIN transactions tx ON tx.id = tt.transaction_id
+           LEFT JOIN merchants m ON tx.normalized_merchant = m.normalized_name
+           WHERE tx.is_active = 1 AND tx.is_debit = 1
+             AND tx.transaction_date >= :startDate AND tx.transaction_date <= :endDate
+             AND (m.is_excluded_from_expense_tracking = 0 OR m.is_excluded_from_expense_tracking IS NULL)
+           GROUP BY t.id, t.name, t.color
+           HAVING totalAmount > 0
+           ORDER BY totalAmount DESC"""
+    )
+    suspend fun getSpendByTag(startDate: java.util.Date, endDate: java.util.Date): List<TagSpending>
 }
+
+/** Aggregated debit spend for one tag over a period. */
+data class TagSpending(
+    val tagId: Long,
+    val name: String,
+    val color: String,
+    val totalAmount: Double,
+    val transactionCount: Int
+)
 
 /** A candidate tag from a sibling transaction, with that sibling's timestamp. */
 data class SiblingTagRow(
