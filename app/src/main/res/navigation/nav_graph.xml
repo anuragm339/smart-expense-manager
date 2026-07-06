@@ -61,7 +61,16 @@
         <action
             android:id="@+id/action_navigation_profile_to_navigation_export_data"
             app:destination="@id/navigation_export_data" />
+        <action
+            android:id="@+id/action_navigation_profile_to_navigation_recurring"
+            app:destination="@id/navigation_recurring" />
     </fragment>
+
+    <fragment
+        android:id="@+id/navigation_recurring"
+        android:name="com.smartexpenseai.app.ui.recurring.RecurringFragment"
+        android:label="Recurring &amp; Subscriptions"
+        tools:layout="@layout/fragment_recurring" />
 
     <fragment
         android:id="@+id/navigation_category_detail"
