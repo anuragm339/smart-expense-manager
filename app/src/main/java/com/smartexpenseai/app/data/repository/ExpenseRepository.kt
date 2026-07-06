@@ -96,6 +96,15 @@ class ExpenseRepository @Inject constructor(
     private val databaseMaintenanceOperations = DatabaseMaintenanceOperations(
         transactionDao = transactionDao
     )
+    // Auto-tags recurring transactions (same merchant+amount+time-of-day) on ingest.
+    // Built from the shared database so both the Hilt and getInstance() paths get it.
+    private val tagAutoApplyService by lazy {
+        TagAutoApplyService(
+            context,
+            ExpenseDatabase.getDatabase(context).tagDao(),
+            transactionDao
+        )
+    }
 
     // =======================
     // TRANSACTION OPERATIONS
@@ -303,6 +312,15 @@ class ExpenseRepository @Inject constructor(
 
                 val category = categoryDao.getCategoryById(merchant.categoryId)
                 logger.debug("autoCategorizeTransaction", "✅ Auto-categorized transaction #$transactionId → Category: ${category?.name ?: "Unknown"}")
+
+                // Auto-apply tags from recurring siblings (same merchant+amount+time-of-day).
+                // Best-effort: never let tagging failures break categorization/ingest.
+                try {
+                    tagAutoApplyService.autoApplyOnIngest(transactionId)
+                } catch (e: Exception) {
+                    logger.warn("autoCategorizeTransaction", "Auto-tag skipped for #$transactionId: ${e.message}")
+                }
+
                 return@withContext true
             }
 

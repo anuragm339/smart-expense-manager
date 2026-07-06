@@ -1,10 +1,16 @@
 package com.smartexpenseai.app.ui.dashboard
 
 import android.content.Context
+import android.view.LayoutInflater
+import android.view.View
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.ContextCompat
 import com.smartexpenseai.app.R
+import com.github.mikephil.charting.data.PieData
+import com.github.mikephil.charting.data.PieDataSet
+import com.github.mikephil.charting.data.PieEntry
+import com.smartexpenseai.app.data.dao.CategorySpendingResult
 import com.smartexpenseai.app.data.dao.MerchantSpendingWithCategory
 import com.smartexpenseai.app.databinding.FragmentDashboardBinding
 import com.smartexpenseai.app.utils.MerchantAliasManager
@@ -66,6 +72,7 @@ class DashboardViewBinder(
         }
 
         renderSummary(state.totalSpent, budgetReached, state.transactionCount, state.monthlyBudget > 0)
+        renderCategoryDonut(data.topCategories)
         renderCategories(data.topCategories.map { category ->
             CategorySpending(
                 categoryName = category.category_name,
@@ -76,6 +83,17 @@ class DashboardViewBinder(
         })
         renderMerchantsWithCategory(data.topMerchantsWithCategory)
         renderMonthlyComparison(state.monthlyComparison)
+        renderCategoryMovers(state.categoryMovers)
+        renderTagSpending(state.tagSpending)
+        renderTrackedTagMovers(
+            state.trackedTagMovers,
+            showCard = state.tagSpending.isNotEmpty() || state.trackedTagMovers.isNotEmpty()
+        )
+        binding.tvComparisonMode.text = "${state.comparisonMode.selectorLabel} ▾"
+    }
+
+    fun setOnComparisonModeClick(action: () -> Unit) {
+        binding.tvComparisonMode.setOnClickListener { action() }
     }
 
     fun showSyncToast(count: Int) {
@@ -194,6 +212,8 @@ class DashboardViewBinder(
 
         thisMonthView?.text = "₹${comparison.currentAmount.formatAsMoney()}"
         lastMonthView?.text = "₹${comparison.previousAmount.formatAsMoney()}"
+        binding.tvComparisonCurrentLabel.text = comparison.currentLabel
+        binding.tvComparisonPreviousLabel.text = comparison.previousLabel
         comparisonView?.text = comparison.changeText
         comparisonView?.setTextColor(
             when {
@@ -204,6 +224,156 @@ class DashboardViewBinder(
         )
     }
 
+
+    /**
+     * Donut of category spend for the period. Category is a clean partition of spend,
+     * so slice-of-whole is meaningful; the hole shows the period total.
+     */
+    fun renderCategoryDonut(categories: List<CategorySpendingResult>) {
+        val chart = binding.chartCategoryDonut
+        val expenses = categories.filter { it.total_amount > 0 }
+        if (expenses.isEmpty()) {
+            chart.visibility = View.GONE
+            return
+        }
+        chart.visibility = View.VISIBLE
+        val total = expenses.sumOf { it.total_amount }
+        val entries = expenses.map { PieEntry(it.total_amount.toFloat(), it.category_name) }
+        val sliceColors = expenses.map {
+            try { android.graphics.Color.parseColor(it.color) } catch (_: Exception) { color(R.color.category_other) }
+        }
+        val dataSet = PieDataSet(entries, "").apply {
+            colors = sliceColors
+            sliceSpace = 2f
+            setDrawValues(false) // labels live in the list below; keep the donut clean
+        }
+        chart.apply {
+            data = PieData(dataSet)
+            description.isEnabled = false
+            legend.isEnabled = false
+            setDrawEntryLabels(false)
+            isDrawHoleEnabled = true
+            holeRadius = 62f
+            transparentCircleRadius = 66f
+            setHoleColor(android.graphics.Color.TRANSPARENT)
+            setCenterTextColor(color(R.color.text_primary))
+            centerText = "₹${total.formatAsMoney()}"
+            setCenterTextSize(16f)
+            isRotationEnabled = false
+            setTouchEnabled(false)
+            animateY(500)
+            invalidate()
+        }
+    }
+
+    /**
+     * Ranked spend-by-tag list. Bar width is relative to the top tag (not to total
+     * spend), since tags overlap and don't partition the total.
+     */
+    fun renderTagSpending(items: List<com.smartexpenseai.app.data.dao.TagSpending>) {
+        val card = binding.cardTagSpending
+        val container = binding.layoutTagSpending
+        container.removeAllViews()
+        if (items.isEmpty()) {
+            card.visibility = View.GONE
+            return
+        }
+        card.visibility = View.VISIBLE
+        val max = items.maxOf { it.totalAmount }.coerceAtLeast(1.0)
+        val inflater = LayoutInflater.from(context)
+        items.forEach { tag ->
+            val row = inflater.inflate(R.layout.item_tag_spending, container, false)
+            row.findViewById<TextView>(R.id.tv_tag_name).text = tag.name
+            row.findViewById<TextView>(R.id.tv_tag_amount).text = "₹${tag.totalAmount.formatAsMoney()}"
+            row.findViewById<TextView>(R.id.tv_tag_count).text =
+                if (tag.transactionCount == 1) "1 transaction" else "${tag.transactionCount} transactions"
+
+            val tagColor = try { android.graphics.Color.parseColor(tag.color) } catch (_: Exception) {
+                color(R.color.category_other)
+            }
+            row.findViewById<View>(R.id.view_tag_color).background?.setTint(tagColor)
+
+            val bar = row.findViewById<View>(R.id.view_tag_bar)
+            val rest = row.findViewById<View>(R.id.view_tag_bar_rest)
+            bar.setBackgroundColor(tagColor)
+            val fraction = (tag.totalAmount / max).toFloat().coerceIn(0.02f, 1f)
+            (bar.layoutParams as android.widget.LinearLayout.LayoutParams).weight = fraction
+            (rest.layoutParams as android.widget.LinearLayout.LayoutParams).weight = 1f - fraction
+            bar.requestLayout()
+
+            container.addView(row)
+        }
+    }
+
+    /** Month-over-month comparison for the user's tracked tags. */
+    fun renderTrackedTagMovers(movers: List<CategoryMover>, showCard: Boolean) {
+        val card = binding.cardTagTrends
+        if (!showCard) {
+            card.visibility = View.GONE
+            return
+        }
+        card.visibility = View.VISIBLE
+        val container = binding.layoutTrackedTags
+        val empty = binding.tvTrackedTagsEmpty
+        container.removeAllViews()
+        if (movers.isEmpty()) {
+            empty.visibility = View.VISIBLE
+            return
+        }
+        empty.visibility = View.GONE
+        val inflater = LayoutInflater.from(context)
+        movers.forEach { mover ->
+            val row = inflater.inflate(R.layout.item_category_mover, container, false)
+            row.findViewById<TextView>(R.id.tv_mover_name).text = mover.label
+            row.findViewById<TextView>(R.id.tv_mover_current).text =
+                "₹${mover.currentAmount.formatAsMoney()}"
+            val delta = row.findViewById<TextView>(R.id.tv_mover_delta)
+            delta.text = mover.deltaText
+            delta.setTextColor(if (mover.isIncrease) color(R.color.error) else color(R.color.success))
+            val dot = row.findViewById<View>(R.id.view_mover_color)
+            try {
+                dot.background?.setTint(android.graphics.Color.parseColor(mover.color))
+            } catch (_: Exception) {
+                dot.background?.setTint(color(R.color.text_secondary))
+            }
+            container.addView(row)
+        }
+    }
+
+    /** Wire the "Edit" affordance on the Tag Trends card. */
+    fun setOnEditTrackedTags(action: () -> Unit) {
+        binding.tvEditTrackedTags.setOnClickListener { action() }
+    }
+
+    fun renderCategoryMovers(movers: List<CategoryMover>) {
+        val container = binding.layoutCategoryMovers
+        val header = binding.tvCategoryMoversHeader
+        container.removeAllViews()
+        if (movers.isEmpty()) {
+            header.visibility = View.GONE
+            container.visibility = View.GONE
+            return
+        }
+        header.visibility = View.VISIBLE
+        container.visibility = View.VISIBLE
+        val inflater = LayoutInflater.from(context)
+        movers.forEach { mover ->
+            val row = inflater.inflate(R.layout.item_category_mover, container, false)
+            row.findViewById<TextView>(R.id.tv_mover_name).text = mover.label
+            row.findViewById<TextView>(R.id.tv_mover_current).text =
+                "₹${mover.currentAmount.formatAsMoney()}"
+            val delta = row.findViewById<TextView>(R.id.tv_mover_delta)
+            delta.text = mover.deltaText
+            delta.setTextColor(if (mover.isIncrease) color(R.color.error) else color(R.color.success))
+            val dot = row.findViewById<View>(R.id.view_mover_color)
+            try {
+                dot.background?.setTint(android.graphics.Color.parseColor(mover.color))
+            } catch (_: Exception) {
+                dot.background?.setTint(color(R.color.text_secondary))
+            }
+            container.addView(row)
+        }
+    }
 
     private fun Double.formatAsMoney(): String =
         String.format(Locale.getDefault(), "%.0f", this)

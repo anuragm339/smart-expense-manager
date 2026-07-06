@@ -26,7 +26,8 @@ class DashboardViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val getDashboardDataUseCase: GetDashboardDataUseCase,
     private val repository: com.smartexpenseai.app.data.repository.ExpenseRepository,
-    private val syncSMSTransactionsUseCase: com.smartexpenseai.app.domain.usecase.sms.SyncSMSTransactionsUseCase
+    private val syncSMSTransactionsUseCase: com.smartexpenseai.app.domain.usecase.sms.SyncSMSTransactionsUseCase,
+    private val tagRepository: com.smartexpenseai.app.data.repository.TagRepository
 ) : ViewModel() {
 
     private val logger = StructuredLogger("DASHBOARD", "DashboardViewModel")
@@ -42,8 +43,9 @@ class DashboardViewModel @Inject constructor(
     }
 
     companion object {
+        private const val MAX_CATEGORY_MOVERS = 4
     }
-    
+
     // Private mutable state
     private val _uiState = MutableStateFlow(DashboardUIState())
     
@@ -63,7 +65,8 @@ class DashboardViewModel @Inject constructor(
         } catch (e: Exception) {
             logger.error("init", "Failed to register data change receiver", e)
         }
-        
+
+        restoreComparisonState()
         loadDashboardData()
     }
     
@@ -436,8 +439,9 @@ class DashboardViewModel @Inject constructor(
                         lastRefreshTime = System.currentTimeMillis()
                     )
 
-                    // Update monthly comparison
-                    updateMonthlyComparison()
+                    // Update comparison card (mode-driven) + spend-by-tag
+                    updateComparison()
+                    updateTagSpending()
                 }
             },
             onFailure = { throwable ->
@@ -486,48 +490,257 @@ class DashboardViewModel @Inject constructor(
         )
     }
     
+    // ----- Comparison card (This Month / This Week / Custom A-vs-B) -----
+
+    private data class ComparisonRanges(
+        val aStart: Date, val aEnd: Date,
+        val bStart: Date, val bEnd: Date,
+        val currentLabel: String, val previousLabel: String
+    )
+
+    fun getComparisonMode(): ComparisonMode = _uiState.value.comparisonMode
+
+    fun setComparisonMode(mode: ComparisonMode) {
+        _uiState.value = _uiState.value.copy(comparisonMode = mode)
+        trackedPrefs().edit().putString("comparison_mode", mode.name).apply()
+        updateComparison()
+    }
+
+    fun setCustomComparison(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) {
+        _uiState.value = _uiState.value.copy(
+            comparisonMode = ComparisonMode.CUSTOM,
+            customRangeA = aStart to aEnd,
+            customRangeB = bStart to bEnd
+        )
+        trackedPrefs().edit()
+            .putString("comparison_mode", ComparisonMode.CUSTOM.name)
+            .putLong("cmp_a_start", aStart.time).putLong("cmp_a_end", aEnd.time)
+            .putLong("cmp_b_start", bStart.time).putLong("cmp_b_end", bEnd.time)
+            .apply()
+        updateComparison()
+    }
+
+    /** Restore the persisted comparison mode/ranges (called once at init). */
+    private fun restoreComparisonState() {
+        val prefs = trackedPrefs()
+        val mode = prefs.getString("comparison_mode", null)
+            ?.let { runCatching { ComparisonMode.valueOf(it) }.getOrNull() }
+            ?: return
+        if (mode == ComparisonMode.CUSTOM) {
+            val aS = prefs.getLong("cmp_a_start", -1)
+            val aE = prefs.getLong("cmp_a_end", -1)
+            val bS = prefs.getLong("cmp_b_start", -1)
+            val bE = prefs.getLong("cmp_b_end", -1)
+            if (aS < 0 || aE < 0 || bS < 0 || bE < 0) return
+            _uiState.value = _uiState.value.copy(
+                comparisonMode = mode,
+                customRangeA = Date(aS) to Date(aE),
+                customRangeB = Date(bS) to Date(bE)
+            )
+        } else {
+            _uiState.value = _uiState.value.copy(comparisonMode = mode)
+        }
+    }
+
     /**
-     * Update monthly comparison data
+     * Resolve the two comparison ranges from the selected mode. Presets use full
+     * period vs full previous period; CUSTOM uses the two user-chosen ranges.
      */
-    private fun updateMonthlyComparison() {
-        viewModelScope.launch {
-            try {
-                val currentState = _uiState.value
-                val currentPeriod = currentState.dashboardPeriod
-                
-                val (currentStart, currentEnd) = getDateRangeForPeriod(currentPeriod)
-                val (previousStart, previousEnd) = getPreviousPeriodRange(currentPeriod)
-                
-                // Get previous period data
-                val previousResult = getDashboardDataUseCase.execute(previousStart, previousEnd)
-                
-                previousResult.fold(
-                    onSuccess = { previousData ->
-                        val currentAmount = currentState.dashboardData?.totalSpent ?: 0.0
-                        val previousAmount = previousData.totalSpent
-                        
-                        val comparison = MonthlyComparison(
-                            currentLabel = getCurrentPeriodLabel(currentPeriod),
-                            previousLabel = getPreviousPeriodLabel(currentPeriod),
-                            currentAmount = currentAmount,
-                            previousAmount = previousAmount,
-                            percentageChange = calculatePercentageChange(currentAmount, previousAmount)
-                        )
-                        
-                        _uiState.value = _uiState.value.copy(
-                            monthlyComparison = comparison
-                        )
-                    },
-                    onFailure = { error ->
-                        logger.warn("updateMonthlyComparison", "Error updating monthly comparison: ${error.message}")
-                    }
-                )
-            } catch (e: Exception) {
-                logger.error("updateMonthlyComparison", "Error in monthly comparison update", e)
+    private fun resolveComparisonRanges(): ComparisonRanges {
+        val state = _uiState.value
+        return when (state.comparisonMode) {
+            ComparisonMode.THIS_MONTH -> {
+                val (aS, aE) = fullMonthRange(0)
+                val (bS, bE) = fullMonthRange(-1)
+                ComparisonRanges(aS, aE, bS, bE, "This Month", "Last Month")
+            }
+            ComparisonMode.THIS_WEEK -> {
+                val (aS, aE) = fullWeekRange(0)
+                val (bS, bE) = fullWeekRange(-1)
+                ComparisonRanges(aS, aE, bS, bE, "This Week", "Last Week")
+            }
+            ComparisonMode.CUSTOM -> {
+                val a = state.customRangeA
+                val b = state.customRangeB
+                if (a == null || b == null) {
+                    val (aS, aE) = fullMonthRange(0)
+                    val (bS, bE) = fullMonthRange(-1)
+                    ComparisonRanges(aS, aE, bS, bE, "This Month", "Last Month")
+                } else {
+                    ComparisonRanges(
+                        a.first, a.second, b.first, b.second,
+                        formatRange(a.first, a.second), formatRange(b.first, b.second)
+                    )
+                }
             }
         }
     }
+
+    private fun updateComparison() {
+        viewModelScope.launch {
+            try {
+                val r = resolveComparisonRanges()
+                val currentAmount = getDashboardDataUseCase.execute(r.aStart, r.aEnd).getOrNull()?.totalSpent ?: 0.0
+                val previousAmount = getDashboardDataUseCase.execute(r.bStart, r.bEnd).getOrNull()?.totalSpent ?: 0.0
+
+                val comparison = MonthlyComparison(
+                    currentLabel = r.currentLabel,
+                    previousLabel = r.previousLabel,
+                    currentAmount = currentAmount,
+                    previousAmount = previousAmount,
+                    percentageChange = calculatePercentageChange(currentAmount, previousAmount)
+                )
+
+                _uiState.value = _uiState.value.copy(
+                    monthlyComparison = comparison,
+                    categoryMovers = computeCategoryMovers(r.aStart, r.aEnd, r.bStart, r.bEnd),
+                    trackedTagMovers = computeTrackedTagMovers(r.aStart, r.aEnd, r.bStart, r.bEnd)
+                )
+            } catch (e: Exception) {
+                logger.error("updateComparison", "Error updating comparison", e)
+            }
+        }
+    }
+
+    private fun fullMonthRange(monthOffset: Int): Pair<Date, Date> {
+        val cal = Calendar.getInstance()
+        cal.add(Calendar.MONTH, monthOffset)
+        cal.set(Calendar.DAY_OF_MONTH, 1); startOfDay(cal)
+        val start = cal.time
+        cal.set(Calendar.DAY_OF_MONTH, cal.getActualMaximum(Calendar.DAY_OF_MONTH)); endOfDay(cal)
+        return start to cal.time
+    }
+
+    private fun fullWeekRange(weekOffset: Int): Pair<Date, Date> {
+        val cal = Calendar.getInstance()
+        cal.add(Calendar.WEEK_OF_YEAR, weekOffset)
+        cal.set(Calendar.DAY_OF_WEEK, cal.firstDayOfWeek); startOfDay(cal)
+        val start = cal.time
+        cal.add(Calendar.DAY_OF_YEAR, 6); endOfDay(cal)
+        return start to cal.time
+    }
+
+    private fun startOfDay(cal: Calendar) {
+        cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISECOND, 0)
+    }
+
+    private fun endOfDay(cal: Calendar) {
+        cal.set(Calendar.HOUR_OF_DAY, 23); cal.set(Calendar.MINUTE, 59)
+        cal.set(Calendar.SECOND, 59); cal.set(Calendar.MILLISECOND, 999)
+    }
+
+    private fun formatRange(start: Date, end: Date): String {
+        val fmt = java.text.SimpleDateFormat("d MMM", java.util.Locale.getDefault())
+        return "${fmt.format(start)} – ${fmt.format(end)}"
+    }
     
+    // ----- Tracked tags (month-over-month comparison of user-selected tags) -----
+
+    private fun trackedPrefs() =
+        context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+
+    fun getTrackedTagIds(): Set<Long> =
+        trackedPrefs().getString("tracked_tag_ids", "").orEmpty()
+            .split(",").mapNotNull { it.trim().toLongOrNull() }.toSet()
+
+    suspend fun getAllTagsForPicker(): List<com.smartexpenseai.app.data.entities.TagEntity> =
+        tagRepository.getAllTagsSync()
+
+    /** Persist the tracked-tag selection and recompute the comparison. */
+    fun setTrackedTagIds(ids: Set<Long>) {
+        trackedPrefs().edit().putString("tracked_tag_ids", ids.joinToString(",")).apply()
+        viewModelScope.launch {
+            val period = _uiState.value.dashboardPeriod
+            val (cs, ce) = getDateRangeForPeriod(period)
+            val (ps, pe) = getPreviousPeriodRange(period)
+            _uiState.value = _uiState.value.copy(
+                trackedTagMovers = computeTrackedTagMovers(cs, ce, ps, pe)
+            )
+        }
+    }
+
+    private suspend fun computeTrackedTagMovers(
+        currentStart: Date,
+        currentEnd: Date,
+        previousStart: Date,
+        previousEnd: Date
+    ): List<CategoryMover> {
+        val tracked = getTrackedTagIds()
+        if (tracked.isEmpty()) return emptyList()
+        return try {
+            val current = tagRepository.getSpendByTag(currentStart, currentEnd).filter { it.tagId in tracked }
+            val previous = tagRepository.getSpendByTag(previousStart, previousEnd).filter { it.tagId in tracked }
+            val currentById = current.associateBy { it.tagId }
+            val previousById = previous.associateBy { it.tagId }
+            tracked.mapNotNull { id ->
+                val c = currentById[id]
+                val p = previousById[id]
+                if (c == null && p == null) null
+                else CategoryMover(
+                    label = c?.name ?: p?.name ?: "",
+                    color = c?.color ?: p?.color ?: "#607D8B",
+                    currentAmount = c?.totalAmount ?: 0.0,
+                    previousAmount = p?.totalAmount ?: 0.0
+                )
+            }.sortedByDescending { it.currentAmount }
+        } catch (e: Exception) {
+            logger.warn("computeTrackedTagMovers", "Error computing tracked tag movers: ${e.message}")
+            emptyList()
+        }
+    }
+
+    /**
+     * Load ranked spend-by-tag for the current period into state.
+     */
+    private fun updateTagSpending() {
+        viewModelScope.launch {
+            try {
+                val period = _uiState.value.dashboardPeriod
+                val (start, end) = getDateRangeForPeriod(period)
+                val spend = tagRepository.getSpendByTag(start, end)
+                _uiState.value = _uiState.value.copy(tagSpending = spend)
+            } catch (e: Exception) {
+                logger.warn("updateTagSpending", "Error loading spend by tag: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * Build the "top movers by category" list: categories whose spend changed most
+     * between the current and previous periods, biggest absolute change first.
+     */
+    private suspend fun computeCategoryMovers(
+        currentStart: Date,
+        currentEnd: Date,
+        previousStart: Date,
+        previousEnd: Date
+    ): List<CategoryMover> {
+        return try {
+            val current = repository.getCategorySpending(currentStart, currentEnd)
+            val previous = repository.getCategorySpending(previousStart, previousEnd)
+            val previousById = previous.associateBy { it.category_id }
+            val currentById = current.associateBy { it.category_id }
+
+            (currentById.keys + previousById.keys).distinct().map { id ->
+                val c = currentById[id]
+                val p = previousById[id]
+                CategoryMover(
+                    label = c?.category_name ?: p?.category_name ?: "Other",
+                    color = c?.color ?: p?.color ?: "#9e9e9e",
+                    currentAmount = c?.total_amount ?: 0.0,
+                    previousAmount = p?.total_amount ?: 0.0
+                )
+            }
+                .filter { kotlin.math.abs(it.delta) >= 1.0 } // ignore rounding noise
+                .sortedByDescending { kotlin.math.abs(it.delta) }
+                .take(MAX_CATEGORY_MOVERS)
+        } catch (e: Exception) {
+            logger.warn("computeCategoryMovers", "Error computing category movers: ${e.message}")
+            emptyList()
+        }
+    }
+
     /**
      * Calculate percentage change between two amounts
      */

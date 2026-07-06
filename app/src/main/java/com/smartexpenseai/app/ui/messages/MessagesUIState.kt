@@ -107,7 +107,8 @@ data class MessageItem(
     val rawSMS: String,
     val isDebit: Boolean = true,
     val rawMerchant: String = merchant, // Original merchant name before alias processing
-    val actualDate: java.util.Date = java.util.Date() // 🔧 BUG FIX: Actual date object for filtering
+    val actualDate: java.util.Date = java.util.Date(), // 🔧 BUG FIX: Actual date object for filtering
+    val tags: List<com.smartexpenseai.app.data.entities.TagEntity> = emptyList()
 )
 
 /**
@@ -172,14 +173,18 @@ data class FilterOptions(
     val maxAmount: Double? = null,
     val selectedBanks: Set<String> = emptySet(),
     val dateFrom: String? = null,
-    val dateTo: String? = null
+    val dateTo: String? = null,
+    val selectedTagIds: Set<Long> = emptySet(),
+    val tagMatchMode: com.smartexpenseai.app.data.repository.TagMatchMode =
+        com.smartexpenseai.app.data.repository.TagMatchMode.ANY
 ) {
     val isEmpty: Boolean
         get() = minAmount == null &&
                 maxAmount == null &&
                 selectedBanks.isEmpty() &&
                 dateFrom == null &&
-                dateTo == null
+                dateTo == null &&
+                selectedTagIds.isEmpty()
 
     companion object {
         /**

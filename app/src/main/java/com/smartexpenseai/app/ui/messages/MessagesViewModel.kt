@@ -31,7 +31,8 @@ class MessagesViewModel @Inject constructor(
     private val smsParsingService: SMSParsingService,
     private val transactionFilterService: TransactionFilterService,
     private val categoryManager: CategoryManager,
-    private val merchantAliasManager: MerchantAliasManager
+    private val merchantAliasManager: MerchantAliasManager,
+    private val tagRepository: com.smartexpenseai.app.data.repository.TagRepository
 ) : ViewModel() {
 
     companion object {
@@ -765,7 +766,21 @@ class MessagesViewModel @Inject constructor(
             }
 
             logger.debug("applyFiltersAndSort","Applied date filters - From: ${filters.dateFrom}, To: ${filters.dateTo}, Filtered: ${filtered.size} items")
-            
+
+            // Apply tag filter (ANY/ALL) against active transactions carrying the selected tags
+            if (filters.selectedTagIds.isNotEmpty()) {
+                val matchingIds = tagRepository.getMatchingTransactionIds(
+                    filters.selectedTagIds.toList(),
+                    filters.tagMatchMode
+                )
+                val beforeTagFilter = filtered.size
+                filtered = filtered.filter { matchingIds.contains(it.transactionId) }
+                logger.debug("applyFiltersAndSort","Applied tag filter (${filters.tagMatchMode}, ${filters.selectedTagIds.size} tags): $beforeTagFilter -> ${filtered.size} items")
+            }
+
+            // Enrich visible items with their tags so chips render (single chokepoint for all load paths)
+            filtered = enrichWithTags(filtered)
+
             // Skip individual transaction sorting - let groupTransactionsByMerchant handle the sorting
             // This ensures that the final merchant group sorting is what determines the display order
             val sortOption = currentState.currentSortOption
@@ -784,7 +799,22 @@ class MessagesViewModel @Inject constructor(
             logger.debug("applyFiltersAndSort","Applied filters and sort: ${filtered.size} items, ${groupedMessages.size} groups")
         }
     }
-    
+
+    /**
+     * Attach each database-backed item's tags. Items sourced from SMS fallback have
+     * transactionId == 0 and are skipped (no persistent row to tag).
+     */
+    private suspend fun enrichWithTags(items: List<MessageItem>): List<MessageItem> {
+        val ids = items.mapNotNull { it.transactionId.takeIf { id -> id > 0 } }
+        if (ids.isEmpty()) return items
+        val tagsByTx = tagRepository.getTagsForTransactions(ids)
+        if (tagsByTx.isEmpty()) return items
+        return items.map { item ->
+            val tags = tagsByTx[item.transactionId]
+            if (tags.isNullOrEmpty()) item else item.copy(tags = tags)
+        }
+    }
+
     /**
      * Group transactions by merchant for display
      * CRITICAL FIX: Gets category from merchants table instead of transactions table

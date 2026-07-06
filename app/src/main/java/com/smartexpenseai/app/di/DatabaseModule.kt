@@ -106,4 +106,15 @@ object DatabaseModule {
     ): BudgetDao {
         return database.budgetDao()
     }
+
+    /**
+     * Provides TagDao for tag CRUD and transaction-tag associations
+     */
+    @Provides
+    @Singleton
+    fun provideTagDao(
+        database: ExpenseDatabase
+    ): TagDao {
+        return database.tagDao()
+    }
 }

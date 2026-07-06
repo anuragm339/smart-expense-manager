@@ -31,6 +31,7 @@ import com.smartexpenseai.app.data.repository.DashboardData
 import com.smartexpenseai.app.utils.CategoryManager
 import com.smartexpenseai.app.services.TransactionFilterService
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.datepicker.MaterialDatePicker
 import dagger.hilt.android.AndroidEntryPoint
 import com.smartexpenseai.app.domain.usecase.transaction.AddTransactionUseCase
 import com.smartexpenseai.app.utils.logging.StructuredLogger
@@ -195,6 +196,8 @@ class DashboardFragment : Fragment() {
             onCategorySelected = { category -> navigateToCategoryTransactions(category) }
         )
         viewBinder.initialize()
+        viewBinder.setOnEditTrackedTags { showTrackedTagPicker() }
+        viewBinder.setOnComparisonModeClick { showComparisonModePicker() }
 
         trendBinder = DashboardTrendBinder(binding, requireContext(), repository, logger)
         trendBinder.setupChart()
@@ -310,6 +313,88 @@ class DashboardFragment : Fragment() {
             R.id.action_dashboard_to_merchant_transactions,
             bundle
         )
+    }
+
+    /** Multi-select dialog to choose which tags the Tag Trends card compares. */
+    private fun showTrackedTagPicker() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val tags = viewModel.getAllTagsForPicker()
+            if (tags.isEmpty()) {
+                Toast.makeText(
+                    requireContext(),
+                    "No tags yet — add tags to transactions first.",
+                    Toast.LENGTH_SHORT
+                ).show()
+                return@launch
+            }
+            val tracked = viewModel.getTrackedTagIds()
+            val names = tags.map { it.name }.toTypedArray()
+            val checked = tags.map { tracked.contains(it.id) }.toBooleanArray()
+
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Track tags")
+                .setMultiChoiceItems(names, checked) { _, which, isChecked ->
+                    checked[which] = isChecked
+                }
+                .setPositiveButton("Save") { _, _ ->
+                    val ids = tags.filterIndexed { i, _ -> checked[i] }.map { it.id }.toSet()
+                    viewModel.setTrackedTagIds(ids)
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
+    }
+
+    /** Choose how the comparison card pairs its two periods. */
+    private fun showComparisonModePicker() {
+        val modes = com.smartexpenseai.app.ui.dashboard.ComparisonMode.values()
+        val labels = modes.map { it.menuLabel }.toTypedArray()
+        val current = modes.indexOf(viewModel.getComparisonMode())
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Compare")
+            .setSingleChoiceItems(labels, current) { dialog, which ->
+                dialog.dismiss()
+                when (modes[which]) {
+                    com.smartexpenseai.app.ui.dashboard.ComparisonMode.CUSTOM -> showCustomRangePickers()
+                    else -> viewModel.setComparisonMode(modes[which])
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    /** Custom comparison: pick Range A, then Range B, then compare A vs B. */
+    private fun showCustomRangePickers() {
+        val pickerA = MaterialDatePicker.Builder.dateRangePicker()
+            .setTitleText("Select Range A")
+            .build()
+        pickerA.addOnPositiveButtonClickListener { selA ->
+            val aStart = selA.first ?: return@addOnPositiveButtonClickListener
+            val aEnd = selA.second ?: return@addOnPositiveButtonClickListener
+            val pickerB = MaterialDatePicker.Builder.dateRangePicker()
+                .setTitleText("Select Range B (compare against)")
+                .build()
+            pickerB.addOnPositiveButtonClickListener { selB ->
+                val bStart = selB.first ?: return@addOnPositiveButtonClickListener
+                val bEnd = selB.second ?: return@addOnPositiveButtonClickListener
+                viewModel.setCustomComparison(
+                    Date(aStart), endOfDay(aEnd),
+                    Date(bStart), endOfDay(bEnd)
+                )
+            }
+            pickerB.show(parentFragmentManager, "rangeB")
+        }
+        pickerA.show(parentFragmentManager, "rangeA")
+    }
+
+    /** End-of-day for an inclusive range end (picker returns start-of-day millis). */
+    private fun endOfDay(millis: Long): Date {
+        val cal = Calendar.getInstance().apply {
+            timeInMillis = millis
+            set(Calendar.HOUR_OF_DAY, 23); set(Calendar.MINUTE, 59)
+            set(Calendar.SECOND, 59); set(Calendar.MILLISECOND, 999)
+        }
+        return cal.time
     }
 
     private fun navigateToCategoryTransactions(categoryName: String) {

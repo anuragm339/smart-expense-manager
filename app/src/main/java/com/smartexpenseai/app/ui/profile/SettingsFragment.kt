@@ -73,6 +73,15 @@ class SettingsFragment : Fragment() {
                 Toast.LENGTH_SHORT
             ).show()
         }
+
+        binding.switchAutoTag.setOnCheckedChangeListener { _, isChecked ->
+            prefs.edit().putBoolean("auto_tag_similar", isChecked).apply()
+            Toast.makeText(
+                requireContext(),
+                if (isChecked) "Auto-tagging enabled" else "Auto-tagging disabled",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
         
         binding.layoutClearData.setOnClickListener {
             showClearDataConfirmation()
@@ -85,12 +94,17 @@ class SettingsFragment : Fragment() {
         binding.btnBudgetGoals.setOnClickListener {
             findNavController().navigate(R.id.action_navigation_settings_to_navigation_budget_goals)
         }
+
+        binding.layoutManageTags.setOnClickListener {
+            findNavController().navigate(R.id.action_navigation_settings_to_navigation_tag_management)
+        }
     }
     
     private fun loadSettings() {
         // Load saved settings
         binding.switchAutoCategorization.isChecked = prefs.getBoolean("auto_categorization", true)
         binding.switchRealtimeProcessing.isChecked = prefs.getBoolean("realtime_processing", true)
+        binding.switchAutoTag.isChecked = prefs.getBoolean("auto_tag_similar", true)
         
         val currency = prefs.getString("currency", "INR")
         binding.tvCurrencyValue.text = when (currency) {

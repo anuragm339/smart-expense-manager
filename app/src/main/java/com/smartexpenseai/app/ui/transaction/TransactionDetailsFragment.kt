@@ -16,9 +16,15 @@ import dagger.hilt.android.AndroidEntryPoint
 import com.smartexpenseai.app.R
 import com.smartexpenseai.app.databinding.FragmentTransactionDetailsBinding
 import com.smartexpenseai.app.utils.CategoryManager
+import com.smartexpenseai.app.data.entities.TagEntity
+import com.smartexpenseai.app.data.repository.TagRepository
+import com.smartexpenseai.app.data.repository.TagAutoApplyService
+import com.google.android.material.chip.Chip
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 import java.util.*
 
 @AndroidEntryPoint
@@ -32,7 +38,13 @@ class TransactionDetailsFragment : Fragment() {
     
     // Keep managers for fallback compatibility
     private lateinit var categoryManager: CategoryManager
-    
+
+    @Inject lateinit var tagRepository: TagRepository
+    @Inject lateinit var tagAutoApplyService: TagAutoApplyService
+
+    // Persistent row id used for tag associations (0 when unknown/legacy nav)
+    private var transactionId: Long = 0L
+
     // Transaction details passed as arguments (kept for backward compatibility)
     private var amount: Float = 0.0f
     private var merchant: String = ""
@@ -45,6 +57,7 @@ class TransactionDetailsFragment : Fragment() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         arguments?.let {
+            transactionId = it.getLong("transactionId", 0L)
             amount = it.getFloat("amount", 0.0f)
             merchant = it.getString("merchant", "")
             bankName = it.getString("bankName", "")
@@ -75,6 +88,7 @@ class TransactionDetailsFragment : Fragment() {
             
             setupUI()
             setupClickListeners()
+            setupTags()
             observeViewModel()
             
             // Set transaction data in ViewModel
@@ -169,6 +183,139 @@ class TransactionDetailsFragment : Fragment() {
         if (uiState.successMessage != null) {
             Toast.makeText(requireContext(), uiState.successMessage, Toast.LENGTH_LONG).show()
             viewModel.handleEvent(TransactionDetailsUIEvent.ClearSuccess)
+        }
+    }
+
+    /**
+     * Observe this transaction's tags and keep the chip group in sync. The "Add tag"
+     * chip stays as the last child; tag chips are inserted before it.
+     */
+    private fun setupTags() {
+        binding.chipAddTag.setOnClickListener { showTagPicker() }
+
+        if (transactionId <= 0L) {
+            // Legacy/unsaved navigation without a persistent id: tagging unavailable.
+            binding.chipAddTag.isEnabled = false
+            return
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+                tagRepository.getTagsForTransaction(transactionId).collectLatest { tags ->
+                    renderTagChips(tags)
+                }
+            }
+        }
+    }
+
+    private fun renderTagChips(tags: List<TagEntity>) {
+        val group = binding.chipGroupTags
+        // Remove everything except the trailing "Add tag" chip.
+        for (i in group.childCount - 1 downTo 0) {
+            if (group.getChildAt(i).id != R.id.chip_add_tag) group.removeViewAt(i)
+        }
+        val addChipIndex = group.indexOfChild(binding.chipAddTag)
+        tags.forEachIndexed { offset, tag ->
+            val chip = Chip(requireContext()).apply {
+                text = tag.name
+                isCloseIconVisible = true
+                try {
+                    chipBackgroundColor = android.content.res.ColorStateList.valueOf(
+                        android.graphics.Color.parseColor(tag.color)
+                    )
+                } catch (_: Exception) { }
+                setOnCloseIconClickListener {
+                    viewLifecycleOwner.lifecycleScope.launch {
+                        tagRepository.removeTagFromTransaction(transactionId, tag.id)
+                    }
+                }
+            }
+            group.addView(chip, addChipIndex + offset)
+        }
+    }
+
+    /** Bottom-of-dialog picker: toggle existing tags on/off, or create a new one. */
+    private fun showTagPicker() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val allTags = tagRepository.getAllTagsSync()
+            val attachedIds = tagRepository.getTagsForTransactionSync(transactionId).map { it.id }.toSet()
+
+            if (allTags.isEmpty()) {
+                showCreateTagDialog()
+                return@launch
+            }
+
+            val names = allTags.map { it.name }.toTypedArray()
+            val checked = allTags.map { attachedIds.contains(it.id) }.toBooleanArray()
+
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Tags")
+                .setMultiChoiceItems(names, checked) { _, which, isChecked ->
+                    checked[which] = isChecked
+                }
+                .setNeutralButton("New tag…") { _, _ -> showCreateTagDialog() }
+                .setPositiveButton("Done") { _, _ ->
+                    viewLifecycleOwner.lifecycleScope.launch {
+                        val newlyAdded = mutableListOf<Long>()
+                        allTags.forEachIndexed { index, tag ->
+                            val wasAttached = attachedIds.contains(tag.id)
+                            if (checked[index] && !wasAttached) {
+                                tagRepository.addTagToTransaction(transactionId, tag.id)
+                                newlyAdded.add(tag.id)
+                            } else if (!checked[index] && wasAttached) {
+                                tagRepository.removeTagFromTransaction(transactionId, tag.id)
+                            }
+                        }
+                        offerApplyToMatching(newlyAdded)
+                    }
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
+    }
+
+    private fun showCreateTagDialog() {
+        val input = TextInputEditText(requireContext()).apply { hint = "Tag name" }
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("New tag")
+            .setView(input)
+            .setPositiveButton("Create") { _, _ ->
+                val name = input.text?.toString()?.trim().orEmpty()
+                if (name.isEmpty()) {
+                    Toast.makeText(requireContext(), "Enter a tag name", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                viewLifecycleOwner.lifecycleScope.launch {
+                    val tag = tagRepository.getOrCreateTag(name)
+                    tagRepository.addTagToTransaction(transactionId, tag.id)
+                    offerApplyToMatching(listOf(tag.id))
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    /**
+     * After a manual tag, offer to backfill existing transactions with the same
+     * signature (merchant + amount + time-of-day ±30 min). One-time, opt-in.
+     */
+    private fun offerApplyToMatching(addedTagIds: List<Long>) {
+        if (addedTagIds.isEmpty() || transactionId <= 0L) return
+        viewLifecycleOwner.lifecycleScope.launch {
+            val count = tagAutoApplyService.countMatchingTransactions(transactionId)
+            if (count <= 0) return@launch
+            val plural = if (count == 1) "transaction" else "transactions"
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Apply to similar?")
+                .setMessage("Found $count other $plural with the same merchant, amount, and time of day. Tag them too?")
+                .setPositiveButton("Apply to all") { _, _ ->
+                    viewLifecycleOwner.lifecycleScope.launch {
+                        val affected = tagAutoApplyService.applyTagsToMatching(transactionId, addedTagIds)
+                        Toast.makeText(requireContext(), "Tagged $affected $plural", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                .setNegativeButton("Just this one", null)
+                .show()
         }
     }
 
