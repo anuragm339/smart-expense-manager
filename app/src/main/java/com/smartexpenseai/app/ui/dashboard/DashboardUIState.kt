@@ -21,6 +21,8 @@ data class DashboardUIState(
     val comparisonMode: ComparisonMode = ComparisonMode.THIS_MONTH,
     val customRangeA: Pair<java.util.Date, java.util.Date>? = null,
     val customRangeB: Pair<java.util.Date, java.util.Date>? = null,
+    val recurringCount: Int = 0,
+    val recurringMonthly: Double = 0.0,
     val trendData: TrendData? = null,
     val customMonthComparison: CustomMonthComparison? = null,
     val monthlyBudget: Double = 0.0,

@@ -198,6 +198,9 @@ class DashboardFragment : Fragment() {
         viewBinder.initialize()
         viewBinder.setOnEditTrackedTags { showTrackedTagPicker() }
         viewBinder.setOnComparisonModeClick { showComparisonModePicker() }
+        viewBinder.setOnSubscriptionsClick {
+            findNavController().navigate(R.id.action_dashboard_to_recurring)
+        }
 
         trendBinder = DashboardTrendBinder(binding, requireContext(), repository, logger)
         trendBinder.setupChart()

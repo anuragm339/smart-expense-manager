@@ -27,7 +27,8 @@ class DashboardViewModel @Inject constructor(
     private val getDashboardDataUseCase: GetDashboardDataUseCase,
     private val repository: com.smartexpenseai.app.data.repository.ExpenseRepository,
     private val syncSMSTransactionsUseCase: com.smartexpenseai.app.domain.usecase.sms.SyncSMSTransactionsUseCase,
-    private val tagRepository: com.smartexpenseai.app.data.repository.TagRepository
+    private val tagRepository: com.smartexpenseai.app.data.repository.TagRepository,
+    private val recurringDetectionService: com.smartexpenseai.app.services.RecurringDetectionService
 ) : ViewModel() {
 
     private val logger = StructuredLogger("DASHBOARD", "DashboardViewModel")
@@ -439,9 +440,10 @@ class DashboardViewModel @Inject constructor(
                         lastRefreshTime = System.currentTimeMillis()
                     )
 
-                    // Update comparison card (mode-driven) + spend-by-tag
+                    // Update comparison card (mode-driven) + spend-by-tag + subscriptions
                     updateComparison()
                     updateTagSpending()
+                    updateRecurringSummary()
                 }
             },
             onFailure = { throwable ->
@@ -687,6 +689,21 @@ class DashboardViewModel @Inject constructor(
         } catch (e: Exception) {
             logger.warn("computeTrackedTagMovers", "Error computing tracked tag movers: ${e.message}")
             emptyList()
+        }
+    }
+
+    /** Detect recurring charges and load a compact summary (count + est. monthly). */
+    private fun updateRecurringSummary() {
+        viewModelScope.launch {
+            try {
+                val series = recurringDetectionService.detect()
+                _uiState.value = _uiState.value.copy(
+                    recurringCount = series.size,
+                    recurringMonthly = series.sumOf { it.monthlyEquivalent }
+                )
+            } catch (e: Exception) {
+                logger.warn("updateRecurringSummary", "Error detecting recurring: ${e.message}")
+            }
         }
     }
 
