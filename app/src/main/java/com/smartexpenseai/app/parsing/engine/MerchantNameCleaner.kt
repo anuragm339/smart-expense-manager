@@ -40,6 +40,11 @@ object MerchantNameCleaner {
             return collapsed.replace(Regex("[^A-Za-z0-9.@_\\s-]"), "").trim()
         }
 
+        // Drop the Indian "M/S." (Messrs) business prefix so "M/S.HEALONEST" groups
+        // as "HEALONEST", not "MSHEALONEST". Requires the slash so real names starting
+        // with "MS" (e.g. "MSN") are left alone.
+        collapsed = collapsed.replace(Regex("^\\s*M\\s*/\\s*S\\.?\\s*", RegexOption.IGNORE_CASE), "")
+
         // Cut the name at the first noise token so repeated messages share one name.
         NOISE_REGEX.find(collapsed)?.let {
             collapsed = collapsed.substring(0, it.range.first)

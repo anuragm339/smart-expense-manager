@@ -26,6 +26,7 @@ class UnifiedSMSParser @Inject constructor(
     companion object {
         // IMPORTANT: 2-digit year patterns MUST come first to prevent "yyyy" from accepting 2 digits as year 0-99
         private val DATE_FORMATS = listOf(
+            "yyyy-MM-dd",    // ISO first (unambiguous)
             "dd-MM-yy",      // Try 2-digit patterns first
             "dd/MM/yy",
             "dd.MM.yy",
@@ -43,6 +44,19 @@ class UnifiedSMSParser @Inject constructor(
         private val ALPHA_MONTH_DATE_REGEX = Regex(
             "\\b(\\d{1,2}[-/ ](?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[-/ ]\\d{2,4})\\b",
             RegexOption.IGNORE_CASE
+        )
+
+        // ISO datetime dates ("2026-07-07" / "2026-07-07:14:10:33"). Matched before the
+        // bank date patterns so the loose "dd-MM-yy" rule can't grab "26-07-07" out of a
+        // 4-digit year and mis-date the transaction to 2007.
+        private val ISO_DATE_REGEX = Regex("\\b(\\d{4}-\\d{2}-\\d{2})\\b")
+
+        // Anti-fraud / boilerplate trailer that ends most bank SMS
+        // ("Not You? Call 1800.../SMS BLOCK ... to 7308080808"). It carries phone
+        // numbers that a greedy "(?:at|to) <name>" merchant pattern would grab, so the
+        // trailer is cut off before merchant extraction.
+        private val TRAILER_REGEX = Regex(
+            "(?i)\\b(?:not\\s+you|sms\\s+block|to\\s+block|block\\+?re-?issue|call\\s+1[89]00|dispute\\b|report\\s+(?:this|fraud))"
         )
 
         // Card identifier ("Card x1234" / "Card ending 1234" / "Card **1234") used to
@@ -107,8 +121,12 @@ class UnifiedSMSParser @Inject constructor(
             // 2. Extract transaction fields
             // NOTE: merchant extraction uses the RAW body - UPI VPA patterns ("merchant@ybl")
             // need the '@' that the old special-character stripping removed
+            // Strip the anti-fraud trailer before merchant extraction so its phone
+            // numbers ("...SMS BLOCK ... to 7308080808") can't be picked up as the merchant.
+            val bodyForMerchant = stripTrailer(body)
+
             val amount = extractAmount(body, bankRule, rules)
-            val merchant = extractMerchant(body, bankRule, rules)
+            val merchant = extractMerchant(bodyForMerchant, bankRule, rules)
             val date = extractDate(body, bankRule, timestamp)
             val transactionType = extractTransactionType(body.replace(Regex("[^A-Za-z0-9\\s]"), " ").trim(), bankRule, rules)
             var referenceNumber = extractReferenceNumber(body, bankRule, rules)
@@ -262,11 +280,22 @@ class UnifiedSMSParser @Inject constructor(
     /**
      * Extract date from SMS body
      */
+    /** Remove the trailing anti-fraud boilerplate (and its phone numbers). */
+    private fun stripTrailer(body: String): String {
+        val match = TRAILER_REGEX.find(body) ?: return body
+        return body.substring(0, match.range.first).trim()
+    }
+
     private fun extractDate(
         body: String,
         bankRule: BankRule?,
         defaultTimestamp: Long
     ): Date {
+        // ISO dates first (yyyy-MM-dd), before the looser bank patterns.
+        ISO_DATE_REGEX.find(body)?.groupValues?.get(1)?.let { dateStr ->
+            tryParseDate(dateStr)?.let { return it }
+        }
+
         // Try bank-specific date patterns
         bankRule?.patterns?.date?.forEach { pattern ->
             val dateStr = tryExtractWithPattern(body, pattern)
