@@ -1916,8 +1916,8 @@
     ],
     "merchant": [
       "(?:to|from)\\s+([A-Za-z0-9._-]+@[a-z]+)(?:\\.|\\s)",
-      "(?:spent at|paid to|sent to|transaction at|purchase (?:at|from))\\s+[.\\s]*([A-Za-z0-9][A-Za-z0-9\\s&'._/,()*-]*?)(?:\\s+on\\b|\\s+ref\\b|\\s+txn\\b|\\s+info\\b|\\s+avl\\b|$)",
-      "(?:\\bat|\\bto)\\s+[.\\s]*([A-Za-z0-9][A-Za-z0-9\\s&'._/,()*-]*?)(?:\\s+on\\b|\\s+ref\\b|\\s+txn\\b|\\s+info\\b|\\s+avl\\b|$)",
+      "(?:spent at|paid to|sent to|transaction at|purchase (?:at|from)|debited towards)\\s+[.\\s]*([A-Za-z0-9][A-Za-z0-9\\s&'._/,()*-]*?)(?:\\s+on\\b|\\s+ref\\b|\\s+txn\\b|\\s+info\\b|\\s+avl\\b|\\s+via\\b|\\s+from\\b|\\s+using\\b|\\s+thru\\b|$)",
+      "(?:\\bat|\\bto|\\btowards)\\s+[.\\s]*([A-Za-z0-9][A-Za-z0-9\\s&'._/,()*-]*?)(?:\\s+on\\b|\\s+ref\\b|\\s+txn\\b|\\s+info\\b|\\s+avl\\b|\\s+via\\b|\\s+from\\b|\\s+using\\b|\\s+thru\\b|$)",
       "(?:merchant|merchant name)\\s*:?\\s*([A-Za-z0-9][A-Za-z0-9\\s&'._/,()*-]*?)(?:\\s+on\\b|\\.|$)"
     ],
     "reference_number": [

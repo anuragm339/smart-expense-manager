@@ -27,6 +27,9 @@ object MerchantNameCleaner {
             "|sms\\s+block" +
             "|call\\s+\\d" +
             "|upi\\s+to" +
+            // Prepositions that trail the merchant into channel/source noise, e.g.
+            // "NETFLIX via UPI", "DOMINOS from Paytm", "MYNTRA using card".
+            "|via\\b|from\\b|using\\b|thru\\b" +
         ")",
         RegexOption.IGNORE_CASE
     )
@@ -45,11 +48,17 @@ object MerchantNameCleaner {
         // with "MS" (e.g. "MSN") are left alone.
         collapsed = collapsed.replace(Regex("^\\s*M\\s*/\\s*S\\.?\\s*", RegexOption.IGNORE_CASE), "")
 
+        // Drop a leading account reference ("A/c XX123", "Ac No 1234") — common in
+        // credit SMS ("credited to A/c XX123 by SALARY"), where it isn't a merchant.
+        collapsed = collapsed.replace(Regex("(?i)^a\\s*/?\\s*c\\s*(?:no\\.?)?\\s*"), "")
+
         // Cut the name at the first noise token so repeated messages share one name.
         NOISE_REGEX.find(collapsed)?.let {
             collapsed = collapsed.substring(0, it.range.first)
         }
 
-        return collapsed.replace(Regex("[^A-Za-z0-9\\s&'-]"), "").trim()
+        val result = collapsed.replace(Regex("[^A-Za-z0-9\\s&'-]"), "").trim()
+        // An account-number remnant ("XX123", "1234") is never a merchant name.
+        return if (result.matches(Regex("(?i)x{2,}\\d*")) || result.matches(Regex("\\d+"))) "" else result
     }
 }
