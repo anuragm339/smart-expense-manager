@@ -71,6 +71,10 @@ class ProfileFragment : Fragment() {
             findNavController().navigate(R.id.action_navigation_profile_to_navigation_export_data)
         }
 
+        binding.layoutRecurring.setOnClickListener {
+            findNavController().navigate(R.id.action_navigation_profile_to_navigation_recurring)
+        }
+
         binding.layoutCleanupDuplicates.setOnClickListener {
             showCleanupDuplicatesDialog()
         }

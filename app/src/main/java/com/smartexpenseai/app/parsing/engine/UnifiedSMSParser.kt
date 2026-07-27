@@ -26,6 +26,7 @@ class UnifiedSMSParser @Inject constructor(
     companion object {
         // IMPORTANT: 2-digit year patterns MUST come first to prevent "yyyy" from accepting 2 digits as year 0-99
         private val DATE_FORMATS = listOf(
+            "yyyy-MM-dd",    // ISO first (unambiguous)
             "dd-MM-yy",      // Try 2-digit patterns first
             "dd/MM/yy",
             "dd.MM.yy",
@@ -44,6 +45,52 @@ class UnifiedSMSParser @Inject constructor(
             "\\b(\\d{1,2}[-/ ](?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[-/ ]\\d{2,4})\\b",
             RegexOption.IGNORE_CASE
         )
+
+        // ISO datetime dates ("2026-07-07" / "2026-07-07:14:10:33"). Matched before the
+        // bank date patterns so the loose "dd-MM-yy" rule can't grab "26-07-07" out of a
+        // 4-digit year and mis-date the transaction to 2007.
+        private val ISO_DATE_REGEX = Regex("\\b(\\d{4}-\\d{2}-\\d{2})\\b")
+
+        // Anti-fraud / boilerplate trailer that ends most bank SMS
+        // ("Not You? Call 1800.../SMS BLOCK ... to 7308080808"). It carries phone
+        // numbers that a greedy "(?:at|to) <name>" merchant pattern would grab, so the
+        // trailer is cut off before merchant extraction.
+        private val TRAILER_REGEX = Regex(
+            "(?i)\\b(?:not\\s+you|sms\\s+block|to\\s+block|block\\+?re-?issue|call\\s+1[89]00|dispute\\b|report\\s+(?:this|fraud))"
+        )
+
+        // A *completed* debit/credit signal ("Rs.X spent/debited/credited"). The
+        // negative lookbehinds exclude the future forms ("will be debited",
+        // "to be debited") so a genuine future-autopay notice is still rejected.
+        private val COMPLETED_TXN_REGEX = Regex(
+            "(?<!will\\s{0,3}be\\s{0,3})(?<!to\\s{0,3}be\\s{0,3})" +
+                "\\b(?:spent|withdrawn|purchased|debited|credited|deducted|charged)\\b",
+            RegexOption.IGNORE_CASE
+        )
+
+        // Non-transaction reasons that should reject even when a completed signal is
+        // present (these are never real completed spends).
+        private val HARD_REJECT_REASONS = setOf(
+            "OTP message", "UPI collect request", "declined transaction"
+        )
+
+        // Amount tied to a spend/debit verb, in either order. Tried before bare "Rs.X"
+        // so credit-card SMS don't pick up "Avl Lmt Rs.50000" instead of the spend.
+        private val ACTION_AMOUNT_REGEXES = listOf(
+            Regex(
+                "(?i)(?:spent|debited|withdrawn|paid|sent|deducted|charged|credited|purchased)" +
+                    "\\s+(?:of\\s+)?(?:₹|Rs\\.?|INR)?\\s*([\\d,]+(?:\\.\\d{1,2})?)"
+            ),
+            Regex(
+                "(?i)(?:₹|Rs\\.?|INR)\\s*([\\d,]+(?:\\.\\d{1,2})?)\\s*" +
+                    "(?:is\\s+|has\\s+been\\s+|was\\s+)?" +
+                    "(?:spent|debited|withdrawn|paid|deducted|charged|credited)"
+            )
+        )
+
+        // Account reference ("A/c XX3300", "a/c no 1234") — a strong transaction signal
+        // for ref-less UPI/bank debits.
+        private val ACCOUNT_REGEX = Regex("(?i)\\ba/?c\\b")
 
         // Card identifier ("Card x1234" / "Card ending 1234" / "Card **1234") used to
         // accept card-present transactions that carry no reference number
@@ -93,10 +140,17 @@ class UnifiedSMSParser @Inject constructor(
 
             // 0. Reject non-transactional SMS early (future autopay notices, UPI collect
             // requests, OTPs, bill reminders) - these contain amounts but are not spends
+            // A real completed spend can *also* mention reward points, a statement due
+            // date, or the next autopay charge. Only drop such SMS for the unambiguous
+            // reasons (OTP, collect request, declined) — not the "soft" markers.
+            val hasCompletedTxn = COMPLETED_TXN_REGEX.containsMatchIn(body)
             NON_TRANSACTION_PATTERNS.forEach { (reason, pattern) ->
                 if (pattern.containsMatchIn(body)) {
-                    logger.debug("parseSMS", "Rejected non-transactional SMS ($reason): ${body.take(50)}...")
-                    return@withContext ParseResult.Failed("Non-transactional SMS: $reason")
+                    if (reason in HARD_REJECT_REASONS || !hasCompletedTxn) {
+                        logger.debug("parseSMS", "Rejected non-transactional SMS ($reason): ${body.take(50)}...")
+                        return@withContext ParseResult.Failed("Non-transactional SMS: $reason")
+                    }
+                    logger.debug("parseSMS", "Kept despite '$reason' marker — completed transaction present")
                 }
             }
 
@@ -107,8 +161,12 @@ class UnifiedSMSParser @Inject constructor(
             // 2. Extract transaction fields
             // NOTE: merchant extraction uses the RAW body - UPI VPA patterns ("merchant@ybl")
             // need the '@' that the old special-character stripping removed
+            // Strip the anti-fraud trailer before merchant extraction so its phone
+            // numbers ("...SMS BLOCK ... to 7308080808") can't be picked up as the merchant.
+            val bodyForMerchant = stripTrailer(body)
+
             val amount = extractAmount(body, bankRule, rules)
-            val merchant = extractMerchant(body, bankRule, rules)
+            val merchant = extractMerchant(bodyForMerchant, bankRule, rules)
             val date = extractDate(body, bankRule, timestamp)
             val transactionType = extractTransactionType(body.replace(Regex("[^A-Za-z0-9\\s]"), " ").trim(), bankRule, rules)
             var referenceNumber = extractReferenceNumber(body, bankRule, rules)
@@ -139,10 +197,15 @@ class UnifiedSMSParser @Inject constructor(
                 val bodyLower = body.lowercase()
                 val hasTxnKeyword = rules.fallbackPatterns.debitKeywords.any { bodyLower.contains(it) } ||
                     rules.fallbackPatterns.creditKeywords.any { bodyLower.contains(it) }
-                if (cardLast4 != null && hasTxnKeyword) {
+                // A strong transaction signal (debit/credit keyword) plus a card,
+                // merchant, or account is enough to synthesize a stable pseudo-ref, so
+                // ref-less UPI/bank debits aren't dropped as promotional.
+                val hasMerchantOrAccount =
+                    !merchant.isNullOrBlank() || ACCOUNT_REGEX.containsMatchIn(body)
+                if (hasTxnKeyword && (cardLast4 != null || hasMerchantOrAccount)) {
                     val bodyHash = Integer.toHexString(body.trim().hashCode())
-                    referenceNumber = "CARD${cardLast4}H$bodyHash"
-                    logger.debug("parseSMS", "Card SMS without ref number - synthesized pseudo-ref $referenceNumber")
+                    referenceNumber = if (cardLast4 != null) "CARD${cardLast4}H$bodyHash" else "TXNH$bodyHash"
+                    logger.debug("parseSMS", "No ref number - synthesized pseudo-ref $referenceNumber")
                 }
             }
 
@@ -217,6 +280,12 @@ class UnifiedSMSParser @Inject constructor(
         bankRule: BankRule?,
         rules: BankRulesSchema
     ): String? {
+        // Prefer the amount next to a spend/debit verb so credit-card SMS don't grab
+        // "Avl Lmt Rs.50000" instead of the actual "Rs.750 spent".
+        ACTION_AMOUNT_REGEXES.forEach { regex ->
+            regex.find(body)?.groupValues?.getOrNull(1)?.takeIf { it.isNotBlank() }?.let { return it }
+        }
+
         // Try bank-specific patterns first
         bankRule?.patterns?.amount?.forEach { pattern ->
             val amount = tryExtractWithPattern(body, pattern)
@@ -262,11 +331,22 @@ class UnifiedSMSParser @Inject constructor(
     /**
      * Extract date from SMS body
      */
+    /** Remove the trailing anti-fraud boilerplate (and its phone numbers). */
+    private fun stripTrailer(body: String): String {
+        val match = TRAILER_REGEX.find(body) ?: return body
+        return body.substring(0, match.range.first).trim()
+    }
+
     private fun extractDate(
         body: String,
         bankRule: BankRule?,
         defaultTimestamp: Long
     ): Date {
+        // ISO dates first (yyyy-MM-dd), before the looser bank patterns.
+        ISO_DATE_REGEX.find(body)?.groupValues?.get(1)?.let { dateStr ->
+            tryParseDate(dateStr)?.let { return it }
+        }
+
         // Try bank-specific date patterns
         bankRule?.patterns?.date?.forEach { pattern ->
             val dateStr = tryExtractWithPattern(body, pattern)

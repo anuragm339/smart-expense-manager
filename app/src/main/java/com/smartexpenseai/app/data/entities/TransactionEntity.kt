@@ -68,7 +68,7 @@ data class TransactionEntity(
          * refs can still describe the same transaction.
          */
         fun isSyntheticReference(referenceNumber: String?): Boolean =
-            referenceNumber != null && referenceNumber.matches(Regex("CARD\\d{4}[TH].*"))
+            referenceNumber != null && referenceNumber.matches(Regex("(?:CARD\\d{4}[TH]|TXNH).*"))
 
         /**
          * Generate a consistent SMS ID from SMS content to prevent duplicates

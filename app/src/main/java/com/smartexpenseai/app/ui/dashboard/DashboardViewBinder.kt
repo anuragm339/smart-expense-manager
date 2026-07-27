@@ -90,10 +90,24 @@ class DashboardViewBinder(
             showCard = state.tagSpending.isNotEmpty() || state.trackedTagMovers.isNotEmpty()
         )
         binding.tvComparisonMode.text = "${state.comparisonMode.selectorLabel} ▾"
+        renderSubscriptions(state.recurringCount, state.recurringMonthly)
     }
 
     fun setOnComparisonModeClick(action: () -> Unit) {
         binding.tvComparisonMode.setOnClickListener { action() }
+    }
+
+    fun setOnSubscriptionsClick(action: () -> Unit) {
+        binding.cardSubscriptions.setOnClickListener { action() }
+    }
+
+    private fun renderSubscriptions(count: Int, monthly: Double) {
+        if (count <= 0) {
+            binding.cardSubscriptions.visibility = View.GONE
+            return
+        }
+        binding.cardSubscriptions.visibility = View.VISIBLE
+        binding.tvSubscriptionsSummary.text = "$count recurring · ₹${monthly.formatAsMoney()}/mo"
     }
 
     fun showSyncToast(count: Int) {
