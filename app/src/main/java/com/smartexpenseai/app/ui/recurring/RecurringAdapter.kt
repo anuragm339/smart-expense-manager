@@ -12,7 +12,9 @@ import com.smartexpenseai.app.services.RecurringStatus
 import java.text.SimpleDateFormat
 import java.util.Locale
 
-class RecurringAdapter :
+class RecurringAdapter(
+    private val onNotSubscription: (RecurringSeries) -> Unit,
+) :
     ListAdapter<RecurringSeries, RecurringAdapter.VH>(DIFF) {
 
     private val dateFmt = SimpleDateFormat("d MMM yyyy", Locale.getDefault())
@@ -38,9 +40,11 @@ class RecurringAdapter :
                 append(" · ${item.occurrences} charges")
             }
             binding.tvNext.text = "Next ~ ${dateFmt.format(item.nextEstimatedDate)}"
+            binding.btnNotSubscription.setOnClickListener { onNotSubscription(item) }
 
             val chips = binding.chipGroupFlags
             chips.removeAllViews()
+            addChip(chips, "${item.kind.label} · ${item.confidence}% match")
             if (item.priceIncreased) {
                 addChip(chips, "↑ Price up (was ₹${money(item.typicalAmount)} → ₹${money(item.latestAmount)})")
             }
@@ -70,7 +74,9 @@ class RecurringAdapter :
     companion object {
         private val DIFF = object : DiffUtil.ItemCallback<RecurringSeries>() {
             override fun areItemsTheSame(a: RecurringSeries, b: RecurringSeries) =
-                a.normalizedMerchant == b.normalizedMerchant
+                a.normalizedMerchant == b.normalizedMerchant &&
+                    a.cadence == b.cadence &&
+                    a.typicalAmount == b.typicalAmount
             override fun areContentsTheSame(a: RecurringSeries, b: RecurringSeries) = a == b
         }
     }

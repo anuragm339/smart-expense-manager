@@ -186,7 +186,7 @@ class GetSpendingTrendsUseCase @Inject constructor(
                 calendar.get(Calendar.DAY_OF_MONTH)
             )
             
-            dailyMap.computeIfAbsent(dayKey) { mutableListOf() }.add(transaction)
+            dailyMap.getOrPut(dayKey) { mutableListOf() }.add(transaction)
         }
         
         // Convert to daily spending objects
@@ -217,7 +217,7 @@ class GetSpendingTrendsUseCase @Inject constructor(
                 calendar.get(Calendar.WEEK_OF_YEAR)
             )
             
-            weeklyMap.computeIfAbsent(weekKey) { mutableListOf() }.add(transaction)
+            weeklyMap.getOrPut(weekKey) { mutableListOf() }.add(transaction)
         }
         
         return weeklyMap.map { (weekKey, weekTransactions) ->

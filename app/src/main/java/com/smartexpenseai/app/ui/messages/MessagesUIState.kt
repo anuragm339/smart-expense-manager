@@ -17,6 +17,29 @@ enum class TransactionFilterTab(val index: Int, val displayName: String) {
 }
 
 /**
+ * Payment-method filter tabs for the Messages screen. Orthogonal to
+ * [TransactionFilterTab] (include/exclude/deleted): this axis splits transactions
+ * by the rail they were made over. [method] is null for ALL (no filtering).
+ */
+enum class PaymentMethodTab(
+    val index: Int,
+    val displayName: String,
+    val method: com.smartexpenseai.app.parsing.PaymentMethod?
+) {
+    ALL(0, "ALL", null),
+    UPI(1, "UPI", com.smartexpenseai.app.parsing.PaymentMethod.UPI),
+    CARD(2, "CARD", com.smartexpenseai.app.parsing.PaymentMethod.CARD),
+    NETBANKING(3, "BANK", com.smartexpenseai.app.parsing.PaymentMethod.NETBANKING),
+    WALLET(4, "WALLET", com.smartexpenseai.app.parsing.PaymentMethod.WALLET);
+
+    companion object {
+        fun fromIndex(index: Int): PaymentMethodTab {
+            return values().find { it.index == index } ?: ALL
+        }
+    }
+}
+
+/**
  * UI State for Messages screen
  */
 data class MessagesUIState(
@@ -42,6 +65,7 @@ data class MessagesUIState(
     val currentSortOption: SortOption = SortOption("Date (Newest First)", "date", false),
     val currentFilterOptions: FilterOptions = FilterOptions.getDefault(), // Default to current month
     val currentFilterTab: TransactionFilterTab = TransactionFilterTab.ALL,
+    val currentPaymentMethodTab: PaymentMethodTab = PaymentMethodTab.ALL,
 
     // State flags
     val isEmpty: Boolean = false,
@@ -109,7 +133,11 @@ data class MessageItem(
     val rawMerchant: String = merchant, // Original merchant name before alias processing
     val actualDate: java.util.Date = java.util.Date(), // 🔧 BUG FIX: Actual date object for filtering
     val tags: List<com.smartexpenseai.app.data.entities.TagEntity> = emptyList()
-)
+) {
+    /** Payment rail derived from the raw SMS (UPI / Card / NetBanking / Wallet / Other). */
+    val paymentMethod: com.smartexpenseai.app.parsing.PaymentMethod
+        get() = com.smartexpenseai.app.parsing.PaymentMethod.detect(rawSMS)
+}
 
 /**
  * Grouped transactions by merchant
@@ -225,6 +253,7 @@ sealed class MessagesUIEvent {
     data class ApplySort(val sortOption: SortOption) : MessagesUIEvent()
     data class ApplyFilter(val filterOptions: FilterOptions) : MessagesUIEvent()
     data class ApplyFilterTab(val filterTab: TransactionFilterTab) : MessagesUIEvent()
+    data class ApplyPaymentMethodTab(val tab: PaymentMethodTab) : MessagesUIEvent()
     data class ToggleGroupInclusion(val merchantName: String, val isIncluded: Boolean) : MessagesUIEvent()
 
     data class UpdateMerchantGroup(

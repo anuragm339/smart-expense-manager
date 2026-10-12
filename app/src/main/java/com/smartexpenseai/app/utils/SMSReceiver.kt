@@ -3,9 +3,7 @@ package com.smartexpenseai.app.utils
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import android.provider.Telephony
-import android.telephony.SmsMessage
 import com.smartexpenseai.app.data.repository.ExpenseRepository
 import com.smartexpenseai.app.notifications.TransactionNotificationManager
 import com.smartexpenseai.app.parsing.engine.ConfidenceCalculator
@@ -28,32 +26,27 @@ class SMSReceiver : BroadcastReceiver() {
     )
     override fun onReceive(context: Context?, intent: Intent?) {
         if (intent?.action == Telephony.Sms.Intents.SMS_RECEIVED_ACTION && context != null) {
+            val appSettings = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+            if (!appSettings.getBoolean("realtime_processing", true)) {
+                logger.debug("onReceive", "Real-time SMS processing is disabled")
+                return
+            }
+
             logger.info("onReceive", "📱 SMS received - starting processing")
 
-            // CRITICAL FIX: Use goAsync() to prevent process from being killed before async work completes
             val pendingResult = goAsync()
-
-            val bundle = intent.extras
-            if (bundle != null) {
-                val pdus = bundle.get("pdus") as? Array<*>
-                val format = bundle.getString("format")
-
-                pdus?.forEach { pdu ->
-                    val smsMessage = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                        SmsMessage.createFromPdu(pdu as ByteArray, format)
-                    } else {
-                        @Suppress("DEPRECATION")
-                        SmsMessage.createFromPdu(pdu as ByteArray)
-                    }
-                    val messageBody = smsMessage.messageBody
-                    val sender = smsMessage.originatingAddress
-                    val timestamp = smsMessage.timestampMillis
-
-                    processBankSMS(context, messageBody, sender, timestamp, pendingResult)
-                }
-            } else {
+            val messages = Telephony.Sms.Intents.getMessagesFromIntent(intent)
+            if (messages.isEmpty()) {
                 pendingResult.finish()
+                return
             }
+
+            // A multipart SMS is delivered as multiple PDUs in one intent. Parse the
+            // reconstructed body once and finish the PendingResult exactly once.
+            val messageBody = messages.joinToString(separator = "") { it.messageBody.orEmpty() }
+            val sender = messages.firstNotNullOfOrNull { it.originatingAddress }
+            val timestamp = messages.minOf { it.timestampMillis }
+            processBankSMS(context, messageBody, sender, timestamp, pendingResult)
         }
     }
 
@@ -71,13 +64,6 @@ class SMSReceiver : BroadcastReceiver() {
 
         // Log SMS processing using Timber
         timber.log.Timber.tag("SMS").d("Processing SMS from $sender")
-
-        // FIXED: Generate consistent SMS ID to prevent duplicates
-        val smsId = com.smartexpenseai.app.data.entities.TransactionEntity.generateSmsId(
-            address = sender,
-            body = messageBody,
-            timestamp = timestamp
-        )
 
         // Use UnifiedSMSParser directly for real-time SMS parsing
         val ruleLoader = RuleLoader(context)
@@ -119,12 +105,16 @@ class SMSReceiver : BroadcastReceiver() {
                             if (insertedId > 0) {
                                 logger.debug("processBankSMS","[SUCCESS] New transaction saved: ${transaction.normalizedMerchant} - ₹${transaction.amount}")
 
-                                // Auto-categorize the transaction based on merchant
-                                val categorized = repository.autoCategorizeTransaction(insertedId)
-                                if (categorized) {
-                                    logger.debug("processBankSMS","[AUTO-CATEGORIZE] Transaction auto-categorized successfully")
-                                } else {
-                                    logger.warn("processBankSMS","[AUTO-CATEGORIZE] Failed to auto-categorize transaction")
+                                val autoCategorizationEnabled = context
+                                    .getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+                                    .getBoolean("auto_categorization", true)
+                                if (autoCategorizationEnabled) {
+                                    val categorized = repository.autoCategorizeTransaction(insertedId)
+                                    if (categorized) {
+                                        logger.debug("processBankSMS","[AUTO-CATEGORIZE] Transaction auto-categorized successfully")
+                                    } else {
+                                        logger.warn("processBankSMS","[AUTO-CATEGORIZE] Failed to auto-categorize transaction")
+                                    }
                                 }
 
                                 // Show notification
@@ -144,7 +134,9 @@ class SMSReceiver : BroadcastReceiver() {
 
                                 // Send broadcast to notify other parts of the app about new transaction
                                 val updateIntent =
-                                    Intent("com.expensemanager.NEW_TRANSACTION_ADDED")
+                                    Intent("com.expensemanager.NEW_TRANSACTION_ADDED").apply {
+                                        setPackage(context.packageName)
+                                    }
                                 updateIntent.putExtra("transaction_id", transactionEntity.smsId)
                                 updateIntent.putExtra("amount", transactionEntity.amount)
                                 updateIntent.putExtra("merchant", transactionEntity.rawMerchant)

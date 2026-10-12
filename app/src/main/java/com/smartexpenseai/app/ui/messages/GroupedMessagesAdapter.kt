@@ -164,12 +164,6 @@ class GroupedMessagesAdapter(
                 return
             }
             
-            // Additional check during rapid updates
-            if (isUpdating) {
-                logger.debug("onBindViewHolder","Skipping bind during update, position: $position")
-                return
-            }
-            
             val group = _merchantGroups.getOrNull(position)
             if (group != null) {
                 holder.bind(group)

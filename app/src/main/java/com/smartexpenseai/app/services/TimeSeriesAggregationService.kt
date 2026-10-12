@@ -157,9 +157,7 @@ class TimeSeriesAggregationService @Inject constructor(
                 val transactionTime = transaction.transactionDate.time
                 val startTime = startDate.time
                 val endTime = endDate.time
-                
-                // More inclusive filtering - include transactions on the boundary dates
-                transactionTime >= startTime && transactionTime < endTime + 24 * 60 * 60 * 1000 // Add 1 day buffer
+                transactionTime in startTime..endTime
             }
             
             val totalAmount = periodTransactions.sumOf { it.amount }
@@ -196,9 +194,7 @@ class TimeSeriesAggregationService @Inject constructor(
                 val transactionTime = transaction.transactionDate.time
                 val startTime = startDate.time
                 val endTime = endDate.time
-                
-                // More inclusive filtering - include transactions on the boundary dates
-                transactionTime >= startTime && transactionTime < endTime + 24 * 60 * 60 * 1000 // Add 1 day buffer
+                transactionTime in startTime..endTime
             }
             
             val totalAmount = periodTransactions.sumOf { it.amount }

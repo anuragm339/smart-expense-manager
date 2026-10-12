@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.smartexpenseai.app.data.repository.ExpenseRepository
+import com.smartexpenseai.app.domain.usecase.transaction.AddTransactionUseCase
 import com.smartexpenseai.app.utils.CategoryManager
 import com.smartexpenseai.app.utils.MerchantAliasManager
 import com.smartexpenseai.app.utils.logging.StructuredLogger
@@ -24,7 +25,8 @@ class CategoriesViewModel @Inject constructor(
     private val repository: ExpenseRepository,
     private val categoryDisplayProvider: CategoryDisplayProvider,
     private val categoryManager: CategoryManager,
-    private val merchantAliasManager: MerchantAliasManager
+    private val merchantAliasManager: MerchantAliasManager,
+    private val addTransactionUseCase: AddTransactionUseCase,
 ) : ViewModel() {
 
     companion object {
@@ -175,6 +177,9 @@ class CategoriesViewModel @Inject constructor(
                     createdAt = java.util.Date()
                 )
                 val categoryId = repository.insertCategory(categoryEntity)
+                if (categoryId == -1L) {
+                    throw IllegalArgumentException("A category named '$name' already exists")
+                }
                 logger.debug("addNewCategory","Category '$name' saved to database with ID: $categoryId")
                 
                 // Create new category item
@@ -190,12 +195,34 @@ class CategoriesViewModel @Inject constructor(
                 )
                 
                 // Update UI state with new category
-                val currentCategories = _uiState.value.categories.toMutableList()
-                currentCategories.add(newCategory)
+                val allCategories = _uiState.value.originalCategories
+                    .ifEmpty { _uiState.value.categories }
+                    .plus(newCategory)
+                val visibleCategories = allCategories
+                    .filter { category ->
+                        _uiState.value.searchQuery.isBlank() ||
+                            category.name.contains(_uiState.value.searchQuery, ignoreCase = true)
+                    }
+                    .let { categories ->
+                        when (_uiState.value.filterType) {
+                            "has_transactions" -> categories.filter { it.transactionCount > 0 }
+                            "empty" -> categories.filter { it.transactionCount == 0 }
+                            "custom" -> categories.filter { !isSystemCategory(it.name) }
+                            "high_spend" -> {
+                                val totalSpent = allCategories.sumOf { it.amount }
+                                val threshold = totalSpent * 0.1
+                                categories.filter { it.amount >= threshold && it.amount > 0 }
+                            }
+                            else -> categories
+                        }
+                    }
+                    .let { applySortAndFilter(it, _uiState.value.sortType) }
                 
                 _uiState.value = _uiState.value.copy(
-                    categories = currentCategories,
-                    categoryCount = currentCategories.size
+                    categories = visibleCategories,
+                    originalCategories = allCategories,
+                    categoryCount = allCategories.size,
+                    isEmpty = visibleCategories.isEmpty(),
                 )
                 
                 // Clear display provider cache to ensure new category gets proper icon
@@ -353,8 +380,12 @@ class CategoriesViewModel @Inject constructor(
         
         viewModelScope.launch {
             try {
-                // TODO: Implement with proper repository method when available
-                // For now, just refresh categories to show updated data
+                val transaction = addTransactionUseCase.createManualTransaction(
+                    amount = amount,
+                    merchantName = merchant.trim(),
+                    categoryName = category.ifBlank { "Other" },
+                )
+                addTransactionUseCase.execute(transaction).getOrThrow()
                 refreshCategories()
             } catch (e: Exception) {
                 logger.error("addQuickExpense", "Error adding quick expense",e)
@@ -399,14 +430,14 @@ class CategoriesViewModel @Inject constructor(
             
             logger.debug("loadCategoryData","Repository returned ${categorySpendingResults.size} category results")
             
-            return processCategorySpendingResults(categorySpendingResults)
+            processCategorySpendingResults(categorySpendingResults)
             
         } catch (e: SecurityException) {
             logger.error("loadCategoryData", "Permission denied, showing empty state",e)
-            return getEmptyCategories()
+            getEmptyCategories()
         } catch (e: Exception) {
             logger.error("loadCategoryData", "Error loading category data, showing empty state",e)
-            return getEmptyCategories()
+            getEmptyCategories()
         }
     }
     
@@ -485,21 +516,26 @@ class CategoriesViewModel @Inject constructor(
             logger.debug("loadCategoryDataFallback","Synced $syncedCount new transactions from SMS")
 
             if (syncedCount > 0) {
-                // Reuse the main loading logic - no need to duplicate code!
                 val (startDate, endDate) = getCurrentMonthDateRange()
                 val dateFormatter = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
                 logger.debug("loadCategoryDataFallback","Loading categories fallback from start of month: ${dateFormatter.format(startDate)}")
 
-                return processCategorySpendingResults(
-                    repository.getCategorySpending(startDate, endDate)
-                )
+                val categorySpending = repository.getCategorySpending(startDate, endDate)
+                // Synced messages can all fall outside the selected month. Do not feed an
+                // empty result back into processCategorySpendingResults(), because that would
+                // trigger this fallback recursively forever.
+                if (categorySpending.isEmpty()) {
+                    getEmptyCategories()
+                } else {
+                    processCategorySpendingResults(categorySpending)
+                }
             } else {
-                return getEmptyCategories()
+                getEmptyCategories()
             }
 
         } catch (e: Exception) {
             logger.error("loadCategoryDataFallback", "Error in fallback loading, showing empty state",e)
-            return getEmptyCategories()
+            getEmptyCategories()
         }
     }
     

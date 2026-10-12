@@ -12,7 +12,6 @@
         android:layout_height="80dp"
         android:layout_marginBottom="16dp"
         android:src="@drawable/ic_error_outline"
-        android:tint="@color/text_secondary"
         app:tint="@color/text_secondary" />
 
     <TextView

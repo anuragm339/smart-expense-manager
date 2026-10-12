@@ -89,9 +89,10 @@ class LogExporter(private val context: Context) {
                 append("=" .repeat(60))
             }
 
-            // Save to Downloads directory
-            val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-            val logFile = File(downloadsDir, fileName)
+            val documentsDir = requireNotNull(
+                context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS)
+            ) { "External app documents directory is unavailable" }
+            val logFile = File(documentsDir, fileName)
 
             FileWriter(logFile).use { writer ->
                 writer.write(logContent)

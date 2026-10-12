@@ -35,6 +35,7 @@ class MessagesViewBinder(
     private val sortButton: MaterialButton = binding.root.findViewById(R.id.btn_sort)
     private val filterButton: MaterialButton = binding.root.findViewById(R.id.btn_filter)
     private val filterTabs: TabLayout = binding.root.findViewById(R.id.tab_layout_filter)
+    private val paymentTabs: TabLayout = binding.root.findViewById(R.id.tab_layout_payment)
     private val searchInput: TextInputEditText = binding.etSearch
     private val shimmerBinding: ShimmerMessagesLoadingBinding = binding.layoutShimmerLoading
     private val shimmerLayout: ShimmerFrameLayout = shimmerBinding.root
@@ -46,8 +47,10 @@ class MessagesViewBinder(
     private val tvAverageConfidence: TextView = binding.root.findViewById(R.id.tv_avg_confidence)
 
     private var currentFilterTab: TransactionFilterTab = TransactionFilterTab.ALL
+    private var currentPaymentTab: PaymentMethodTab = PaymentMethodTab.ALL
 
     private var suppressTabCallback = false
+    private var suppressPaymentTabCallback = false
 
     val groupedAdapter: GroupedMessagesAdapter = GroupedMessagesAdapter(
         onTransactionClick = onTransactionClick,
@@ -128,6 +131,25 @@ class MessagesViewBinder(
         })
 
         setFilterTab(currentFilterTab, selectTab = true)
+    }
+
+    fun bindPaymentMethodTabs(onTabSelected: (PaymentMethodTab) -> Unit) {
+        paymentTabs.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
+            override fun onTabSelected(tab: TabLayout.Tab?) {
+                if (suppressPaymentTabCallback) {
+                    return
+                }
+                val paymentTab = PaymentMethodTab.fromIndex(tab?.position ?: 0)
+                logger.debug("MessagesViewBinder", "Payment tab selected: ${paymentTab.displayName}")
+                currentPaymentTab = paymentTab
+                onTabSelected(paymentTab)
+            }
+
+            override fun onTabUnselected(tab: TabLayout.Tab?) {}
+            override fun onTabReselected(tab: TabLayout.Tab?) {}
+        })
+
+        setPaymentTab(currentPaymentTab, selectTab = true)
     }
 
     fun bindFilterButtons(
@@ -247,6 +269,33 @@ class MessagesViewBinder(
         suppressTabCallback = true
         tab.select()
         filterTabs.post { suppressTabCallback = false }
+    }
+
+    fun updatePaymentTabSelection(paymentTab: PaymentMethodTab) {
+        setPaymentTab(paymentTab, selectTab = true)
+    }
+
+    private fun setPaymentTab(paymentTab: PaymentMethodTab, selectTab: Boolean) {
+        currentPaymentTab = paymentTab
+        if (selectTab) {
+            val tab = paymentTabs.getTabAt(paymentTab.index)
+            if (tab != null) {
+                selectPaymentTabSafely(tab)
+            } else {
+                paymentTabs.post {
+                    paymentTabs.getTabAt(paymentTab.index)?.let { selectPaymentTabSafely(it) }
+                }
+            }
+        }
+    }
+
+    private fun selectPaymentTabSafely(tab: TabLayout.Tab) {
+        if (tab.isSelected) {
+            return
+        }
+        suppressPaymentTabCallback = true
+        tab.select()
+        paymentTabs.post { suppressPaymentTabCallback = false }
     }
 
     private fun startShimmer() {

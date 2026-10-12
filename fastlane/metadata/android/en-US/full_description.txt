@@ -1,0 +1,31 @@
+Smart Expense Manager helps you track personal spending by identifying bank and payment transaction messages and turning recognized transactions into organized expense records.
+
+AUTOMATIC TRANSACTION TRACKING
+• Import recent bank and payment transaction SMS after granting access
+• Detect recognized incoming transaction messages
+• Extract details such as amount, merchant, bank, date, and debit or credit type
+• Ignore messages that are not recognized as financial transactions
+
+EXPENSE ORGANIZATION
+• Automatically categorize recognized merchants
+• Review and edit transaction categories
+• Create custom categories
+• Add expenses manually when you prefer not to grant SMS access
+
+DASHBOARDS AND BUDGETS
+• View spending totals and category breakdowns
+• Compare spending across time periods
+• Review spending by merchant
+• Create budgets and monitor progress
+
+OPTIONAL AI INSIGHTS
+Generate spending insights from parsed transaction details when you choose to use the online AI Insights feature.
+
+PRIVACY
+SMS sender, message text, and date are processed on your device to identify financial transactions. Recognized transaction messages and extracted details are stored in the app's local database. Unrelated messages are not added to expense records.
+
+Full SMS message text is not sold, used for advertising, or sent to our online service. When you choose online AI Insights, parsed financial details—including date, amount, merchant, category, transaction type, and bank—are securely sent to the service to generate insights.
+
+SMS access is optional. You can deny or revoke it and continue using manual expense entry.
+
+Support: support@smartexpenseai.com

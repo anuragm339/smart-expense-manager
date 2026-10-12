@@ -70,7 +70,18 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             app:chipSpacingHorizontal="6dp"
-            app:singleLine="true" />
+            app:singleLine="false" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_not_subscription"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end"
+            android:layout_marginTop="4dp"
+            android:text="@string/not_a_subscription"
+            android:textAllCaps="false"
+            android:textColor="@color/text_secondary" />
 
     </LinearLayout>
 

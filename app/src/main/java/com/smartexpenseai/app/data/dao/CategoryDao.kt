@@ -42,6 +42,9 @@ interface CategoryDao {
     
     @Query("DELETE FROM categories WHERE id = :categoryId")
     suspend fun deleteCategoryById(categoryId: Long)
+
+    @Query("DELETE FROM categories WHERE is_system = 0")
+    suspend fun deleteUserCategories()
     
     @Query("UPDATE categories SET display_order = :order WHERE id = :categoryId")
     suspend fun updateCategoryOrder(categoryId: Long, order: Int)

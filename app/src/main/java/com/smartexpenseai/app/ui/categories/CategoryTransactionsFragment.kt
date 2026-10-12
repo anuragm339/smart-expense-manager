@@ -10,6 +10,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -527,20 +528,22 @@ class CategoryTransactionsFragment : Fragment() {
 
         // Register broadcast receiver for new transactions
         val newTransactionFilter = IntentFilter("com.expensemanager.NEW_TRANSACTION_ADDED")
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            requireContext().registerReceiver(newTransactionReceiver, newTransactionFilter, android.content.Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            requireContext().registerReceiver(newTransactionReceiver, newTransactionFilter)
-        }
+        ContextCompat.registerReceiver(
+            requireContext(),
+            newTransactionReceiver,
+            newTransactionFilter,
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
         logger.debug("onResume","Registered broadcast receiver for new transactions")
 
         // Register broadcast receiver for category updates
         val categoryUpdateFilter = IntentFilter("com.expensemanager.CATEGORY_UPDATED")
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            requireContext().registerReceiver(categoryUpdateReceiver, categoryUpdateFilter, android.content.Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            requireContext().registerReceiver(categoryUpdateReceiver, categoryUpdateFilter)
-        }
+        ContextCompat.registerReceiver(
+            requireContext(),
+            categoryUpdateReceiver,
+            categoryUpdateFilter,
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
         logger.debug("onResume","Registered broadcast receiver for category updates")
     }
     

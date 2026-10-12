@@ -36,7 +36,7 @@ class CategoryManager @Inject constructor(
      * 3. Fall back to rule-based categorization
      */
     suspend fun categorizeTransaction(merchant: String): String = withContext(Dispatchers.IO) {
-        val normalizedMerchant = merchant.lowercase().trim()
+        val normalizedMerchant = normalizeMerchantName(merchant)
 
         // Check database for merchant
         val merchantEntity = repository.getMerchantByNormalizedName(normalizedMerchant)
@@ -57,7 +57,7 @@ class CategoryManager @Inject constructor(
      * This sets isUserDefined = true to track user modifications
      */
     suspend fun updateCategory(merchant: String, newCategory: String) = withContext(Dispatchers.IO) {
-        val normalizedMerchant = merchant.lowercase().trim()
+        val normalizedMerchant = normalizeMerchantName(merchant)
 
         // Find category in database
         val category = repository.getCategoryByName(newCategory)
@@ -110,6 +110,16 @@ class CategoryManager @Inject constructor(
         val result = merchantRuleEngine.categorize(merchantName)
         return result.categoryName
     }
+
+    private fun normalizeMerchantName(merchant: String): String = merchant.uppercase()
+        .replace(Regex("\\s+"), " ")
+        .trim()
+        .replace(Regex("\\*(ORDER|PAYMENT|TXN|TRANSACTION).*$"), "")
+        .replace(Regex("#\\d+.*$"), "")
+        .replace(Regex("@\\w+.*$"), "")
+        .replace(Regex("-{2,}.*$"), "")
+        .replace(Regex("_{2,}.*$"), "")
+        .trim()
 
     /**
      * Update similar merchants to have the same category

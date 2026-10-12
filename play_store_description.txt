@@ -1,12 +1,10 @@
 === SMART EXPENSE MANAGER - Play Store Description ===
 
-TITLE (choose one):
-1. Smart Expense Manager - AI Tracker
-2. AI Expense Tracker - Smart Budget  
-3. Smart Expense: AI Budget Manager
+TITLE:
+Smart Expense Manager
 
 SHORT DESCRIPTION (80 chars):
-AI-powered expense tracker that automatically categorizes transactions from SMS
+Automatically track and categorize expenses from bank transaction SMS.
 
 FULL DESCRIPTION:
 ---
@@ -42,9 +40,10 @@ Take control of your finances with Smart Expense Manager, the intelligent app th
 • Easy recategorization with drag-and-drop
 
 🔒 Privacy & Security
-• All data stored locally on your device
-• No cloud sync - complete privacy
-• No data shared with third parties
+• SMS message text is processed and stored locally on your device
+• Unrelated personal messages are not added to your expense records
+• Online AI Insights sends parsed financial details only when you use that feature
+• Data is not sold or used for advertising
 • Secure SMS permissions handling
 
 📱 Modern Material Design
@@ -88,7 +87,7 @@ Our intelligent categorization engine learns from your spending patterns and acc
 With beautiful charts and insights, you'll always know where your money is going. Set budgets, receive alerts, and make smarter financial decisions with AI-powered recommendations.
 
 Privacy First:
-We take your privacy seriously. All your financial data stays on your device - we never upload your transactions to the cloud or share them with third parties. You have complete control over your data.
+We take your privacy seriously. SMS message text is processed and stored on your device and is not sold or used for advertising. When you choose online AI Insights, parsed financial details such as date, amount, merchant, category, transaction type, and bank are securely sent to our service to generate personalized insights. You have control over whether to grant SMS access and can use manual expense entry without it.
 
 Support:
 We're constantly improving Smart Expense Manager based on user feedback. If you have suggestions or need help, contact us at support@smartexpenseai.com
@@ -111,13 +110,12 @@ WHAT'S NEW (Version 1.0):
 PERMISSIONS EXPLAINED:
 
 SMS Permissions:
-Required to read bank transaction SMS messages and automatically track your expenses. We only read SMS from known bank senders and never access personal messages.
+Used to read recent and incoming SMS, identify bank and payment transaction messages, and automatically track expenses. Unrelated messages are not added to expense records, and full SMS message text is not sent to our service.
 
 Internet Permission:
-Used for AI-powered insights generation (optional feature). All transaction data remains on your device.
+Used for sign-in and optional online AI Insights. When AI Insights is used, parsed financial details—not full SMS message text—are securely sent to our service to generate insights.
 
 ---
 
 KEYWORDS:
 expense tracker, budget app, money manager, spending tracker, AI expense, automatic expense, SMS expense tracker, bank SMS, budget manager, personal finance, expense manager, financial tracker, spending analysis, budget planner, money management
-

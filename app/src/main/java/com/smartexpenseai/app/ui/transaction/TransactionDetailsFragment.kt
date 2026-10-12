@@ -4,8 +4,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ArrayAdapter
-import android.widget.AutoCompleteTextView
+import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
@@ -459,25 +458,40 @@ class TransactionDetailsFragment : Fragment() {
             )
 
             val etGroupName = dialogView.findViewById<TextInputEditText>(R.id.et_group_name)
-            val spinnerCategory = dialogView.findViewById<AutoCompleteTextView>(R.id.spinner_category)
+            val categorySelectorCard = dialogView.findViewById<com.google.android.material.card.MaterialCardView>(
+                R.id.category_selector_card,
+            )
+            val selectedCategory = dialogView.findViewById<TextView>(R.id.tv_selected_category)
 
             val currentTransaction = viewModel.uiState.value.transactionData
 
             // Pre-fill current values
             etGroupName?.setText(currentTransaction?.merchant ?: "")
 
-            // Setup category dropdown
+            // Setup category selector used by the shared merchant-edit layout.
             val categories = viewModel.getAllCategories()
-            val adapter = ArrayAdapter(requireContext(), R.layout.dropdown_item_category, categories)
-            spinnerCategory?.setAdapter(adapter)
-            spinnerCategory?.setText(currentTransaction?.category ?: "", false)
+            selectedCategory.text = currentTransaction?.category
+                ?.takeIf { it.isNotBlank() }
+                ?: categories.firstOrNull()
+                ?: "Other"
+            categorySelectorCard.setOnClickListener {
+                val checkedIndex = categories.indexOf(selectedCategory.text.toString())
+                MaterialAlertDialogBuilder(requireContext())
+                    .setTitle("Select Category")
+                    .setSingleChoiceItems(categories.toTypedArray(), checkedIndex) { dialog, which ->
+                        selectedCategory.text = categories[which]
+                        dialog.dismiss()
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            }
 
             MaterialAlertDialogBuilder(requireContext())
                 .setTitle("Edit Merchant Name")
                 .setView(dialogView)
                 .setPositiveButton("Save") { _, _ ->
                     val newMerchantName = etGroupName?.text.toString().trim()
-                    val newCategory = spinnerCategory?.text.toString().trim()
+                    val newCategory = selectedCategory.text.toString().trim()
 
                     if (newMerchantName.isNotEmpty() && newCategory.isNotEmpty()) {
                         viewModel.handleEvent(TransactionDetailsUIEvent.UpdateMerchant(newMerchantName, newCategory))

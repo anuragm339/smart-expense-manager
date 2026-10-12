@@ -53,7 +53,7 @@ class UpdateTransactionUseCase @Inject constructor(
             Timber.tag(TAG).d("Updating merchant for transaction ID: $transactionId to: $newMerchant")
             
             // Get existing transaction
-            val existingTransaction = getTransactionById(transactionId)
+            val existingTransaction = repository.getTransactionById(transactionId)
                 ?: return Result.failure(Exception("Transaction not found"))
             
             // Update merchant fields
@@ -86,7 +86,7 @@ class UpdateTransactionUseCase @Inject constructor(
             }
             
             // Get existing transaction
-            val existingTransaction = getTransactionById(transactionId)
+            val existingTransaction = repository.getTransactionById(transactionId)
                 ?: return Result.failure(Exception("Transaction not found"))
             
             // Update amount
@@ -113,7 +113,7 @@ class UpdateTransactionUseCase @Inject constructor(
             Timber.tag(TAG).d("Updating date for transaction ID: $transactionId")
             
             // Get existing transaction
-            val existingTransaction = getTransactionById(transactionId)
+            val existingTransaction = repository.getTransactionById(transactionId)
                 ?: return Result.failure(Exception("Transaction not found"))
             
             // Update date
@@ -130,15 +130,6 @@ class UpdateTransactionUseCase @Inject constructor(
             Timber.tag(TAG).e(e, "Error updating transaction date")
             Result.failure(e)
         }
-    }
-    
-    /**
-     * Helper method to get transaction by ID (would need to be added to repository interface)
-     */
-    private suspend fun getTransactionById(transactionId: Long): TransactionEntity? {
-        // This would need to be implemented in the repository interface and implementation
-        // For now, we'll handle this through the business logic layer
-        return null
     }
     
     /**

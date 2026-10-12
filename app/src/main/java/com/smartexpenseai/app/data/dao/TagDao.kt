@@ -53,6 +53,12 @@ interface TagDao {
     @Query("DELETE FROM tags WHERE id = :tagId")
     suspend fun deleteTagById(tagId: Long)
 
+    @Query("DELETE FROM transaction_tags")
+    suspend fun deleteAllTransactionTags()
+
+    @Query("DELETE FROM tags")
+    suspend fun deleteAllTags()
+
     // ----- Transaction <-> Tag associations -----
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)

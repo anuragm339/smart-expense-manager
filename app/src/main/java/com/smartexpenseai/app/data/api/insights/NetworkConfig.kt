@@ -1,15 +1,12 @@
 package com.smartexpenseai.app.data.api.insights
 
+import com.smartexpenseai.app.BuildConfig
 import timber.log.Timber
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
-import java.security.cert.X509Certificate
 import java.util.concurrent.TimeUnit
-import javax.net.ssl.SSLContext
-import javax.net.ssl.TrustManager
-import javax.net.ssl.X509TrustManager
 
 /**
  * Network configuration and factory for AI Insights API
@@ -35,7 +32,11 @@ object NetworkConfig {
         val loggingInterceptor = HttpLoggingInterceptor { message ->
             Timber.tag(TAG).d(message)
         }.apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            level = if (BuildConfig.DEBUG) {
+                HttpLoggingInterceptor.Level.BASIC
+            } else {
+                HttpLoggingInterceptor.Level.NONE
+            }
         }
 
         return OkHttpClient.Builder()
@@ -63,7 +64,7 @@ object NetworkConfig {
                         .replace("```", "")
                         .trim()
 
-                    Timber.tag(TAG).d("Cleaned JSON response: ${cleanedBody.take(200)}...")
+                    Timber.tag(TAG).d("Cleaned successful JSON response (${cleanedBody.length} bytes)")
 
                     val newBody = okhttp3.ResponseBody.create(
                         response.body!!.contentType(),
@@ -72,29 +73,6 @@ object NetworkConfig {
                     response.newBuilder().body(newBody).build()
                 } else {
                     response
-                }
-            }
-            // DEVELOPMENT: Completely disable SSL verification for ngrok
-            // WARNING: ONLY USE IN DEVELOPMENT! Remove before production!
-            .apply {
-                try {
-                    // Create a trust manager that does not validate certificate chains
-                    val trustAllCerts = arrayOf<TrustManager>(object : X509TrustManager {
-                        override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) {}
-                        override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {}
-                        override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
-                    })
-
-                    // Install the all-trusting trust manager
-                    val sslContext = SSLContext.getInstance("SSL")
-                    sslContext.init(null, trustAllCerts, java.security.SecureRandom())
-
-                    sslSocketFactory(sslContext.socketFactory, trustAllCerts[0] as X509TrustManager)
-                    hostnameVerifier { _, _ -> true }
-
-                    Timber.tag(TAG).d("SSL verification disabled for development")
-                } catch (e: Exception) {
-                    Timber.tag(TAG).e(e, "Error setting up SSL bypass")
                 }
             }
             .connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS)
@@ -132,7 +110,11 @@ object NetworkConfig {
         val loggingInterceptor = HttpLoggingInterceptor { message ->
             Timber.tag(TAG).d(message)
         }.apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            level = if (BuildConfig.DEBUG) {
+                HttpLoggingInterceptor.Level.BASIC
+            } else {
+                HttpLoggingInterceptor.Level.NONE
+            }
         }
 
         return OkHttpClient.Builder()
@@ -148,29 +130,6 @@ object NetworkConfig {
                     // .header("X-API-Key", "your_app_api_key")
 
                 chain.proceed(requestBuilder.build())
-            }
-            // DEVELOPMENT: Completely disable SSL verification for ngrok
-            // WARNING: ONLY USE IN DEVELOPMENT! Remove before production!
-            .apply {
-                try {
-                    // Create a trust manager that does not validate certificate chains
-                    val trustAllCerts = arrayOf<TrustManager>(object : X509TrustManager {
-                        override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) {}
-                        override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {}
-                        override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
-                    })
-
-                    // Install the all-trusting trust manager
-                    val sslContext = SSLContext.getInstance("SSL")
-                    sslContext.init(null, trustAllCerts, java.security.SecureRandom())
-
-                    sslSocketFactory(sslContext.socketFactory, trustAllCerts[0] as X509TrustManager)
-                    hostnameVerifier { _, _ -> true }
-
-                    Timber.tag(TAG).d("SSL verification disabled for backend development")
-                } catch (e: Exception) {
-                    Timber.tag(TAG).e(e, "Error setting up SSL bypass for backend")
-                }
             }
             .connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS)
             .readTimeout(READ_TIMEOUT, TimeUnit.SECONDS)

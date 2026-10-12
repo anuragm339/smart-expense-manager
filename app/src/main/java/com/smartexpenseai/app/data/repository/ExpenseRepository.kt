@@ -1,6 +1,7 @@
 package com.smartexpenseai.app.data.repository
 
 import android.content.Context
+import android.content.Intent
 import com.smartexpenseai.app.data.database.ExpenseDatabase
 
 import com.smartexpenseai.app.data.entities.*
@@ -40,6 +41,8 @@ class ExpenseRepository @Inject constructor(
     DashboardRepositoryInterface {
 
     companion object {
+        const val ACTION_DATA_CHANGED = "com.smartexpenseai.app.DATA_CHANGED"
+
         @Volatile
         private var INSTANCE: ExpenseRepository? = null
 
@@ -96,6 +99,24 @@ class ExpenseRepository @Inject constructor(
     private val databaseMaintenanceOperations = DatabaseMaintenanceOperations(
         transactionDao = transactionDao
     )
+
+    /**
+     * Notify every active graph/data consumer after a committed repository mutation.
+     * Keeping this at repository level avoids refresh behavior depending on which
+     * screen initiated the edit.
+     */
+    private fun notifyDataChanged(reason: String) {
+        try {
+            context.sendBroadcast(
+                Intent(ACTION_DATA_CHANGED)
+                    .setPackage(context.packageName)
+                    .putExtra("reason", reason)
+            )
+            logger.debug("notifyDataChanged", "Broadcast data change: $reason")
+        } catch (e: Exception) {
+            logger.error("notifyDataChanged", "Failed to broadcast data change: $reason", e)
+        }
+    }
     // Auto-tags recurring transactions (same merchant+amount+time-of-day) on ingest.
     // Built from the shared database so both the Hilt and getInstance() paths get it.
     private val tagAutoApplyService by lazy {
@@ -181,8 +202,11 @@ class ExpenseRepository @Inject constructor(
 
     override suspend fun getTransactionCount(): Int = transactionRepository.transactionCount()
 
-    override suspend fun insertTransaction(transactionEntity: TransactionEntity): Long =
-        transactionRepository.insertTransaction(transactionEntity)
+    override suspend fun insertTransaction(transactionEntity: TransactionEntity): Long {
+        val transactionId = transactionRepository.insertTransaction(transactionEntity)
+        if (transactionId > 0) notifyDataChanged("transaction_inserted")
+        return transactionId
+    }
 
     override suspend fun getTransactionBySmsId(smsId: String): TransactionEntity? =
         transactionRepository.transactionBySmsId(smsId)
@@ -202,18 +226,23 @@ class ExpenseRepository @Inject constructor(
 
     override suspend fun deleteTransaction(transaction: TransactionEntity) {
         transactionRepository.deleteTransaction(transaction)
+        notifyDataChanged("transaction_deleted")
     }
 
     override suspend fun deleteTransactionById(transactionId: Long) {
         transactionRepository.deleteTransactionById(transactionId)
+        notifyDataChanged("transaction_deleted")
     }
 
     /**
      * Delete a merchant group: soft-deletes all its transactions and flags the
      * merchant so future SMS from it are hidden automatically.
      */
-    suspend fun deleteMerchantTransactions(normalizedMerchant: String): Int =
-        transactionRepository.deleteMerchantTransactions(normalizedMerchant)
+    suspend fun deleteMerchantTransactions(normalizedMerchant: String): Int {
+        val deletedCount = transactionRepository.deleteMerchantTransactions(normalizedMerchant)
+        if (deletedCount > 0) notifyDataChanged("merchant_transactions_deleted")
+        return deletedCount
+    }
 
     suspend fun isMerchantDeleted(normalizedMerchant: String): Boolean =
         transactionRepository.isMerchantDeleted(normalizedMerchant)
@@ -225,14 +254,20 @@ class ExpenseRepository @Inject constructor(
      * Undo of deleteMerchantTransactions: reactivates the merchant's transactions
      * and future SMS from it are tracked again.
      */
-    suspend fun restoreMerchantTransactions(normalizedMerchant: String): Int =
-        transactionRepository.restoreMerchantTransactions(normalizedMerchant)
+    suspend fun restoreMerchantTransactions(normalizedMerchant: String): Int {
+        val restoredCount = transactionRepository.restoreMerchantTransactions(normalizedMerchant)
+        if (restoredCount > 0) notifyDataChanged("merchant_transactions_restored")
+        return restoredCount
+    }
 
     /**
      * Move all transactions from one category to another (category deletion support)
      */
-    suspend fun reassignTransactionsCategory(oldCategoryId: Long, newCategoryId: Long): Int =
-        transactionDao.reassignTransactionsCategory(oldCategoryId, newCategoryId)
+    suspend fun reassignTransactionsCategory(oldCategoryId: Long, newCategoryId: Long): Int {
+        val updatedCount = transactionDao.reassignTransactionsCategory(oldCategoryId, newCategoryId)
+        if (updatedCount > 0) notifyDataChanged("transactions_category_reassigned")
+        return updatedCount
+    }
 
     override suspend fun deleteAllTransactions(): Int = withContext(Dispatchers.IO) {
         try {
@@ -242,6 +277,7 @@ class ExpenseRepository @Inject constructor(
 
             // Delete all transactions
             transactionDao.deleteAllTransactions()
+            if (count > 0) notifyDataChanged("all_transactions_deleted")
 
             logger.info("deleteAllTransactions", "Successfully deleted $count transactions")
             return@withContext count
@@ -253,6 +289,7 @@ class ExpenseRepository @Inject constructor(
 
     override suspend fun updateTransaction(transaction: TransactionEntity) {
         transactionRepository.updateTransaction(transaction)
+        notifyDataChanged("transaction_updated")
     }
 
     override suspend fun getTransactionsByMerchant(merchantName: String): List<TransactionEntity> =
@@ -321,6 +358,7 @@ class ExpenseRepository @Inject constructor(
                     logger.warn("autoCategorizeTransaction", "Auto-tag skipped for #$transactionId: ${e.message}")
                 }
 
+                notifyDataChanged("transaction_auto_categorized")
                 return@withContext true
             }
 
@@ -354,6 +392,7 @@ class ExpenseRepository @Inject constructor(
                 "Updated $updatedCount transactions for merchant '$normalizedMerchant' to category ID $newCategoryId"
             )
 
+            if (updatedCount > 0) notifyDataChanged("merchant_transactions_category_updated")
             updatedCount
         } catch (e: Exception) {
             logger.error(
@@ -365,7 +404,9 @@ class ExpenseRepository @Inject constructor(
         }
     }
 
-    override suspend fun syncNewSMS(): Int = transactionRepository.syncNewSms()
+    override suspend fun syncNewSMS(
+        progressCallback: ((current: Int, total: Int, status: String) -> Unit)?
+    ): Int = transactionRepository.syncNewSms(progressCallback)
 
     override suspend fun getLastSyncTimestamp(): Date? = transactionRepository.lastSyncTimestamp()
 
@@ -401,10 +442,12 @@ class ExpenseRepository @Inject constructor(
     
     override suspend fun updateCategory(category: CategoryEntity) {
         categoryDao.updateCategory(category)
+        notifyDataChanged("category_updated")
     }
     
     override suspend fun deleteCategory(category: CategoryEntity) {
         categoryDao.deleteCategory(category)
+        notifyDataChanged("category_deleted")
     }
     
     // =======================
@@ -429,6 +472,7 @@ class ExpenseRepository @Inject constructor(
     
     override suspend fun updateMerchant(merchant: MerchantEntity) {
         merchantDao.updateMerchant(merchant)
+        notifyDataChanged("merchant_updated")
     }
     
     override suspend fun updateMerchantExclusion(normalizedMerchantName: String, isExcluded: Boolean) {
@@ -436,7 +480,9 @@ class ExpenseRepository @Inject constructor(
     }
     
     suspend fun updateMerchantsByCategory(oldCategoryId: Long, newCategoryId: Long): Int {
-        return merchantDao.updateMerchantsByCategory(oldCategoryId, newCategoryId)
+        val updatedCount = merchantDao.updateMerchantsByCategory(oldCategoryId, newCategoryId)
+        if (updatedCount > 0) notifyDataChanged("merchants_category_updated")
+        return updatedCount
     }
     
     override suspend fun getExcludedMerchants(): List<MerchantEntity> {
@@ -455,6 +501,7 @@ class ExpenseRepository @Inject constructor(
                 isUserDefined = isUserDefined
             )
             merchantDao.updateMerchant(updatedMerchant)
+            notifyDataChanged("merchant_category_updated")
             logger.debug("updateMerchantCategory", "Updated merchant '$normalizedName' to category $categoryId, isUserDefined=$isUserDefined")
         } else {
             logger.warn("updateMerchantCategory", "Merchant '$normalizedName' not found in database")
@@ -465,11 +512,15 @@ class ExpenseRepository @Inject constructor(
         originalMerchantNames: List<String>,
         newDisplayName: String,
         newCategoryName: String
-    ): Boolean = merchantCategoryOperations.updateMerchantAliasInDatabase(
-        originalMerchantNames = originalMerchantNames,
-        newDisplayName = newDisplayName,
-        newCategoryName = newCategoryName
-    )
+    ): Boolean {
+        val updated = merchantCategoryOperations.updateMerchantAliasInDatabase(
+            originalMerchantNames = originalMerchantNames,
+            newDisplayName = newDisplayName,
+            newCategoryName = newCategoryName
+        )
+        if (updated) notifyDataChanged("merchant_alias_updated")
+        return updated
+    }
     
     override suspend fun findOrCreateMerchant(
         normalizedName: String,
@@ -572,7 +623,7 @@ class ExpenseRepository @Inject constructor(
         
         // CRITICAL FIX: Apply exclusion filtering consistently
         val totalSpent = getTotalSpent(startDate, endDate)
-        val transactionCount = getTransactionCount(startDate, endDate)  // This applies filtering to debits only
+        val transactionCount = transactionRepository.trackedExpenseTransactionCount(startDate, endDate)
         val categorySpending = getCategorySpending(startDate, endDate)
         
         // BALANCE FIX: Calculate credits and actual balance
@@ -736,20 +787,29 @@ class ExpenseRepository @Inject constructor(
     /**
      * Change a merchant's category
      */
-    suspend fun changeMerchantCategory(merchantName: String, newCategoryName: String, applyToFuture: Boolean): Boolean =
-        merchantCategoryOperations.changeMerchantCategory(merchantName, newCategoryName, applyToFuture)
+    suspend fun changeMerchantCategory(merchantName: String, newCategoryName: String, applyToFuture: Boolean): Boolean {
+        val updated = merchantCategoryOperations.changeMerchantCategory(merchantName, newCategoryName, applyToFuture)
+        if (updated) notifyDataChanged("merchant_category_changed")
+        return updated
+    }
 
     /**
      * Rename a category (for custom categories)
      */
-    suspend fun renameCategory(oldName: String, newName: String, newEmoji: String): Boolean =
-        merchantCategoryOperations.renameCategory(oldName, newName, newEmoji)
+    suspend fun renameCategory(oldName: String, newName: String, newEmoji: String): Boolean {
+        val renamed = merchantCategoryOperations.renameCategory(oldName, newName, newEmoji)
+        if (renamed) notifyDataChanged("category_renamed")
+        return renamed
+    }
 
     /**
      * Delete a category and reassign its merchants to another category
      */
-    suspend fun deleteCategory(categoryName: String, reassignToCategoryName: String): Boolean =
-        merchantCategoryOperations.deleteCategory(categoryName, reassignToCategoryName)
+    suspend fun deleteCategory(categoryName: String, reassignToCategoryName: String): Boolean {
+        val deleted = merchantCategoryOperations.deleteCategory(categoryName, reassignToCategoryName)
+        if (deleted) notifyDataChanged("category_deleted_and_reassigned")
+        return deleted
+    }
 
     /**
      * Check if a category is a system category

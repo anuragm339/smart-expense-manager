@@ -542,78 +542,19 @@ class DateRangeService @Inject constructor() {
         count: Int,
         endDate: Date = Date()
     ): List<Pair<Date, Date>> {
-        val periods = mutableListOf<Pair<Date, Date>>()
+        if (count <= 0) return emptyList()
         val calendar = Calendar.getInstance()
         calendar.time = endDate
-        
-        for (i in 0 until count) {
-            val periodEnd = calendar.time
-            val periodStart = when (aggregationType) {
-                TimeAggregation.DAILY -> {
-                    calendar.set(Calendar.HOUR_OF_DAY, 0)
-                    calendar.set(Calendar.MINUTE, 0)
-                    calendar.set(Calendar.SECOND, 0)
-                    calendar.set(Calendar.MILLISECOND, 0)
-                    calendar.time
-                }
-                TimeAggregation.WEEKLY -> {
-                    val dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
-                    val daysFromMonday = if (dayOfWeek == Calendar.SUNDAY) 6 else dayOfWeek - Calendar.MONDAY
-                    calendar.add(Calendar.DAY_OF_MONTH, -daysFromMonday)
-                    calendar.set(Calendar.HOUR_OF_DAY, 0)
-                    calendar.set(Calendar.MINUTE, 0)
-                    calendar.set(Calendar.SECOND, 0)
-                    calendar.set(Calendar.MILLISECOND, 0)
-                    calendar.time
-                }
-                TimeAggregation.MONTHLY -> {
-                    calendar.set(Calendar.DAY_OF_MONTH, 1)
-                    calendar.set(Calendar.HOUR_OF_DAY, 0)
-                    calendar.set(Calendar.MINUTE, 0)
-                    calendar.set(Calendar.SECOND, 0)
-                    calendar.set(Calendar.MILLISECOND, 0)
-                    calendar.time
-                }
-                TimeAggregation.QUARTERLY -> {
-                    val month = calendar.get(Calendar.MONTH)
-                    val quarterStartMonth = when (month) {
-                        in Calendar.JANUARY..Calendar.MARCH -> Calendar.JANUARY
-                        in Calendar.APRIL..Calendar.JUNE -> Calendar.APRIL
-                        in Calendar.JULY..Calendar.SEPTEMBER -> Calendar.JULY
-                        else -> Calendar.OCTOBER
-                    }
-                    calendar.set(Calendar.MONTH, quarterStartMonth)
-                    calendar.set(Calendar.DAY_OF_MONTH, 1)
-                    calendar.set(Calendar.HOUR_OF_DAY, 0)
-                    calendar.set(Calendar.MINUTE, 0)
-                    calendar.set(Calendar.SECOND, 0)
-                    calendar.set(Calendar.MILLISECOND, 0)
-                    calendar.time
-                }
-                TimeAggregation.YEARLY -> {
-                    calendar.set(Calendar.MONTH, Calendar.JANUARY)
-                    calendar.set(Calendar.DAY_OF_MONTH, 1)
-                    calendar.set(Calendar.HOUR_OF_DAY, 0)
-                    calendar.set(Calendar.MINUTE, 0)
-                    calendar.set(Calendar.SECOND, 0)
-                    calendar.set(Calendar.MILLISECOND, 0)
-                    calendar.time
-                }
-            }
-            
-            periods.add(0, Pair(periodStart, periodEnd)) // Add to beginning for chronological order
-            
-            // Move to previous period
-            when (aggregationType) {
-                TimeAggregation.DAILY -> calendar.add(Calendar.DAY_OF_MONTH, -1)
-                TimeAggregation.WEEKLY -> calendar.add(Calendar.WEEK_OF_YEAR, -1)
-                TimeAggregation.MONTHLY -> calendar.add(Calendar.MONTH, -1)
-                TimeAggregation.QUARTERLY -> calendar.add(Calendar.MONTH, -3)
-                TimeAggregation.YEARLY -> calendar.add(Calendar.YEAR, -1)
-            }
+
+        when (aggregationType) {
+            TimeAggregation.DAILY -> calendar.add(Calendar.DAY_OF_MONTH, -(count - 1))
+            TimeAggregation.WEEKLY -> calendar.add(Calendar.WEEK_OF_YEAR, -(count - 1))
+            TimeAggregation.MONTHLY -> calendar.add(Calendar.MONTH, -(count - 1))
+            TimeAggregation.QUARTERLY -> calendar.add(Calendar.MONTH, -3 * (count - 1))
+            TimeAggregation.YEARLY -> calendar.add(Calendar.YEAR, -(count - 1))
         }
-        
-        return periods
+
+        return generatePeriodsInRange(aggregationType, calendar.time, endDate)
     }
 
     /**

@@ -1,0 +1,1 @@
+Updated the launcher icon and app identity, improved the SMS permission disclosure, added Android 16 compatibility, and strengthened internal broadcast security.

@@ -262,6 +262,7 @@ class DashboardActionHandler(
 
                     // Broadcast to other screens
                     val intent = Intent("com.expensemanager.NEW_TRANSACTION_ADDED").apply {
+                        setPackage(context.packageName)
                         putExtra("merchant", merchant)
                         putExtra("amount", amount)
                         putExtra("category", category)

@@ -482,7 +482,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="• Fresh AI insights are generated only when you reach spending or activity thresholds\n• Cached insights are shown immediately for faster performance\n• All financial data is anonymized before being sent for analysis\n• You can manually refresh insights anytime regardless of thresholds"
+                    android:text="• Fresh AI insights are generated only when you reach spending or activity thresholds\n• Cached insights are shown immediately for faster performance\n• Parsed financial details are securely sent to our service for analysis; full SMS message text is not sent\n• You can manually refresh insights anytime regardless of thresholds"
                     android:textSize="12sp"
                     android:textColor="@color/text_secondary"
                     android:lineSpacingExtra="2dp" />

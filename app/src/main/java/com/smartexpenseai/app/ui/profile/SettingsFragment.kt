@@ -13,8 +13,13 @@ import com.smartexpenseai.app.R
 import com.smartexpenseai.app.databinding.FragmentSettingsBinding
 import com.smartexpenseai.app.data.repository.ExpenseRepository
 import androidx.lifecycle.lifecycleScope
+import androidx.room.withTransaction
+import com.smartexpenseai.app.data.entities.SyncStateEntity
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import java.util.Date
 
 class SettingsFragment : Fragment() {
     
@@ -101,6 +106,16 @@ class SettingsFragment : Fragment() {
     }
     
     private fun loadSettings() {
+        // The current parser and UI are INR/English-specific. Keep persisted state
+        // aligned with capabilities instead of presenting non-functional choices.
+        if (prefs.getString("currency", "INR") != "INR" ||
+            prefs.getString("language", "en") != "en") {
+            prefs.edit()
+                .putString("currency", "INR")
+                .putString("language", "en")
+                .apply()
+        }
+
         // Load saved settings
         binding.switchAutoCategorization.isChecked = prefs.getBoolean("auto_categorization", true)
         binding.switchRealtimeProcessing.isChecked = prefs.getBoolean("realtime_processing", true)
@@ -126,49 +141,25 @@ class SettingsFragment : Fragment() {
     }
     
     private fun showCurrencyDialog() {
-        val currencies = arrayOf("Indian Rupee (₹)", "US Dollar ($)", "Euro (€)", "British Pound (£)")
-        val currencyCodes = arrayOf("INR", "USD", "EUR", "GBP")
-        val currentCurrency = prefs.getString("currency", "INR")
-        val currentIndex = currencyCodes.indexOf(currentCurrency)
-        
         MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Select Currency")
-            .setSingleChoiceItems(currencies, currentIndex) { dialog, which ->
-                prefs.edit().putString("currency", currencyCodes[which]).apply()
-                binding.tvCurrencyValue.text = currencies[which]
-                Toast.makeText(requireContext(), "Currency updated", Toast.LENGTH_SHORT).show()
-                dialog.dismiss()
-            }
-            .setNegativeButton("Cancel") { dialog, _ ->
-                dialog.dismiss()
-            }
+            .setTitle("Currency")
+            .setMessage("Indian Rupee (₹) is currently the supported transaction currency.")
+            .setPositiveButton("OK", null)
             .show()
     }
     
     private fun showLanguageDialog() {
-        val languages = arrayOf("English", "हिंदी (Hindi)", "తెలుగు (Telugu)", "தமிழ் (Tamil)")
-        val languageCodes = arrayOf("en", "hi", "te", "ta")
-        val currentLanguage = prefs.getString("language", "en")
-        val currentIndex = languageCodes.indexOf(currentLanguage)
-        
         MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Select Language")
-            .setSingleChoiceItems(languages, currentIndex) { dialog, which ->
-                prefs.edit().putString("language", languageCodes[which]).apply()
-                binding.tvLanguageValue.text = languages[which]
-                Toast.makeText(requireContext(), "Language updated", Toast.LENGTH_SHORT).show()
-                dialog.dismiss()
-            }
-            .setNegativeButton("Cancel") { dialog, _ ->
-                dialog.dismiss()
-            }
+            .setTitle("Language")
+            .setMessage("English is currently the supported application language.")
+            .setPositiveButton("OK", null)
             .show()
     }
     
     private fun showClearDataConfirmation() {
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("Clear All Data")
-            .setMessage("This will permanently delete all your transactions, categories, and settings. This action cannot be undone.")
+            .setMessage("This will permanently delete transactions, custom categories, budgets, tags, AI history, and settings. Your signed-in account and built-in categories will remain. This cannot be undone.")
             .setPositiveButton("Clear All") { _, _ ->
                 clearAllData()
             }
@@ -194,46 +185,56 @@ class SettingsFragment : Fragment() {
     private fun clearAllData() {
         lifecycleScope.launch {
             try {
-                // Clear database data
-                val database = com.smartexpenseai.app.data.database.ExpenseDatabase.getDatabase(requireContext())
-                
-                // Clear all tables
-                database.transactionDao().deleteAllTransactions()
-                database.merchantDao().deleteAllMerchants()
-                database.syncStateDao().deleteSyncState()
-                // Note: We keep categories as they are system defaults
-                
-                // Clear all SharedPreferences files
-                requireContext().getSharedPreferences("category_rules", Context.MODE_PRIVATE)
-                    .edit().clear().apply()
-                requireContext().getSharedPreferences("expense_calculations", Context.MODE_PRIVATE)
-                    .edit().clear().apply()
-                requireContext().getSharedPreferences("budget_settings", Context.MODE_PRIVATE)
-                    .edit().clear().apply()
-                requireContext().getSharedPreferences("export_settings", Context.MODE_PRIVATE)
-                    .edit().clear().apply()
-                
-                // Clear app settings (except basic preferences like currency, language)
-                val basicSettings = mapOf(
-                    "currency" to prefs.getString("currency", "INR"),
-                    "language" to prefs.getString("language", "en"),
-                    "auto_categorization" to prefs.getBoolean("auto_categorization", true),
-                    "realtime_processing" to prefs.getBoolean("realtime_processing", true)
-                )
-                
-                prefs.edit().clear().apply()
-                
-                // Restore basic settings
-                prefs.edit().apply {
-                    basicSettings.forEach { (key, value) ->
-                        when (value) {
-                            is String -> putString(key, value)
-                            is Boolean -> putBoolean(key, value)
-                        }
+                val appContext = requireContext().applicationContext
+                val database = com.smartexpenseai.app.data.database.ExpenseDatabase.getDatabase(appContext)
+                withContext(Dispatchers.IO) {
+                    database.withTransaction {
+                        database.tagDao().deleteAllTransactionTags()
+                        database.transactionDao().deleteAllTransactions()
+                        database.merchantDao().deleteAllMerchants()
+                        database.budgetDao().deleteAllBudgets()
+                        database.tagDao().deleteAllTags()
+                        database.aiCallDao().clearAllTracking()
+                        database.categoryDao().deleteUserCategories()
+                        database.syncStateDao().insertOrUpdateSyncState(
+                            SyncStateEntity(
+                                // Clearing expense data is not a request to re-import the
+                                // device's entire SMS history on the next app launch. Move the
+                                // incremental cursor forward; users can still explicitly run a
+                                // full SMS resync from the Messages screen when they want it.
+                                lastSmsSyncTimestamp = Date(),
+                                lastSmsId = null,
+                                totalTransactions = 0,
+                                lastFullSync = Date(),
+                                syncStatus = "COMPLETED"
+                            )
+                        )
                     }
-                }.apply()
-                
-                Toast.makeText(requireContext(), "All transaction data and settings cleared successfully", Toast.LENGTH_LONG).show()
+
+                    listOf(
+                        "ai_insights_cache",
+                        "ai_insights_offline_cache",
+                        "ai_insights_prefs",
+                        "app_settings",
+                        "auth_state",
+                        "budget_settings",
+                        "category_rules",
+                        "expense_calculations",
+                        "export_settings",
+                        "notification_settings",
+                        "onboarding_preferences",
+                        "recurring_preferences",
+                        "transactions"
+                    ).forEach { name ->
+                        appContext.getSharedPreferences(name, Context.MODE_PRIVATE)
+                            .edit()
+                            .clear()
+                            .commit()
+                    }
+                }
+
+                loadSettings()
+                Toast.makeText(requireContext(), "All expense data and settings were cleared", Toast.LENGTH_LONG).show()
                 
             } catch (e: Exception) {
                 Toast.makeText(requireContext(), "Error clearing data: ${e.message}", Toast.LENGTH_LONG).show()

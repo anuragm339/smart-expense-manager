@@ -44,13 +44,16 @@ class AddTransactionUseCase @Inject constructor(
                 }
             }
             
-            // For manual transactions, ensure merchant and category entities exist
-            if (isManualTransaction(transaction)) {
-                ensureMerchantAndCategoryExist(transaction)
+            // For manual transactions, resolve the selected category before insert.
+            val transactionToInsert = if (isManualTransaction(transaction)) {
+                val categoryId = ensureMerchantAndCategoryExist(transaction)
+                categoryId?.let { transaction.copy(categoryId = it) } ?: transaction
+            } else {
+                transaction
             }
             
             // Insert the transaction
-            val insertedId = transactionRepository.insertTransaction(transaction)
+            val insertedId = transactionRepository.insertTransaction(transactionToInsert)
             if (insertedId > 0) {
                 Timber.tag(TAG).d("Transaction added successfully with ID: $insertedId")
                 Result.success(insertedId)
@@ -137,8 +140,8 @@ class AddTransactionUseCase @Inject constructor(
             smsId = manualSmsId,
             amount = amount,
             rawMerchant = merchantName,
-            normalizedMerchant = merchantName.trim().lowercase(),
-            categoryId = 1L,  // Default to "Other" category - will be updated in ensureMerchantAndCategoryExist
+            normalizedMerchant = merchantName.trim().uppercase(),
+            categoryId = 1L,
             bankName = bankName,
             transactionDate = now,
             rawSmsBody = "MANUAL_ENTRY: ₹$amount at $merchantName ($categoryName)",
@@ -152,8 +155,8 @@ class AddTransactionUseCase @Inject constructor(
     /**
      * Ensure merchant and category entities exist for manual transactions
      */
-    private suspend fun ensureMerchantAndCategoryExist(transaction: TransactionEntity) {
-        try {
+    private suspend fun ensureMerchantAndCategoryExist(transaction: TransactionEntity): Long? {
+        return try {
             Timber.tag(TAG).d("Ensuring merchant and category entities exist for manual transaction")
             
             // Extract category name from SMS body (format: "MANUAL_ENTRY: ₹amount at merchant (category)")
@@ -192,12 +195,19 @@ class AddTransactionUseCase @Inject constructor(
                         )
                     )
                     Timber.tag(TAG).d("[SUCCESS] Created merchant ${transaction.rawMerchant} in category ${category.name}")
+                } else if (merchant.categoryId != category.id) {
+                    merchantRepository.updateMerchant(
+                        merchant.copy(categoryId = category.id, isUserDefined = true)
+                    )
                 }
+                category.id
+            } else {
+                null
             }
             
         } catch (e: Exception) {
             Timber.tag(TAG).e(e, "Error ensuring merchant and category entities exist")
-            // Don't fail the transaction if merchant/category setup fails
+            null
         }
     }
     

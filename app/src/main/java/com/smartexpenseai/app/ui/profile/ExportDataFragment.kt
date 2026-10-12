@@ -1,14 +1,17 @@
 package com.smartexpenseai.app.ui.profile
 
 import android.content.Context
+import android.content.ContentValues
 import android.content.Intent
 import android.content.SharedPreferences
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.provider.MediaStore
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
-import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.smartexpenseai.app.databinding.FragmentExportDataBinding
@@ -20,15 +23,15 @@ import android.graphics.Paint
 import android.graphics.pdf.PdfDocument
 import java.util.Calendar
 import android.os.Environment
-import android.content.ActivityNotFoundException
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
-import java.io.FileWriter
 import java.io.FileInputStream
-import java.io.FileOutputStream
+import java.io.OutputStream
 import java.text.SimpleDateFormat
 import java.util.*
 import com.google.firebase.auth.FirebaseAuth
@@ -71,9 +74,14 @@ class ExportDataFragment : Fragment() {
 
     private fun checkAdminAccess() {
         val currentUser = FirebaseAuth.getInstance().currentUser
-        val userEmail = currentUser?.email
-        binding.cardExportDatabase.visibility = View.VISIBLE
-        binding.cardExportLogs.visibility = View.VISIBLE
+        binding.cardExportDatabase.visibility = View.GONE
+        binding.cardExportLogs.visibility = View.GONE
+        currentUser?.getIdToken(false)?.addOnSuccessListener { token ->
+            if (_binding != null && token.claims["admin"] == true) {
+                binding.cardExportDatabase.visibility = View.VISIBLE
+                binding.cardExportLogs.visibility = View.VISIBLE
+            }
+        }
     }
     
     private fun setupClickListeners() {
@@ -215,11 +223,10 @@ class ExportDataFragment : Fragment() {
                 }
                 
                 val fileName = "expense_report_${getCurrentDateString()}.csv"
-                val file = saveToFile(fileName, csvContent.toString())
+                val uri = saveTextToDownloads(fileName, "text/csv", csvContent.toString())
                 
-                // Show file location to user
-                Toast.makeText(requireContext(), "CSV saved to: ${file.absolutePath}", Toast.LENGTH_LONG).show()
-                shareFile(file, "Comprehensive Expense Report (CSV)")
+                Toast.makeText(requireContext(), "CSV saved to Downloads/$fileName", Toast.LENGTH_LONG).show()
+                shareUri(uri, "text/csv", "Comprehensive Expense Report (CSV)")
                 
             } catch (e: Exception) {
                 Toast.makeText(requireContext(), "CSV export failed: ${e.message}", Toast.LENGTH_LONG).show()
@@ -297,11 +304,10 @@ class ExportDataFragment : Fragment() {
                 }
                 
                 val fileName = "expense_report_${getCurrentDateString()}.json"
-                val file = saveToFile(fileName, rootJson.toString(2))
+                val uri = saveTextToDownloads(fileName, "application/json", rootJson.toString(2))
                 
-                // Show file location to user
-                Toast.makeText(requireContext(), "JSON saved to: ${file.absolutePath}", Toast.LENGTH_LONG).show()
-                shareFile(file, "Comprehensive Expense Report (JSON)")
+                Toast.makeText(requireContext(), "JSON saved to Downloads/$fileName", Toast.LENGTH_LONG).show()
+                shareUri(uri, "application/json", "Comprehensive Expense Report (JSON)")
                 
             } catch (e: Exception) {
                 Toast.makeText(requireContext(), "JSON export failed: ${e.message}", Toast.LENGTH_LONG).show()
@@ -328,20 +334,14 @@ class ExportDataFragment : Fragment() {
                 
                 pdfDocument.finishPage(page)
                 
-                // Save PDF to public Downloads directory
                 val fileName = "expense_report_${getCurrentDateString()}.pdf"
-                val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                val file = File(downloadsDir, fileName)
-                
-                file.outputStream().use { outputStream ->
+                val uri = saveToDownloads(fileName, "application/pdf") { outputStream ->
                     pdfDocument.writeTo(outputStream)
                 }
-                
                 pdfDocument.close()
                 
-                // Show file location to user
-                Toast.makeText(requireContext(), "PDF saved to: ${file.absolutePath}", Toast.LENGTH_LONG).show()
-                shareFile(file, "Comprehensive Expense Report (PDF)")
+                Toast.makeText(requireContext(), "PDF saved to Downloads/$fileName", Toast.LENGTH_LONG).show()
+                shareUri(uri, "application/pdf", "Comprehensive Expense Report (PDF)")
                 
             } catch (e: Exception) {
                 Toast.makeText(requireContext(), "PDF export failed: ${e.message}", Toast.LENGTH_LONG).show()
@@ -541,7 +541,7 @@ class ExportDataFragment : Fragment() {
         val selectedCategories = getSelectedCategories()
         
         // Get all transaction data from repository (with exclusions applied)
-        val allTransactions = repository.getTransactionsByDateRange(startDate, endDate)
+        val allTransactions = repository.getExpenseTransactionsByDateRange(startDate, endDate)
         
         // Filter transactions by selected categories if specific categories are selected
         val filteredTransactions = if (selectedCategories.isEmpty()) {
@@ -662,57 +662,60 @@ class ExportDataFragment : Fragment() {
         }.sortedBy { it.month }
     }
     
-    private fun saveToFile(fileName: String, content: String): File {
-        // Save to public Downloads directory instead of private app directory
-        val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-        val file = File(downloadsDir, fileName)
-        FileWriter(file).use { writer ->
-            writer.write(content)
+    private fun saveTextToDownloads(fileName: String, mimeType: String, content: String): Uri =
+        saveToDownloads(fileName, mimeType) { output ->
+            output.writer(Charsets.UTF_8).use { it.write(content) }
         }
-        return file
+
+    private fun saveToDownloads(
+        fileName: String,
+        mimeType: String,
+        writeContent: (OutputStream) -> Unit
+    ): Uri {
+        val context = requireContext()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val values = ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+                put(MediaStore.Downloads.MIME_TYPE, mimeType)
+                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                put(MediaStore.Downloads.IS_PENDING, 1)
+            }
+            val resolver = context.contentResolver
+            val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                ?: error("Unable to create Downloads entry")
+            try {
+                resolver.openOutputStream(uri, "w")?.use(writeContent)
+                    ?: error("Unable to open Downloads output stream")
+                values.clear()
+                values.put(MediaStore.Downloads.IS_PENDING, 0)
+                resolver.update(uri, values, null, null)
+                return uri
+            } catch (error: Exception) {
+                resolver.delete(uri, null, null)
+                throw error
+            }
+        }
+
+        val directory = requireNotNull(context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS))
+        val file = File(directory, fileName)
+        file.outputStream().use(writeContent)
+        return androidx.core.content.FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.provider",
+            file
+        )
     }
     
-    private fun shareFile(file: File, title: String) {
+    private fun shareUri(uri: Uri, mimeType: String, title: String) {
         try {
-            val uri = FileProvider.getUriForFile(
-                requireContext(),
-                "${requireContext().packageName}.provider",
-                file
-            )
-            
-            // Create share intent
             val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                type = "*/*"
+                type = mimeType
                 putExtra(Intent.EXTRA_STREAM, uri)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
-            
-            // Create view intent to open file manager
-            val viewIntent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(uri, "*/*")
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
-            
-            // Create chooser with both options
-            val chooserIntent = Intent.createChooser(shareIntent, title)
-            chooserIntent.putExtra(Intent.EXTRA_INITIAL_INTENTS, arrayOf(viewIntent))
-            
-            startActivity(chooserIntent)
-            
+            startActivity(Intent.createChooser(shareIntent, title))
         } catch (e: Exception) {
             Toast.makeText(requireContext(), "Error sharing file: ${e.message}", Toast.LENGTH_LONG).show()
-            
-            // Fallback: try to open file manager directly to Downloads folder
-            try {
-                val downloadsIntent = Intent(Intent.ACTION_VIEW).apply {
-                    setType("*/*")
-                    addCategory(Intent.CATEGORY_OPENABLE)
-                }
-                startActivity(Intent.createChooser(downloadsIntent, "Open File Manager"))
-            } catch (e2: ActivityNotFoundException) {
-                // If no file manager available, just show the file path
-                Toast.makeText(requireContext(), "File saved to Downloads folder", Toast.LENGTH_LONG).show()
-            }
         }
     }
     
@@ -803,8 +806,7 @@ class ExportDataFragment : Fragment() {
                 calendar.time
             }
             "All time" -> {
-                calendar.add(Calendar.YEAR, -5) // Go back 5 years for "all time"
-                calendar.time
+                Date(0)
             }
             else -> {
                 // Default to last 6 months
@@ -859,57 +861,37 @@ class ExportDataFragment : Fragment() {
                     return@launch
                 }
 
-                // Generate timestamp for file naming
                 val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-                val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-
-                // Copy main database file
-                val destFile = File(downloadsDir, "expense_database_backup_$timestamp.db")
-                copyFile(dbPath, destFile)
-
-                // Copy WAL file if exists
-                val walFile = File(dbPath.parent!!, "${dbPath.name}-wal")
-                if (walFile.exists()) {
-                    val destWalFile = File(downloadsDir, "expense_database_backup_$timestamp.db-wal")
-                    copyFile(walFile, destWalFile)
-                }
-
-                // Copy SHM file if exists
-                val shmFile = File(dbPath.parent!!, "${dbPath.name}-shm")
-                if (shmFile.exists()) {
-                    val destShmFile = File(downloadsDir, "expense_database_backup_$timestamp.db-shm")
-                    copyFile(shmFile, destShmFile)
+                val fileName = "expense_database_backup_$timestamp.db"
+                val uri = withContext(Dispatchers.IO) {
+                    val database = com.smartexpenseai.app.data.database.ExpenseDatabase
+                        .getDatabase(requireContext())
+                    database.openHelper.writableDatabase
+                        .query("PRAGMA wal_checkpoint(FULL)")
+                        .use { cursor -> while (cursor.moveToNext()) Unit }
+                    saveToDownloads(fileName, "application/vnd.sqlite3") { output ->
+                        FileInputStream(dbPath).use { input -> input.copyTo(output) }
+                    }
                 }
 
                 val successMessage = buildString {
                     append("Database exported successfully!\n\n")
-                    append("Location: ${destFile.absolutePath}\n\n")
-                    append("Files exported:\n")
-                    append("• ${destFile.name}\n")
-                    if (walFile.exists()) append("• ${destFile.name}-wal\n")
-                    if (shmFile.exists()) append("• ${destFile.name}-shm\n")
+                    append("Location: Downloads/$fileName\n\n")
+                    append("The WAL was checkpointed before creating the backup.")
                 }
 
                 // Show success dialog with file location
                 MaterialAlertDialogBuilder(requireContext())
                     .setTitle("Export Successful")
                     .setMessage(successMessage)
-                    .setPositiveButton("Open Folder") { _, _ ->
-                        shareFile(destFile, "Database Backup")
+                    .setPositiveButton("Share") { _, _ ->
+                        shareUri(uri, "application/vnd.sqlite3", "Database Backup")
                     }
                     .setNegativeButton("Close", null)
                     .show()
 
             } catch (e: Exception) {
                 Toast.makeText(requireContext(), "Database export failed: ${e.message}", Toast.LENGTH_LONG).show()
-            }
-        }
-    }
-
-    private fun copyFile(source: File, dest: File) {
-        FileInputStream(source).use { input ->
-            FileOutputStream(dest).use { output ->
-                input.copyTo(output)
             }
         }
     }
@@ -921,7 +903,7 @@ class ExportDataFragment : Fragment() {
             append("• App log file (android-app.log)\n")
             append("• Recent logcat output (last 500 lines)\n")
             append("• Device and app information\n\n")
-            append("The log file will be saved to your Downloads folder.\n\n")
+            append("The log file will be saved to the app's documents folder and can be shared.\n\n")
             append("This is useful for debugging issues that cannot be replicated in Android Emulator.\n\n")
             append("Log file location:\n${logExporter.getAppLogFilePath()}")
         }
@@ -966,10 +948,6 @@ class ExportDataFragment : Fragment() {
                             } else {
                                 Toast.makeText(requireContext(), "Error creating share intent", Toast.LENGTH_SHORT).show()
                             }
-                        }
-                        .setNeutralButton("Open Folder") { _, _ ->
-                            val file = File(message)
-                            shareFile(file, "Application Logs")
                         }
                         .setNegativeButton("Close", null)
                         .show()

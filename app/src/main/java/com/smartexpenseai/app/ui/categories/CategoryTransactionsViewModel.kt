@@ -231,6 +231,7 @@ class CategoryTransactionsViewModel @Inject constructor(
 
                         // Send broadcast to notify other screens
                         val intent = Intent("com.expensemanager.CATEGORY_UPDATED").apply {
+                            setPackage(context.packageName)
                             putExtra("merchant", messageItem.merchant)
                             putExtra("rawMerchant", messageItem.rawMerchant)
                             putExtra("category", plainCategoryName)

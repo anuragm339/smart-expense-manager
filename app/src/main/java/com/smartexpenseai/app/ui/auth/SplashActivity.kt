@@ -8,6 +8,7 @@ import com.smartexpenseai.app.MainActivity
 import com.smartexpenseai.app.R
 import com.smartexpenseai.app.auth.AuthManager
 import com.smartexpenseai.app.core.DebugConfig
+import com.smartexpenseai.app.ui.onboarding.FeatureTourPreferences
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -81,6 +82,10 @@ class SplashActivity : AppCompatActivity() {
 
     private fun navigateToMain() {
         val intent = Intent(this, MainActivity::class.java)
+        intent.putExtra(
+            MainActivity.EXTRA_START_FEATURE_TOUR,
+            FeatureTourPreferences.shouldShow(this),
+        )
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         startActivity(intent)
         finish()

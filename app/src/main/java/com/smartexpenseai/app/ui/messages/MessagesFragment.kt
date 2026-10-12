@@ -164,6 +164,10 @@ class MessagesFragment : Fragment() {
             messagesViewModel.handleEvent(MessagesUIEvent.ApplyFilterTab(filterTab))
         }
 
+        viewBinder.bindPaymentMethodTabs { paymentTab ->
+            messagesViewModel.handleEvent(MessagesUIEvent.ApplyPaymentMethodTab(paymentTab))
+        }
+
         viewBinder.bindFilterButtons(
             onSortClick = { showSortMenu() },
             onFilterClick = { showFilterDialog() },
@@ -273,6 +277,7 @@ class MessagesFragment : Fragment() {
         )
 
         viewBinder.updateFilterTabSelection(state.currentFilterTab)
+        viewBinder.updatePaymentTabSelection(state.currentPaymentMethodTab)
 
         if (state.shouldShowError && state.error != null) {
             Toast.makeText(requireContext(), state.error, Toast.LENGTH_LONG).show()
@@ -984,19 +989,34 @@ class MessagesFragment : Fragment() {
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("Filter by Amount")
             .setItems(options) { _, which ->
-                Toast.makeText(requireContext(), "Filtering by: ${options[which]}", Toast.LENGTH_SHORT).show()
-                // TODO: Implement actual amount filtering
+                val current = messagesViewModel.uiState.value.currentFilterOptions
+                val updated = when (which) {
+                    0 -> current.copy(minAmount = null, maxAmount = 100.0)
+                    1 -> current.copy(minAmount = 100.0, maxAmount = 500.0)
+                    2 -> current.copy(minAmount = 500.0, maxAmount = 2_000.0)
+                    3 -> current.copy(minAmount = 2_000.0, maxAmount = null)
+                    else -> current.copy(minAmount = null, maxAmount = null)
+                }
+                messagesViewModel.handleEvent(MessagesUIEvent.ApplyFilter(updated))
             }
             .show()
     }
     
     private fun showBankFilterDialog() {
-        val banks = arrayOf("HDFC Bank", "ICICI Bank", "SBI", "Axis Bank", "Kotak Bank", "All Banks")
+        val availableBanks = allMessageItems.map { it.bankName }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .sorted()
+        val banks = (availableBanks + "All Banks").toTypedArray()
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("Filter by Bank")
             .setItems(banks) { _, which ->
-                Toast.makeText(requireContext(), "Filtering by: ${banks[which]}", Toast.LENGTH_SHORT).show()
-                // TODO: Implement actual bank filtering
+                val current = messagesViewModel.uiState.value.currentFilterOptions
+                val selected = banks[which]
+                val updated = current.copy(
+                    selectedBanks = if (selected == "All Banks") emptySet() else setOf(selected)
+                )
+                messagesViewModel.handleEvent(MessagesUIEvent.ApplyFilter(updated))
             }
             .show()
     }
@@ -1363,12 +1383,14 @@ class MessagesFragment : Fragment() {
             delay(CATEGORY_BROADCAST_DELAY_MS)
 
             val categoryIntent = Intent("com.expensemanager.CATEGORY_UPDATED").apply {
+                setPackage(requireContext().packageName)
                 putExtra("merchant", messageItem.merchant)
                 putExtra("category", newCategory)
             }
             requireContext().sendBroadcast(categoryIntent)
 
             val merchantIntent = Intent("com.expensemanager.MERCHANT_CATEGORY_CHANGED").apply {
+                setPackage(requireContext().packageName)
                 putExtra("merchant_name", messageItem.rawMerchant)
                 putExtra("display_name", messageItem.merchant)
                 putExtra("new_category", newCategory)
@@ -1504,7 +1526,7 @@ class MessagesFragment : Fragment() {
                 for (transaction in merchantTransactions) {
                     totalAmount += transaction.amount
                     totalConfidence += transaction.confidence
-                    bankCounts[transaction.bankName] = bankCounts.getOrDefault(transaction.bankName, 0) + 1
+                    bankCounts[transaction.bankName] = (bankCounts[transaction.bankName] ?: 0) + 1
                     val timestamp = getDateSortOrderReverse(transaction.dateTime)
                     if (timestamp > latestTimestamp) latestTimestamp = timestamp
                 }
@@ -1635,7 +1657,9 @@ class MessagesFragment : Fragment() {
             saveGroupInclusionStates(currentGroups)
             
             // CRITICAL FIX: Notify other screens about data changes using correct broadcast action
-            val intent = Intent("com.smartexpenseai.app.DATA_CHANGED")
+            val intent = Intent("com.smartexpenseai.app.DATA_CHANGED").apply {
+                setPackage(requireContext().packageName)
+            }
             intent.putExtra("included_count", totalMessages)
             intent.putExtra("total_amount", includedGroups.sumOf { it.totalAmount })
             intent.putExtra("source", "messages_exclusion_change")
@@ -2141,7 +2165,9 @@ class MessagesFragment : Fragment() {
                         logger.debug("MessagesFragment", "[SUCCESS] Merchant alias update completed successfully: ${group.merchantName} -> $newDisplayName ($newCategory)")
                         
                         // Notify Dashboard and other screens about merchant category change
-                        val intent = Intent("com.expensemanager.MERCHANT_CATEGORY_CHANGED")
+                        val intent = Intent("com.expensemanager.MERCHANT_CATEGORY_CHANGED").apply {
+                            setPackage(requireContext().packageName)
+                        }
                         intent.putExtra("merchant_name", group.merchantName)
                         intent.putExtra("display_name", newDisplayName)
                         intent.putExtra("new_category", newCategory)
@@ -2538,15 +2564,18 @@ class MessagesFragment : Fragment() {
         
         // Register broadcast receiver for new transactions
         val intentFilter = IntentFilter("com.expensemanager.NEW_TRANSACTION_ADDED")
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            requireContext().registerReceiver(newTransactionReceiver, intentFilter, android.content.Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            requireContext().registerReceiver(newTransactionReceiver, intentFilter)
-        }
+        ContextCompat.registerReceiver(
+            requireContext(),
+            newTransactionReceiver,
+            intentFilter,
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
         logger.debug("MessagesFragment", "Registered broadcast receiver for new transactions")
         
-        // Refresh UI when user returns (in case they granted permissions in settings)
+        // Refresh UI when user returns so destructive settings actions (for example,
+        // Clear All Data) cannot leave this retained ViewModel showing stale rows.
         checkPermissionsAndSetupUI()
+        messagesViewModel.handleEvent(MessagesUIEvent.LoadMessages)
     }
     
     override fun onPause() {
