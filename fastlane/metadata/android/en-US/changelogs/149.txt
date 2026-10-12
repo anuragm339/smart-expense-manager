@@ -1,0 +1,1 @@
+Improved transaction accuracy, real-time SMS updates, category and Quick Add workflows, exports, recurring expenses, and data clearing. Also includes navigation, security, Android 16, and reliability fixes.
