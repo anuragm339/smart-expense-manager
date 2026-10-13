@@ -1,0 +1,123 @@
+default_platform(:android)
+
+PACKAGE_NAME = "com.smartexpenseai.app"
+PROJECT_ROOT = File.expand_path("..", __dir__)
+AAB_PATH = File.join(PROJECT_ROOT, "app/build/outputs/bundle/release/app-release.aab")
+METADATA_PATH = File.join(PROJECT_ROOT, "fastlane/metadata/android")
+
+def play_json_key
+  configured_path = ENV["PLAY_STORE_JSON_KEY"]
+  UI.user_error!(
+    "Set PLAY_STORE_JSON_KEY to the absolute path of a Google Play service-account JSON key.",
+  ) if configured_path.to_s.strip.empty?
+
+  expanded_path = File.expand_path(configured_path)
+  UI.user_error!("Google Play key not found: #{expanded_path}") unless File.file?(expanded_path)
+  expanded_path
+end
+
+def require_aab
+  UI.user_error!(
+    "Release bundle not found at #{AAB_PATH}. Run android build_release first.",
+  ) unless File.file?(AAB_PATH)
+  AAB_PATH
+end
+
+platform :android do
+  desc "Validate the configured Google Play service-account key"
+  lane :validate_play_credentials do
+    validate_play_store_json_key(json_key: play_json_key)
+  end
+
+  desc "Run checks and build a signed release AAB with a specific Play version code"
+  lane :build_release do |options|
+    build_number = options[:build_number] || ENV["PLAY_BUILD_NUMBER"]
+    UI.user_error!(
+      "Provide build_number:123 or set PLAY_BUILD_NUMBER to the next unused Play version code.",
+    ) if build_number.to_s.strip.empty?
+
+    gradle(
+      task: "testDebugUnitTest lintDebug bundleRelease",
+      project_dir: PROJECT_ROOT,
+      properties: {
+        "buildNumber" => build_number.to_s,
+      },
+    )
+  end
+
+  desc "Upload only the synchronized en-US Play Store listing and icon"
+  lane :upload_listing do
+    upload_to_play_store(
+      package_name: PACKAGE_NAME,
+      json_key: play_json_key,
+      metadata_path: METADATA_PATH,
+      skip_upload_aab: true,
+      skip_upload_apk: true,
+      skip_upload_changelogs: true,
+      skip_upload_screenshots: true,
+    )
+  end
+
+  desc "Upload the current AAB and listing to an internal-track draft"
+  lane :upload_internal do
+    upload_release(
+      track: ENV.fetch("PLAY_TRACK", "internal"),
+      release_status: ENV.fetch("PLAY_RELEASE_STATUS", "draft"),
+    )
+  end
+
+  desc "Upload the current AAB and listing to a selected Play track"
+  lane :upload_release do |options|
+    track = (options[:track] || ENV.fetch("PLAY_TRACK", "internal")).to_s
+    release_status = (
+      options[:release_status] || ENV.fetch("PLAY_RELEASE_STATUS", "draft")
+    ).to_s
+
+    allowed_tracks = %w[internal alpha beta production]
+    allowed_statuses = %w[draft completed]
+
+    UI.user_error!(
+      "Unsupported track '#{track}'. Choose one of: #{allowed_tracks.join(', ')}.",
+    ) unless allowed_tracks.include?(track)
+    UI.user_error!(
+      "Unsupported release status '#{release_status}'. Choose draft or completed.",
+    ) unless allowed_statuses.include?(release_status)
+
+    if track == "production" && release_status == "completed"
+      UI.user_error!(
+        "Set CONFIRM_PLAY_PRODUCTION=YES to complete a production rollout.",
+      ) unless ENV["CONFIRM_PLAY_PRODUCTION"] == "YES"
+    end
+
+    upload_to_play_store(
+      package_name: PACKAGE_NAME,
+      json_key: play_json_key,
+      aab: require_aab,
+      track: track,
+      release_status: release_status,
+      metadata_path: METADATA_PATH,
+      skip_upload_screenshots: true,
+    )
+  end
+
+  desc "Promote an approved internal release to production"
+  lane :promote_to_production do
+    UI.user_error!(
+      "Set CONFIRM_PLAY_PRODUCTION=YES to promote a release to production.",
+    ) unless ENV["CONFIRM_PLAY_PRODUCTION"] == "YES"
+
+    upload_to_play_store(
+      package_name: PACKAGE_NAME,
+      json_key: play_json_key,
+      track: ENV.fetch("PLAY_SOURCE_TRACK", "internal"),
+      track_promote_to: "production",
+      release_status: ENV.fetch("PLAY_RELEASE_STATUS", "completed"),
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      skip_upload_changelogs: true,
+      skip_upload_aab: true,
+      skip_upload_apk: true,
+    )
+  end
+end

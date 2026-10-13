@@ -7,6 +7,7 @@ import android.content.IntentFilter
 import com.smartexpenseai.app.utils.logging.StructuredLogger
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.core.content.ContextCompat
 import com.smartexpenseai.app.data.repository.DashboardData
 import com.smartexpenseai.app.domain.usecase.dashboard.GetDashboardDataUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -36,7 +37,7 @@ class DashboardViewModel @Inject constructor(
     // Data change broadcast receiver for automatic refresh
     private val dataChangeReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == "com.smartexpenseai.app.DATA_CHANGED") {
+            if (intent?.action == com.smartexpenseai.app.data.repository.ExpenseRepository.ACTION_DATA_CHANGED) {
                 logger.debug("onReceive", "Data change broadcast received, refreshing dashboard")
                 refreshDashboard()
             }
@@ -56,12 +57,13 @@ class DashboardViewModel @Inject constructor(
     init {
         // Register for data change broadcasts
         try {
-            val filter = IntentFilter("com.smartexpenseai.app.DATA_CHANGED")
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                context.registerReceiver(dataChangeReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-            } else {
-                context.registerReceiver(dataChangeReceiver, filter)
-            }
+            val filter = IntentFilter(com.smartexpenseai.app.data.repository.ExpenseRepository.ACTION_DATA_CHANGED)
+            ContextCompat.registerReceiver(
+                context,
+                dataChangeReceiver,
+                filter,
+                ContextCompat.RECEIVER_NOT_EXPORTED,
+            )
             logger.debug("init", "Registered for data change broadcasts")
         } catch (e: Exception) {
             logger.error("init", "Failed to register data change receiver", e)

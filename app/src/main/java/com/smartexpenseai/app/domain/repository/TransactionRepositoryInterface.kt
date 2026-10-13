@@ -108,7 +108,9 @@ interface TransactionRepositoryInterface {
     /**
      * Sync new SMS transactions
      */
-    suspend fun syncNewSMS(): Int
+    suspend fun syncNewSMS(
+        progressCallback: ((current: Int, total: Int, status: String) -> Unit)? = null
+    ): Int
     
     /**
      * Get last sync timestamp

@@ -27,6 +27,7 @@ import com.smartexpenseai.app.utils.CategoryManager
 import kotlinx.coroutines.launch
 import java.util.*
 import android.content.Context
+import androidx.core.content.ContextCompat
 import androidx.core.widget.addTextChangedListener
 import com.smartexpenseai.app.utils.logging.StructuredLogger
 import com.google.android.material.tabs.TabLayout
@@ -575,16 +576,12 @@ class CategoriesFragment : Fragment() {
         if (!isReceiverRegistered) {
             try {
                 val filter = android.content.IntentFilter("com.expensemanager.MERCHANT_CATEGORY_CHANGED")
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                    // Android 13+ requires explicit export flag
-                    requireContext().registerReceiver(
-                        merchantCategoryChangeReceiver,
-                        filter,
-                        android.content.Context.RECEIVER_NOT_EXPORTED
-                    )
-                } else {
-                    requireContext().registerReceiver(merchantCategoryChangeReceiver, filter)
-                }
+                ContextCompat.registerReceiver(
+                    requireContext(),
+                    merchantCategoryChangeReceiver,
+                    filter,
+                    ContextCompat.RECEIVER_NOT_EXPORTED,
+                )
                 isReceiverRegistered = true
                 logger.debug("onResume", "Registered broadcast receiver for merchant category changes")
             } catch (e: Exception) {

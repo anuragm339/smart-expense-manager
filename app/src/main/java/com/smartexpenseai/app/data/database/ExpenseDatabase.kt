@@ -259,25 +259,57 @@ abstract class ExpenseDatabase : RoomDatabase() {
                     }
 
                     if (id1Exists) {
-                        // Move the category at id=1 to a temporary ID
+                        // Copy the category at id=1 before moving children. Updating a
+                        // referenced primary key directly violates the merchant FK.
                         val maxId = database.query("SELECT MAX(id) FROM categories").use { cursor ->
                             if (cursor.moveToFirst()) cursor.getLong(0) else 100L
                         }
                         val tempId = maxId + 1
 
-                        database.execSQL("UPDATE categories SET id = $tempId WHERE id = 1")
+                        database.execSQL("""
+                            INSERT INTO categories (id, name, emoji, color, is_system, display_order, created_at)
+                            SELECT $tempId, name, emoji, color, is_system, display_order, created_at
+                            FROM categories WHERE id = 1
+                        """)
                         database.execSQL("UPDATE budgets SET category_id = $tempId WHERE category_id = 1")
                         database.execSQL("UPDATE merchants SET category_id = $tempId WHERE category_id = 1")
                         database.execSQL("UPDATE transactions SET category_id = $tempId WHERE category_id = 1")
+                        database.execSQL("DELETE FROM categories WHERE id = 1")
                     }
 
-                    // Update "Other" category to id=1
-                    database.execSQL("UPDATE categories SET id = 1 WHERE id = $otherCategoryId")
+                    // Copy "Other" to id=1, repoint children, then remove its old row.
+                    database.execSQL("""
+                        INSERT INTO categories (id, name, emoji, color, is_system, display_order, created_at)
+                        SELECT 1, name, emoji, color, is_system, display_order, created_at
+                        FROM categories WHERE id = $otherCategoryId
+                    """)
                     database.execSQL("UPDATE budgets SET category_id = 1 WHERE category_id = $otherCategoryId")
                     database.execSQL("UPDATE merchants SET category_id = 1 WHERE category_id = $otherCategoryId")
                     database.execSQL("UPDATE transactions SET category_id = 1 WHERE category_id = $otherCategoryId")
+                    database.execSQL("DELETE FROM categories WHERE id = $otherCategoryId")
                 } else if (otherCategoryId == null) {
-                    // "Other" category doesn't exist, create it with id=1
+                    // Free id=1 safely if an older category occupies it.
+                    val id1Exists = database.query(
+                        "SELECT COUNT(*) FROM categories WHERE id = 1"
+                    ).use { cursor ->
+                        cursor.moveToFirst() && cursor.getInt(0) > 0
+                    }
+                    if (id1Exists) {
+                        val maxId = database.query("SELECT MAX(id) FROM categories").use { cursor ->
+                            if (cursor.moveToFirst()) cursor.getLong(0) else 100L
+                        }
+                        val tempId = maxId + 1
+                        database.execSQL("""
+                            INSERT INTO categories (id, name, emoji, color, is_system, display_order, created_at)
+                            SELECT $tempId, name, emoji, color, is_system, display_order, created_at
+                            FROM categories WHERE id = 1
+                        """)
+                        database.execSQL("UPDATE budgets SET category_id = $tempId WHERE category_id = 1")
+                        database.execSQL("UPDATE merchants SET category_id = $tempId WHERE category_id = 1")
+                        database.execSQL("UPDATE transactions SET category_id = $tempId WHERE category_id = 1")
+                        database.execSQL("DELETE FROM categories WHERE id = 1")
+                    }
+
                     val currentTime = System.currentTimeMillis()
                     database.execSQL("""
                         INSERT INTO categories (id, name, emoji, color, is_system, display_order, created_at)

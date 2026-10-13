@@ -114,7 +114,7 @@ class SmartCategorizationService @Inject constructor(
             for (merchant in similarMerchants) {
                 val merchantCategory = repository.getMerchantWithCategory(merchant.normalizedName)
                 merchantCategory?.category_name?.let { category ->
-                    categoryFrequency[category] = categoryFrequency.getOrDefault(category, 0) + 1
+                    categoryFrequency[category] = (categoryFrequency[category] ?: 0) + 1
                 }
             }
             

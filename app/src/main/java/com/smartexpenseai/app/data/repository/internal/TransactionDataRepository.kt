@@ -67,6 +67,9 @@ internal class TransactionDataRepository(
 
     suspend fun transactionCount(): Int = transactionDao.getTransactionCount()
 
+    suspend fun trackedExpenseTransactionCount(startDate: Date, endDate: Date): Int =
+        filterTransactions(expenseTransactionsBetween(startDate, endDate)).size
+
     suspend fun transactionsByMerchant(merchantName: String): List<TransactionEntity> =
         transactionDao.getTransactionsByMerchant(merchantName)
 
@@ -276,10 +279,17 @@ internal class TransactionDataRepository(
     // Sync state
     // ---------------------------------------------------------------------
 
-    suspend fun syncNewSms(): Int = withContext(Dispatchers.IO) {
+    suspend fun syncNewSms(
+        progressCallback: ((current: Int, total: Int, status: String) -> Unit)? = null
+    ): Int = withContext(Dispatchers.IO) {
         try {
+            ensureSyncStateInitialized()
             val syncState = syncStateDao.getSyncState()
             val lastSyncTimestamp = syncState?.lastSmsSyncTimestamp ?: Date(0)
+            val scanStartedAt = Date()
+            val autoCategorizationEnabled = context
+                .getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+                .getBoolean("auto_categorization", true)
             val repository = ExpenseRepository.getInstance(context)
             logger.debug(
                 where = "syncNewSms",
@@ -296,7 +306,10 @@ internal class TransactionDataRepository(
                 null
             }
 
-            val allTransactions = smsParsingService.scanHistoricalSMS(sinceDate = scanSinceDate) { _, _, _ -> }
+            val allTransactions = smsParsingService.scanHistoricalSMS(
+                sinceDate = scanSinceDate,
+                progressCallback = progressCallback
+            )
 
             val newTransactions = allTransactions.filter { it.date.after(lastSyncTimestamp) }
 
@@ -336,7 +349,9 @@ internal class TransactionDataRepository(
 
                     val insertedId = transactionDao.insertTransaction(toInsert)
                     if (insertedId > 0 && !merchantDeleted) {
-                        repository.autoCategorizeTransaction(insertedId)
+                        if (autoCategorizationEnabled) {
+                            repository.autoCategorizeTransaction(insertedId)
+                        }
                         insertedCount++
                     } else if (merchantDeleted) {
                         logger.debug("syncNewSms", "Auto-hidden transaction from deleted merchant '${entity.normalizedMerchant}'")
@@ -357,15 +372,13 @@ internal class TransactionDataRepository(
             }
 
             val latestTransaction = allTransactions.maxByOrNull { it.date }
-            if (latestTransaction != null) {
-                val totalTransactions = transactionDao.getTransactionCount()
-                syncStateDao.updateSyncState(
-                    timestamp = latestTransaction.date,
-                    smsId = latestTransaction.id,
-                    totalTransactions = totalTransactions,
-                    status = "COMPLETED"
-                )
-            }
+            val totalTransactions = transactionDao.getTransactionCount()
+            syncStateDao.updateSyncState(
+                timestamp = scanStartedAt,
+                smsId = latestTransaction?.id,
+                totalTransactions = totalTransactions,
+                status = "COMPLETED"
+            )
 
             logger.debug(
                 where = "syncNewSms",
@@ -380,8 +393,8 @@ internal class TransactionDataRepository(
                 throwable = error
             )
 
-            syncStateDao.updateSyncStatus("FAILED")
-            0
+            runCatching { syncStateDao.updateSyncStatus("FAILED") }
+            throw error
         }
     }
 

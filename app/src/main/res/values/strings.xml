@@ -42,8 +42,9 @@
     <string name="other">Other</string>
     
     <!-- Permissions -->
-    <string name="permission_sms_title">SMS Permissions Required</string>
-    <string name="permission_sms_message">Smart Expense Manager needs SMS permissions to automatically read and categorize your bank transaction messages. This helps you track expenses without manual entry.\n\nYour SMS data stays private and is only processed locally on your device.</string>
+    <string name="permission_sms_title">Automatically track expenses from SMS</string>
+    <string name="permission_sms_message">Smart Expense Manager accesses and stores SMS message data on your device to identify bank and payment transaction messages, import recent transaction history, and detect new transactions even when the app is closed.\n\nThe app reads the SMS sender, message text, and date, then extracts financial details such as the amount, merchant, bank, and transaction type for expense tracking and budgeting. Unrelated messages are not added to your expense records. Full SMS message text is not sold, used for advertising, or sent to our service.\n\nIf you choose to use online AI Insights, parsed financial details—including date, amount, merchant, category, transaction type, and bank—are securely sent to our service to generate those insights. You can continue using manual expense entry without SMS access.\n\nTap “Allow SMS access” to consent and continue.</string>
+    <string name="allow_sms_access">Allow SMS access</string>
     <string name="permission_notification_title">Enable Notifications</string>
     <string name="permission_notification_message">Allow Smart Expense Manager to send you notifications when new transactions are detected. You can quickly categorize expenses directly from the notification.\n\nThis helps you stay on top of your spending in real-time.</string>
     <string name="permission_granted_title">Permissions Granted! 🎉</string>
@@ -58,9 +59,11 @@
     <string name="log_level_debug">Debug</string>
     <string name="log_level_trace">Trace</string>
     <string name="permission_denied_title">Limited Functionality</string>
-    <string name="permission_denied_message">Without SMS permissions, you\'ll need to manually add expenses using the Quick Add button. You can grant permissions later in Settings > Apps > Smart Expense Manager > Permissions.</string>
+    <string name="permission_denied_message">SMS access was not granted. You can continue using manual expense entry, or grant access later in Settings > Apps > Smart Expense Manager > Permissions.</string>
     <string name="permission_notification_denied_title">Notifications Disabled</string>
     <string name="permission_notification_denied_message">You won\'t receive push notifications for new transactions. You can enable them later in Settings > Apps > Smart Expense Manager > Permissions.</string>
+    <string name="privacy_policy_title">Privacy Policy</string>
+    <string name="privacy_policy_text">Smart Expense Manager accesses recent and incoming SMS after you grant permission. SMS sender, message text, and date are processed on your device to identify financial transactions. Recognized transaction messages and extracted details are stored in the app\'s local database; unrelated messages are not added to your expense records.\n\nThe app uses your Google account name and email for sign-in. When you choose online AI Insights, parsed financial details—including date, amount, merchant, category, transaction type, and bank—are transmitted over HTTPS to our service to generate insights. Full SMS message text is not transmitted. Data is not sold or used for advertising.\n\nLocal transaction records remain until you use Clear All Data or uninstall the app. You can deny or revoke SMS access and continue with manual expense entry. For privacy or deletion questions concerning online services, contact support@smartexpenseai.com.</string>
     
     <!-- Debug Mode -->
     <string name="debug_banner">🛠️ DEBUG MODE</string>
@@ -79,6 +82,34 @@
     <string name="get_started">Get Started</string>
     <string name="i_understand">I Understand</string>
     <string name="try_again">Try Again</string>
+
+    <!-- First-run guide -->
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_back">Back</string>
+    <string name="onboarding_next">Next</string>
+    <string name="feature_tour_finish">Finish tour</string>
+    <string name="feature_tour_step_counter">SCREEN %1$d OF %2$d</string>
+    <string name="feature_tour_viewing">↓ You are viewing %1$s</string>
+    <string name="feature_tour_dashboard_title">Your month at a glance</string>
+    <string name="feature_tour_dashboard_description">Dashboard shows total spending, transaction count, top categories, top merchants, and spending trends for the selected period.</string>
+    <string name="feature_tour_dashboard_action">Try later: change “This Month” to compare a different period, then scroll to inspect the graphs.</string>
+    <string name="feature_tour_messages_title">Review every transaction</string>
+    <string name="feature_tour_messages_description">Messages contains imported and manually added expenses. Filter by UPI, card, bank, or wallet and choose which records count toward totals.</string>
+    <string name="feature_tour_messages_action">Try later: long-press a merchant to rename or recategorize it. Expand a group and swipe a transaction to delete or restore it.</string>
+    <string name="feature_tour_categories_title">Organize spending your way</string>
+    <string name="feature_tour_categories_description">Categories group related transactions and show how much each area contributes to your spending.</string>
+    <string name="feature_tour_categories_action">Try later: open a category to move merchants, create a custom category, or configure a category budget.</string>
+    <string name="feature_tour_insights_title">Explore charts and recommendations</string>
+    <string name="feature_tour_insights_description">AI Insights provides category charts, forecasts, pattern alerts, budget suggestions, and possible savings opportunities.</string>
+    <string name="feature_tour_insights_action">Try later: adjust the date and category filters or swipe between available charts. Online insights use parsed financial details, not full SMS text.</string>
+    <string name="feature_tour_profile_title">Control your preferences</string>
+    <string name="feature_tour_profile_description">Profile contains budget goals, notifications, export, recurring expenses, privacy information, and account controls.</string>
+    <string name="feature_tour_profile_action">You can replay this tour anytime by choosing “How Smart Expense works” on this screen.</string>
+    <string name="how_it_works_title">How Smart Expense works</string>
+    <string name="how_it_works_subtitle">Replay the setup and feature guide</string>
+    <string name="not_a_subscription">Not a subscription</string>
+    <string name="recurring_removed">%1$s removed from subscriptions</string>
+    <string name="undo">Undo</string>
     
     <!-- Error Messages -->
     <string name="error_generic">An unexpected error occurred. Please try again.</string>

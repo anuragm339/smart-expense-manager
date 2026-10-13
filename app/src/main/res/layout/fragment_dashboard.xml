@@ -50,7 +50,7 @@
                             android:layout_height="22dp"
                             android:layout_gravity="center"
                             android:src="@drawable/ic_wallet"
-                            android:tint="@color/text_on_primary" />
+                            app:tint="@color/text_on_primary" />
 
                     </FrameLayout>
 
@@ -161,7 +161,7 @@
                             android:layout_height="22dp"
                             android:layout_gravity="center"
                             android:src="@drawable/ic_trending_down"
-                            android:tint="@color/error" />
+                            app:tint="@color/error" />
 
                     </FrameLayout>
 
@@ -214,7 +214,7 @@
                             android:layout_height="22dp"
                             android:layout_gravity="center"
                             android:src="@drawable/ic_receipt"
-                            android:tint="@color/primary_light" />
+                            app:tint="@color/primary_light" />
 
                     </FrameLayout>
 
@@ -348,7 +348,7 @@
                             android:layout_height="20dp"
                             android:layout_gravity="center"
                             android:src="@drawable/ic_category"
-                            android:tint="@color/primary_light" />
+                            app:tint="@color/primary_light" />
 
                     </FrameLayout>
 
@@ -559,7 +559,7 @@
                             android:layout_height="20dp"
                             android:layout_gravity="center"
                             android:src="@drawable/ic_store"
-                            android:tint="@color/secondary" />
+                            app:tint="@color/secondary" />
 
                     </FrameLayout>
 
@@ -616,7 +616,7 @@
                         android:layout_height="22dp"
                         android:layout_gravity="center"
                         android:src="@drawable/ic_insights"
-                        android:tint="@color/secondary" />
+                        app:tint="@color/secondary" />
 
                 </FrameLayout>
 
@@ -649,7 +649,7 @@
                     android:layout_height="20dp"
                     android:layout_marginStart="12dp"
                     android:src="@drawable/ic_arrow_forward"
-                    android:tint="@color/text_secondary" />
+                    app:tint="@color/text_secondary" />
 
             </LinearLayout>
 
@@ -690,7 +690,7 @@
                             android:layout_height="20dp"
                             android:layout_gravity="center"
                             android:src="@drawable/ic_trending_up"
-                            android:tint="@color/success" />
+                            app:tint="@color/success" />
 
                     </FrameLayout>
 
@@ -749,7 +749,7 @@
                             android:layout_height="20dp"
                             android:layout_gravity="center"
                             android:src="@drawable/ic_compare_arrows"
-                            android:tint="@color/info" />
+                            app:tint="@color/info" />
 
                     </FrameLayout>
 
@@ -863,7 +863,7 @@
                         android:layout_height="18dp"
                         android:layout_marginEnd="8dp"
                         android:src="@drawable/ic_trending_down"
-                        android:tint="@color/success" />
+                        app:tint="@color/success" />
 
                     <TextView
                         android:id="@+id/tv_spending_comparison"
@@ -934,7 +934,7 @@
                             android:layout_height="20dp"
                             android:layout_gravity="center"
                             android:src="@drawable/ic_flash_on"
-                            android:tint="@color/warning" />
+                            app:tint="@color/warning" />
 
                     </FrameLayout>
 

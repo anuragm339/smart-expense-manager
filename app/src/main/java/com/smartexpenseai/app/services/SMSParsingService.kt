@@ -26,7 +26,6 @@ class SMSParsingService @Inject constructor(
     )
     companion object {
         private const val MONTHS_TO_SCAN = 6 // Scan last 6 months
-        private const val MAX_SMS_TO_PROCESS = 5000 // Limit SMS processing to prevent ANR
     }
     
     /**
@@ -56,7 +55,7 @@ class SMSParsingService @Inject constructor(
             val historicalSMS = readSMSHistory(sinceDate)
             logger.debug(
                 where = "scanHistoricalSMS",
-                what = "[UNIFIED] Found ${historicalSMS.size} historical SMS messages (limited to $MAX_SMS_TO_PROCESS)"
+                what = "[UNIFIED] Found ${historicalSMS.size} historical SMS messages"
             )
             
             val totalSMS = historicalSMS.size
@@ -158,6 +157,7 @@ class SMSParsingService @Inject constructor(
                 throwable = e
             )
             progressCallback?.invoke(0, 100, "Error: ${e.message}")
+            throw e
         }
         
         return@withContext transactions
@@ -190,13 +190,13 @@ class SMSParsingService @Inject constructor(
             startDate.toString(),
             Telephony.Sms.MESSAGE_TYPE_INBOX.toString()
         )
-        val sortOrder = "${Telephony.Sms.DATE} DESC LIMIT $MAX_SMS_TO_PROCESS" // Newest first, limited
+        val sortOrder = "${Telephony.Sms.DATE} ASC"
         
         var cursor: Cursor? = null
         try {
             logger.debug(
                 where = "readSMSHistory",
-                what = "[UNIFIED] Querying SMS newer than ${Date(startDate)} (max $MAX_SMS_TO_PROCESS messages)"
+                what = "[UNIFIED] Querying SMS newer than ${Date(startDate)}"
             )
             cursor = context.contentResolver.query(
                 uri, projection, selection, selectionArgs, sortOrder
@@ -226,6 +226,7 @@ class SMSParsingService @Inject constructor(
                 what = "[UNIFIED] Error reading SMS history",
                 throwable = e
             )
+            throw e
         } finally {
             cursor?.close()
         }

@@ -104,6 +104,7 @@ class MessagesViewModel @Inject constructor(
             is MessagesUIEvent.ApplySort -> applySortOption(event.sortOption)
             is MessagesUIEvent.ApplyFilter -> applyFilterOptions(event.filterOptions)
             is MessagesUIEvent.ApplyFilterTab -> applyFilterTab(event.filterTab)
+            is MessagesUIEvent.ApplyPaymentMethodTab -> applyPaymentMethodTab(event.tab)
             is MessagesUIEvent.ResetFilters -> resetFilters()
             is MessagesUIEvent.ToggleGroupInclusion -> toggleGroupInclusion(event.merchantName, event.isIncluded)
             is MessagesUIEvent.UpdateMerchantGroup -> updateMerchantGroup(event.merchantName, event.newDisplayName, event.newCategory)
@@ -646,7 +647,18 @@ class MessagesViewModel @Inject constructor(
         )
         applyFiltersAndSort()
     }
-    
+
+    /**
+     * Apply payment-method tab (ALL/UPI/CARD/NETBANKING/WALLET)
+     */
+    private fun applyPaymentMethodTab(tab: PaymentMethodTab) {
+        logger.debug("applyPaymentMethodTab","Applying payment method tab: ${tab.displayName}")
+        _uiState.value = _uiState.value.copy(
+            currentPaymentMethodTab = tab
+        )
+        applyFiltersAndSort()
+    }
+
     /**
      * Reset filters to default (current month)
      */
@@ -657,11 +669,12 @@ class MessagesViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(
             currentFilterOptions = defaultFilters,
             searchQuery = "",
-            currentFilterTab = TransactionFilterTab.ALL
+            currentFilterTab = TransactionFilterTab.ALL,
+            currentPaymentMethodTab = PaymentMethodTab.ALL
         )
         applyFiltersAndSort()
     }
-    
+
     /**
      * Apply filters and sorting to messages
      */
@@ -678,7 +691,14 @@ class MessagesViewModel @Inject constructor(
             }.toList()
 
             logger.debug("applyFiltersAndSort","Applied filter tab ${currentState.currentFilterTab.displayName}: ${currentState.allMessages.size} -> ${filtered.size} items")
-            
+
+            // Apply payment-method tab (UPI/CARD/NETBANKING/WALLET); ALL leaves it untouched
+            currentState.currentPaymentMethodTab.method?.let { method ->
+                val beforePaymentFilter = filtered.size
+                filtered = filtered.filter { it.paymentMethod == method }
+                logger.debug("applyFiltersAndSort","Applied payment method ${method.displayName}: $beforePaymentFilter -> ${filtered.size} items")
+            }
+
             // Apply search filter
             if (currentState.searchQuery.isNotEmpty()) {
                 val query = currentState.searchQuery.lowercase()
@@ -1363,7 +1383,9 @@ class MessagesViewModel @Inject constructor(
     private fun notifyDataChanged() {
         try {
             // Broadcast data change to trigger dashboard refresh
-            val intent = android.content.Intent("com.smartexpenseai.app.DATA_CHANGED")
+            val intent = android.content.Intent("com.smartexpenseai.app.DATA_CHANGED").apply {
+                setPackage(context.packageName)
+            }
             context.sendBroadcast(intent)
 
             logger.debug("notifyDataChanged","Broadcast sent to refresh dependent screens")

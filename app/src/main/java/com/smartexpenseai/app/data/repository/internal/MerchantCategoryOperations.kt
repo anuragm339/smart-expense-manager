@@ -34,7 +34,9 @@ internal class MerchantCategoryOperations(
             merchantDao.updateMerchantExclusion(normalizedMerchantName, isExcluded)
 
             // CRITICAL FIX: Broadcast data change to notify dependent components
-            val intent = android.content.Intent("com.smartexpenseai.app.DATA_CHANGED")
+            val intent = android.content.Intent("com.smartexpenseai.app.DATA_CHANGED").apply {
+                setPackage(context.packageName)
+            }
             context.sendBroadcast(intent)
 
             logger.info(
@@ -260,9 +262,15 @@ internal class MerchantCategoryOperations(
                     return@withContext false
                 }
 
-                // Update merchant's category
-                val updatedMerchant = merchant.copy(categoryId = newCategory.id)
-                merchantDao.updateMerchant(updatedMerchant)
+                // The checkbox controls whether the learned merchant mapping applies
+                // to future imports. Existing transactions are always reclassified.
+                if (applyToFuture) {
+                    val updatedMerchant = merchant.copy(
+                        categoryId = newCategory.id,
+                        isUserDefined = true
+                    )
+                    merchantDao.updateMerchant(updatedMerchant)
+                }
 
                 // CRITICAL: Update all transactions for this merchant to maintain data consistency
                 val updatedTransactionsCount = transactionDao.updateTransactionsCategoryByMerchant(
@@ -272,7 +280,8 @@ internal class MerchantCategoryOperations(
 
                 logger.debug(
                     where = "changeMerchantCategory",
-                    what = "✅ Changed merchant '$merchantName' to category '$newCategoryName' (updated $updatedTransactionsCount transactions)"
+                    what = "✅ Changed merchant '$merchantName' to category '$newCategoryName' " +
+                        "(updated $updatedTransactionsCount transactions, applyToFuture=$applyToFuture)"
                 )
                 true
             } catch (e: Exception) {

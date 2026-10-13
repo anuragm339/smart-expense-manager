@@ -11,6 +11,7 @@ import com.smartexpenseai.app.R
 import com.smartexpenseai.app.auth.AuthManager
 import com.smartexpenseai.app.auth.GoogleAuthManager
 import com.smartexpenseai.app.core.DebugConfig
+import com.smartexpenseai.app.ui.onboarding.FeatureTourPreferences
 import com.smartexpenseai.app.databinding.ActivityLoginBinding
 import com.smartexpenseai.app.utils.logging.StructuredLogger
 import dagger.hilt.android.AndroidEntryPoint
@@ -167,6 +168,10 @@ class LoginActivity : AppCompatActivity() {
 
     private fun navigateToMain() {
         val intent = Intent(this, MainActivity::class.java)
+        intent.putExtra(
+            MainActivity.EXTRA_START_FEATURE_TOUR,
+            FeatureTourPreferences.shouldShow(this),
+        )
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         startActivity(intent)
         finish()

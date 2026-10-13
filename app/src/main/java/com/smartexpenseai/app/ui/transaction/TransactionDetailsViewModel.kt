@@ -11,6 +11,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.util.Date
 import javax.inject.Inject
 
 /**
@@ -32,6 +33,7 @@ class TransactionDetailsViewModel @Inject constructor(
     // Private mutable state
     private val _uiState = MutableStateFlow(TransactionDetailsUIState())
     private val logger = StructuredLogger("TransactionDetailsViewModel", "TransactionDetailsViewModel")
+    private val transactionId: Long = savedStateHandle["transactionId"] ?: 0L
 
     // Public immutable state
     val uiState: StateFlow<TransactionDetailsUIState> = _uiState.asStateFlow()
@@ -127,13 +129,27 @@ class TransactionDetailsViewModel @Inject constructor(
         
         viewModelScope.launch {
             try {
-                // TODO: Implement actual save operation when repository method is available
-                // For now, just simulate success
-                kotlinx.coroutines.delay(500) // Simulate network delay
+                require(transactionId > 0L) { "Transaction ID is missing" }
+                val currentUiTransaction = requireNotNull(_uiState.value.transactionData) {
+                    "Transaction data is unavailable"
+                }
+                val existing = repository.getTransactionById(transactionId)
+                    ?: error("Transaction not found")
+                val categoryId = repository.getCategoryByName(currentUiTransaction.category)?.id
+                    ?: existing.categoryId
+                val updated = existing.copy(
+                    amount = currentUiTransaction.amount.toDouble(),
+                    rawMerchant = currentUiTransaction.merchant,
+                    normalizedMerchant = normalizeMerchantName(currentUiTransaction.merchant),
+                    categoryId = categoryId,
+                    updatedAt = Date()
+                )
+                repository.updateTransaction(updated)
                 
                 _uiState.value = _uiState.value.copy(
                     isSaving = false,
                     hasUnsavedChanges = false,
+                    successMessage = "Transaction saved",
                     lastUpdateTime = System.currentTimeMillis()
                 )
 
@@ -156,11 +172,12 @@ class TransactionDetailsViewModel @Inject constructor(
         
         viewModelScope.launch {
             try {
-                // TODO: Implement actual duplicate marking when repository method is available
-                kotlinx.coroutines.delay(300) // Simulate processing
+                require(transactionId > 0L) { "Transaction ID is missing" }
+                repository.deleteTransactionById(transactionId)
                 
                 _uiState.value = _uiState.value.copy(
                     isUpdating = false,
+                    successMessage = "Transaction excluded as duplicate",
                     lastUpdateTime = System.currentTimeMillis()
                 )
 
@@ -212,10 +229,7 @@ class TransactionDetailsViewModel @Inject constructor(
                         val categoryAfterUpdate = repository.getCategoryByName(newCategory)
                         if (categoryAfterUpdate != null) {
                             transactionsUpdatedCount = repository.updateAllTransactionsCategoryByMerchant(
-                                normalizedMerchant = currentTransaction.merchant.lowercase()
-                                    .replace(Regex("[^a-zA-Z0-9\\s]"), "")
-                                    .replace(Regex("\\s+"), " ")
-                                    .trim(),
+                                normalizedMerchant = normalizeMerchantName(currentTransaction.merchant),
                                 newCategoryId = categoryAfterUpdate.id
                             )
                             logger.debug("updateCategory","✅ Updated $transactionsUpdatedCount transactions to category '$newCategory'")
@@ -305,10 +319,7 @@ class TransactionDetailsViewModel @Inject constructor(
                         val category = repository.getCategoryByName(newCategory)
                         if (category != null) {
                             transactionsUpdatedCount = repository.updateAllTransactionsCategoryByMerchant(
-                                normalizedMerchant = currentTransaction.merchant.lowercase()
-                                    .replace(Regex("[^a-zA-Z0-9\\s]"), "")
-                                    .replace(Regex("\\s+"), " ")
-                                    .trim(),
+                                normalizedMerchant = normalizeMerchantName(currentTransaction.merchant),
                                 newCategoryId = category.id
                             )
                             logger.debug("updateMerchant","✅ Updated $transactionsUpdatedCount transactions to category '$newCategory'")
@@ -432,6 +443,16 @@ class TransactionDetailsViewModel @Inject constructor(
             error = null
         )
     }
+
+    private fun normalizeMerchantName(merchant: String): String = merchant.uppercase()
+        .replace(Regex("\\s+"), " ")
+        .trim()
+        .replace(Regex("\\*(ORDER|PAYMENT|TXN|TRANSACTION).*$"), "")
+        .replace(Regex("#\\d+.*$"), "")
+        .replace(Regex("@\\w+.*$"), "")
+        .replace(Regex("-{2,}.*$"), "")
+        .replace(Regex("_{2,}.*$"), "")
+        .trim()
 
     /**
      * Clear success message

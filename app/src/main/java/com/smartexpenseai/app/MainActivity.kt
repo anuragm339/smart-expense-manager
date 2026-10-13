@@ -21,7 +21,8 @@ import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
 import com.smartexpenseai.app.databinding.ActivityMainBinding
 import com.smartexpenseai.app.notifications.TransactionNotificationManager
-import com.smartexpenseai.app.services.SMSParsingService
+import com.smartexpenseai.app.ui.onboarding.FeatureTourController
+import com.smartexpenseai.app.ui.onboarding.FeatureTourPreferences
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.launch
 import dagger.hilt.android.AndroidEntryPoint
@@ -29,7 +30,6 @@ import com.smartexpenseai.app.domain.repository.TransactionRepositoryInterface
 import com.smartexpenseai.app.utils.logging.StructuredLogger
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeoutOrNull
-import java.util.Date
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -40,14 +40,15 @@ class MainActivity : AppCompatActivity() {
 
 
     @Inject
-    lateinit var smsParsingService: SMSParsingService
-
-    @Inject
     lateinit var merchantNameCleanupHelper: com.smartexpenseai.app.utils.MerchantNameCleanupHelper
 
     private lateinit var binding: ActivityMainBinding
+    private var smsDisclosureDialog: AlertDialog? = null
+    private var featureTourController: FeatureTourController? = null
+    private var startupFlowStarted = false
     private val logger = StructuredLogger("MainActivity","MainActivity")
         companion object {
+        const val EXTRA_START_FEATURE_TOUR = "start_feature_tour"
         private const val SMS_PERMISSION_REQUEST_CODE = 1001
         private const val NOTIFICATION_PERMISSION_REQUEST_CODE = 1002
         private val REQUIRED_PERMISSIONS = arrayOf(
@@ -68,22 +69,41 @@ class MainActivity : AppCompatActivity() {
 
         setupNavigation()
         handleNotificationIntent(intent)
+
+        if (intent.getBooleanExtra(EXTRA_START_FEATURE_TOUR, false)) {
+            binding.root.post { startFeatureTour(startupTour = true) }
+        } else {
+            beginStartupFlow()
+        }
+    }
+
+    private fun beginStartupFlow() {
+        if (startupFlowStarted) return
+        startupFlowStarted = true
+
         checkAndRequestPermissions()
-        
-        // If SMS permissions are already granted, check notification permission
+
         if (hasSMSPermissions()) {
-            logger.debug("onCreate","SMS permissions already granted, checking notification permission")
+            logger.debug("beginStartupFlow","SMS permissions already granted, checking notification permission")
             requestNotificationPermissionIfNeeded()
-            // CRITICAL: Check battery optimization to ensure SMS monitoring persists
-            checkBatteryOptimization()
-            // CRITICAL: Start foreground service for 100% reliable SMS monitoring
             startSMSMonitoringService()
-            // Silently import any SMS received since the last sync (catches messages
-            // that arrived while the app was closed or the receiver was not running)
             performIncrementalSmsSync()
         } else {
-            logger.debug("onCreate","SMS permissions not granted, will request notification permission after SMS is granted")
+            logger.debug("beginStartupFlow","SMS permissions not granted, will request notification permission after SMS is granted")
         }
+    }
+
+    fun startFeatureTour() {
+        startFeatureTour(startupTour = false)
+    }
+
+    private fun startFeatureTour(startupTour: Boolean) {
+        featureTourController?.dismiss()
+        featureTourController = FeatureTourController(binding) {
+            FeatureTourPreferences.markCompleted(this)
+            featureTourController = null
+            if (startupTour) beginStartupFlow()
+        }.also { it.start() }
     }
     
     /**
@@ -233,37 +253,39 @@ class MainActivity : AppCompatActivity() {
             ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED
         }
         
-        if (missingPermissions.isNotEmpty()) {
-            if (shouldShowRequestPermissionRationale(missingPermissions)) {
-                showPermissionRationale()
-            } else {
-                requestPermissions()
-            }
+        if (missingPermissions.isNotEmpty() && smsDisclosureDialog?.isShowing != true) {
+            showSmsPermissionDisclosure()
         }
     }
-    
-    private fun shouldShowRequestPermissionRationale(permissions: List<String>): Boolean {
-        return permissions.any { permission ->
-            ActivityCompat.shouldShowRequestPermissionRationale(this, permission)
-        }
-    }
-    
-    private fun showPermissionRationale() {
-        MaterialAlertDialogBuilder(this)
+
+    /**
+     * Google Play prominent disclosure shown immediately before the Android SMS
+     * permission request. The permission prompt is only launched after the user
+     * affirmatively chooses to allow access.
+     */
+    private fun showSmsPermissionDisclosure() {
+        val dialog = MaterialAlertDialogBuilder(this)
             .setTitle(R.string.permission_sms_title)
             .setMessage(R.string.permission_sms_message)
-            .setPositiveButton(R.string.grant_permissions) { _, _ ->
-                requestPermissions()
+            .setPositiveButton(R.string.allow_sms_access) { _, _ ->
+                requestSmsPermissions()
             }
             .setNegativeButton(R.string.not_now) { dialog, _ ->
                 dialog.dismiss()
-                showPermissionDeniedInfo()
             }
             .setCancelable(false)
-            .show()
+            .create()
+
+        dialog.setOnDismissListener {
+            if (smsDisclosureDialog === dialog) {
+                smsDisclosureDialog = null
+            }
+        }
+        smsDisclosureDialog = dialog
+        dialog.show()
     }
     
-    private fun requestPermissions() {
+    private fun requestSmsPermissions() {
         ActivityCompat.requestPermissions(
             this,
             REQUIRED_PERMISSIONS,
@@ -413,10 +435,9 @@ class MainActivity : AppCompatActivity() {
                 // Create SMS reader with progress callback for repository sync
                 val syncResult = withTimeoutOrNull(timeoutMillis) {
                     val initialCount = repository.getTransactionCount()
-                    val lastSyncTimestamp = repository.getLastSyncTimestamp() ?: Date(0)
-
-                    // Scan SMS history using unified parsing service with progress updates
-                    val transactions = smsParsingService.scanHistoricalSMS { current, total, status ->
+                    var analyzedCount = 0
+                    val insertedCount = repository.syncNewSMS { current, total, status ->
+                        analyzedCount = total
                         runOnUiThread {
                             val percentage = if (total > 0) ((current * 100) / total) else 0
                             progressView?.progress = percentage
@@ -427,20 +448,12 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
 
-                    val newTransactionsFromScan = transactions.count { sms -> sms.date.after(lastSyncTimestamp) }
-
-                    // Sync transactions through repository (handles deduplication internally)
-                    val insertedCount = repository.syncNewSMS()
-
                     logger.debug("scanHistoricalSMS", "Inserted $insertedCount new transactions into database")
-                    
-                    // Update sync state
-                    repository.updateSyncState(Date())
                     val totalDatabaseCount = repository.getTransactionCount()
 
                     ScanResult(
-                        totalParsed = transactions.size,
-                        newlyDiscovered = newTransactionsFromScan,
+                        totalParsed = analyzedCount,
+                        newlyDiscovered = insertedCount,
                         inserted = insertedCount,
                         totalInDatabase = totalDatabaseCount,
                         initialCount = initialCount
@@ -606,7 +619,9 @@ class MainActivity : AppCompatActivity() {
                     logger.info("renameMerchant", "Successfully renamed merchant to '$newDisplayName'")
 
                     // Broadcast update to refresh UI
-                    sendBroadcast(Intent("com.smartexpenseai.app.DATA_CHANGED"))
+                    sendBroadcast(
+                        Intent("com.smartexpenseai.app.DATA_CHANGED").setPackage(packageName),
+                    )
 
                     Toast.makeText(
                         this@MainActivity,
@@ -633,88 +648,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * CRITICAL: Check battery optimization status to ensure SMS monitoring persists
-     * Android's battery optimization can kill background processes and prevent
-     * BroadcastReceivers from working when the app is not in the foreground.
-     */
-    private fun checkBatteryOptimization() {
-        val helper = com.smartexpenseai.app.utils.BatteryOptimizationHelper
-
-        // Log current status
-        helper.checkAndLogStatus(this)
-
-        // Only show dialog if should request and not already exempt
-        if (helper.shouldRequestBatteryOptimizationExemption(this)) {
-            MaterialAlertDialogBuilder(this)
-                .setTitle("Keep SMS Monitoring Active")
-                .setMessage(
-                    "To ensure you receive notifications for all transactions, " +
-                    "even when the app is closed, we recommend disabling battery optimization.\n\n" +
-                    "This allows the app to monitor SMS messages in the background."
-                )
-                .setPositiveButton("Open Settings") { _, _ ->
-                    val intent = helper.getRequestBatteryOptimizationIntent(this)
-                    if (intent != null) {
-                        try {
-                            startActivity(intent)
-                        } catch (e: Exception) {
-                            logger.error("checkBatteryOptimization", "Failed to open battery settings", e)
-                            Toast.makeText(
-                                this,
-                                "Could not open battery settings",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
-                    }
-                }
-                .setNegativeButton("Not Now") { dialog, _ ->
-                    helper.markRequestDismissed(this)
-                    dialog.dismiss()
-                }
-                .setNeutralButton("Learn More") { _, _ ->
-                    showBatteryOptimizationInfo()
-                }
-                .show()
-        }
-    }
-
-    private fun showBatteryOptimizationInfo() {
-        MaterialAlertDialogBuilder(this)
-            .setTitle("Why Battery Optimization Matters")
-            .setMessage(
-                "Android's battery optimization can stop apps from running in the background. " +
-                "This means:\n\n" +
-                "✓ Without exemption: SMS notifications may stop after a few hours of inactivity\n" +
-                "✓ With exemption: SMS monitoring works reliably 24/7\n\n" +
-                "You can change this setting anytime in app settings."
-            )
-            .setPositiveButton("OK") { dialog, _ ->
-                dialog.dismiss()
-            }
-            .show()
-    }
-
-    /**
-     * CRITICAL: Start SMS Monitoring Foreground Service
-     *
-     * This ensures 100% reliable SMS monitoring, similar to how WhatsApp works.
-     * The service keeps the app alive in background to monitor SMS messages.
-     *
-     * Benefits:
-     * - Works even when app is closed for days/weeks
-     * - Survives device reboots (via BootReceiver)
-     * - Works on aggressive battery-saving devices (Xiaomi, Huawei, OnePlus)
-     * - Prevents Android from killing the SMS receiver
+     * SMS_RECEIVED is handled by the manifest-registered BroadcastReceiver. No
+     * foreground service or power-management exemption is required.
      */
     private fun startSMSMonitoringService() {
-        // SMS monitoring is handled automatically by SMSReceiver (BroadcastReceiver)
-        // No foreground service or WorkManager needed - SMS receiver works 24/7
-        // as long as:
-        // 1. SMS permissions are granted
-        // 2. Battery optimization is disabled for the app
         logger.info(
             "startSMSMonitoringService",
-            "✅ SMS monitoring active via BroadcastReceiver - no service needed"
+            "SMS monitoring active via BroadcastReceiver"
         )
     }
 }

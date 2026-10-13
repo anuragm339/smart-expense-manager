@@ -1,5 +1,9 @@
 package com.smartexpenseai.app.ui.insights
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -23,6 +27,7 @@ import com.smartexpenseai.app.services.TimeSeriesAggregationService.TimeSeriesDa
 import com.smartexpenseai.app.services.DateRangeService.Companion.TimeAggregation
 import com.smartexpenseai.app.services.ChartConfigurationService
 import com.google.android.material.card.MaterialCardView
+import com.google.android.material.datepicker.MaterialDatePicker
 import com.github.mikephil.charting.charts.PieChart
 import com.github.mikephil.charting.charts.BarChart
 import com.github.mikephil.charting.charts.LineChart
@@ -67,6 +72,21 @@ class InsightsFragment : Fragment() {
     // Flag to track if user has explicitly set time aggregation
     private var userHasSetTimeAggregation = false
     private val logger = StructuredLogger("InsightsFragment", "InsightsFragment")
+    private var isDataChangeReceiverRegistered = false
+
+    private val dataChangeReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action != ExpenseRepository.ACTION_DATA_CHANGED || _binding == null) return
+
+            logger.debug(
+                "dataChangeReceiver",
+                "Repository data changed (${intent.getStringExtra("reason") ?: "unknown"}); refreshing charts"
+            )
+            viewLifecycleOwner.lifecycleScope.launch {
+                updateChartsWithFilteredData()
+            }
+        }
+    }
 
     companion object {
         private const val TAG = "InsightsFragment"
@@ -506,6 +526,31 @@ class InsightsFragment : Fragment() {
         viewBinder.stopShimmer()
     }
 
+    override fun onStart() {
+        super.onStart()
+        if (!isDataChangeReceiverRegistered) {
+            ContextCompat.registerReceiver(
+                requireContext(),
+                dataChangeReceiver,
+                IntentFilter(ExpenseRepository.ACTION_DATA_CHANGED),
+                ContextCompat.RECEIVER_NOT_EXPORTED,
+            )
+            isDataChangeReceiverRegistered = true
+        }
+    }
+
+    override fun onStop() {
+        if (isDataChangeReceiverRegistered) {
+            try {
+                requireContext().unregisterReceiver(dataChangeReceiver)
+            } catch (e: IllegalArgumentException) {
+                logger.warn("onStop", "Data change receiver was already unregistered", e.message)
+            }
+            isDataChangeReceiverRegistered = false
+        }
+        super.onStop()
+    }
+
     override fun onResume() {
         super.onResume()
         viewBinder.restartShimmerIfVisible()
@@ -625,12 +670,41 @@ class InsightsFragment : Fragment() {
             .setTitle("Select Date Range")
             .setItems(dateRanges) { _, which ->
                 val selectedRange = dateRanges[which]
-                binding.root.findViewById<android.widget.TextView>(R.id.btnDateRange)?.text = selectedRange
-
-                // Apply the selected date range
-                applyDateRangeFilter(selectedRange)
+                if (selectedRange == "Custom Range") {
+                    showCustomDateRangePicker()
+                } else {
+                    applyDateRangeFilter(selectedRange)
+                }
             }
             .show()
+    }
+
+    private fun showCustomDateRangePicker() {
+        val picker = MaterialDatePicker.Builder.dateRangePicker()
+            .setTitleText("Select date range")
+            .build()
+        picker.addOnPositiveButtonClickListener { selection ->
+            val startDate = Date(selection.first)
+            val endCalendar = Calendar.getInstance().apply {
+                timeInMillis = selection.second
+                set(Calendar.HOUR_OF_DAY, 23)
+                set(Calendar.MINUTE, 59)
+                set(Calendar.SECOND, 59)
+                set(Calendar.MILLISECOND, 999)
+            }
+            val endDate = endCalendar.time
+            currentFilters.startDate = startDate
+            currentFilters.endDate = endDate
+            currentFilters.timePeriod = "Custom Range"
+            if (!userHasSetTimeAggregation) {
+                currentFilters.timeAggregation = getSmartTimeAggregation(startDate, endDate)
+                binding.root.findViewById<TextView>(R.id.btnTimePeriod)?.text = currentFilters.timeAggregation
+            }
+            binding.root.findViewById<TextView>(R.id.btnDateRange)?.text =
+                dateRangeService.formatDateRange(startDate, endDate)
+            applyFiltersAndRefresh()
+        }
+        picker.show(parentFragmentManager, "insights_custom_date_range")
     }
 
     /**

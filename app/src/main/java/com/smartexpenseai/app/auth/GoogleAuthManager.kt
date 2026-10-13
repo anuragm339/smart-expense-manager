@@ -31,6 +31,8 @@ class GoogleAuthManager @Inject constructor(
 
     companion object {
         private const val TAG = "GoogleAuthManager"
+        private const val AUTH_PREFS = "auth_state"
+        private const val DATA_OWNER_KEY = "data_owner_id"
         const val RC_SIGN_IN = 9001 // Request code for sign-in intent
     }
 
@@ -49,42 +51,36 @@ class GoogleAuthManager @Inject constructor(
     override suspend fun isAuthenticated(): Boolean {
         DebugConfig.logRealUsage("Authentication", "Checking Google Sign-In status")
 
-        // Check local database first
+        val account = GoogleSignIn.getLastSignedInAccount(context)
+        if (account == null || !claimOrValidateDataOwnership(account)) {
+            userDao.deleteAllUsers()
+            logger.debug("isAuthenticated", "No matching Google account is currently signed in")
+            return false
+        }
+
         val localUser = userDao.getCurrentUser()
-        if (localUser != null && localUser.isAuthenticated) {
+        if (localUser != null && localUser.isAuthenticated && localUser.userId == accountOwnerId(account)) {
             logger.debug("isAuthenticated", "User authenticated from local DB: ${localUser.email}")
             return true
         }
 
-        // Check Google Sign-In status
-        val account = GoogleSignIn.getLastSignedInAccount(context)
-        val isAuth = account != null
-
-        if (isAuth && localUser == null) {
-            // User is signed in with Google but not in local DB - sync it
-            logger.debug("isAuthenticated", "Syncing Google account to local DB")
-            val user = mapGoogleAccountToUser(account!!)
-            userDao.insertUser(user)
-        }
-
-        logger.debug("isAuthenticated", "Google auth check result: $isAuth")
-        return isAuth
+        logger.debug("isAuthenticated", "Syncing current Google account to local DB")
+        userDao.deleteAllUsers()
+        userDao.insertUser(mapGoogleAccountToUser(account))
+        return true
     }
 
     override suspend fun getCurrentUser(): UserEntity? {
-        // Try local database first
-        val localUser = userDao.getCurrentUser()
-        if (localUser != null) {
-            logger.debug("getCurrentUser", "Returning user from local DB: ${localUser.email}")
-            return localUser
-        }
-
-        // Fallback to Google Sign-In account
         val account = GoogleSignIn.getLastSignedInAccount(context)
-        if (account != null) {
+        if (account != null && claimOrValidateDataOwnership(account)) {
+            val localUser = userDao.getUserById(accountOwnerId(account))
+            if (localUser != null && localUser.isAuthenticated) {
+                return localUser
+            }
             logger.debug("getCurrentUser", "Returning user from Google account: ${account.email}")
             val user = mapGoogleAccountToUser(account)
-            userDao.insertUser(user) // Cache in local DB
+            userDao.deleteAllUsers()
+            userDao.insertUser(user)
             return user
         }
 
@@ -135,6 +131,15 @@ class GoogleAuthManager @Inject constructor(
             }
 
             val user = mapGoogleAccountToUser(account)
+            if (!claimOrValidateDataOwnership(account)) {
+                googleSignInClient.signOut().await()
+                return Result.failure(
+                    IllegalStateException(
+                        "This device contains expense data for another account. Clear all app data before switching accounts."
+                    )
+                )
+            }
+            userDao.deleteAllUsers()
             userDao.insertUser(user)
 
             logger.info("handleSignInResult", "Google Sign-In successful for ${account.email}")
@@ -160,7 +165,7 @@ class GoogleAuthManager @Inject constructor(
         val now = System.currentTimeMillis()
 
         return UserEntity(
-            userId = account.id ?: "unknown",
+            userId = accountOwnerId(account),
             email = account.email ?: "no-email@example.com",
             displayName = account.displayName ?: "User",
             photoUrl = account.photoUrl?.toString(),
@@ -168,6 +173,18 @@ class GoogleAuthManager @Inject constructor(
             lastLoginTimestamp = now,
             createdAt = now
         )
+    }
+
+    private fun accountOwnerId(account: GoogleSignInAccount): String =
+        account.id ?: account.email.orEmpty()
+
+    private fun claimOrValidateDataOwnership(account: GoogleSignInAccount): Boolean {
+        val prefs = context.getSharedPreferences(AUTH_PREFS, Context.MODE_PRIVATE)
+        val accountId = accountOwnerId(account)
+        val ownerId = prefs.getString(DATA_OWNER_KEY, null)
+        if (ownerId != null && ownerId != accountId) return false
+        if (ownerId == null) prefs.edit().putString(DATA_OWNER_KEY, accountId).apply()
+        return true
     }
 
     private fun googleAuthErrorForStatus(exception: ApiException): GoogleAuthException {

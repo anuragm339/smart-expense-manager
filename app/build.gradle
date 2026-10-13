@@ -8,12 +8,12 @@ plugins {
 
 android {
     namespace 'com.smartexpenseai.app'
-    compileSdk 35
+    compileSdk 36
 
     defaultConfig {
         applicationId "com.smartexpenseai.app"
-        minSdk 23
-        targetSdk 35
+        minSdk 24
+        targetSdk 36
 
         // Automatic versioning derived from Git commit count.
         // Every commit bumps versionCode and versionName with zero manual work.
@@ -31,33 +31,32 @@ android {
             println "Warning: Git version detection failed, using fallback versionCode ${gitCommitCount}"
         }
 
-        def gitVersionName = "${VERSION_BASE}.${gitCommitCount}"
+        // CI/local release builds can select the next unused Play version code with
+        // -PbuildNumber=<number>. Normal builds continue to use the Git commit count.
+        def buildNumber = project.findProperty("buildNumber")?.toString()?.toInteger() ?: gitCommitCount
+        def gitVersionName = "${VERSION_BASE}.${buildNumber}"
 
-        versionCode gitCommitCount
+        versionCode buildNumber
         versionName gitVersionName
 
         testInstrumentationRunner "com.smartexpenseai.app.HiltTestRunner"
 
-        println "Building version ${gitVersionName} (code: ${gitCommitCount})"
+        println "Building version ${gitVersionName} (code: ${buildNumber})"
     }
 
-    signingConfigs {
-        release {
-            // Production release keystore for Play Store - Smart Expense AI
-            // SHA-1: 08:4C:85:1E:A0:0C:06:86:C5:10:9B:5C:6E:64:7C:68:AA:02:DA:50
-            storeFile file("../smartexpense-release.keystore")
-            storePassword 'SmartExpenseAI2024'
-            keyAlias 'smartexpense-release'
-            keyPassword 'SmartExpenseAI2024'
-        }
+    def releaseKeystorePath = project.findProperty("SMART_EXPENSE_KEYSTORE_PATH") ?: System.getenv("SMART_EXPENSE_KEYSTORE_PATH")
+    def releaseStorePassword = project.findProperty("SMART_EXPENSE_STORE_PASSWORD") ?: System.getenv("SMART_EXPENSE_STORE_PASSWORD")
+    def releaseKeyAlias = project.findProperty("SMART_EXPENSE_KEY_ALIAS") ?: System.getenv("SMART_EXPENSE_KEY_ALIAS")
+    def releaseKeyPassword = project.findProperty("SMART_EXPENSE_KEY_PASSWORD") ?: System.getenv("SMART_EXPENSE_KEY_PASSWORD")
 
-        debug {
-            // Debug builds continue using debug keystore
-            // SHA-1: B9:E9:55:75:09:22:21:2E:5E:62:F6:23:AF:28:EB:41:86:8E:9F:A5
-            storeFile file("../smartexpense-release.keystore")
-            storePassword 'SmartExpenseAI2024'
-            keyAlias 'smartexpense-release'
-            keyPassword 'SmartExpenseAI2024'
+    signingConfigs {
+        if (releaseKeystorePath && releaseStorePassword && releaseKeyAlias && releaseKeyPassword) {
+            release {
+                storeFile file(releaseKeystorePath)
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
         }
     }
 
@@ -69,13 +68,16 @@ android {
             // Production mode - uses real Google Sign-In and Billing
             buildConfigField "boolean", "MOCK_AUTH", "false"
             buildConfigField "boolean", "MOCK_SUBSCRIPTION", "false"
-            buildConfigField "String", "BUILD_TYPE_NAME", '"Release"'
+            buildConfigField "String", "BUILD_TYPE_NAME", '"Debug"'
         }
 
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.release
+            def configuredReleaseSigning = signingConfigs.findByName("release")
+            if (configuredReleaseSigning != null) {
+                signingConfig configuredReleaseSigning
+            }
 
             // Production mode - uses real Google Sign-In and Billing
             buildConfigField "boolean", "MOCK_AUTH", "false"

@@ -16,6 +16,7 @@ import com.smartexpenseai.app.R
 import com.smartexpenseai.app.auth.AuthManager
 import com.smartexpenseai.app.databinding.FragmentProfileBinding
 import com.smartexpenseai.app.ui.auth.SplashActivity
+import com.smartexpenseai.app.MainActivity
 import com.smartexpenseai.app.utils.logging.StructuredLogger
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import dagger.hilt.android.AndroidEntryPoint
@@ -79,6 +80,14 @@ class ProfileFragment : Fragment() {
             showCleanupDuplicatesDialog()
         }
 
+        binding.layoutHowItWorks.setOnClickListener {
+            (activity as? MainActivity)?.startFeatureTour()
+        }
+
+        binding.layoutPrivacy.setOnClickListener {
+            showPrivacyPolicyDialog()
+        }
+
         binding.layoutAbout.setOnClickListener {
             showAboutDialog()
         }
@@ -101,9 +110,18 @@ class ProfileFragment : Fragment() {
             .setMessage(
                 "Version $versionName\n\n" +
                     "Automatically tracks expenses from your bank SMS using on-device parsing. " +
-                    "All transaction data stays local on your phone - nothing is uploaded."
+                    "SMS message text stays on your device. When you choose online AI Insights, " +
+                    "parsed financial details are securely sent to our service to generate insights."
             )
             .setPositiveButton("OK", null)
+            .show()
+    }
+
+    private fun showPrivacyPolicyDialog() {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.privacy_policy_title)
+            .setMessage(R.string.privacy_policy_text)
+            .setPositiveButton(R.string.i_understand, null)
             .show()
     }
 

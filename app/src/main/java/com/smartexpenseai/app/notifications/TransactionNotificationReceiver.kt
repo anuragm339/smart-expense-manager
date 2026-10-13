@@ -109,7 +109,9 @@ class TransactionNotificationReceiver : BroadcastReceiver() {
                         logger.debug("handleCategorizeAction", "Transaction $transactionId categorized as $category in SQLite")
                         
                         // Send broadcast to notify UI components to refresh
-                        val updateIntent = Intent("com.expensemanager.CATEGORY_UPDATED")
+                        val updateIntent = Intent("com.expensemanager.CATEGORY_UPDATED").apply {
+                            setPackage(context.packageName)
+                        }
                         updateIntent.putExtra("merchant", merchant)
                         updateIntent.putExtra("category", category)
                         updateIntent.putExtra("amount", amount)
@@ -203,7 +205,9 @@ class TransactionNotificationReceiver : BroadcastReceiver() {
                         logger.info("handleRenameMerchantAction", "Successfully renamed merchant to '$newMerchantName'")
 
                         // Broadcast update to refresh UI
-                        context.sendBroadcast(Intent("com.smartexpenseai.app.DATA_CHANGED"))
+                        context.sendBroadcast(
+                            Intent("com.smartexpenseai.app.DATA_CHANGED").setPackage(context.packageName),
+                        )
 
                         // Show confirmation notification
                         notificationManager.showCategoryUpdateConfirmation(amount, newMerchantName, categoryName)

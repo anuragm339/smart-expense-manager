@@ -34,15 +34,13 @@ class ExpenseManagerApplication : Application() {
                     return "${element.className.substringAfterLast('.')}:${element.lineNumber}"
                 }
             })
+
+            // Financial and HTTP payloads must never be persisted by release builds.
+            Timber.plant(timberFileTree)
+            Timber.tag("APP").i("TimberFileTree planted successfully - debug file logging enabled")
         }
 
-        // Plant file tree to write logs to files for debugging
-        Timber.plant(timberFileTree)
-
-        // Test log to verify file logging works
-        Timber.tag("APP").i("TimberFileTree planted successfully - file logging enabled")
-
-        logger.info("initializeTimber", "Timber logging system initialized with file logging")
+        logger.info("initializeTimber", "Timber logging system initialized")
     }
 
 }

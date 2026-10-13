@@ -34,7 +34,7 @@
                     android:layout_height="24dp"
                     android:layout_gravity="center"
                     android:src="@drawable/ic_store"
-                    android:tint="@color/text_on_primary" />
+                    app:tint="@color/text_on_primary" />
 
                 <!-- Category Color Indicator -->
                 <View
@@ -78,7 +78,7 @@
                     android:layout_width="12dp"
                     android:layout_height="12dp"
                     android:src="@drawable/ic_receipt"
-                    android:tint="@color/text_secondary"
+                    app:tint="@color/text_secondary"
                     android:layout_marginEnd="4dp" />
 
                 <TextView
@@ -127,7 +127,7 @@
                     android:layout_width="14dp"
                     android:layout_height="14dp"
                     android:src="@drawable/ic_currency"
-                    android:tint="@color/primary"
+                    app:tint="@color/primary"
                     android:layout_marginEnd="4dp" />
 
                 <TextView
@@ -154,7 +154,7 @@
                     android:layout_width="10dp"
                     android:layout_height="10dp"
                     android:src="@drawable/ic_trending_up"
-                    android:tint="@color/success"
+                    app:tint="@color/success"
                     android:layout_marginEnd="4dp" />
 
                 <TextView

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Adaptive version of the artwork in the Play Store's app_icon_512.png.
+  The artwork stays inside the adaptive-icon safe zone so launchers may apply
+  circular, rounded-square, or squircle masks without clipping the branding.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Expense card -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M35,39 H73 V62.5 C73,64 71.8,65.2 70.3,65.2 H37.7 C36.2,65.2 35,64 35,62.5 Z" />
+    <path
+        android:fillColor="#EEEEEE"
+        android:pathData="M35,39 H73 V44.7 H35 Z" />
+
+    <!-- Balance badge -->
+    <path
+        android:fillColor="#4CAF50"
+        android:pathData="M60.5,45 A7.1,7.1 0,1 1,60.5 59.2 A7.1,7.1 0,1 1,60.5 45" />
+    <path
+        android:fillColor="@android:color/transparent"
+        android:pathData="M60.5,46.5 V57.7 M63.1,48 C62.4,47.1 61.4,46.7 60.2,46.7 C58.5,46.7 57.5,47.6 57.5,48.9 C57.5,50.2 58.6,50.8 60.6,51.3 C62.5,51.8 63.5,52.6 63.5,54 C63.5,55.5 62.2,56.5 60.3,56.5 C58.8,56.5 57.5,55.9 56.7,54.8"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="1.15" />
+
+    <!-- Spending trend -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:pathData="M40.2,59.5 L43.7,57.7 L47.3,59.7 L51.7,55.8"
+        android:strokeColor="#90CAF9"
+        android:strokeLineCap="square"
+        android:strokeLineJoin="miter"
+        android:strokeWidth="0.65" />
+
+    <!-- Sparkles -->
+    <path
+        android:fillColor="#FFB300"
+        android:pathData="M68.8,39.6 L69.5,41.3 L71.2,42 L69.5,42.7 L68.8,44.4 L68.1,42.7 L66.4,42 L68.1,41.3 Z" />
+    <path
+        android:fillColor="#FFB300"
+        android:pathData="M40.6,57.8 L41.1,59 L42.3,59.5 L41.1,60 L40.6,61.2 L40.1,60 L38.9,59.5 L40.1,59 Z" />
+</vector>

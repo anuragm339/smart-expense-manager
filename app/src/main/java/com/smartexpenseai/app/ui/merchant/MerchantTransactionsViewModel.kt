@@ -137,6 +137,7 @@ class MerchantTransactionsViewModel @Inject constructor(
 
                 // Send broadcast to notify Dashboard and other screens about inclusion state change
                 val intent = android.content.Intent("com.expensemanager.INCLUSION_STATE_CHANGED").apply {
+                    setPackage(context.packageName)
                     putExtra("merchant_name", merchantName)
                     putExtra("is_included", isIncluded)
                 }

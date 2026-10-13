@@ -1,5 +1,6 @@
 package com.smartexpenseai.app.di
 
+import com.smartexpenseai.app.BuildConfig
 import timber.log.Timber
 import dagger.Module
 import dagger.Provides
@@ -39,7 +40,11 @@ object NetworkModule {
         val loggingInterceptor = HttpLoggingInterceptor { message ->
             Timber.tag(TAG).d(message)
         }.apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            level = if (BuildConfig.DEBUG) {
+                HttpLoggingInterceptor.Level.BASIC
+            } else {
+                HttpLoggingInterceptor.Level.NONE
+            }
         }
         
         return OkHttpClient.Builder()
@@ -67,7 +72,7 @@ object NetworkModule {
                         .replace("```", "")
                         .trim()
                     
-                    Timber.tag(TAG).d("Cleaned JSON response: ${cleanedBody.take(200)}...")
+                    Timber.tag(TAG).d("Cleaned successful JSON response (${cleanedBody.length} bytes)")
                     
                     val newBody = okhttp3.ResponseBody.create(
                         response.body!!.contentType(),
